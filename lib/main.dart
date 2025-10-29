@@ -7,7 +7,7 @@ import 'core/theme/app_theme.dart';
 import 'core/constants/app_strings.dart';
 import 'core/constants/app_colors.dart';
 import 'core/constants/app_text_styles.dart';
-import 'core/services/shared_prefs_service.dart';
+import 'viewmodels/auth_viewmodel.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -51,10 +51,10 @@ class _SplashScreenState extends State<SplashScreen> {
     // Add a small delay for splash screen
     await Future.delayed(const Duration(seconds: 2));
 
-    final sharedPrefsService = GetIt.instance<SharedPrefsService>();
+    final authViewModel = GetIt.instance<AuthViewModel>();
 
     if (mounted) {
-      if (sharedPrefsService.isLoggedIn()) {
+      if (authViewModel.isLoggedIn()) {
         Navigator.pushReplacementNamed(context, RouteNames.home);
       } else {
         Navigator.pushReplacementNamed(context, RouteNames.login);

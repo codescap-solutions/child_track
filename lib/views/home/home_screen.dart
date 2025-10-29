@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:get_it/get_it.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_sizes.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/navigation/route_names.dart';
 import '../../../core/utils/app_snackbar.dart';
-import '../../blocs/auth/auth_bloc.dart';
-import '../../blocs/auth/auth_event.dart';
-import '../../blocs/auth/auth_state.dart';
+import '../../viewmodels/auth_viewmodel.dart';
 import '../../widgets/common_button.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -19,11 +17,27 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  late final AuthViewModel _authViewModel;
+
   @override
   void initState() {
     super.initState();
+    _authViewModel = GetIt.instance<AuthViewModel>();
+    _authViewModel.addListener(_onAuthStateChanged);
     // Check auth status when screen loads
-    context.read<AuthBloc>().add(const CheckAuthStatusEvent());
+    _authViewModel.checkAuthStatus();
+  }
+
+  @override
+  void dispose() {
+    _authViewModel.removeListener(_onAuthStateChanged);
+    super.dispose();
+  }
+
+  void _onAuthStateChanged() {
+    if (_authViewModel.errorMessage != null) {
+      AppSnackbar.showError(context, _authViewModel.errorMessage!);
+    }
   }
 
   @override
@@ -38,32 +52,19 @@ class _HomeScreenState extends State<HomeScreen> {
           IconButton(icon: const Icon(Icons.logout), onPressed: _logout),
         ],
       ),
-      body: BlocListener<AuthBloc, AuthState>(
-        listener: (context, state) {
-          if (state is LogoutSuccess) {
-            Navigator.pushNamedAndRemoveUntil(
-              context,
-              RouteNames.login,
-              (route) => false,
-            );
-          } else if (state is AuthFailure) {
-            AppSnackbar.showError(context, state.message);
-          }
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(AppSizes.paddingL),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildWelcomeCard(),
-              const SizedBox(height: AppSizes.spacingXL),
-              _buildQuickActions(),
-              const SizedBox(height: AppSizes.spacingXL),
-              _buildStatsCards(),
-              const Spacer(),
-              _buildLogoutButton(),
-            ],
-          ),
+      body: Padding(
+        padding: const EdgeInsets.all(AppSizes.paddingL),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildWelcomeCard(),
+            const SizedBox(height: AppSizes.spacingXL),
+            _buildQuickActions(),
+            const SizedBox(height: AppSizes.spacingXL),
+            _buildStatsCards(),
+            const Spacer(),
+            _buildLogoutButton(),
+          ],
         ),
       ),
     );
@@ -291,13 +292,14 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildLogoutButton() {
-    return BlocBuilder<AuthBloc, AuthState>(
-      builder: (context, state) {
+    return ListenableBuilder(
+      listenable: _authViewModel,
+      builder: (context, child) {
         return CommonButton(
           text: 'Logout',
           onPressed: _logout,
           isOutlined: true,
-          isLoading: state is AuthLoading,
+          isLoading: _authViewModel.isLoading,
           width: double.infinity,
         );
       },
@@ -316,9 +318,16 @@ class _HomeScreenState extends State<HomeScreen> {
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              context.read<AuthBloc>().add(const LogoutEvent());
+            onPressed: () async {
+              final navigator = Navigator.of(context);
+              navigator.pop();
+              final success = await _authViewModel.logout();
+              if (success && mounted) {
+                navigator.pushNamedAndRemoveUntil(
+                  RouteNames.login,
+                  (route) => false,
+                );
+              }
             },
             child: const Text('Logout'),
           ),

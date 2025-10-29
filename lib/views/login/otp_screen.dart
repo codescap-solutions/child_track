@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_sizes.dart';
@@ -8,9 +7,7 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/navigation/route_names.dart';
 import '../../../core/utils/app_snackbar.dart';
-import '../../blocs/auth/auth_bloc.dart';
-import '../../blocs/auth/auth_event.dart';
-import '../../blocs/auth/auth_state.dart';
+import '../../viewmodels/auth_viewmodel.dart';
 import '../../widgets/common_button.dart';
 import '../../widgets/common_textfield.dart';
 
@@ -27,12 +24,34 @@ class _OtpScreenState extends State<OtpScreen> {
   final _formKey = GlobalKey<FormState>();
   final _otpController = TextEditingController();
   final _focusNode = FocusNode();
+  late final AuthViewModel _authViewModel;
+
+  @override
+  void initState() {
+    super.initState();
+    _authViewModel = GetIt.instance<AuthViewModel>();
+    _authViewModel.addListener(_onAuthStateChanged);
+  }
 
   @override
   void dispose() {
+    _authViewModel.removeListener(_onAuthStateChanged);
     _otpController.dispose();
     _focusNode.dispose();
     super.dispose();
+  }
+
+  void _onAuthStateChanged() {
+    if (_authViewModel.successMessage != null) {
+      AppSnackbar.showSuccess(context, _authViewModel.successMessage!);
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        RouteNames.home,
+        (route) => false,
+      );
+    } else if (_authViewModel.errorMessage != null) {
+      AppSnackbar.showError(context, _authViewModel.errorMessage!);
+    }
   }
 
   @override
@@ -45,40 +64,23 @@ class _OtpScreenState extends State<OtpScreen> {
         foregroundColor: AppColors.surfaceColor,
       ),
       body: SafeArea(
-        child: BlocProvider(
-          create: (context) => GetIt.instance<AuthBloc>(),
-          child: BlocListener<AuthBloc, AuthState>(
-            listener: (context, state) {
-              if (state is OtpVerifiedSuccess) {
-                AppSnackbar.showSuccess(context, state.message);
-                Navigator.pushNamedAndRemoveUntil(
-                  context,
-                  RouteNames.home,
-                  (route) => false,
-                );
-              } else if (state is AuthFailure) {
-                AppSnackbar.showError(context, state.message);
-              }
-            },
-            child: Padding(
-              padding: const EdgeInsets.all(AppSizes.paddingL),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Spacer(),
-                    _buildHeader(),
-                    const SizedBox(height: AppSizes.spacingXXL),
-                    _buildOtpField(),
-                    const SizedBox(height: AppSizes.spacingXL),
-                    _buildVerifyOtpButton(),
-                    const SizedBox(height: AppSizes.spacingL),
-                    _buildResendOtpButton(),
-                    const Spacer(),
-                  ],
-                ),
-              ),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSizes.paddingL),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Spacer(),
+                _buildHeader(),
+                const SizedBox(height: AppSizes.spacingXXL),
+                _buildOtpField(),
+                const SizedBox(height: AppSizes.spacingXL),
+                _buildVerifyOtpButton(),
+                const SizedBox(height: AppSizes.spacingL),
+                _buildResendOtpButton(),
+                const Spacer(),
+              ],
             ),
           ),
         ),
@@ -150,12 +152,13 @@ class _OtpScreenState extends State<OtpScreen> {
   }
 
   Widget _buildVerifyOtpButton() {
-    return BlocBuilder<AuthBloc, AuthState>(
-      builder: (context, state) {
+    return ListenableBuilder(
+      listenable: _authViewModel,
+      builder: (context, child) {
         return CommonButton(
           text: AppStrings.verifyOtp,
           onPressed: _verifyOtp,
-          isLoading: state is AuthLoading,
+          isLoading: _authViewModel.isLoading,
           width: double.infinity,
         );
       },
@@ -163,13 +166,14 @@ class _OtpScreenState extends State<OtpScreen> {
   }
 
   Widget _buildResendOtpButton() {
-    return BlocBuilder<AuthBloc, AuthState>(
-      builder: (context, state) {
+    return ListenableBuilder(
+      listenable: _authViewModel,
+      builder: (context, child) {
         return CommonButton(
           text: AppStrings.resendOtp,
           onPressed: _resendOtp,
           isOutlined: true,
-          isLoading: state is AuthLoading,
+          isLoading: _authViewModel.isLoading,
           width: double.infinity,
         );
       },
@@ -178,11 +182,11 @@ class _OtpScreenState extends State<OtpScreen> {
 
   void _verifyOtp() {
     if (_formKey.currentState?.validate() ?? false) {
-      context.read<AuthBloc>().add(VerifyOtpEvent(otp: _otpController.text));
+      _authViewModel.verifyOtp(_otpController.text);
     }
   }
 
   void _resendOtp() {
-    context.read<AuthBloc>().add(SendOtpEvent(phoneNumber: widget.phoneNumber));
+    _authViewModel.sendOtp(widget.phoneNumber);
   }
 }

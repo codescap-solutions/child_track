@@ -3,8 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/dio_client.dart';
 import '../services/shared_prefs_service.dart';
 import '../../data/repositories/auth_repository.dart';
-import '../../domain/usecases/auth_usecase.dart';
-import '../../presentation/blocs/auth/auth_bloc.dart';
+import '../../viewmodels/auth_viewmodel.dart';
 
 final GetIt injector = GetIt.instance;
 
@@ -29,13 +28,8 @@ Future<void> initializeDependencies() async {
     ),
   );
 
-  // Register Use Cases
-  injector.registerLazySingleton<AuthUseCase>(
-    () => AuthUseCase(authRepository: injector<AuthRepository>()),
-  );
-
-  // Register BLoCs
-  injector.registerFactory<AuthBloc>(
-    () => AuthBloc(authUseCase: injector<AuthUseCase>()),
+  // Register ViewModels
+  injector.registerLazySingleton<AuthViewModel>(
+    () => AuthViewModel(authRepository: injector<AuthRepository>()),
   );
 }
