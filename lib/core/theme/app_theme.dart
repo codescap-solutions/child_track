@@ -7,6 +7,8 @@ class AppTheme {
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
+      // Set Poppins as the global default font for all text in the app
+      fontFamily: GoogleFonts.poppins().fontFamily,
       colorScheme: ColorScheme.fromSeed(
         seedColor: AppColors.primaryColor,
         brightness: Brightness.light,

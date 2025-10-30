@@ -1,3 +1,4 @@
+import 'package:child_track/views/onboarding/onboarding_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'core/di/injector.dart';
@@ -28,7 +29,7 @@ class ChildTrackApp extends StatelessWidget {
       theme: AppTheme.lightTheme,
       debugShowCheckedModeBanner: false,
       onGenerateRoute: AppRouter.generateRoute,
-      home: const SplashScreen(),
+      home: const OnboardingScreen(),
     );
   }
 }
