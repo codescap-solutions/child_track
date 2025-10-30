@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../views/login/login_screen.dart';
-import '../../views/login/otp_screen.dart';
-import '../../views/home/home_screen.dart';
+import '../../app/auth/view/login_screen.dart';
+import '../../app/auth/view/otp_screen.dart';
+import '../../app/home/view/home_screen.dart';
 import 'route_names.dart';
 
 class AppRouter {

@@ -1,15 +1,14 @@
+import 'package:child_track/app/auth/view_model/bloc/auth_bloc.dart';
+import 'package:child_track/app/auth/view_model/bloc/auth_event.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:get_it/get_it.dart';
-import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/app_sizes.dart';
-import '../../../core/constants/app_strings.dart';
-import '../../../core/constants/app_text_styles.dart';
-import '../../../core/navigation/route_names.dart';
-import '../../../core/utils/app_snackbar.dart';
-import '../../viewmodels/auth_viewmodel.dart';
-import '../../widgets/common_button.dart';
-import '../../widgets/common_textfield.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:child_track/core/constants/app_colors.dart';
+import 'package:child_track/core/constants/app_sizes.dart';
+import 'package:child_track/core/constants/app_strings.dart';
+import 'package:child_track/core/constants/app_text_styles.dart';
+import 'package:child_track/core/widgets/common_button.dart';
+import 'package:child_track/core/widgets/common_textfield.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -22,34 +21,12 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _phoneController = TextEditingController();
   final _focusNode = FocusNode();
-  late final AuthViewModel _authViewModel;
-
-  @override
-  void initState() {
-    super.initState();
-    _authViewModel = GetIt.instance<AuthViewModel>();
-    _authViewModel.addListener(_onAuthStateChanged);
-  }
 
   @override
   void dispose() {
-    _authViewModel.removeListener(_onAuthStateChanged);
     _phoneController.dispose();
     _focusNode.dispose();
     super.dispose();
-  }
-
-  void _onAuthStateChanged() {
-    if (_authViewModel.successMessage != null) {
-      AppSnackbar.showSuccess(context, _authViewModel.successMessage!);
-      Navigator.pushNamed(
-        context,
-        RouteNames.otp,
-        arguments: {'phoneNumber': _phoneController.text},
-      );
-    } else if (_authViewModel.errorMessage != null) {
-      AppSnackbar.showError(context, _authViewModel.errorMessage!);
-    }
   }
 
   @override
@@ -139,16 +116,10 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget _buildSendOtpButton() {
-    return ListenableBuilder(
-      listenable: _authViewModel,
-      builder: (context, child) {
-        return CommonButton(
-          text: AppStrings.sendOtp,
-          onPressed: _sendOtp,
-          isLoading: _authViewModel.isLoading,
-          width: double.infinity,
-        );
-      },
+    return CommonButton(
+      text: AppStrings.sendOtp,
+      onPressed: _sendOtp,
+      width: double.infinity,
     );
   }
 
@@ -171,7 +142,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _sendOtp() {
     if (_formKey.currentState?.validate() ?? false) {
-      _authViewModel.sendOtp(_phoneController.text);
+      context.read<AuthBloc>().add(AuthStarted());
     }
   }
 }

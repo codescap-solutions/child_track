@@ -1,4 +1,6 @@
-import 'package:child_track/views/onboarding/onboarding_screen.dart';
+import 'package:child_track/app/auth/view_model/bloc/auth_bloc.dart';
+import 'package:child_track/app/auth/view_model/bloc/auth_state.dart';
+import 'package:child_track/app/onboarding/view/onboarding_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'core/di/injector.dart';
@@ -8,7 +10,6 @@ import 'core/theme/app_theme.dart';
 import 'core/constants/app_strings.dart';
 import 'core/constants/app_colors.dart';
 import 'core/constants/app_text_styles.dart';
-import 'viewmodels/auth_viewmodel.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -52,10 +53,10 @@ class _SplashScreenState extends State<SplashScreen> {
     // Add a small delay for splash screen
     await Future.delayed(const Duration(seconds: 2));
 
-    final authViewModel = GetIt.instance<AuthViewModel>();
+    final authBloc = GetIt.instance<AuthBloc>();
 
     if (mounted) {
-      if (authViewModel.isLoggedIn()) {
+      if (authBloc.state is AuthSuccess) {
         Navigator.pushReplacementNamed(context, RouteNames.home);
       } else {
         Navigator.pushReplacementNamed(context, RouteNames.login);

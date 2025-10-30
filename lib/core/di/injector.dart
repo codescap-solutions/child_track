@@ -2,8 +2,8 @@ import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/dio_client.dart';
 import '../services/shared_prefs_service.dart';
-import '../../data/repositories/auth_repository.dart';
-import '../../viewmodels/auth_viewmodel.dart';
+import '../../app/auth/view_model/auth_repository.dart';
+import '../../app/auth/view_model/bloc/auth_bloc.dart';
 
 final GetIt injector = GetIt.instance;
 
@@ -29,7 +29,5 @@ Future<void> initializeDependencies() async {
   );
 
   // Register ViewModels
-  injector.registerLazySingleton<AuthViewModel>(
-    () => AuthViewModel(authRepository: injector<AuthRepository>()),
-  );
+  injector.registerLazySingleton<AuthBloc>(() => AuthBloc());
 }

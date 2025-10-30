@@ -1,13 +1,12 @@
+import 'package:child_track/app/auth/view_model/bloc/auth_event.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
-import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/app_sizes.dart';
-import '../../../core/constants/app_strings.dart';
-import '../../../core/constants/app_text_styles.dart';
-import '../../../core/navigation/route_names.dart';
-import '../../../core/utils/app_snackbar.dart';
-import '../../viewmodels/auth_viewmodel.dart';
-import '../../widgets/common_button.dart';
+import 'package:child_track/core/constants/app_colors.dart';
+import 'package:child_track/core/constants/app_sizes.dart';
+import 'package:child_track/core/constants/app_strings.dart';
+import 'package:child_track/core/constants/app_text_styles.dart';
+import 'package:child_track/core/navigation/route_names.dart';
+import 'package:child_track/app/auth/view_model/bloc/auth_bloc.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -17,27 +16,12 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  late final AuthViewModel _authViewModel;
+  late final AuthBloc _authViewModel;
 
   @override
   void initState() {
     super.initState();
-    _authViewModel = GetIt.instance<AuthViewModel>();
-    _authViewModel.addListener(_onAuthStateChanged);
-    // Check auth status when screen loads
-    _authViewModel.checkAuthStatus();
-  }
-
-  @override
-  void dispose() {
-    _authViewModel.removeListener(_onAuthStateChanged);
-    super.dispose();
-  }
-
-  void _onAuthStateChanged() {
-    if (_authViewModel.errorMessage != null) {
-      AppSnackbar.showError(context, _authViewModel.errorMessage!);
-    }
+    _authViewModel = GetIt.instance<AuthBloc>();
   }
 
   @override
@@ -292,18 +276,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildLogoutButton() {
-    return ListenableBuilder(
-      listenable: _authViewModel,
-      builder: (context, child) {
-        return CommonButton(
-          text: 'Logout',
-          onPressed: _logout,
-          isOutlined: true,
-          isLoading: _authViewModel.isLoading,
-          width: double.infinity,
-        );
-      },
-    );
+    return SizedBox.shrink();
   }
 
   void _logout() {
@@ -319,15 +292,10 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           TextButton(
             onPressed: () async {
-              final navigator = Navigator.of(context);
-              navigator.pop();
-              final success = await _authViewModel.logout();
-              if (success && mounted) {
-                navigator.pushNamedAndRemoveUntil(
-                  RouteNames.login,
-                  (route) => false,
-                );
-              }
+              _authViewModel.add(AuthLoggedOut());
+              Navigator.of(
+                context,
+              ).pushNamedAndRemoveUntil(RouteNames.login, (route) => false);
             },
             child: const Text('Logout'),
           ),

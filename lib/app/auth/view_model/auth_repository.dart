@@ -1,7 +1,7 @@
-import '../../core/services/dio_client.dart';
-import '../../core/services/shared_prefs_service.dart';
-import '../../core/services/api_endpoints.dart';
-import '../../core/services/base_service.dart';
+import '../../../core/services/dio_client.dart';
+import '../../../core/services/shared_prefs_service.dart';
+import '../../../core/services/api_endpoints.dart';
+import '../../../core/services/base_service.dart';
 
 class AuthRepository extends BaseService {
   final SharedPrefsService _sharedPrefsService;

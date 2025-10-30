@@ -1,11 +1,10 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import '../../core/constants/app_colors.dart';
-import '../../core/constants/app_sizes.dart';
-import '../../core/constants/app_text_styles.dart';
-import '../../core/navigation/route_names.dart';
+import 'package:child_track/core/constants/app_colors.dart';
+import 'package:child_track/core/constants/app_sizes.dart';
+import 'package:child_track/core/constants/app_text_styles.dart';
+import 'package:child_track/core/navigation/route_names.dart';
 import 'widgets/role_selector.dart';
-
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -43,8 +42,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
-                          Colors.white.withOpacity(0.0),
-                          Colors.white.withOpacity(0.75),
+                          Colors.white.withValues(alpha: 0.0),
+                          Colors.white.withValues(alpha: 0.75),
                           Colors.white,
                         ],
                       ),
@@ -54,17 +53,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ],
             ),
           ),
-      
+
           // Foreground content anchored near the bottom
           Align(
             alignment: Alignment.bottomCenter,
             child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSizes.paddingL,
-              ).copyWith(
-                bottom: media.padding.bottom + AppSizes.paddingXL,
-                top: AppSizes.paddingXL,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingL)
+                  .copyWith(
+                    bottom: media.padding.bottom + AppSizes.paddingXL,
+                    top: AppSizes.paddingXL,
+                  ),
               child: ConstrainedBox(
                 constraints: BoxConstraints(
                   // Keep content from overflowing on very small screens
@@ -85,7 +83,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       ),
                     ),
                     const SizedBox(height: AppSizes.spacingM),
-      
+
                     // Description
                     Text(
                       'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean commodo ligula eget dolor. Aenean massa.',
@@ -96,14 +94,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       ),
                     ),
                     const SizedBox(height: AppSizes.spacingXL),
-      
+
                     // Role selector (Kid / Parent)
                     RoleSelector(
                       selected: _selectedRole,
                       onChanged: (role) => setState(() => _selectedRole = role),
                     ),
                     const SizedBox(height: AppSizes.spacingL),
-      
+
                     // Sign in link
                     Text.rich(
                       TextSpan(
@@ -121,9 +119,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             ),
                             recognizer: TapGestureRecognizer()
                               ..onTap = () {
-                                Navigator.of(context).pushNamed(
-                                  RouteNames.login,
-                                );
+                                Navigator.of(
+                                  context,
+                                ).pushNamed(RouteNames.login);
                               },
                           ),
                         ],
@@ -131,9 +129,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: AppSizes.spacingXL),
-      
+
                     // Small progress bar to emulate the page indicator in the mock
-                   
                   ],
                 ),
               ),
@@ -144,7 +141,3 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 }
-
-
-
-

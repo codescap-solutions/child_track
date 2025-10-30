@@ -1,15 +1,14 @@
+import 'package:child_track/app/auth/view_model/bloc/auth_bloc.dart';
+import 'package:child_track/app/auth/view_model/bloc/auth_event.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:get_it/get_it.dart';
-import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/app_sizes.dart';
-import '../../../core/constants/app_strings.dart';
-import '../../../core/constants/app_text_styles.dart';
-import '../../../core/navigation/route_names.dart';
-import '../../../core/utils/app_snackbar.dart';
-import '../../viewmodels/auth_viewmodel.dart';
-import '../../widgets/common_button.dart';
-import '../../widgets/common_textfield.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:child_track/core/constants/app_colors.dart';
+import 'package:child_track/core/constants/app_sizes.dart';
+import 'package:child_track/core/constants/app_strings.dart';
+import 'package:child_track/core/constants/app_text_styles.dart';
+import 'package:child_track/core/widgets/common_button.dart';
+import 'package:child_track/core/widgets/common_textfield.dart';
 
 class OtpScreen extends StatefulWidget {
   final String phoneNumber;
@@ -24,34 +23,12 @@ class _OtpScreenState extends State<OtpScreen> {
   final _formKey = GlobalKey<FormState>();
   final _otpController = TextEditingController();
   final _focusNode = FocusNode();
-  late final AuthViewModel _authViewModel;
-
-  @override
-  void initState() {
-    super.initState();
-    _authViewModel = GetIt.instance<AuthViewModel>();
-    _authViewModel.addListener(_onAuthStateChanged);
-  }
 
   @override
   void dispose() {
-    _authViewModel.removeListener(_onAuthStateChanged);
     _otpController.dispose();
     _focusNode.dispose();
     super.dispose();
-  }
-
-  void _onAuthStateChanged() {
-    if (_authViewModel.successMessage != null) {
-      AppSnackbar.showSuccess(context, _authViewModel.successMessage!);
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        RouteNames.home,
-        (route) => false,
-      );
-    } else if (_authViewModel.errorMessage != null) {
-      AppSnackbar.showError(context, _authViewModel.errorMessage!);
-    }
   }
 
   @override
@@ -152,41 +129,29 @@ class _OtpScreenState extends State<OtpScreen> {
   }
 
   Widget _buildVerifyOtpButton() {
-    return ListenableBuilder(
-      listenable: _authViewModel,
-      builder: (context, child) {
-        return CommonButton(
-          text: AppStrings.verifyOtp,
-          onPressed: _verifyOtp,
-          isLoading: _authViewModel.isLoading,
-          width: double.infinity,
-        );
-      },
+    return CommonButton(
+      text: AppStrings.verifyOtp,
+      onPressed: _verifyOtp,
+      width: double.infinity,
     );
   }
 
   Widget _buildResendOtpButton() {
-    return ListenableBuilder(
-      listenable: _authViewModel,
-      builder: (context, child) {
-        return CommonButton(
-          text: AppStrings.resendOtp,
-          onPressed: _resendOtp,
-          isOutlined: true,
-          isLoading: _authViewModel.isLoading,
-          width: double.infinity,
-        );
-      },
+    return CommonButton(
+      text: AppStrings.resendOtp,
+      onPressed: _resendOtp,
+      isOutlined: true,
+      width: double.infinity,
     );
   }
 
   void _verifyOtp() {
     if (_formKey.currentState?.validate() ?? false) {
-      _authViewModel.verifyOtp(_otpController.text);
+      context.read<AuthBloc>().add(AuthStarted());
     }
   }
 
   void _resendOtp() {
-    _authViewModel.sendOtp(widget.phoneNumber);
+    context.read<AuthBloc>().add(AuthStarted());
   }
 }
