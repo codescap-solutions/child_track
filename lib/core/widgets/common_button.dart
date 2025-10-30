@@ -70,30 +70,58 @@ class CommonButton extends StatelessWidget {
       );
     }
 
+    final double resolvedRadius = borderRadius ?? AppSizes.radiusM;
+
+    // Gradient filled button when enabled and not outlined
+    final bool useGradient = isEnabled && !isOutlined && backgroundColor == null;
+
+    final Widget buttonChild = ElevatedButton(
+      onPressed: effectiveOnPressed,
+      style: ElevatedButton.styleFrom(
+        backgroundColor:
+            useGradient ? Colors.transparent : (isEnabled ? effectiveBackgroundColor : AppColors.borderColor),
+        foregroundColor: effectiveTextColor,
+        shadowColor: Colors.transparent,
+        elevation: 0,
+        padding: padding ??
+            const EdgeInsets.symmetric(
+              horizontal: AppSizes.paddingL,
+              vertical: AppSizes.paddingM,
+            ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(resolvedRadius),
+        ),
+      ),
+      child: _buildButtonContent(),
+    );
+
+    if (!useGradient) {
+      return SizedBox(
+        width: width,
+        height: height ?? AppSizes.buttonHeightM,
+        child: buttonChild,
+      );
+    }
+
     return SizedBox(
       width: width,
       height: height ?? AppSizes.buttonHeightM,
-      child: ElevatedButton(
-        onPressed: effectiveOnPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: isEnabled
-              ? effectiveBackgroundColor
-              : AppColors.borderColor,
-          foregroundColor: effectiveTextColor,
-          elevation: isEnabled ? 2 : 0,
-          padding:
-              padding ??
-              const EdgeInsets.symmetric(
-                horizontal: AppSizes.paddingL,
-                vertical: AppSizes.paddingM,
-              ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(
-              borderRadius ?? AppSizes.radiusM,
-            ),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(resolvedRadius),
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF004CE8), // #004CE8
+              Color(0xFF6F9EFF), // #6F9EFF
+            ],
           ),
         ),
-        child: _buildButtonContent(),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(resolvedRadius),
+          child: buttonChild,
+        ),
       ),
     );
   }
