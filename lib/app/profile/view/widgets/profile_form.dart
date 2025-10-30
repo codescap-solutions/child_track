@@ -118,7 +118,7 @@ class _GenderField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DropdownButtonFormField<String>(
-      value: controller.text,
+      initialValue: controller.text,
       items: const [
         DropdownMenuItem(value: 'Male', child: Text('Male')),
         DropdownMenuItem(value: 'Female', child: Text('Female')),
