@@ -4,6 +4,7 @@ import 'package:child_track/core/constants/app_sizes.dart';
 import 'package:child_track/core/constants/app_text_styles.dart';
 import 'package:child_track/core/widgets/common_button.dart';
 import 'package:child_track/core/widgets/common_textfield.dart';
+import 'add_kid_view.dart';
 
 class SignInView extends StatefulWidget {
   const SignInView({super.key});
@@ -109,6 +110,11 @@ class _SignInViewState extends State<SignInView> {
   }
 
   void _submit() {
-    if (_formKey.currentState?.validate() ?? false) {}
+    if (_formKey.currentState?.validate() ?? false) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const AddKidView()),
+      );
+    }
   }
 }

@@ -3,6 +3,7 @@ import 'package:child_track/core/constants/app_colors.dart';
 import 'package:child_track/core/constants/app_sizes.dart';
 import 'package:child_track/core/constants/app_text_styles.dart';
 import 'package:child_track/core/widgets/common_button.dart';
+import '../../settings/view/settings_view.dart';
 import 'widgets/social_app_item.dart';
 
 class SocialAppsView extends StatelessWidget {
@@ -38,7 +39,7 @@ class SocialAppsView extends StatelessWidget {
               const SizedBox(height: AppSizes.spacingS),
               Expanded(
                 child: ListView(
-                  children: const [
+                  children: [
                     SocialAppItem(
                       icon: AssetImage('assets/images/youtube.png'),
                       name: 'Youtube',
@@ -86,6 +87,14 @@ class SocialAppsView extends StatelessWidget {
                       name: 'Game 03',
                       usage: '23 min',
                       isLocked: true,
+                    ),
+                    const SizedBox(height: AppSizes.spacingL),
+                    CommonButton(
+                      text: 'Next',
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const SettingsView()),
+                      ),
                     ),
                   ],
                 ),

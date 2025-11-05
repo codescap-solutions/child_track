@@ -4,6 +4,7 @@ import 'package:child_track/core/constants/app_sizes.dart';
 import 'package:child_track/core/constants/app_text_styles.dart';
 import 'package:child_track/core/widgets/common_button.dart';
 import 'package:child_track/core/widgets/common_textfield.dart';
+import 'sos_view.dart';
 
 class AddKidView extends StatefulWidget {
   const AddKidView({super.key});
@@ -62,16 +63,18 @@ class _AddKidViewState extends State<AddKidView> {
                   hintText: 'identity number',
                 ),
                 const Spacer(),
-                CommonButton(text: 'Submitting...', onPressed: _submit),
+                CommonButton(
+                  text: 'Next',
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const SosView()),
+                  ),
+                ),
               ],
             ),
           ),
         ),
       ),
     );
-  }
-
-  void _submit() {
-    if (_formKey.currentState?.validate() ?? false) {}
   }
 }

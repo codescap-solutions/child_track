@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:child_track/core/constants/app_colors.dart';
 import 'package:child_track/core/constants/app_sizes.dart';
 import 'package:child_track/core/constants/app_text_styles.dart';
+import 'package:child_track/core/widgets/common_button.dart';
+import '../../../social_apps/view/social_apps_view.dart';
 
 class SosView extends StatelessWidget {
   const SosView({super.key});
@@ -35,7 +37,7 @@ class SosView extends StatelessWidget {
                   color: Colors.white,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: Colors.black.withValues(alpha: 0.05),
                       blurRadius: 20,
                       offset: const Offset(0, 8),
                     ),
@@ -44,6 +46,7 @@ class SosView extends StatelessWidget {
                 child: Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
+
                     children: [
                       Text(
                         'SOS',
@@ -64,6 +67,17 @@ class SosView extends StatelessWidget {
               const Text('Father'),
               const SizedBox(height: 4),
               const Text('+91 889656 2587'),
+              const SizedBox(
+                height: AppSizes.spacingXL,
+                width: double.infinity,
+              ),
+              CommonButton(
+                text: 'Next',
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const SocialAppsView()),
+                ),
+              ),
             ],
           ),
         ),

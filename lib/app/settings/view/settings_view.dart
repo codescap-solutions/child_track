@@ -10,6 +10,7 @@ import 'about_view.dart';
 import 'account_view.dart';
 import 'devices_view.dart';
 import 'help_view.dart';
+import '../../profile/view/profile_view.dart';
 
 class SettingsView extends StatelessWidget {
   const SettingsView({super.key});
@@ -165,6 +166,15 @@ class SettingsView extends StatelessWidget {
                       const AboutView(),
                     ),
                   ],
+                ),
+              ),
+
+              SectionCard(
+                child: _linkTile(
+                  context,
+                  Icons.person,
+                  'Profile',
+                  const ProfileView(),
                 ),
               ),
             ],
