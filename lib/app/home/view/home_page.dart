@@ -5,6 +5,7 @@ import 'package:child_track/core/constants/app_text_styles.dart';
 import 'package:child_track/core/widgets/common_button.dart';
 import '../../settings/view/settings_view.dart';
 import '../../social_apps/view/social_apps_view.dart';
+import 'trips_view.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -51,7 +52,7 @@ class HomePage extends StatelessWidget {
                 _buildChildLocationCard(context),
 
                 // Second View: Trip Today Card
-                _buildTripTodayCard(),
+                _buildTripTodayCard(context),
 
                 // Activity Today Card
                 _buildActivityTodayCard(),
@@ -473,7 +474,7 @@ class HomePage extends StatelessWidget {
   }
 
   // Trip Today Card
-  Widget _buildTripTodayCard() {
+  Widget _buildTripTodayCard(BuildContext context) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: AppSizes.paddingL),
       padding: const EdgeInsets.all(AppSizes.paddingM),
@@ -544,7 +545,14 @@ class HomePage extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              CommonButton(text: 'View all', onPressed: () {}, height: 36),
+              CommonButton(
+                text: 'View all',
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const TripsView()),
+                ),
+                height: 36,
+              ),
             ],
           ),
         ],
