@@ -20,6 +20,9 @@ class AppColors {
   // Background Colors
   static const Color cardBackground = Color(0xFFFFFFFF);
   static const Color surfaceColor = Color(0xFFFFFFFF);
+  static const Color beach = Color(
+    0xFFFFEFD5,
+  ); // Light beach-sand color for map placeholder
 
   // Border Colors
   static const Color borderColor = Color(0xFFE0E0E0);

@@ -1,9 +1,9 @@
+import 'package:child_track/app/home/view/home_page.dart';
 import 'package:flutter/material.dart';
 import 'package:child_track/core/constants/app_colors.dart';
 import 'package:child_track/core/constants/app_sizes.dart';
 import 'package:child_track/core/constants/app_text_styles.dart';
 import 'package:child_track/core/widgets/common_button.dart';
-import '../../../social_apps/view/social_apps_view.dart';
 
 class SosView extends StatelessWidget {
   const SosView({super.key});
@@ -75,7 +75,7 @@ class SosView extends StatelessWidget {
                 text: 'Next',
                 onPressed: () => Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const SocialAppsView()),
+                  MaterialPageRoute(builder: (_) => const HomePage()),
                 ),
               ),
             ],
