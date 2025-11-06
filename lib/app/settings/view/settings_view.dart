@@ -21,49 +21,63 @@ class SettingsView extends StatelessWidget {
       backgroundColor: AppColors.backgroundColor,
       appBar: AppBar(
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 18),
+          icon: const Icon(Icons.arrow_back,),
           onPressed: () => Navigator.of(context).maybePop(),
         ),
-        title: const Text('Settings'),
-        backgroundColor: AppColors.surfaceColor,
+        title:  Text('Settings',style:TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+          color: AppColors.textPrimary,
+        ),),
+        backgroundColor: Colors.transparent,
         elevation: 0,
         foregroundColor: AppColors.textPrimary,
         centerTitle: true,
-        actions: [IconButton(onPressed: () {}, icon: const Icon(Icons.search))],
+       
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(AppSizes.paddingL),
+          padding: const EdgeInsets.all(AppSizes.paddingM),
           child: Column(
             children: [
               SectionCard(
                 child: Row(
                   children: [
                     Container(
+                      height: 70,
+                      width: 70,
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFE8F1FF),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(
-                        Icons.security,
                         color: AppColors.primaryColor,
+                        borderRadius: BorderRadius.circular(100),
                       ),
+                      child: CircleAvatar()
                     ),
                     const SizedBox(width: AppSizes.spacingM),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Ensure Better Protection',
-                            style: AppTextStyles.subtitle1.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
+                          Row(
+
+                            children: [
+                              Text(
+                                'Ananya Pandey',
+                                style: AppTextStyles.subtitle1.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
+
+                              ),
+                                                               SizedBox(width: 4),
+                                                               Icon(Icons.edit_square,
+                                                               size: 16,
+                                                               color: AppColors.textPrimary,
+                                                               ),
+                            ],
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'at half price of a family meal',
+                            '547327423747',
                             style: AppTextStyles.caption.copyWith(
                               color: AppColors.textSecondary,
                             ),
@@ -73,7 +87,7 @@ class SettingsView extends StatelessWidget {
                     ),
                     TextButton(
                       onPressed: () {},
-                      child: const Text('Know More'),
+                      child:Icon(Icons.keyboard_arrow_down_rounded,size: 50,color: AppColors.textPrimary,),
                     ),
                   ],
                 ),

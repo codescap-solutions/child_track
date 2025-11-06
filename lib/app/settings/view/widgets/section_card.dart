@@ -10,11 +10,12 @@ class SectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
+      
       elevation: 0,
       margin: const EdgeInsets.only(bottom: AppSizes.spacingM),
       color: AppColors.surfaceColor,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppSizes.radiusM),
+        borderRadius: BorderRadius.circular(AppSizes.radiusL),
       ),
       child: Padding(
         padding: padding ?? const EdgeInsets.all(AppSizes.paddingM),

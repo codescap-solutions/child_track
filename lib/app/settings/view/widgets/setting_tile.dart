@@ -24,7 +24,7 @@ class SettingTile extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(AppSizes.radiusM),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: AppSizes.paddingM),
+        padding: const EdgeInsets.symmetric(vertical: 0),
         child: Row(
           children: [
             leading,
