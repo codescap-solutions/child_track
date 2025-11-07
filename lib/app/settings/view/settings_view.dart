@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart' show CupertinoSwitch;
 import 'package:flutter/material.dart';
 import 'package:child_track/core/constants/app_colors.dart';
 import 'package:child_track/core/constants/app_sizes.dart';
@@ -21,19 +22,21 @@ class SettingsView extends StatelessWidget {
       backgroundColor: AppColors.backgroundColor,
       appBar: AppBar(
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back,),
+          icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).maybePop(),
         ),
-        title:  Text('Settings',style:TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.w700,
-          color: AppColors.textPrimary,
-        ),),
+        title: Text(
+          'Settings',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textPrimary,
+          ),
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
         foregroundColor: AppColors.textPrimary,
         centerTitle: true,
-       
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -51,7 +54,7 @@ class SettingsView extends StatelessWidget {
                         color: AppColors.primaryColor,
                         borderRadius: BorderRadius.circular(100),
                       ),
-                      child: CircleAvatar()
+                      child: CircleAvatar(),
                     ),
                     const SizedBox(width: AppSizes.spacingM),
                     Expanded(
@@ -59,20 +62,19 @@ class SettingsView extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
-
                             children: [
                               Text(
                                 'Ananya Pandey',
                                 style: AppTextStyles.subtitle1.copyWith(
                                   fontWeight: FontWeight.w700,
                                 ),
-
                               ),
-                                                               SizedBox(width: 4),
-                                                               Icon(Icons.edit_square,
-                                                               size: 16,
-                                                               color: AppColors.textPrimary,
-                                                               ),
+                              SizedBox(width: 4),
+                              Icon(
+                                Icons.edit_square,
+                                size: 16,
+                                color: AppColors.textPrimary,
+                              ),
                             ],
                           ),
                           const SizedBox(height: 4),
@@ -87,7 +89,11 @@ class SettingsView extends StatelessWidget {
                     ),
                     TextButton(
                       onPressed: () {},
-                      child:Icon(Icons.keyboard_arrow_down_rounded,size: 50,color: AppColors.textPrimary,),
+                      child: Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        size: 50,
+                        color: AppColors.textPrimary,
+                      ),
                     ),
                   ],
                 ),
@@ -96,15 +102,87 @@ class SettingsView extends StatelessWidget {
               SectionCard(
                 child: Column(
                   children: [
-                    _toggleTile(context, Icons.block, 'Restrict from deleting'),
-                    const Divider(height: 1),
+                    _toggleTile(
+                      context,
+                      Icons.block,
+                      'Restrict from deleting',
+                      'contact details of each location',
+                    ),
+              Padding(
+                       padding: const EdgeInsets.all(8.0),
+                       child: const Divider(height: 1,endIndent: 20,
+                                           indent: 20,),
+                     ),
                     _toggleTile(
                       context,
                       Icons.do_not_disturb_on_outlined,
                       'Block 18plus Websites',
+                      'contact details of each location',
                     ),
-                    const Divider(height: 1),
+             Padding(
+                       padding: const EdgeInsets.all(8.0),
+                       child: const Divider(height: 1,endIndent: 20,
+                                           indent: 20,),
+                     ),
+                 
+                  ],
+                ),
+              ),
+
+              SectionCard(
+                child: Column(
+                  children: [
                     SettingTile(
+                      subtitle: 'Notification settings for the app',
+                      leading: const Icon(
+                        Icons.notifications_none,
+                        color: AppColors.textSecondary,
+                      ),
+                      title: 'Notification Settings',
+                      trailing: Transform.scale(
+                        alignment: Alignment.centerRight,
+                        scale: 0.7,
+                        child: CupertinoSwitch(value: true, onChanged: (_) {}),
+                      ),
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const NotificationSettingsView(),
+                        ),
+                      ),
+                    ),
+               Padding(
+                       padding: const EdgeInsets.all(8.0),
+                       child: const Divider(height: 1,endIndent: 20,
+                                           indent: 20,),
+                     ),
+
+                      SettingTile(
+                      subtitle: 'Get live location of others',
+                      leading: const Icon(
+                        Icons.notifications_none,
+                        color: AppColors.textSecondary,
+                      ),
+                      title: 'Request Loacation',
+                      trailing: Transform.scale(
+                        alignment: Alignment.centerRight,
+                        scale: 0.7,
+                        child: CupertinoSwitch(value: true, onChanged: (_) {}),
+                      ),
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const NotificationSettingsView(),
+                        ),
+                      ),
+                    ),
+               Padding(
+                       padding: const EdgeInsets.all(8.0),
+                       child: const Divider(height: 1,endIndent: 20,
+                                           indent: 20,),
+                     ),
+                       SettingTile(
+                        subtitle: 'Details contact shown in kids app',
                       leading: const Icon(
                         Icons.family_restroom_rounded,
                         color: AppColors.textSecondary,
@@ -117,41 +195,33 @@ class SettingsView extends StatelessWidget {
                       ),
                       onTap: () {},
                     ),
-                  ],
-                ),
-              ),
-
-              SectionCard(
-                child: Column(
-                  children: [
-                    SettingTile(
+                     Padding(
+                       padding: const EdgeInsets.all(8.0),
+                       child: const Divider(height: 1,endIndent: 20,
+                                           indent: 20,),
+                     ),
+                    
+                    SizedBox(height: 10),
+                SettingTile(
+                        subtitle: 'Manage your subscription',
                       leading: const Icon(
-                        Icons.notifications_none,
+                        Icons.family_restroom_rounded,
                         color: AppColors.textSecondary,
                       ),
-                      title: 'Notification Settings',
-                      trailing: Switch(value: true, onChanged: (_) {}),
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const NotificationSettingsView(),
-                        ),
+                      title: 'Subscription',
+                      trailing: const Icon(
+                        Icons.arrow_forward_ios,
+                        size: 16,
+                        color: AppColors.textSecondary,
                       ),
+                      onTap: () {},
                     ),
-                    const Divider(height: 1),
-                    _linkTile(
-                      context,
-                      Icons.credit_card,
-                      'Subscription',
-                      const SubscriptionView(),
-                    ),
-                    const Divider(height: 1),
-                    _linkTile(
-                      context,
-                      Icons.person_outline,
-                      'Account',
-                      const AccountView(),
-                    ),
+              Padding(
+                       padding: const EdgeInsets.all(8.0),
+                       child: const Divider(height: 1,endIndent: 20,
+                                           indent: 20,),
+                     ),
+                  
                   ],
                 ),
               ),
@@ -159,38 +229,88 @@ class SettingsView extends StatelessWidget {
               SectionCard(
                 child: Column(
                   children: [
-                    _linkTile(
-                      context,
-                      Icons.devices_other,
-                      'Devices',
-                      const DevicesView(),
+                         SettingTile(
+                          
+                        subtitle: 'Your account details',
+                      leading: const Icon(
+                        Icons.person,
+                        color: AppColors.textSecondary,
+                      ),
+                      title: 'Account',
+                      trailing: const Icon(
+                        Icons.arrow_forward_ios,
+                        size: 16,
+                        color: AppColors.textSecondary,
+                      ),
+                      onTap: () {},
                     ),
-                    const Divider(height: 1),
-                    _linkTile(
-                      context,
-                      Icons.help_outline,
-                      'Help',
-                      const HelpView(),
+                      Padding(
+                       padding: const EdgeInsets.all(8.0),
+                       child: const Divider(height: 1,endIndent: 20,
+                                           indent: 20,),
+                     ),
+                       SettingTile(
+                          
+                        subtitle: 'Device details',
+                      leading: const Icon(
+                        Icons.person,
+                        color: AppColors.textSecondary,
+                      ),
+                      title: 'Device',
+                      trailing: const Icon(
+                        Icons.arrow_forward_ios,
+                        size: 16,
+                        color: AppColors.textSecondary,
+                      ),
+                      onTap: () {},
                     ),
-                    const Divider(height: 1),
-                    _linkTile(
-                      context,
-                      Icons.info_outline,
-                      'About App',
-                      const AboutView(),
+                
+             Padding(
+                       padding: const EdgeInsets.all(8.0),
+                       child: const Divider(height: 1,endIndent: 20,
+                                           indent: 20,),
+                     ),
+
+                  SettingTile(
+                          
+                        subtitle: 'Help and support',
+                      leading: const Icon(
+                        Icons.person,
+                        color: AppColors.textSecondary,
+                      ),
+                      title: 'Help',
+                      trailing: const Icon(
+                        Icons.arrow_forward_ios,
+                        size: 16,
+                        color: AppColors.textSecondary,
+                      ),
+                      onTap: () {},
+                    ),
+              Padding(
+                       padding: const EdgeInsets.all(8.0),
+                       child: const Divider(height: 1,endIndent: 20,
+                                           indent: 20,),
+                     ),
+                   SettingTile(
+                          
+                        subtitle: 'About the app',
+                      leading: const Icon(
+                        Icons.person,
+                        color: AppColors.textSecondary,
+                      ),
+                      title: 'About app',
+                      trailing: const Icon(
+                        Icons.arrow_forward_ios,
+                        size: 16,
+                        color: AppColors.textSecondary,
+                      ),
+                      onTap: () {},
                     ),
                   ],
                 ),
               ),
 
-              SectionCard(
-                child: _linkTile(
-                  context,
-                  Icons.person,
-                  'Profile',
-                  const ProfileView(),
-                ),
-              ),
+        
             ],
           ),
         ),
@@ -198,11 +318,22 @@ class SettingsView extends StatelessWidget {
     );
   }
 
-  Widget _toggleTile(BuildContext context, IconData icon, String title) {
+  Widget _toggleTile(
+    BuildContext context,
+    IconData icon,
+    String title,
+    String subtitle,
+  ) {
     return SettingTile(
       leading: Icon(icon, color: AppColors.textSecondary),
       title: title,
-      trailing: Switch(value: true, onChanged: (_) {}),
+      subtitle: subtitle,
+
+      trailing: Transform.scale(
+        alignment: Alignment.centerRight,
+        scale: 0.7,
+        child: CupertinoSwitch(value: true, onChanged: (_) {}),
+      ),
     );
   }
 
@@ -215,6 +346,7 @@ class SettingsView extends StatelessWidget {
     return SettingTile(
       leading: Icon(icon, color: AppColors.textSecondary),
       title: title,
+
       trailing: const Icon(
         Icons.arrow_forward_ios,
         size: 16,

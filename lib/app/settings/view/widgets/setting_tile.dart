@@ -38,7 +38,9 @@ class SettingTile extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       subtitle!,
+                      
                       style: AppTextStyles.caption.copyWith(
+                        fontSize: 10,
                         color: AppColors.textSecondary,
                       ),
                     ),
