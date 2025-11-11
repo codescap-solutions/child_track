@@ -16,7 +16,7 @@ class CommonButton extends StatelessWidget {
   final double? borderRadius;
   final Widget? icon;
   final bool isEnabled;
-
+  final double? fontSize;
   const CommonButton({
     super.key,
     required this.text,
@@ -31,6 +31,7 @@ class CommonButton extends StatelessWidget {
     this.borderRadius,
     this.icon,
     this.isEnabled = true,
+    this.fontSize,
   });
 
   @override
@@ -159,6 +160,7 @@ class CommonButton extends StatelessWidget {
     return Text(
       text,
       style: AppTextStyles.button.copyWith(
+        fontSize:fontSize ?? 14,
         color: isEnabled ? textColor : AppColors.textHint,
       ),
     );

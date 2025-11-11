@@ -3,12 +3,77 @@ import 'package:child_track/core/constants/app_colors.dart';
 import 'package:child_track/core/constants/app_sizes.dart';
 import 'package:child_track/core/constants/app_text_styles.dart';
 import 'package:child_track/core/widgets/common_button.dart';
+import 'package:flutter_svg/svg.dart';
 import '../../settings/view/settings_view.dart';
 import '../../social_apps/view/social_apps_view.dart';
 import 'trips_view.dart';
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  @override
+  void initState() {
+    super.initState();
+    // Show bottom sheet after the first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _showStickyBottomSheet(context);
+    });
+  }
+
+  void _showStickyBottomSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      isDismissible: false,
+      enableDrag: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.4,
+        minChildSize: 0.3,
+        maxChildSize: 0.9,
+        builder: (context, scrollController) {
+          return Container(
+            decoration: BoxDecoration(
+              color: AppColors.surfaceColor,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(AppSizes.radiusXL),
+                topRight: Radius.circular(AppSizes.radiusXL),
+              ),
+            ),
+            child: Column(
+              children: [
+                // Drag handle
+                Container(
+                  margin: const EdgeInsets.symmetric(vertical: AppSizes.spacingS),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.textSecondary.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                // Scrollable content
+                Expanded(
+                  child: SingleChildScrollView(
+                    controller: scrollController,
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: AppSizes.paddingL),
+                      child: _buildChildLocationCardContent(context),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -48,9 +113,6 @@ class HomePage extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // First View: Child Location Info Card (shown first, collapses on scroll)
-                _buildChildLocationCard(context),
-
                 // Second View: Trip Today Card
                 _buildTripTodayCard(context),
 
@@ -185,22 +247,10 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  // First View: Child Location Info Card
-  Widget _buildChildLocationCard(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.all(AppSizes.paddingL),
-      padding: const EdgeInsets.all(AppSizes.paddingL),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceColor,
-        borderRadius: BorderRadius.circular(AppSizes.radiusL),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+  // First View: Child Location Info Card Content
+  Widget _buildChildLocationCardContent(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(AppSizes.paddingM),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -213,8 +263,9 @@ class HomePage extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Kid is at School',
-                      style: AppTextStyles.headline5.copyWith(
+                      'Kid at School',
+
+                      style: AppTextStyles.headline3.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -230,16 +281,24 @@ class HomePage extends StatelessWidget {
               ),
               // Save Place button
               OutlinedButton.icon(
+                
                 onPressed: () {},
-                icon: const Icon(Icons.bookmark_border, size: 16),
-                label: const Text('save place'),
+                icon: const Icon(Icons.bookmark, size: 16,color: AppColors.textSecondary,),
+                label:  Text('save place',style: AppTextStyles.caption,),
                 style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: Colors.transparent),
+                  backgroundColor: AppColors.containerBackground,
+                  
                   padding: const EdgeInsets.symmetric(
                     horizontal: AppSizes.paddingM,
                     vertical: AppSizes.paddingS,
                   ),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppSizes.radiusM),
+                  
+                  side: BorderSide(color: Colors.transparent),
+                    borderRadius: BorderRadius.circular(
+                    
+                      AppSizes.radiusM,),
                   ),
                 ),
               ),
@@ -254,7 +313,7 @@ class HomePage extends StatelessWidget {
               // Battery
               Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: AppSizes.paddingS,
+                  horizontal: AppSizes.paddingXS,
                   vertical: AppSizes.paddingXS,
                 ),
                 decoration: BoxDecoration(
@@ -272,7 +331,7 @@ class HomePage extends StatelessWidget {
                     const SizedBox(width: AppSizes.spacingXS),
                     Text(
                       '90%',
-                      style: AppTextStyles.caption.copyWith(
+                      style: AppTextStyles.overline.copyWith(
                         color: AppColors.success,
                         fontWeight: FontWeight.w600,
                       ),
@@ -298,7 +357,7 @@ class HomePage extends StatelessWidget {
                     const SizedBox(width: AppSizes.spacingXS),
                     Text(
                       'connected',
-                      style: AppTextStyles.caption.copyWith(
+                      style: AppTextStyles.overline.copyWith(
                         color: AppColors.info,
                         fontWeight: FontWeight.w600,
                       ),
@@ -317,18 +376,26 @@ class HomePage extends StatelessWidget {
                   color: AppColors.warning.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(AppSizes.radiusS),
                 ),
-                child: const Icon(
-                  Icons.volume_up,
-                  color: AppColors.warning,
-                  size: 16,
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.volume_up,
+                      color: AppColors.warning,
+                      size: 16,
+                    ),
+                    const SizedBox(width: AppSizes.spacingXS),
+                    Text(
+                      'Sound',
+                      style: AppTextStyles.overline.copyWith(
+                        color: AppColors.warning,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
-
-          const SizedBox(height: AppSizes.spacingM),
-
-          // Action icons
+Spacer(),
+                // Action icons
           Row(
             children: [
               IconButton(
@@ -347,6 +414,11 @@ class HomePage extends StatelessWidget {
               ),
             ],
           ),
+            ],
+          ),
+
+
+        
 
           const SizedBox(height: AppSizes.spacingM),
 
@@ -354,25 +426,27 @@ class HomePage extends StatelessWidget {
           Row(
             children: [
               // Geo Guard card
-              Expanded(
-                child: _buildFeatureCard(
-                  title: 'Geo Guard',
-                  subtitle: 'Places & Geofencing',
-                  icon: 'assets/home/geo_guard_girl.svg',
-                  onTap: () {},
-                ),
-              ),
-              const SizedBox(width: AppSizes.spacingM),
+           
+             
               // Scroll card
               Expanded(
                 child: _buildFeatureCard(
                   title: 'Scroll',
-                  subtitle: 'Social Media & App control',
+                  subtitle: 'Social Media &\nApp control',
                   icon: 'assets/home/scroll_girl.svg',
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => const SocialAppsView()),
                   ),
+                ),
+              ),
+               const SizedBox(width: AppSizes.spacingM),
+                 Expanded(
+                child: _buildFeatureCard(
+                  title: 'Geo Guard',
+                  subtitle: 'Places &\nGeofencing',
+                  icon: 'assets/home/geo_guard_girl.svg',
+                  onTap: () {},
                 ),
               ),
             ],
@@ -404,14 +478,19 @@ class HomePage extends StatelessWidget {
                       const SizedBox(height: AppSizes.spacingXS),
                       Text(
                         'Unlimited Updated, just for you',
-                        style: AppTextStyles.caption.copyWith(
+                        style: AppTextStyles.overline.copyWith(
                           color: AppColors.textSecondary,
                         ),
                       ),
                     ],
                   ),
                 ),
-                TextButton(onPressed: () {}, child: const Text('View all')),
+                CommonButton(padding: 
+                EdgeInsets.zero,
+                  height:  28,
+                  width: 78,
+                  fontSize: 10,
+                  text: 'View all', onPressed: () {},)
               ],
             ),
           ),
@@ -431,42 +510,46 @@ class HomePage extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(AppSizes.radiusM),
       child: Container(
-        padding: const EdgeInsets.all(AppSizes.paddingM),
+        padding: const EdgeInsets.only(left: AppSizes.paddingS,right: 0,top: AppSizes.paddingS,bottom: 0),
         decoration: BoxDecoration(
-          color: AppColors.backgroundColor,
+           color: AppColors.primaryColor.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(AppSizes.radiusM),
           border: Border.all(color: AppColors.borderColor),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
           children: [
-            Text(
-              title,
-              style: AppTextStyles.subtitle2.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: AppTextStyles.subtitle2.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: AppSizes.spacingXS),
+                Text(
+                  textAlign: TextAlign.start,
+                  subtitle,
+                  maxLines: 2,
+                  style: AppTextStyles.overline.copyWith(
+                    
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: AppSizes.spacingS),
+                // Placeholder for illustration
+             
+              ],
             ),
-            const SizedBox(height: AppSizes.spacingXS),
-            Text(
-              subtitle,
-              style: AppTextStyles.caption.copyWith(
-                color: AppColors.textSecondary,
-              ),
-            ),
-            const SizedBox(height: AppSizes.spacingS),
-            // Placeholder for illustration
-            Container(
-              height: 60,
-              decoration: BoxDecoration(
-                color: AppColors.primaryColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(AppSizes.radiusS),
-              ),
-              child: const Icon(
-                Icons.map,
-                color: AppColors.primaryColor,
-                size: 32,
-              ),
-            ),
+            Spacer(),
+               Container(
+                alignment:Alignment.bottomCenter,
+                  decoration: BoxDecoration(
+                    //borderRadius: BorderRadius.circular(AppSizes.radiusS),
+                  ),
+                  child: SvgPicture.asset(icon,width: 60,),
+                ),
           ],
         ),
       ),
@@ -546,6 +629,7 @@ class HomePage extends StatelessWidget {
               ),
               const Spacer(),
               CommonButton(
+                
                 text: 'View all',
                 onPressed: () => Navigator.push(
                   context,
