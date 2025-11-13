@@ -6,12 +6,6 @@ import 'package:child_track/core/constants/app_text_styles.dart';
 import 'widgets/section_card.dart';
 import 'widgets/setting_tile.dart';
 import 'notification_settings_view.dart';
-import 'subscription_view.dart';
-import 'about_view.dart';
-import 'account_view.dart';
-import 'devices_view.dart';
-import 'help_view.dart';
-import '../../profile/view/profile_view.dart';
 
 class SettingsView extends StatelessWidget {
   const SettingsView({super.key});

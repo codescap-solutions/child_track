@@ -1,5 +1,4 @@
 import 'package:child_track/app/home/view/trips_view.dart';
-import 'package:child_track/app/home/view/widget/homemap.dart';
 import 'package:child_track/app/home/view/widget/trip_route_map.dart';
 import 'package:flutter/material.dart';
 import 'package:child_track/core/constants/app_colors.dart';
@@ -7,7 +6,6 @@ import 'package:child_track/core/constants/app_sizes.dart';
 import 'package:child_track/core/constants/app_text_styles.dart';
 import 'package:child_track/core/widgets/common_button.dart';
 import 'package:flutter_svg/svg.dart';
-import '../../social_apps/view/social_apps_view.dart';
 
 class ChildLocationDetailView extends StatelessWidget {
   const ChildLocationDetailView({super.key});

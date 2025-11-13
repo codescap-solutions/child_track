@@ -1,5 +1,3 @@
-import 'dart:ui' as ui;
-import 'dart:typed_data';
 import 'package:child_track/app/home/view/trips_view.dart';
 import 'package:child_track/core/constants/app_sizes.dart';
 import 'package:child_track/core/constants/app_text_styles.dart';
@@ -22,7 +20,7 @@ class _TripRouteMapState extends State<TripRouteMap> {
   final Set<Polyline> _polylines = {};
   final Set<Marker> _markers = {};
   BitmapDescriptor? _startMarkerIcon;
-  BitmapDescriptor? _endMarkerIcon;
+  BitmapDescriptor? _endMarkerIcon; 
   BitmapDescriptor? _intermediateMarkerIcon;
   final LocationService _locationService = LocationService();
   Position? _currentPosition;
