@@ -1,7 +1,6 @@
 import 'package:child_track/app/auth/view_model/bloc/auth_bloc.dart';
 import 'package:child_track/app/auth/view_model/bloc/auth_state.dart';
 import 'package:child_track/app/home/view/home_page.dart';
-import 'package:child_track/app/onboarding/view/onboarding_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'core/di/injector.dart';

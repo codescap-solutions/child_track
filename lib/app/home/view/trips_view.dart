@@ -26,7 +26,7 @@ class TripsView extends StatelessWidget {
       ),
       body: ListView.builder(
         padding: const EdgeInsets.all(AppSizes.paddingL),
-        itemCount: 3, // Sample trip count
+        itemCount: 3,
         itemBuilder: (context, index) {
           return _TripCard(
             onTap: () => Navigator.push(
