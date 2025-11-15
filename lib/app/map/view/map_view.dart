@@ -24,8 +24,8 @@ class MapViewWidget extends StatelessWidget {
                   injector<MapBloc>().add(MapCreated(controller));
                 },
                 polylines: Set<Polyline>.of(state.polylines.values),
-                initialCameraPosition: const CameraPosition(
-                  target: LatLng(38.437532, 27.149606),
+                initialCameraPosition:  CameraPosition(
+                  target: state.currentPosition,
                   zoom: 10,
                 ),
                 markers: state.markers.toSet(),

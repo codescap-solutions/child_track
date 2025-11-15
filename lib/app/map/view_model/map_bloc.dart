@@ -15,13 +15,20 @@ class MapBloc extends Bloc<MapEvent, MapState> {
   final Completer<GoogleMapController> _controllerCompleter = Completer();
   final PolylinePoints _polylinePoints = PolylinePoints(
     apiKey: AppStrings.googleMapsApiKey,
-    
   );
 
-  MapBloc() : super(const MapLoaded(markers: [], polylines: {})) {
+  MapBloc()
+    : super(
+        const MapLoaded(
+          markers: [],
+          polylines: {},
+          currentPosition: LatLng(38.437532, 27.149606),
+        ),
+      ) {
     on<MapCreated>(_onMapCreated);
     on<MarkerAdded>(_onMarkerAdded);
     on<MarkerTapped>(_onMarkerTapped);
+    on<UpdateChildLocation>(_onUpdateChildLocation);
   }
 
   Future<void> _onMapCreated(MapCreated event, Emitter<MapState> emit) async {
@@ -154,6 +161,34 @@ class MapBloc extends Bloc<MapEvent, MapState> {
       width: 4,
     );
     return {id: polyline};
+  }
+
+  Future<void> _onUpdateChildLocation(
+    UpdateChildLocation event,
+    Emitter<MapState> emit,
+  ) async {
+    final currentState = state;
+    if (currentState is! MapLoaded) return;
+    final newMarker = Marker(
+      consumeTapEvents: false,
+      markerId: MarkerId(event.currentLocation.toString()),
+      position: event.currentLocation,
+    );
+    final updatedMarkers = [...currentState.markers, newMarker];
+
+    emit(
+      currentState.copyWith(
+        markers: updatedMarkers,
+        isLoading: false,
+        currentPosition: event.currentLocation,
+      ),
+    );
+    // If we have more than one marker, calculate directions
+    if (updatedMarkers.length > 1) {
+      await _getDirections(updatedMarkers, emit);
+    } else {
+      emit(currentState.copyWith(markers: updatedMarkers, isLoading: false));
+    }
   }
 
   @override

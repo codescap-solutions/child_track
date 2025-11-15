@@ -33,3 +33,11 @@ class MarkerTapped extends MapEvent {
   @override
   List<Object> get props => [position];
 }
+
+class UpdateChildLocation extends MapEvent {
+  final LatLng currentLocation;
+  const UpdateChildLocation(this.currentLocation);
+
+  @override
+  List<Object> get props => [currentLocation];
+}
