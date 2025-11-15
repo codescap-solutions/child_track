@@ -3,6 +3,11 @@ import 'package:google_fonts/google_fonts.dart';
 import 'app_colors.dart';
 
 class AppTextStyles {
+    static TextStyle get headlineXL => GoogleFonts.poppins(
+    fontSize: 44,
+    fontWeight: FontWeight.bold,
+    color: AppColors.textPrimary,
+  );
   // Headline Styles
   static TextStyle get headline1 => GoogleFonts.poppins(
     fontSize: 32,

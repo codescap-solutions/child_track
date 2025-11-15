@@ -31,8 +31,8 @@ class ChildTrackApp extends StatelessWidget {
       theme: AppTheme.lightTheme,
       debugShowCheckedModeBanner: false,
       onGenerateRoute: AppRouter.generateRoute,
-     home:HomePage()
-   // home:  OnboardingScreen(),
+   //  home:HomePage()
+   home:  OnboardingScreen(),
     );
   }
 }

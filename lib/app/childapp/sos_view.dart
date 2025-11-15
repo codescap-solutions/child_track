@@ -33,12 +33,22 @@ class SosView extends StatelessWidget {
                 width: 220,
                 height: 220,
                 decoration: BoxDecoration(
+
+                       gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF004CE8), // #004CE8
+              Color(0xFF6F9EFF), // #6F9EFF
+            ],
+          ),
                   shape: BoxShape.circle,
-                  color: Colors.white,
+                  color: Colors.blue,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
+                      color: Colors.blueAccent.withValues(alpha: 0.3),
                       blurRadius: 20,
+                      spreadRadius:40,
                       offset: const Offset(0, 8),
                     ),
                   ],
@@ -50,14 +60,18 @@ class SosView extends StatelessWidget {
                     children: [
                       Text(
                         'SOS',
-                        style: AppTextStyles.headline3.copyWith(
-                          color: AppColors.primaryColor,
+                        style: AppTextStyles.headlineXL.copyWith(
+                          color: AppColors.surfaceColor,
                         ),
                       ),
                       const SizedBox(height: 6),
-                      const Text(
+                       Text(
                         'Press this button\n in emergency',
                         textAlign: TextAlign.center,
+                         style: AppTextStyles.body2.copyWith(
+                          color: AppColors.surfaceColor,
+                          fontWeight: FontWeight.w700
+                        ),
                       ),
                     ],
                   ),

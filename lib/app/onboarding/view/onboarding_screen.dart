@@ -1,3 +1,4 @@
+import 'package:child_track/core/navigation/app_router.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:child_track/core/constants/app_colors.dart';
@@ -135,10 +136,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     // Continue button for navigation
                     CommonButton(
                       text: 'Continue',
-                      onPressed: () => Navigator.push(
+                      onPressed: () { 
+                        _selectedRole== "Kid"?
+  Navigator.of(
+                context,
+              ).pushNamedAndRemoveUntil(RouteNames.addChild, (route) => false):
+                        Navigator.push(
                         context,
                         MaterialPageRoute(builder: (_) => const SignUpView()),
-                      ),
+                      );}
                     ),
                     const SizedBox(height: AppSizes.spacingL),
 
