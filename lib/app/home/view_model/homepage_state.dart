@@ -35,6 +35,7 @@ final class MapLoading extends HomepageState {}
 final class MapLoaded extends HomepageState {
   final Position? currentPosition;
   final Set<Marker> markers;
+  final Set<Polyline> polylines;
   final BitmapDescriptor? kidMarkerIcon;
   final BitmapDescriptor? parentMarkerIcon;
   final GoogleMapController? mapController;
@@ -42,6 +43,7 @@ final class MapLoaded extends HomepageState {
   const MapLoaded({
     this.currentPosition,
     required this.markers,
+    this.polylines = const {},
     this.kidMarkerIcon,
     this.parentMarkerIcon,
     this.mapController,
@@ -51,6 +53,7 @@ final class MapLoaded extends HomepageState {
   List<Object> get props => [
     currentPosition ?? _nullSentinel,
     markers,
+    polylines,
     kidMarkerIcon ?? _nullSentinel,
     parentMarkerIcon ?? _nullSentinel,
     mapController ?? _nullSentinel,
@@ -59,6 +62,7 @@ final class MapLoaded extends HomepageState {
   MapLoaded copyWith({
     Position? currentPosition,
     Set<Marker>? markers,
+    Set<Polyline>? polylines,
     BitmapDescriptor? kidMarkerIcon,
     BitmapDescriptor? parentMarkerIcon,
     GoogleMapController? mapController,
@@ -66,6 +70,7 @@ final class MapLoaded extends HomepageState {
     return MapLoaded(
       currentPosition: currentPosition ?? this.currentPosition,
       markers: markers ?? this.markers,
+      polylines: polylines ?? this.polylines,
       kidMarkerIcon: kidMarkerIcon ?? this.kidMarkerIcon,
       parentMarkerIcon: parentMarkerIcon ?? this.parentMarkerIcon,
       mapController: mapController ?? this.mapController,

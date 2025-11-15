@@ -20,7 +20,7 @@ class _TripRouteMapState extends State<TripRouteMap> {
   final Set<Polyline> _polylines = {};
   final Set<Marker> _markers = {};
   BitmapDescriptor? _startMarkerIcon;
-  BitmapDescriptor? _endMarkerIcon; 
+  BitmapDescriptor? _endMarkerIcon;
   BitmapDescriptor? _intermediateMarkerIcon;
   final LocationService _locationService = LocationService();
   Position? _currentPosition;
@@ -39,6 +39,7 @@ class _TripRouteMapState extends State<TripRouteMap> {
     _mapController?.dispose();
     super.dispose();
   }
+
   Future<void> _getCurrentLocation() async {
     try {
       Position? position = await _locationService.getCurrentPosition();
@@ -138,6 +139,7 @@ class _TripRouteMapState extends State<TripRouteMap> {
       }
     }
   }
+
   void _onMapCreated(GoogleMapController controller) {
     _mapController = controller;
     // If we already have a position, move camera to it
@@ -150,69 +152,73 @@ class _TripRouteMapState extends State<TripRouteMap> {
       );
     }
   }
-@override
-Widget build(BuildContext context) {
-  return Stack(
-    clipBehavior: Clip.none,
-    children: [
-      // Map at the bottom
-      Positioned.fill(
-        child: Card(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(30),
-          ),
-          margin: const EdgeInsets.all(AppSizes.paddingM),
-          child: GoogleMap(
-            onMapCreated: _onMapCreated,
-            initialCameraPosition: CameraPosition(
-              target: const LatLng(12.9716, 77.5946), // Default: Bangalore
-              zoom: _currentPosition != null ? 15.0 : 12.0,
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        // Map at the bottom
+        Positioned.fill(
+          child: Card(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(30),
             ),
-            markers: _markers,
-            myLocationEnabled: true,
-            myLocationButtonEnabled: false,
-            mapType: MapType.satellite,
-            zoomControlsEnabled: false,
-            compassEnabled: false,
-          ),
-        ),
-      ),
-
-      // Title on top of the map
-      Positioned(
-        top: 29,
-        left: 30,
-        right: 0,
-
-        child: Container(
-          width: 100,
-          // height: 30,
-          padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingM, vertical: AppSizes.paddingS),
-          decoration: BoxDecoration(
-            color: AppColors.surfaceColor.withValues(alpha: 0.5),
-            borderRadius: BorderRadius.circular(AppSizes.radiusM),
-          ),
-          child: Text(
-            'Trip Route',
-            style: AppTextStyles.subtitle1.copyWith(
-              color: AppColors.textPrimary,
-              fontWeight: FontWeight.bold,
+            margin: const EdgeInsets.all(AppSizes.paddingM),
+            child: GoogleMap(
+              onMapCreated: _onMapCreated,
+              initialCameraPosition: CameraPosition(
+                target: const LatLng(12.9716, 77.5946), // Default: Bangalore
+                zoom: _currentPosition != null ? 15.0 : 12.0,
+              ),
+              markers: _markers,
+              myLocationEnabled: true,
+              myLocationButtonEnabled: false,
+              mapType: MapType.satellite,
+              zoomControlsEnabled: false,
+              compassEnabled: false,
             ),
           ),
         ),
-      ),
+
+        // Title on top of the map
         Positioned(
-        bottom:30,
-        left: 0,
-        right: 0,
+          top: 29,
+          left: 30,
+          right: 0,
 
-        child: _buildTripTodayCard(context)
-      ),
-    ],
-  );
-}
+          child: Container(
+            width: 100,
+            // height: 30,
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSizes.paddingM,
+              vertical: AppSizes.paddingS,
+            ),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceColor.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(AppSizes.radiusM),
+            ),
+            child: Text(
+              'Trip Route',
+              style: AppTextStyles.subtitle1.copyWith(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+        Positioned(
+          bottom: 30,
+          left: 0,
+          right: 0,
 
- // Trip Today Card
+          child: _buildTripTodayCard(context),
+        ),
+      ],
+    );
+  }
+
+  // Trip Today Card
   Widget _buildTripTodayCard(BuildContext context) {
     return Container(
       height: 85,
@@ -234,7 +240,6 @@ Widget build(BuildContext context) {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              
               Text(
                 '08:43 am - 21:20 pm (12hrs)',
                 style: AppTextStyles.overline.copyWith(
@@ -280,28 +285,25 @@ Widget build(BuildContext context) {
                       ),
                     ),
                   ),
-                 
                 ],
               ),
             ],
           ),
-           const Spacer(),
-                  CommonButton(
-                    padding: EdgeInsets.zero,
-                    width: 80,
-                    text: 'View all',
-                    fontSize: 12,
-                    textColor: AppColors.surfaceColor,
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const TripsView()),
-                    ),
-                    height: 30,
-                  ),
+          const Spacer(),
+          CommonButton(
+            padding: EdgeInsets.zero,
+            width: 80,
+            text: 'View all',
+            fontSize: 12,
+            textColor: AppColors.surfaceColor,
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const TripsView()),
+            ),
+            height: 30,
+          ),
         ],
       ),
     );
   }
-
 }
-

@@ -139,6 +139,7 @@ class _MapSectionState extends State<MapSection> {
           zoom: state.currentPosition != null ? 15.0 : 12.0,
         ),
         markers: state.markers,
+        polylines: state.polylines,
         myLocationEnabled: true,
         myLocationButtonEnabled: false,
         mapType: MapType.normal,

@@ -56,13 +56,20 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
       // Get current location
       Position? position = await _locationService.getCurrentPosition();
       Set<Marker> markers = {};
+      Set<Polyline> polylines = {};
 
       if (position != null) {
+        final kidPosition = LatLng(position.latitude, position.longitude);
+        final parentPosition = LatLng(
+          position.latitude + 0.005,
+          position.longitude + 0.005,
+        );
+
         // Add kid marker
         markers.add(
           Marker(
             markerId: const MarkerId('kid_location'),
-            position: LatLng(position.latitude, position.longitude),
+            position: kidPosition,
             icon: kidMarkerIcon,
             anchor: const Offset(0.5, 1.0),
             infoWindow: const InfoWindow(
@@ -76,16 +83,25 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
         markers.add(
           Marker(
             markerId: const MarkerId('parent_location'),
-            position: LatLng(
-              position.latitude + 0.005,
-              position.longitude + 0.005,
-            ),
+            position: parentPosition,
             icon: parentMarkerIcon,
             anchor: const Offset(0.5, 1.0),
             infoWindow: const InfoWindow(
               title: 'at Office',
               snippet: '1 h 53 m',
             ),
+          ),
+        );
+
+        // Create polyline between kid and parent locations
+        polylines.add(
+          Polyline(
+            polylineId: const PolylineId('route_kid_to_parent'),
+            points: [kidPosition, parentPosition],
+            color: AppColors.primaryColor,
+            width: 4,
+            patterns: [],
+            geodesic: true,
           ),
         );
       } else {
@@ -112,6 +128,7 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
         MapLoaded(
           currentPosition: position,
           markers: markers,
+          polylines: polylines,
           kidMarkerIcon: kidMarkerIcon,
           parentMarkerIcon: parentMarkerIcon,
         ),
@@ -126,8 +143,63 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
       final currentState = state as MapLoaded;
       emit(currentState.copyWith(mapController: event.controller));
 
-      // Move camera to current location if available
-      if (currentState.currentPosition != null) {
+      // Move camera to show all markers if available
+      if (currentState.markers.isNotEmpty) {
+        // If we have multiple markers, fit bounds, otherwise zoom to location
+        if (currentState.markers.length > 1) {
+          // Calculate bounds to include all markers
+          double minLat = double.infinity;
+          double maxLat = -double.infinity;
+          double minLng = double.infinity;
+          double maxLng = -double.infinity;
+
+          for (final marker in currentState.markers) {
+            final lat = marker.position.latitude;
+            final lng = marker.position.longitude;
+            minLat = minLat < lat ? minLat : lat;
+            maxLat = maxLat > lat ? maxLat : lat;
+            minLng = minLng < lng ? minLng : lng;
+            maxLng = maxLng > lng ? maxLng : lng;
+          }
+
+          // Add padding to bounds
+          final latDiff = maxLat - minLat;
+          final lngDiff = maxLng - minLng;
+          final padding = 0.01; // Add 1% padding
+
+          final bounds = LatLngBounds(
+            southwest: LatLng(
+              minLat - (latDiff * padding),
+              minLng - (lngDiff * padding),
+            ),
+            northeast: LatLng(
+              maxLat + (latDiff * padding),
+              maxLng + (lngDiff * padding),
+            ),
+          );
+
+          event.controller.animateCamera(
+            CameraUpdate.newLatLngBounds(bounds, 100.0),
+          );
+        } else if (currentState.currentPosition != null) {
+          // Single marker - zoom to location
+          event.controller.animateCamera(
+            CameraUpdate.newLatLngZoom(
+              LatLng(
+                currentState.currentPosition!.latitude,
+                currentState.currentPosition!.longitude,
+              ),
+              15.0,
+            ),
+          );
+        } else {
+          // Fallback to first marker position
+          final firstMarker = currentState.markers.first;
+          event.controller.animateCamera(
+            CameraUpdate.newLatLngZoom(firstMarker.position, 15.0),
+          );
+        }
+      } else if (currentState.currentPosition != null) {
         event.controller.animateCamera(
           CameraUpdate.newLatLngZoom(
             LatLng(
@@ -159,13 +231,21 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
           ),
         );
 
-        // Update markers
+        // Update markers and polylines
         Set<Marker> markers = {};
+        Set<Polyline> polylines = {};
+
         if (currentState.kidMarkerIcon != null) {
+          final kidPosition = LatLng(position.latitude, position.longitude);
+          final parentPosition = LatLng(
+            position.latitude + 0.005,
+            position.longitude + 0.005,
+          );
+
           markers.add(
             Marker(
               markerId: const MarkerId('kid_location'),
-              position: LatLng(position.latitude, position.longitude),
+              position: kidPosition,
               icon: currentState.kidMarkerIcon!,
               anchor: const Offset(0.5, 1.0),
               infoWindow: const InfoWindow(
@@ -174,27 +254,41 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
               ),
             ),
           );
-        }
-        if (currentState.parentMarkerIcon != null) {
-          markers.add(
-            Marker(
-              markerId: const MarkerId('parent_location'),
-              position: LatLng(
-                position.latitude + 0.005,
-                position.longitude + 0.005,
+
+          if (currentState.parentMarkerIcon != null) {
+            markers.add(
+              Marker(
+                markerId: const MarkerId('parent_location'),
+                position: parentPosition,
+                icon: currentState.parentMarkerIcon!,
+                anchor: const Offset(0.5, 1.0),
+                infoWindow: const InfoWindow(
+                  title: 'at Office',
+                  snippet: '1 h 53 m',
+                ),
               ),
-              icon: currentState.parentMarkerIcon!,
-              anchor: const Offset(0.5, 1.0),
-              infoWindow: const InfoWindow(
-                title: 'at Office',
-                snippet: '1 h 53 m',
+            );
+
+            // Create polyline between kid and parent locations
+            polylines.add(
+              Polyline(
+                polylineId: const PolylineId('route_kid_to_parent'),
+                points: [kidPosition, parentPosition],
+                color: AppColors.primaryColor,
+                width: 4,
+                patterns: [],
+                geodesic: true,
               ),
-            ),
-          );
+            );
+          }
         }
 
         emit(
-          currentState.copyWith(currentPosition: position, markers: markers),
+          currentState.copyWith(
+            currentPosition: position,
+            markers: markers,
+            polylines: polylines,
+          ),
         );
       }
     } catch (e) {
@@ -353,8 +447,15 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
     final ByteData? byteData = await image.toByteData(
       format: ui.ImageByteFormat.png,
     );
-    final Uint8List uint8List = byteData!.buffer.asUint8List();
 
+    if (byteData == null) {
+      // Fallback to default marker if image creation fails
+      return BitmapDescriptor.defaultMarker;
+    }
+
+    final Uint8List uint8List = byteData.buffer.asUint8List();
+
+    // For Android compatibility, ensure the image is properly formatted
     return BitmapDescriptor.fromBytes(uint8List);
   }
 }
