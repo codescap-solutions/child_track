@@ -25,7 +25,7 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     // Show bottom sheet after the first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // _showStickyBottomSheet(context);
+       _showStickyBottomSheet(context);
     });
   }
 

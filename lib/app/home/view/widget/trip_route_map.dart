@@ -20,7 +20,7 @@ class _TripRouteMapState extends State<TripRouteMap> {
   final Set<Polyline> _polylines = {};
   final Set<Marker> _markers = {};
   BitmapDescriptor? _startMarkerIcon;
-  BitmapDescriptor? _endMarkerIcon;
+  BitmapDescriptor? _endMarkerIcon; 
   BitmapDescriptor? _intermediateMarkerIcon;
   final LocationService _locationService = LocationService();
   Position? _currentPosition;
