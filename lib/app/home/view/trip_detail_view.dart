@@ -1,11 +1,202 @@
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:child_track/core/constants/app_colors.dart';
 import 'package:child_track/core/constants/app_sizes.dart';
 import 'package:child_track/core/constants/app_text_styles.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 /// Trip Detail View - Shows detailed trip with map and timeline
-class TripDetailView extends StatelessWidget {
+class TripDetailView extends StatefulWidget {
   const TripDetailView({super.key});
+
+  @override
+  State<TripDetailView> createState() => _TripDetailViewState();
+}
+
+class _TripDetailViewState extends State<TripDetailView> {
+  GoogleMapController? _mapController;
+  
+  // Static route coordinates: Kamakshi Palaya to Cubbon Park, Bangalore
+  static const LatLng _startLocation = LatLng(12.9716, 77.5946); // Kamakshi Palaya area
+  static const LatLng _endLocation = LatLng(12.9764, 77.5928); // Cubbon Park area
+  
+  // Intermediate points for a more detailed route
+  final List<LatLng> _routePoints = const [
+    LatLng(12.9716, 77.5946), // Start: Kamakshi Palaya
+    LatLng(12.9720, 77.5940),
+    LatLng(12.9725, 77.5935),
+    LatLng(12.9730, 77.5932),
+    LatLng(12.9735, 77.5930),
+    LatLng(12.9740, 77.5928),
+    LatLng(12.9745, 77.5925),
+    LatLng(12.9750, 77.5926),
+    LatLng(12.9755, 77.5925),
+    LatLng(12.9760, 77.5927),
+    LatLng(12.9764, 77.5928), // End: Cubbon Park
+  ];
+  
+  final Set<Marker> _markers = {};
+  final Set<Polyline> _polylines = {};
+  BitmapDescriptor? _homeIcon;
+  BitmapDescriptor? _schoolIcon;
+  
+  @override
+  void initState() {
+    super.initState();
+    _createCustomIcons();
+  }
+  
+  Future<void> _createCustomIcons() async {
+    // Create home icon marker
+    _homeIcon = await _createMarkerIcon(
+      Icons.home,
+      AppColors.primaryColor,
+    );
+    
+    // Create school icon marker
+    _schoolIcon = await _createMarkerIcon(
+      Icons.school,
+      AppColors.success,
+    );
+    
+    _initializeMap();
+  }
+  
+  Future<BitmapDescriptor> _createMarkerIcon(IconData icon, Color color) async {
+    final size = 50.0;
+    final pictureRecorder = ui.PictureRecorder();
+    final canvas = Canvas(pictureRecorder);
+    
+    // Draw circle background
+    final paint = Paint()..color = color;
+    canvas.drawCircle(
+      Offset(size / 2, size / 2),
+      size / 2 - 3,
+      paint,
+    );
+    
+    // Draw white border
+    final borderPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3;
+    canvas.drawCircle(
+      Offset(size / 2, size / 2),
+      size / 2 - 3,
+      borderPaint,
+    );
+    
+    // Draw icon using a simple approach - create text with icon
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: String.fromCharCode(icon.codePoint),
+        style: TextStyle(
+          fontSize: 28,
+          fontFamily: icon.fontFamily,
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+      textAlign: TextAlign.center,
+    );
+    textPainter.layout();
+    textPainter.paint(
+      canvas,
+      Offset(
+        (size - textPainter.width) / 2,
+        (size - textPainter.height) / 2,
+      ),
+    );
+    
+    final picture = pictureRecorder.endRecording();
+    final image = await picture.toImage(size.toInt(), size.toInt());
+    final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+    final bitmap = bytes!.buffer.asUint8List();
+    
+    return BitmapDescriptor.fromBytes(bitmap);
+  }
+  
+  void _initializeMap() {
+    if (_homeIcon == null || _schoolIcon == null) return;
+    
+    // Create start marker (Home)
+    _markers.add(
+      Marker(
+        markerId: const MarkerId('start'),
+        position: _startLocation,
+        icon: _homeIcon!,
+        infoWindow: const InfoWindow(
+          title: 'Home',
+          snippet: 'Kamakshi Palaya',
+        ),
+      ),
+    );
+    
+    // Create end marker (School)
+    _markers.add(
+      Marker(
+        markerId: const MarkerId('end'),
+        position: _endLocation,
+        icon: _schoolIcon!,
+        infoWindow: const InfoWindow(
+          title: 'School',
+          snippet: 'Cubbon Park',
+        ),
+      ),
+    );
+    
+    // Create polyline for route
+    _polylines.add(
+      Polyline(
+        polylineId: const PolylineId('route'),
+        points: _routePoints,
+        color: Colors.purple,
+        width: 4,
+        patterns: [],
+      ),
+    );
+    
+    setState(() {});
+  }
+  
+  void _onMapCreated(GoogleMapController controller) {
+    _mapController = controller;
+    // Fit bounds to show entire route
+    Future.delayed(const Duration(milliseconds: 500), () {
+      _mapController?.animateCamera(
+        CameraUpdate.newLatLngBounds(
+          _boundsFromLatLngList(_routePoints),
+          100.0, // padding
+        ),
+      );
+    });
+  }
+  
+  LatLngBounds _boundsFromLatLngList(List<LatLng> list) {
+    double? minLat, maxLat, minLng, maxLng;
+    for (var latLng in list) {
+      minLat ??= latLng.latitude;
+      maxLat ??= latLng.latitude;
+      minLng ??= latLng.longitude;
+      maxLng ??= latLng.longitude;
+      
+      if (latLng.latitude < minLat) minLat = latLng.latitude;
+      if (latLng.latitude > maxLat) maxLat = latLng.latitude;
+      if (latLng.longitude < minLng) minLng = latLng.longitude;
+      if (latLng.longitude > maxLng) maxLng = latLng.longitude;
+    }
+    return LatLngBounds(
+      southwest: LatLng(minLat!, minLng!),
+      northeast: LatLng(maxLat!, maxLng!),
+    );
+  }
+  
+  @override
+  void dispose() {
+    _mapController?.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -81,33 +272,33 @@ class TripDetailView extends StatelessWidget {
                             time: '08:49',
                             color: AppColors.primaryColor,
                           ),
-                          _buildTimelineItem(
-                            icon: Icons.directions_bus,
-                            title: 'Ride',
-                            subtitle: '6.4km (37min)',
-                            time: null,
-                            badge: 'max speed - 24.5 kmp',
-                            color: AppColors.info,
-                          ),
+                          // _buildTimelineItem(
+                          //   icon: Icons.directions_bus,
+                          //   title: 'Ride',
+                          //   subtitle: '6.4km (37min)',
+                          //   time: null,
+                          //   badge: 'max speed - 24.5 kmp',
+                          //   color: AppColors.info,
+                          // ),
                           _buildTimelineItem(
                             icon: Icons.school,
                             title: 'School',
                             time: '09:21',
                             color: AppColors.success,
                           ),
-                          // Additional items for scroll demonstration
-                          _buildTimelineItem(
-                            icon: Icons.restaurant,
-                            title: 'Lunch Break',
-                            time: '12:30',
-                            color: AppColors.warning,
-                          ),
-                          _buildTimelineItem(
-                            icon: Icons.home,
-                            title: 'Home',
-                            time: '21:20',
-                            color: AppColors.primaryColor,
-                          ),
+                          // // Additional items for scroll demonstration
+                          // _buildTimelineItem(
+                          //   icon: Icons.restaurant,
+                          //   title: 'Lunch Break',
+                          //   time: '12:30',
+                          //   color: AppColors.warning,
+                          // ),
+                          // _buildTimelineItem(
+                          //   icon: Icons.home,
+                          //   title: 'Home',
+                          //   time: '21:20',
+                          //   color: AppColors.primaryColor,
+                          // ),
                         ],
                       ),
                     ),
@@ -121,198 +312,80 @@ class TripDetailView extends StatelessWidget {
     );
   }
 
-  // Map Section with beach-sand color placeholder (MAP-SCREEN RULE)
+  // Map Section with Google Maps showing route
   Widget _buildMapSection(BuildContext context) {
-    return Container(
-      color: AppColors.beach,
-      child: Stack(
-        children: [
-          // Base beach-sand colored container
-          Positioned.fill(child: Container(color: AppColors.beach)),
+    return Stack(
+      children: [
+        // Google Map (Full screen)
+        Positioned.fill(
+          child:     GoogleMap(
+              onMapCreated: _onMapCreated,
+              initialCameraPosition: CameraPosition(
+                target: _startLocation,
+                zoom: 13.0,
+              ),
+              markers: _markers,
+              polylines: _polylines,
+              mapType: MapType.normal,
+              myLocationEnabled: false,
+              myLocationButtonEnabled: false,
+              zoomControlsEnabled: false,
+              compassEnabled: false,
+              mapToolbarEnabled: false,
+            ),
+        ),
 
-          // App Bar Overlay
-          SafeArea(
-            child: AppBar(
-              backgroundColor: Colors.transparent,
-              elevation: 0,
-              leading: IconButton(
+        // App Bar Overlay
+        SafeArea(
+          child: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            leading: Container(
+              margin: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceColor.withValues(alpha: 0.9),
+                shape: BoxShape.circle,
+              ),
+              child: IconButton(
                 icon: const Icon(Icons.arrow_back_ios_new, size: 18),
                 color: AppColors.textPrimary,
                 onPressed: () => Navigator.of(context).maybePop(),
               ),
-              title: const Text(
-                'Trips',
-                style: TextStyle(color: AppColors.textPrimary),
-              ),
-              centerTitle: true,
             ),
-          ),
-
-          // Map Controls (Top Right)
-          Positioned(
-            top: MediaQuery.of(context).padding.top + AppSizes.paddingL,
-            right: AppSizes.paddingL,
-            child: Column(
-              children: [
-                // Map Layers Icon
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceColor,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.1),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.layers,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: AppSizes.spacingS),
-                // Share Icon
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceColor,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.1),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.share,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Purple Route Line
-          Positioned(
-            left: 80,
-            right: 80,
-            top: 200,
-            bottom: 300,
-            child: CustomPaint(painter: _RoutePainter(), child: Container()),
-          ),
-
-          // START Marker (Green with house icon)
-          Positioned(
-            left: 60,
-            top: 200,
-            child: Container(
+            title: Container(
               padding: const EdgeInsets.symmetric(
                 horizontal: AppSizes.paddingM,
                 vertical: AppSizes.paddingS,
               ),
               decoration: BoxDecoration(
-                color: AppColors.success,
+                color: AppColors.surfaceColor.withValues(alpha: 0.9),
                 borderRadius: BorderRadius.circular(AppSizes.radiusM),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.2),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.home,
-                    size: 20,
-                    color: AppColors.surfaceColor,
-                  ),
-                  const SizedBox(width: AppSizes.spacingXS),
-                  Text(
-                    'START',
-                    style: AppTextStyles.subtitle2.copyWith(
-                      color: AppColors.surfaceColor,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
+              child: const Text(
+                'Trip Details',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
+            centerTitle: true,
           ),
+        ),
 
-          // FINISH Marker (Green with tree icon)
-          Positioned(
-            right: 60,
-            bottom: 350,
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSizes.paddingM,
-                vertical: AppSizes.paddingS,
-              ),
-              decoration: BoxDecoration(
-                color: AppColors.success,
-                borderRadius: BorderRadius.circular(AppSizes.radiusM),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.2),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.park,
-                    size: 20,
-                    color: AppColors.surfaceColor,
-                  ),
-                  const SizedBox(width: AppSizes.spacingXS),
-                  Text(
-                    'FINISH',
-                    style: AppTextStyles.subtitle2.copyWith(
-                      color: AppColors.surfaceColor,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // Location Labels (Placeholder)
-          Positioned(
-            left: AppSizes.paddingL,
-            top: 150,
-            child: _buildLocationLabel('RAJAJINAGAR'),
-          ),
-          Positioned(
-            right: AppSizes.paddingL,
-            top: 180,
-            child: _buildLocationLabel('Bengaluru'),
-          ),
-          Positioned(
-            left: AppSizes.paddingL,
-            bottom: 400,
-            child: _buildLocationLabel('HEBBAL'),
-          ),
-          Positioned(
-            right: AppSizes.paddingL,
-            bottom: 450,
-            child: _buildLocationLabel('BANASHANKARI'),
-          ),
-        ],
-      ),
+        // Location labels overlay
+        Positioned(
+          left: AppSizes.paddingL,
+          top: 100,
+          child: _buildLocationLabel('Kamakshi Palaya'),
+        ),
+        
+        Positioned(
+          right: AppSizes.paddingL,
+          bottom: 200,
+          child: _buildLocationLabel('Cubbon Park'),
+        ),
+      ],
     );
   }
 
@@ -361,6 +434,7 @@ class TripDetailView extends StatelessWidget {
                 ),
                 child: Icon(icon, color: color, size: 20),
               ),
+              if(icon == Icons.home)
               Container(width: 2, height: 60, color: AppColors.borderColor),
             ],
           ),
@@ -431,6 +505,46 @@ class TripDetailView extends StatelessWidget {
                       ),
                   ],
                 ),
+                const SizedBox(height: AppSizes.spacingXS),
+                if(icon == Icons.home)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(AppSizes.paddingS),
+                decoration: BoxDecoration(
+                  color: AppColors.containerBackground,
+                  borderRadius: BorderRadius.circular(AppSizes.radiusL),
+                ),
+                child:Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                  Text('Ride'),
+                  Text('6.4km (37min)'),
+                    const SizedBox(height: AppSizes.spacingXS),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: AppSizes.paddingS,
+                                vertical: AppSizes.paddingXS,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.primaryColor.withValues(
+                                  alpha: 0.1,
+                                ),
+                                borderRadius: BorderRadius.circular(
+                                  AppSizes.radiusS,
+                                ),
+                              ),
+                              child: Text(
+                              'max speed - 24.5 kmp',
+                                style: AppTextStyles.caption.copyWith(
+                                  color: AppColors.primaryColor,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+
+                  ],
+                ),
+              )
               ],
             ),
           ),
@@ -438,49 +552,4 @@ class TripDetailView extends StatelessWidget {
       ),
     );
   }
-}
-
-// Custom Painter for Route Line
-class _RoutePainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.purple
-      ..strokeWidth = 4
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    final path = Path();
-    path.moveTo(0, size.height * 0.2);
-    path.quadraticBezierTo(
-      size.width * 0.3,
-      size.height * 0.4,
-      size.width * 0.5,
-      size.height * 0.5,
-    );
-    path.quadraticBezierTo(
-      size.width * 0.7,
-      size.height * 0.6,
-      size.width,
-      size.height * 0.8,
-    );
-
-    canvas.drawPath(path, paint);
-
-    // Draw bus stop markers along route
-    final markerPaint = Paint()
-      ..color = Colors.yellow
-      ..style = PaintingStyle.fill;
-
-    for (int i = 0; i < 5; i++) {
-      final t = i / 5.0;
-      final x = size.width * (0.2 + t * 0.6);
-      final y = size.height * (0.3 + t * 0.5);
-      canvas.drawCircle(Offset(x, y), 8, markerPaint);
-      canvas.drawCircle(Offset(x, y), 8, paint..style = PaintingStyle.stroke);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
