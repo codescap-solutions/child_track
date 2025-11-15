@@ -1,6 +1,6 @@
 class AppStrings {
   // Keys
-  static const String googleMapsApiKey = 'AIzaSyCJo0TlYEdzrLtZQcJZlSoHgu4z_zxTEVw';
+  static const String googleMapsApiKey = 'AIzaSyDEI8zQzcoJQ833eangJ-dUqldtyy3OwZg';
   // App Info
   static const String appName = 'Child Track';
   static const String appTitle = 'Child Track';
