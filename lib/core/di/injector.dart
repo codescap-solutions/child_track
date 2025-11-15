@@ -5,6 +5,7 @@ import '../services/shared_prefs_service.dart';
 import '../../app/auth/view_model/auth_repository.dart';
 import '../../app/auth/view_model/bloc/auth_bloc.dart';
 import '../../app/home/view_model/homepage_bloc.dart';
+import '../../app/map/view_model/map_bloc.dart';
 
 final GetIt injector = GetIt.instance;
 
@@ -29,7 +30,8 @@ Future<void> initializeDependencies() async {
     ),
   );
 
-  // Register ViewModels
+  // Register blocs
   injector.registerLazySingleton<AuthBloc>(() => AuthBloc());
   injector.registerLazySingleton<HomepageBloc>(() => HomepageBloc());
+  injector.registerLazySingleton<MapBloc>(() => MapBloc());
 }

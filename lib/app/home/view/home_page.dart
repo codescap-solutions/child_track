@@ -1,4 +1,4 @@
-import 'package:child_track/app/home/view/widget/homemap.dart';
+import 'package:child_track/app/map/view/map_view.dart';
 import 'package:flutter/material.dart';
 import 'package:child_track/core/constants/app_colors.dart';
 import 'package:child_track/core/constants/app_sizes.dart';
@@ -8,9 +8,6 @@ import 'package:flutter_svg/svg.dart';
 import '../../settings/view/settings_view.dart';
 import '../../social_apps/view/social_apps_view.dart';
 import 'child_location_detail_view.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:flutter_polyline_points/flutter_polyline_points.dart';
-import 'dart:async';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -23,105 +20,9 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    // Show bottom sheet after the first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
-       _showStickyBottomSheet(context);
+      _showStickyBottomSheet(context);
     });
-  }
-
-  //map
-  List<Marker> markers = [];
-  PolylinePoints polylinePoints = PolylinePoints(
-    apiKey: 'AIzaSyCJo0TlYEdzrLtZQcJZlSoHgu4z_zxTEVw',
-  );
-  Map<PolylineId, Polyline> polylines = {};
-  late GoogleMapController googleMapController;
-  final Completer<GoogleMapController> completer = Completer();
-
-  void onMapCreated(GoogleMapController controller) {
-    googleMapController = controller;
-    if (!completer.isCompleted) {
-      completer.complete(controller);
-    }
-  }
-
-  addMarker(latLng, newSetState) {
-    markers.add(
-      Marker(
-        consumeTapEvents: true,
-        markerId: MarkerId(latLng.toString()),
-        position: latLng,
-        onTap: () {
-          markers.removeWhere(
-            (element) => element.markerId == MarkerId(latLng.toString()),
-          );
-          if (markers.length > 1) {
-            getDirections(markers, newSetState);
-          } else {
-            polylines.clear();
-          }
-          newSetState(() {});
-        },
-      ),
-    );
-    if (markers.length > 1) {
-      getDirections(markers, newSetState);
-    }
-
-    newSetState(() {});
-  }
-
-  getDirections(List<Marker> markers, newSetState) async {
-    List<LatLng> polylineCoordinates = [];
-    List<PolylineWayPoint> polylineWayPoints = [];
-    for (var i = 0; i < markers.length; i++) {
-      polylineWayPoints.add(
-        PolylineWayPoint(
-          location:
-              "${markers[i].position.latitude.toString()},${markers[i].position.longitude.toString()}",
-          stopOver: true,
-        ),
-      );
-    }
-    // result gets little bit late as soon as in video, because package // send http request for getting real road routes
-    PolylineResult result = await polylinePoints.getRouteBetweenCoordinates(
-      request: PolylineRequest(
-        origin: PointLatLng(
-          markers.first.position.latitude,
-          markers.first.position.longitude,
-        ),
-        destination: PointLatLng(
-          markers.last.position.latitude,
-          markers.last.position.longitude,
-        ),
-        mode: TravelMode.driving,
-      ),
-    );
-    // Sometimes There is no result for example you can put maker to the // ocean, if results not empty adding to polylineCoordinates
-    if (result.points.isNotEmpty) {
-      result.points.forEach((PointLatLng point) {
-        polylineCoordinates.add(LatLng(point.latitude, point.longitude));
-      });
-    } else {
-      print(result.errorMessage);
-    }
-
-    newSetState(() {});
-
-    addPolyLine(polylineCoordinates, newSetState);
-  }
-
-  addPolyLine(List<LatLng> polylineCoordinates, newSetState) {
-    PolylineId id = PolylineId("poly");
-    Polyline polyline = Polyline(
-      polylineId: id,
-      color: Colors.blue,
-      points: polylineCoordinates,
-      width: 4,
-    );
-    polylines[id] = polyline;
-
-    newSetState(() {});
   }
 
   //
@@ -271,26 +172,7 @@ class _HomePageState extends State<HomePage> {
               title: const Text(''),
 
               // background: const MapSection(),
-              background: SizedBox(
-                width: 400,
-                height: 500,
-                child: GoogleMap(
-                  mapToolbarEnabled: false,
-                  onMapCreated: onMapCreated,
-                  polylines: Set<Polyline>.of(polylines.values),
-                  initialCameraPosition: const CameraPosition(
-                    target: LatLng(38.437532, 27.149606),
-                    zoom: 10,
-                  ),
-                  markers: markers.toSet(),
-                  myLocationEnabled: true,
-                  myLocationButtonEnabled: true,
-                  onTap: (newLatLng) async {
-                    await addMarker(newLatLng, setState);
-                    setState(() {});
-                  },
-                ),
-              ),
+              background: const MapViewWidget(width: 400, height: 500),
             ),
           ),
         ],
@@ -315,7 +197,6 @@ class _HomePageState extends State<HomePage> {
                   children: [
                     Text(
                       'Kid at School',
-
                       style: AppTextStyles.headline3.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
