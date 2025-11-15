@@ -19,12 +19,15 @@ class MapViewWidget extends StatelessWidget {
           builder: (context, state) {
             if (state is MapLoaded) {
               return GoogleMap(
+                mapType: MapType.normal,
                 mapToolbarEnabled: false,
+                zoomControlsEnabled: false,
+                compassEnabled: false,
                 onMapCreated: (controller) {
                   injector<MapBloc>().add(MapCreated(controller));
                 },
                 polylines: Set<Polyline>.of(state.polylines.values),
-                initialCameraPosition:  CameraPosition(
+                initialCameraPosition: CameraPosition(
                   target: state.currentPosition,
                   zoom: 10,
                 ),
