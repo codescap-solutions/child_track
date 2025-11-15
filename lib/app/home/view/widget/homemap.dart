@@ -2,6 +2,7 @@
 import 'package:child_track/core/constants/app_colors.dart';
 import 'package:child_track/core/constants/app_sizes.dart';
 import 'package:child_track/core/di/injector.dart';
+import 'package:child_track/core/utils/app_logger.dart';
 import 'package:child_track/app/home/view_model/homepage_bloc.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -20,12 +21,15 @@ class _MapSectionState extends State<MapSection> {
   @override
   void initState() {
     super.initState();
+    AppLogger.info('🗺️ MapSection: initState called');
     _homepageBloc = injector<HomepageBloc>();
     // Initialize map when widget is created
+    AppLogger.info('🗺️ MapSection: Initializing map...');
     _homepageBloc.add(InitializeMap());
   }
 
   void _onMapCreated(GoogleMapController controller) {
+    AppLogger.info('🗺️ MapSection: Map controller created successfully!');
     _homepageBloc.add(MapCreated(controller));
   }
 
@@ -107,7 +111,10 @@ class _MapSectionState extends State<MapSection> {
   }
 
   Widget _buildMapContent(HomepageState state) {
+    AppLogger.info('🗺️ MapSection: Building map content, state: ${state.runtimeType}');
+    
     if (state is MapLoading || state is MapInitial) {
+      AppLogger.info('🗺️ MapSection: Map is loading or initializing...');
       return Container(
         color: AppColors.beach,
         child: const Center(child: CircularProgressIndicator()),
@@ -115,6 +122,7 @@ class _MapSectionState extends State<MapSection> {
     }
 
     if (state is MapError) {
+      AppLogger.error('🗺️ MapSection: Map error - ${state.message}');
       return Container(
         color: AppColors.beach,
         child: Center(
@@ -127,15 +135,23 @@ class _MapSectionState extends State<MapSection> {
     }
 
     if (state is MapLoaded) {
+      final initialTarget = state.currentPosition != null
+          ? LatLng(
+              state.currentPosition!.latitude,
+              state.currentPosition!.longitude,
+            )
+          : const LatLng(12.9716, 77.5946); // Default: Bangalore
+      
+      AppLogger.info('🗺️ MapSection: Map loaded successfully!');
+      AppLogger.info('🗺️ MapSection: Current position: ${state.currentPosition != null ? "Lat: ${state.currentPosition!.latitude}, Lng: ${state.currentPosition!.longitude}" : "NULL"}');
+      AppLogger.info('🗺️ MapSection: Initial target: Lat: ${initialTarget.latitude}, Lng: ${initialTarget.longitude}');
+      AppLogger.info('🗺️ MapSection: Markers count: ${state.markers.length}');
+      AppLogger.info('🗺️ MapSection: MapType: MapType.normal');
+      
       return GoogleMap(
         onMapCreated: _onMapCreated,
         initialCameraPosition: CameraPosition(
-          target: state.currentPosition != null
-              ? LatLng(
-                  state.currentPosition!.latitude,
-                  state.currentPosition!.longitude,
-                )
-              : const LatLng(12.9716, 77.5946), // Default: Bangalore
+          target: initialTarget,
           zoom: state.currentPosition != null ? 15.0 : 12.0,
         ),
         markers: state.markers,
@@ -144,10 +160,17 @@ class _MapSectionState extends State<MapSection> {
         mapType: MapType.normal,
         zoomControlsEnabled: false,
         compassEnabled: false,
+        onCameraMoveStarted: () {
+          AppLogger.info('🗺️ MapSection: Camera move started');
+        },
+        onCameraIdle: () {
+          AppLogger.info('🗺️ MapSection: Camera idle');
+        },
       );
     }
 
     // Fallback for other states
+    AppLogger.warning('🗺️ MapSection: Unknown state, showing fallback');
     return Container(
       color: AppColors.beach,
       child: const Center(child: CircularProgressIndicator()),

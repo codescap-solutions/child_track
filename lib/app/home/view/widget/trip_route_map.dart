@@ -2,6 +2,7 @@ import 'package:child_track/app/home/view/trips_view.dart';
 import 'package:child_track/core/constants/app_sizes.dart';
 import 'package:child_track/core/constants/app_text_styles.dart';
 import 'package:child_track/core/services/location_service.dart';
+import 'package:child_track/core/utils/app_logger.dart';
 import 'package:child_track/core/widgets/common_button.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
@@ -31,6 +32,7 @@ class _TripRouteMapState extends State<TripRouteMap> {
   @override
   void initState() {
     super.initState();
+    AppLogger.info('🗺️ TripRouteMap: initState called');
     _getCurrentLocation();
   }
 
@@ -40,12 +42,17 @@ class _TripRouteMapState extends State<TripRouteMap> {
     super.dispose();
   }
   Future<void> _getCurrentLocation() async {
+    AppLogger.info('📍 TripRouteMap: Starting to get current location...');
     try {
       Position? position = await _locationService.getCurrentPosition();
+      AppLogger.info('📍 TripRouteMap: getCurrentPosition returned: ${position != null ? "SUCCESS" : "NULL"}');
+      
       if (position != null && mounted) {
+        AppLogger.info('📍 TripRouteMap: Position received - Lat: ${position.latitude}, Lng: ${position.longitude}');
         setState(() {
           _currentPosition = position;
           _isLoading = false;
+          AppLogger.info('📍 TripRouteMap: State updated with position, isLoading: false');
           // Add kid marker for current location
           if (_kidMarkerIcon != null) {
             _markers.add(
@@ -60,6 +67,9 @@ class _TripRouteMapState extends State<TripRouteMap> {
                 ),
               ),
             );
+            AppLogger.info('📍 TripRouteMap: Kid marker added');
+          } else {
+            AppLogger.warning('📍 TripRouteMap: _kidMarkerIcon is null, cannot add kid marker');
           }
 
           // Add parent/office marker (slightly offset for demo)
@@ -80,20 +90,30 @@ class _TripRouteMapState extends State<TripRouteMap> {
                 ),
               ),
             );
+            AppLogger.info('📍 TripRouteMap: Parent marker added');
           }
         });
 
         // Move camera to current location
-        _mapController?.animateCamera(
-          CameraUpdate.newLatLngZoom(
-            LatLng(position.latitude, position.longitude),
-            15.0,
-          ),
-        );
+        if (_mapController != null) {
+          AppLogger.info('📍 TripRouteMap: Moving camera to current location');
+          _mapController?.animateCamera(
+            CameraUpdate.newLatLngZoom(
+              LatLng(position.latitude, position.longitude),
+              15.0,
+            ),
+          );
+        } else {
+          AppLogger.warning('📍 TripRouteMap: Map controller is null, cannot move camera');
+        }
       } else {
+        AppLogger.warning('📍 TripRouteMap: Position is null or widget not mounted, trying last known position...');
         // If current position fails, try last known position
         Position? lastPosition = await _locationService.getLastKnownPosition();
+        AppLogger.info('📍 TripRouteMap: getLastKnownPosition returned: ${lastPosition != null ? "SUCCESS" : "NULL"}');
+        
         if (lastPosition != null && mounted) {
+          AppLogger.info('📍 TripRouteMap: Last known position - Lat: ${lastPosition.latitude}, Lng: ${lastPosition.longitude}');
           setState(() {
             _currentPosition = lastPosition;
             _isLoading = false;
@@ -115,13 +135,16 @@ class _TripRouteMapState extends State<TripRouteMap> {
               );
             }
           });
-          _mapController?.animateCamera(
-            CameraUpdate.newLatLngZoom(
-              LatLng(lastPosition.latitude, lastPosition.longitude),
-              15.0,
-            ),
-          );
+          if (_mapController != null) {
+            _mapController?.animateCamera(
+              CameraUpdate.newLatLngZoom(
+                LatLng(lastPosition.latitude, lastPosition.longitude),
+                15.0,
+              ),
+            );
+          }
         } else {
+          AppLogger.warning('📍 TripRouteMap: No location available, using default location (Bangalore)');
           // Default location (if no location available)
           if (mounted) {
             setState(() {
@@ -130,7 +153,8 @@ class _TripRouteMapState extends State<TripRouteMap> {
           }
         }
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppLogger.error('❌ TripRouteMap: Error getting location', e, stackTrace);
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -139,19 +163,35 @@ class _TripRouteMapState extends State<TripRouteMap> {
     }
   }
   void _onMapCreated(GoogleMapController controller) {
+    AppLogger.info('🗺️ TripRouteMap: Map controller created successfully!');
     _mapController = controller;
+    
     // If we already have a position, move camera to it
     if (_currentPosition != null) {
+      AppLogger.info('🗺️ TripRouteMap: Moving camera to existing position - Lat: ${_currentPosition!.latitude}, Lng: ${_currentPosition!.longitude}');
       controller.animateCamera(
         CameraUpdate.newLatLngZoom(
           LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
           15.0,
         ),
       );
+    } else {
+      AppLogger.warning('🗺️ TripRouteMap: No current position available when map was created');
     }
   }
 @override
 Widget build(BuildContext context) {
+  final initialTarget = _currentPosition != null
+      ? LatLng(_currentPosition!.latitude, _currentPosition!.longitude)
+      : const LatLng(12.9716, 77.5946); // Default: Bangalore
+  
+  AppLogger.info('🗺️ TripRouteMap: Building map widget');
+  AppLogger.info('🗺️ TripRouteMap: isLoading = $_isLoading');
+  AppLogger.info('🗺️ TripRouteMap: currentPosition = ${_currentPosition != null ? "Lat: ${_currentPosition!.latitude}, Lng: ${_currentPosition!.longitude}" : "NULL"}');
+  AppLogger.info('🗺️ TripRouteMap: initialTarget = Lat: ${initialTarget.latitude}, Lng: ${initialTarget.longitude}');
+  AppLogger.info('🗺️ TripRouteMap: markers count = ${_markers.length}');
+  AppLogger.info('🗺️ TripRouteMap: mapType = MapType.normal');
+  
   return Stack(
     clipBehavior: Clip.none,
     children: [
@@ -165,15 +205,21 @@ Widget build(BuildContext context) {
           child: GoogleMap(
             onMapCreated: _onMapCreated,
             initialCameraPosition: CameraPosition(
-              target: const LatLng(12.9716, 77.5946), // Default: Bangalore
+              target: initialTarget,
               zoom: _currentPosition != null ? 15.0 : 12.0,
             ),
             markers: _markers,
             myLocationEnabled: true,
             myLocationButtonEnabled: false,
-            mapType: MapType.satellite,
+            mapType: MapType.normal,
             zoomControlsEnabled: false,
             compassEnabled: false,
+            onCameraMoveStarted: () {
+              AppLogger.info('🗺️ TripRouteMap: Camera move started');
+            },
+            onCameraIdle: () {
+              AppLogger.info('🗺️ TripRouteMap: Camera idle');
+            },
           ),
         ),
       ),
