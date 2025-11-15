@@ -7,8 +7,10 @@ import 'package:child_track/core/widgets/common_button.dart';
 import 'package:flutter_svg/svg.dart';
 import '../../settings/view/settings_view.dart';
 import '../../social_apps/view/social_apps_view.dart';
-import 'trips_view.dart';
 import 'child_location_detail_view.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter_polyline_points/flutter_polyline_points.dart';
+import 'dart:async';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -23,9 +25,106 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     // Show bottom sheet after the first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _showStickyBottomSheet(context);
+       _showStickyBottomSheet(context);
     });
   }
+
+  //map
+  List<Marker> markers = [];
+  PolylinePoints polylinePoints = PolylinePoints(
+    apiKey: 'AIzaSyCJo0TlYEdzrLtZQcJZlSoHgu4z_zxTEVw',
+  );
+  Map<PolylineId, Polyline> polylines = {};
+  late GoogleMapController googleMapController;
+  final Completer<GoogleMapController> completer = Completer();
+
+  void onMapCreated(GoogleMapController controller) {
+    googleMapController = controller;
+    if (!completer.isCompleted) {
+      completer.complete(controller);
+    }
+  }
+
+  addMarker(latLng, newSetState) {
+    markers.add(
+      Marker(
+        consumeTapEvents: true,
+        markerId: MarkerId(latLng.toString()),
+        position: latLng,
+        onTap: () {
+          markers.removeWhere(
+            (element) => element.markerId == MarkerId(latLng.toString()),
+          );
+          if (markers.length > 1) {
+            getDirections(markers, newSetState);
+          } else {
+            polylines.clear();
+          }
+          newSetState(() {});
+        },
+      ),
+    );
+    if (markers.length > 1) {
+      getDirections(markers, newSetState);
+    }
+
+    newSetState(() {});
+  }
+
+  getDirections(List<Marker> markers, newSetState) async {
+    List<LatLng> polylineCoordinates = [];
+    List<PolylineWayPoint> polylineWayPoints = [];
+    for (var i = 0; i < markers.length; i++) {
+      polylineWayPoints.add(
+        PolylineWayPoint(
+          location:
+              "${markers[i].position.latitude.toString()},${markers[i].position.longitude.toString()}",
+          stopOver: true,
+        ),
+      );
+    }
+    // result gets little bit late as soon as in video, because package // send http request for getting real road routes
+    PolylineResult result = await polylinePoints.getRouteBetweenCoordinates(
+      request: PolylineRequest(
+        origin: PointLatLng(
+          markers.first.position.latitude,
+          markers.first.position.longitude,
+        ),
+        destination: PointLatLng(
+          markers.last.position.latitude,
+          markers.last.position.longitude,
+        ),
+        mode: TravelMode.driving,
+      ),
+    );
+    // Sometimes There is no result for example you can put maker to the // ocean, if results not empty adding to polylineCoordinates
+    if (result.points.isNotEmpty) {
+      result.points.forEach((PointLatLng point) {
+        polylineCoordinates.add(LatLng(point.latitude, point.longitude));
+      });
+    } else {
+      print(result.errorMessage);
+    }
+
+    newSetState(() {});
+
+    addPolyLine(polylineCoordinates, newSetState);
+  }
+
+  addPolyLine(List<LatLng> polylineCoordinates, newSetState) {
+    PolylineId id = PolylineId("poly");
+    Polyline polyline = Polyline(
+      polylineId: id,
+      color: Colors.blue,
+      points: polylineCoordinates,
+      width: 4,
+    );
+    polylines[id] = polyline;
+
+    newSetState(() {});
+  }
+
+  //
 
   void _showStickyBottomSheet(BuildContext context) {
     final ValueNotifier<bool> hasNavigated = ValueNotifier<bool>(false);
@@ -36,92 +135,101 @@ class _HomePageState extends State<HomePage> {
       isDismissible: false,
       enableDrag: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => NotificationListener<DraggableScrollableNotification>(
-        onNotification: (notification) {
-          // Detect when sheet is dragged/scrolled significantly
-          // Navigate when sheet size is above 0.7 (70% of screen)
-          if (notification.extent > 0.7 && !hasNavigated.value) {
-            hasNavigated.value = true;
-            Navigator.of(context).pop(); // Close bottom sheet
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => const ChildLocationDetailView(),
-              ),
-            );
-            return true;
-          }
-          return false;
-        },
-        child: DraggableScrollableSheet(
-          initialChildSize: 0.4,
-          minChildSize: 0.3,
-          maxChildSize: 0.9,
-          builder: (context, sheetScrollController) {
-            return Container(
-              decoration: BoxDecoration(
-                color: AppColors.surfaceColor,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(AppSizes.radiusXL),
-                  topRight: Radius.circular(AppSizes.radiusXL),
-                ),
-              ),
-              child: Column(
-                children: [
-                  // Drag handle
-                  GestureDetector(
-                    onTap: () {
-                      // Navigate when drag handle is tapped
-                      Navigator.of(context).pop();
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const ChildLocationDetailView(),
-                        ),
-                      );
-                    },
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(vertical: AppSizes.spacingS),
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: AppColors.textSecondary.withValues(alpha: 0.3),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
+      builder: (context) =>
+          NotificationListener<DraggableScrollableNotification>(
+            onNotification: (notification) {
+              // Detect when sheet is dragged/scrolled significantly
+              // Navigate when sheet size is above 0.7 (70% of screen)
+              if (notification.extent > 0.7 && !hasNavigated.value) {
+                hasNavigated.value = true;
+                Navigator.of(context).pop(); // Close bottom sheet
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const ChildLocationDetailView(),
+                  ),
+                );
+                return true;
+              }
+              return false;
+            },
+            child: DraggableScrollableSheet(
+              initialChildSize: 0.4,
+              minChildSize: 0.3,
+              maxChildSize: 0.9,
+              builder: (context, sheetScrollController) {
+                return Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceColor,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(AppSizes.radiusXL),
+                      topRight: Radius.circular(AppSizes.radiusXL),
                     ),
                   ),
-                  // Scrollable content
-                  Expanded(
-                    child: NotificationListener<ScrollNotification>(
-                      onNotification: (notification) {
-                        // Navigate when user scrolls down significantly
-                        if (notification is ScrollUpdateNotification) {
-                          if (notification.metrics.pixels > 200 && !hasNavigated.value) {
-                            hasNavigated.value = true;
-                            Navigator.of(context).pop();
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => const ChildLocationDetailView(),
+                  child: Column(
+                    children: [
+                      // Drag handle
+                      GestureDetector(
+                        onTap: () {
+                          // Navigate when drag handle is tapped
+                          Navigator.of(context).pop();
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const ChildLocationDetailView(),
+                            ),
+                          );
+                        },
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(
+                            vertical: AppSizes.spacingS,
+                          ),
+                          width: 40,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: AppColors.textSecondary.withValues(
+                              alpha: 0.3,
+                            ),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ),
+                      // Scrollable content
+                      Expanded(
+                        child: NotificationListener<ScrollNotification>(
+                          onNotification: (notification) {
+                            // Navigate when user scrolls down significantly
+                            if (notification is ScrollUpdateNotification) {
+                              if (notification.metrics.pixels > 200 &&
+                                  !hasNavigated.value) {
+                                hasNavigated.value = true;
+                                Navigator.of(context).pop();
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        const ChildLocationDetailView(),
+                                  ),
+                                );
+                                return true;
+                              }
+                            }
+                            return false;
+                          },
+                          child: SingleChildScrollView(
+                            controller: sheetScrollController,
+                            child: Padding(
+                              padding: const EdgeInsets.only(
+                                bottom: AppSizes.paddingL,
                               ),
-                            );
-                            return true;
-                          }
-                        }
-                        return false;
-                      },
-                      child: SingleChildScrollView(
-                        controller: sheetScrollController,
-                        child: Padding(
-                          padding: const EdgeInsets.only(bottom: AppSizes.paddingL),
-                          child: _buildChildLocationCardContent(context),
+                              child: _buildChildLocationCardContent(context),
+                            ),
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   ),
-                ],
-              ),
-            );
-          },
-        ),
-      ),
+                );
+              },
+            ),
+          ),
     );
   }
 
@@ -144,16 +252,15 @@ class _HomePageState extends State<HomePage> {
               onPressed: () => Navigator.of(context).maybePop(),
             ),
             actions: [
-   
               IconButton(
-                icon:CircleAvatar(
-                backgroundColor: AppColors.surfaceColor,
-                child: Icon(
-                  Icons.person,
-                  size: 40,
-                  color: AppColors.primaryColor,
+                icon: CircleAvatar(
+                  backgroundColor: AppColors.surfaceColor,
+                  child: Icon(
+                    Icons.person,
+                    size: 40,
+                    color: AppColors.primaryColor,
+                  ),
                 ),
-              ),
                 onPressed: () => Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const SettingsView()),
@@ -162,17 +269,34 @@ class _HomePageState extends State<HomePage> {
             ],
             flexibleSpace: FlexibleSpaceBar(
               title: const Text(''),
-            background: const MapSection(),
+
+              // background: const MapSection(),
+              background: SizedBox(
+                width: 400,
+                height: 500,
+                child: GoogleMap(
+                  mapToolbarEnabled: false,
+                  onMapCreated: onMapCreated,
+                  polylines: Set<Polyline>.of(polylines.values),
+                  initialCameraPosition: const CameraPosition(
+                    target: LatLng(38.437532, 27.149606),
+                    zoom: 10,
+                  ),
+                  markers: markers.toSet(),
+                  myLocationEnabled: true,
+                  myLocationButtonEnabled: true,
+                  onTap: (newLatLng) async {
+                    await addMarker(newLatLng, setState);
+                    setState(() {});
+                  },
+                ),
+              ),
             ),
           ),
-
-          // Main content with collapsing effect
-        
         ],
       ),
     );
   }
-
 
   // First View: Child Location Info Card Content
   Widget _buildChildLocationCardContent(BuildContext context) {
@@ -208,24 +332,24 @@ class _HomePageState extends State<HomePage> {
               ),
               // Save Place button
               OutlinedButton.icon(
-                
                 onPressed: () {},
-                icon: const Icon(Icons.bookmark, size: 16,color: AppColors.textSecondary,),
-                label:  Text('save place',style: AppTextStyles.caption,),
+                icon: const Icon(
+                  Icons.bookmark,
+                  size: 16,
+                  color: AppColors.textSecondary,
+                ),
+                label: Text('save place', style: AppTextStyles.caption),
                 style: OutlinedButton.styleFrom(
                   side: BorderSide(color: Colors.transparent),
                   backgroundColor: AppColors.containerBackground,
-                  
+
                   padding: const EdgeInsets.symmetric(
                     horizontal: AppSizes.paddingM,
                     vertical: AppSizes.paddingS,
                   ),
                   shape: RoundedRectangleBorder(
-                  
-                  side: BorderSide(color: Colors.transparent),
-                    borderRadius: BorderRadius.circular(
-                    
-                      AppSizes.radiusM,),
+                    side: BorderSide(color: Colors.transparent),
+                    borderRadius: BorderRadius.circular(AppSizes.radiusM),
                   ),
                 ),
               ),
@@ -321,31 +445,28 @@ class _HomePageState extends State<HomePage> {
                   ],
                 ),
               ),
-Spacer(),
-                // Action icons
-          Row(
-            children: [
-              IconButton(
-                icon: const Icon(
-                  Icons.settings_outlined,
-                  color: AppColors.textSecondary,
-                ),
-                onPressed: () {},
-              ),
-              IconButton(
-                icon: const Icon(
-                  Icons.share_outlined,
-                  color: AppColors.textSecondary,
-                ),
-                onPressed: () {},
+              Spacer(),
+              // Action icons
+              Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(
+                      Icons.settings_outlined,
+                      color: AppColors.textSecondary,
+                    ),
+                    onPressed: () {},
+                  ),
+                  IconButton(
+                    icon: const Icon(
+                      Icons.share_outlined,
+                      color: AppColors.textSecondary,
+                    ),
+                    onPressed: () {},
+                  ),
+                ],
               ),
             ],
           ),
-            ],
-          ),
-
-
-        
 
           const SizedBox(height: AppSizes.spacingM),
 
@@ -353,8 +474,7 @@ Spacer(),
           Row(
             children: [
               // Geo Guard card
-           
-             
+
               // Scroll card
               Expanded(
                 child: _buildFeatureCard(
@@ -367,8 +487,8 @@ Spacer(),
                   ),
                 ),
               ),
-               const SizedBox(width: AppSizes.spacingM),
-                 Expanded(
+              const SizedBox(width: AppSizes.spacingM),
+              Expanded(
                 child: _buildFeatureCard(
                   title: 'Geo Guard',
                   subtitle: 'Places &\nGeofencing',
@@ -412,16 +532,17 @@ Spacer(),
                     ],
                   ),
                 ),
-                CommonButton(padding: 
-                EdgeInsets.zero,
-                  height:  28,
+                CommonButton(
+                  padding: EdgeInsets.zero,
+                  height: 28,
                   width: 78,
                   fontSize: 10,
-                  text: 'View all', onPressed: () {},)
+                  text: 'View all',
+                  onPressed: () {},
+                ),
               ],
             ),
           ),
-            
         ],
       ),
     );
@@ -438,9 +559,14 @@ Spacer(),
       onTap: onTap,
       borderRadius: BorderRadius.circular(AppSizes.radiusM),
       child: Container(
-        padding: const EdgeInsets.only(left: AppSizes.paddingS,right: 0,top: AppSizes.paddingS,bottom: 0),
+        padding: const EdgeInsets.only(
+          left: AppSizes.paddingS,
+          right: 0,
+          top: AppSizes.paddingS,
+          bottom: 0,
+        ),
         decoration: BoxDecoration(
-           color: AppColors.primaryColor.withValues(alpha: 0.1),
+          color: AppColors.primaryColor.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(AppSizes.radiusM),
           border: Border.all(color: AppColors.borderColor),
         ),
@@ -461,27 +587,25 @@ Spacer(),
                   subtitle,
                   maxLines: 2,
                   style: AppTextStyles.overline.copyWith(
-                    
                     color: AppColors.textSecondary,
                   ),
                 ),
                 const SizedBox(height: AppSizes.spacingS),
+
                 // Placeholder for illustration
-             
               ],
             ),
             Spacer(),
-               Container(
-                alignment:Alignment.bottomCenter,
-                  decoration: BoxDecoration(
-                    //borderRadius: BorderRadius.circular(AppSizes.radiusS),
-                  ),
-                  child: SvgPicture.asset(icon,width: 60,),
-                ),
+            Container(
+              alignment: Alignment.bottomCenter,
+              decoration: BoxDecoration(
+                //borderRadius: BorderRadius.circular(AppSizes.radiusS),
+              ),
+              child: SvgPicture.asset(icon, width: 60),
+            ),
           ],
         ),
       ),
     );
   }
-
 }
