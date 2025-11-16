@@ -103,11 +103,9 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ],
                   flexibleSpace: FlexibleSpaceBar(
-                    title: const Text(''),
-                    // background: const MapSection(),
                     background: MapViewWidget(
-                      width: 400,
-                      height: 500,
+                      width: double.infinity,
+                      height: double.infinity,
                       interactive: true,
                     ),
                   ),

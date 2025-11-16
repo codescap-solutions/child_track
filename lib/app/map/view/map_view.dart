@@ -10,9 +10,16 @@ class MapViewWidget extends StatelessWidget {
     required this.width,
     required this.height,
     this.interactive = true,
+    this.currentPosition,
+    this.markers,
+    this.polylines,
+    this.isPolyLines = false,
   });
   final double width, height;
-  final bool interactive;
+  final bool interactive, isPolyLines;
+  final LatLng? currentPosition;
+  final List<Marker>? markers;
+  final List<Polyline>? polylines;
 
   @override
   Widget build(BuildContext context) {
@@ -27,8 +34,8 @@ class MapViewWidget extends StatelessWidget {
               return IgnorePointer(
                 ignoring: !interactive,
                 child: GoogleMap(
-                  mapType: MapType.normal,
-                  mapToolbarEnabled: false,
+                  mapType: MapType.satellite,
+                  mapToolbarEnabled: true,
                   zoomControlsEnabled: false,
                   compassEnabled: false,
                   scrollGesturesEnabled: interactive,
@@ -38,19 +45,16 @@ class MapViewWidget extends StatelessWidget {
                   onMapCreated: (controller) {
                     injector<MapBloc>().add(MapCreated(controller));
                   },
-                  polylines: Set<Polyline>.of(state.polylines.values),
+                  polylines: isPolyLines == true
+                      ? Set<Polyline>.of(polylines ?? state.polylines.values)
+                      : {},
                   initialCameraPosition: CameraPosition(
-                    target: state.currentPosition,
-                    zoom: 10,
+                    target: currentPosition ?? state.currentPosition,
+                    zoom: 11,
                   ),
-                  markers: state.markers.toSet(),
+                  markers: (markers ?? state.markers).toSet(),
                   myLocationEnabled: true,
                   myLocationButtonEnabled: true,
-                  onTap: interactive
-                      ? (latLng) {
-                          injector<MapBloc>().add(MarkerAdded(latLng));
-                        }
-                      : null,
                 ),
               );
             }
