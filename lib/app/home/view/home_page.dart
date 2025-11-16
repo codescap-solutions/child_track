@@ -17,161 +17,149 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  final ScrollController _bottomSheetScrollController = ScrollController();
+  bool _hasNavigated = false;
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _showStickyBottomSheet(context);
-    });
+    _bottomSheetScrollController.addListener(_onScroll);
   }
 
-  //
+  @override
+  void dispose() {
+    _bottomSheetScrollController.removeListener(_onScroll);
+    _bottomSheetScrollController.dispose();
+    super.dispose();
+  }
 
-  void _showStickyBottomSheet(BuildContext context) {
-    final ValueNotifier<bool> hasNavigated = ValueNotifier<bool>(false);
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      isDismissible: false,
-      enableDrag: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) =>
-          NotificationListener<DraggableScrollableNotification>(
-            onNotification: (notification) {
-              // Detect when sheet is dragged/scrolled significantly
-              // Navigate when sheet size is above 0.7 (70% of screen)
-              if (notification.extent > 0.7 && !hasNavigated.value) {
-                hasNavigated.value = true;
-                Navigator.pop(context);
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const ChildLocationDetailView(),
-                  ),
-                );
-                return true;
-              }
-              return false;
-            },
-            child: DraggableScrollableSheet(
-              initialChildSize: 0.4,
-              minChildSize: 0.3,
-              maxChildSize: 0.9,
-              builder: (context, sheetScrollController) {
-                return Container(
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceColor,
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(AppSizes.radiusXL),
-                      topRight: Radius.circular(AppSizes.radiusXL),
-                    ),
-                  ),
-                  child: Column(
-                    children: [
-                      // Drag handle
-                      GestureDetector(
-                        onTap: () {
-                          // Navigate when drag handle is tapped
-                          Navigator.of(context).pop();
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const ChildLocationDetailView(),
-                            ),
-                          );
-                        },
-                        child: Container(
-                          margin: const EdgeInsets.symmetric(
-                            vertical: AppSizes.spacingS,
-                          ),
-                          width: 40,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: AppColors.textSecondary.withValues(
-                              alpha: 0.3,
-                            ),
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
-                      ),
-                      // Scrollable content
-                      Expanded(
-                        child: NotificationListener<ScrollNotification>(
-                          onNotification: (notification) {
-                            // Navigate when user scrolls down significantly
-                            if (notification is ScrollUpdateNotification) {
-                              if (notification.metrics.pixels > 200 &&
-                                  !hasNavigated.value) {
-                                hasNavigated.value = true;
-                                Navigator.of(context).pop();
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        const ChildLocationDetailView(),
-                                  ),
-                                );
-                                return true;
-                              }
-                            }
-                            return false;
-                          },
-                          child: SingleChildScrollView(
-                            controller: sheetScrollController,
-                            child: Padding(
-                              padding: const EdgeInsets.only(
-                                bottom: AppSizes.paddingL,
-                              ),
-                              child: _buildChildLocationCardContent(context),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
+  void _onScroll() {
+    // Navigate when scroll reaches the end
+    if (_bottomSheetScrollController.hasClients && !_hasNavigated) {
+      final maxScroll = _bottomSheetScrollController.position.maxScrollExtent;
+      final currentScroll = _bottomSheetScrollController.offset;
+      
+      // Check if scrolled to the end (with a small threshold for better UX)
+      if (currentScroll >= maxScroll - 10) {
+        _hasNavigated = true;
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => const ChildLocationDetailView(),
           ),
-    );
+        );
+      }
+    }
+  }
+
+  void _navigateToDetail() {
+    if (!_hasNavigated) {
+      _hasNavigated = true;
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => const ChildLocationDetailView(),
+        ),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final bottomSheetHeight = screenHeight * 0.4;
+
     return Scaffold(
       backgroundColor: AppColors.backgroundColor,
-      body: CustomScrollView(
-        slivers: [
-          // App Bar with collapsing effect
-          SliverAppBar(
-            expandedHeight: MediaQuery.of(context).size.height * 0.7,
-            floating: false,
-            pinned: true,
-            backgroundColor: AppColors.surfaceColor,
-            foregroundColor: AppColors.textPrimary,
-            elevation: 0,
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back_ios_new, size: 18),
-              onPressed: () => Navigator.of(context).maybePop(),
-            ),
-            actions: [
-              IconButton(
-                icon: CircleAvatar(
-                  backgroundColor: AppColors.surfaceColor,
-                  child: Icon(
-                    Icons.person,
-                    size: 40,
-                    color: AppColors.primaryColor,
-                  ),
+      body: Stack(
+        children: [
+          CustomScrollView(
+            slivers: [
+              // App Bar with collapsing effect
+              SliverAppBar(
+                expandedHeight: MediaQuery.of(context).size.height * 0.7,
+                floating: false,
+                pinned: true,
+                backgroundColor: AppColors.surfaceColor,
+                foregroundColor: AppColors.textPrimary,
+                elevation: 0,
+                leading: IconButton(
+                  icon: const Icon(Icons.arrow_back_ios_new, size: 18),
+                  onPressed: () => Navigator.of(context).maybePop(),
                 ),
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const SettingsView()),
+                actions: [
+                  IconButton(
+                    icon: CircleAvatar(
+                      backgroundColor: AppColors.surfaceColor,
+                      child: Icon(
+                        Icons.person,
+                        size: 40,
+                        color: AppColors.primaryColor,
+                      ),
+                    ),
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const SettingsView()),
+                    ),
+                  ),
+                ],
+                flexibleSpace: FlexibleSpaceBar(
+                  title: const Text(''),
+                  // background: const MapSection(),
+                  background: MapViewWidget(
+                    width: 400,
+                    height: 500,
+                    interactive: true,
+                  ),
                 ),
               ),
             ],
-            flexibleSpace: FlexibleSpaceBar(
-              title: const Text(''),
-
-              // background: const MapSection(),
-              background: const MapViewWidget(width: 400, height: 500),
+          ),
+          // Bottom sheet container
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: Container(
+              height: bottomSheetHeight,
+              decoration: BoxDecoration(
+                color: AppColors.surfaceColor,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(AppSizes.radiusXL),
+                  topRight: Radius.circular(AppSizes.radiusXL),
+                ),
+              ),
+              child: Column(
+                children: [
+                  // Drag handle
+                  GestureDetector(
+                    onTap: _navigateToDetail,
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(
+                        vertical: AppSizes.spacingS,
+                      ),
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppColors.textSecondary.withValues(
+                          alpha: 0.3,
+                        ),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  // Scrollable content
+                  Expanded(
+                    child: SingleChildScrollView(
+                      controller: _bottomSheetScrollController,
+                      child: Padding(
+                        padding: const EdgeInsets.only(
+                          bottom: AppSizes.paddingL,
+                        ),
+                        child: _buildChildLocationCardContent(context),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
