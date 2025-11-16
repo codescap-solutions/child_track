@@ -1,6 +1,5 @@
 import 'package:child_track/app/auth/view_model/bloc/auth_bloc.dart';
 import 'package:child_track/app/auth/view_model/bloc/auth_state.dart';
-import 'package:child_track/app/home/view/home_page.dart';
 import 'package:child_track/app/onboarding/view/onboarding_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
@@ -11,9 +10,13 @@ import 'core/theme/app_theme.dart';
 import 'core/constants/app_strings.dart';
 import 'core/constants/app_colors.dart';
 import 'core/constants/app_text_styles.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Load environment variables
+  await dotenv.load(fileName: '.env');
 
   // Initialize dependencies
   await initializeDependencies();
@@ -31,8 +34,8 @@ class ChildTrackApp extends StatelessWidget {
       theme: AppTheme.lightTheme,
       debugShowCheckedModeBanner: false,
       onGenerateRoute: AppRouter.generateRoute,
-   //  home:HomePage()
-   home:  OnboardingScreen(),
+      //  home:HomePage()
+      home: OnboardingScreen(),
     );
   }
 }
