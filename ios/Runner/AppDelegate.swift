@@ -8,9 +8,9 @@ import GoogleMaps
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    // NOTE: This key should match the GOOGLE_MAPS_API_KEY in your .env file
-    // TODO: Consider reading from Info.plist or environment variable for better security
-    GMSServices.provideAPIKey("AIzaSyDEI8zQzcoJQ833eangJ-dUqldtyy3OwZg")
+    // Google Maps API Key is automatically injected from .env file via Podfile post_install hook
+    // The key below is updated automatically when you run 'pod install'
+    GMSServices.provideAPIKey(dotenv.env["GOOGLE_MAPS_API_KEY"] ?? "")
     GeneratedPluginRegistrant.register(with: self)
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
