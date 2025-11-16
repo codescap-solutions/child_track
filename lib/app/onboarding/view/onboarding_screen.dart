@@ -1,4 +1,3 @@
-import 'package:child_track/core/navigation/app_router.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:child_track/core/constants/app_colors.dart';

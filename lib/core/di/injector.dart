@@ -1,10 +1,11 @@
+import 'package:child_track/app/home/view_model/home_repo.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/dio_client.dart';
 import '../services/shared_prefs_service.dart';
 import '../../app/auth/view_model/auth_repository.dart';
 import '../../app/auth/view_model/bloc/auth_bloc.dart';
-import '../../app/home/view_model/homepage_bloc.dart';
+import '../../app/home/view_model/bloc/homepage_bloc.dart';
 import '../../app/map/view_model/map_bloc.dart';
 
 final GetIt injector = GetIt.instance;
@@ -28,6 +29,10 @@ Future<void> initializeDependencies() async {
       dioClient: injector<DioClient>(),
       sharedPrefsService: injector<SharedPrefsService>(),
     ),
+  );
+
+  injector.registerLazySingleton<HomeRepository>(
+    () => HomeRepository(dioClient: injector<DioClient>()),
   );
 
   // Register blocs

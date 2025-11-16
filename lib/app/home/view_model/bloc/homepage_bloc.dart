@@ -456,6 +456,6 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
     final Uint8List uint8List = byteData.buffer.asUint8List();
 
     // For Android compatibility, ensure the image is properly formatted
-    return BitmapDescriptor.fromBytes(uint8List);
+    return BitmapDescriptor.bytes(uint8List);
   }
 }

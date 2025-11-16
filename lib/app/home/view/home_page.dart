@@ -29,7 +29,6 @@ class _HomePageState extends State<HomePage> {
 
   void _showStickyBottomSheet(BuildContext context) {
     final ValueNotifier<bool> hasNavigated = ValueNotifier<bool>(false);
-
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -43,7 +42,7 @@ class _HomePageState extends State<HomePage> {
               // Navigate when sheet size is above 0.7 (70% of screen)
               if (notification.extent > 0.7 && !hasNavigated.value) {
                 hasNavigated.value = true;
-                Navigator.of(context).pop(); // Close bottom sheet
+                Navigator.pop(context);
                 Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => const ChildLocationDetailView(),

@@ -3,7 +3,7 @@ import 'dio_client.dart';
 class BaseResponse<T> {
   final bool isSuccess;
   final String message;
-  final T? data;
+  final dynamic data;
   final int? statusCode;
 
   BaseResponse({

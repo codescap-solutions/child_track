@@ -2,7 +2,7 @@
 import 'package:child_track/core/constants/app_colors.dart';
 import 'package:child_track/core/constants/app_sizes.dart';
 import 'package:child_track/core/di/injector.dart';
-import 'package:child_track/app/home/view_model/homepage_bloc.dart';
+import 'package:child_track/app/home/view_model/bloc/homepage_bloc.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
