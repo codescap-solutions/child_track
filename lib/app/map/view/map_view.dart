@@ -1,3 +1,4 @@
+import 'package:child_track/app/home/model/location_info_model.dart';
 import 'package:child_track/app/map/view_model/map_bloc.dart';
 import 'package:child_track/core/di/injector.dart';
 import 'package:flutter/material.dart';

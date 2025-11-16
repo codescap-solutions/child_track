@@ -13,7 +13,7 @@ class AppRouter {
           builder: (_) => const AddKidView(),
           settings: settings,
         );
-      
+
       case RouteNames.login:
         return MaterialPageRoute(
           builder: (_) => const LoginScreen(),

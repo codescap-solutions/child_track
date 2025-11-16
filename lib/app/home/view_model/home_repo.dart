@@ -69,8 +69,27 @@ class HomeRepository extends BaseService {
 
     return BaseResponse(
       isSuccess: true,
-      message: "Static home data",
-      data: jsonEncode(staticJson),
+      message: "Static home data ",
+      data: jsonEncode({
+        "device_info": staticJson["device_info"],
+        "current_location": staticJson["current_location"],
+      }),
+    );
+  }
+
+  Future<BaseResponse> getCurrentLocationDetails() async {
+    await Future.delayed(const Duration(seconds: 1));
+    return BaseResponse(
+      isSuccess: true,
+      message: "Static current location details",
+      data: jsonEncode({
+        "lat": 11.2488,
+        "lng": 75.7839,
+        "address": "Cubbon Road, Bengaluru",
+        "place_name": "School",
+        "since": "2025-02-10T09:30:00Z",
+        "duration_minutes": 120,
+      }),
     );
   }
 }

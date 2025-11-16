@@ -9,15 +9,4 @@ sealed class HomepageEvent extends Equatable {
 
 final class GetHomepageData extends HomepageEvent {}
 
-// Map-related events
-final class InitializeMap extends HomepageEvent {}
-
-final class MapCreated extends HomepageEvent {
-  final GoogleMapController controller;
-  const MapCreated(this.controller);
-
-  @override
-  List<Object> get props => [controller];
-}
-
-final class MoveToCurrentLocation extends HomepageEvent {}
+final class FetchChildCurrentDetails extends HomepageEvent {}
