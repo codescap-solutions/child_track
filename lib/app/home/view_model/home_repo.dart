@@ -17,22 +17,22 @@ class HomeRepository extends BaseService {
         "network_type": "wifi",
         "sound_profile": "sound",
         "is_online": true,
-        "online_since": "2025-02-10T09:30:00Z",
+        "online_since": "9:30am",
       },
       "current_location": {
         "lat": 11.2488,
         "lng": 75.7839,
         "address": "Cubbon Road, Bengaluru",
         "place_name": "School",
-        "since": "2025-02-10T09:30:00Z",
-        "duration_minutes": 120,
+        "since": "9:30am",
+        "duration_minutes": 2,
       },
       "yesterday_trip_summary": [
         {
           "segment_id": "S1",
           "type": "ride",
-          "start_time": "2025-02-09T10:00:00Z",
-          "end_time": "2025-02-09T12:00:00Z",
+          "start_time": "10:00am",
+          "end_time": "12:00pm",
           "start_point": {"name": "Home"},
           "end_point": {"name": "Mall"},
           "distance_km": 6.0,
@@ -43,8 +43,8 @@ class HomeRepository extends BaseService {
         {
           "segment_id": "S2",
           "type": "ride",
-          "start_time": "2025-02-09T13:00:00Z",
-          "end_time": "2025-02-09T16:00:00Z",
+          "start_time": "11:00pm",
+          "end_time": "11:30pm",
           "start_point": {"name": "Mall"},
           "end_point": {"name": "Park"},
           "distance_km": 10.5,
@@ -55,8 +55,8 @@ class HomeRepository extends BaseService {
         {
           "segment_id": "S3",
           "type": "walk",
-          "start_time": "2025-02-09T16:30:00Z",
-          "end_time": "2025-02-09T17:00:00Z",
+          "start_time": "10:30pm",
+          "end_time": "12:00am",
           "start_point": {"name": "Park"},
           "end_point": {"name": "Ice Cream Shop"},
           "distance_km": 1.2,
@@ -70,10 +70,7 @@ class HomeRepository extends BaseService {
     return BaseResponse(
       isSuccess: true,
       message: "Static home data ",
-      data: jsonEncode({
-        "device_info": staticJson["device_info"],
-        "current_location": staticJson["current_location"],
-      }),
+      data: jsonEncode(staticJson),
     );
   }
 
@@ -87,7 +84,7 @@ class HomeRepository extends BaseService {
         "lng": 75.7839,
         "address": "Cubbon Road, Bengaluru",
         "place_name": "School",
-        "since": "2025-02-10T09:30:00Z",
+        "since": "9:30am",
         "duration_minutes": 120,
       }),
     );

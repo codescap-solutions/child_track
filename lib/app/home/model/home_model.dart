@@ -17,8 +17,8 @@ class HomeResponse {
     return HomeResponse(
       deviceInfo: DeviceInfo.fromJson(json['device_info']),
       currentLocation: LocationInfo.fromJson(json['current_location']),
-      yesterdayTrips: json['yesterday_trips']
-          .map((trip) => TripSegment.fromJson(trip))
+      yesterdayTrips: (json['yesterday_trip_summary'] as List<dynamic>)
+          .map((trip) => TripSegment.fromJson(trip as Map<String, dynamic>))
           .toList(),
     );
   }
