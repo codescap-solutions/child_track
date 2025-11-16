@@ -261,6 +261,7 @@ class _TripCard extends StatelessWidget {
             markers: markers,
             polylines: polylines,
             isPolyLines: true,
+            currentPosition: markers.first.position,
           ),
           Positioned(
             right: AppSizes.paddingM,

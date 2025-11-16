@@ -133,6 +133,7 @@ class TripDetailView extends StatelessWidget {
           child: MapViewWidget(
             width: double.infinity,
             height: double.infinity,
+            currentPosition: markers.first.position,
             markers: markers,
             polylines: polylines,
             isPolyLines: true,

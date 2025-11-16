@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
-class MapViewWidget extends StatelessWidget {
+class MapViewWidget extends StatefulWidget {
   const MapViewWidget({
     super.key,
     required this.width,
@@ -22,37 +22,54 @@ class MapViewWidget extends StatelessWidget {
   final List<Polyline>? polylines;
 
   @override
+  State<MapViewWidget> createState() => _MapViewWidgetState();
+}
+
+class _MapViewWidgetState extends State<MapViewWidget> {
+  Map<PolylineId, Polyline> polylines = {};
+  @override
+  void initState() {
+    super.initState();
+    getPolylines();
+  }
+
+  Future<void> getPolylines() async {
+    if (mounted) {
+      polylines = await injector<MapBloc>().getPolyLines(widget.markers ?? []);
+      setState(() {});
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: width,
-      height: height,
-      child: BlocProvider.value(
-        value: injector<MapBloc>(),
+      width: widget.width,
+      height: widget.height,
+      child: BlocProvider(
+        create: (context) => injector<MapBloc>(),
         child: BlocBuilder<MapBloc, MapState>(
           builder: (context, state) {
             if (state is MapLoaded) {
               return IgnorePointer(
-                ignoring: !interactive,
+                ignoring: !widget.interactive,
                 child: GoogleMap(
-                  mapType: MapType.satellite,
+                  mapType: MapType.normal,
                   mapToolbarEnabled: true,
                   zoomControlsEnabled: false,
                   compassEnabled: false,
-                  scrollGesturesEnabled: interactive,
-                  zoomGesturesEnabled: interactive,
-                  tiltGesturesEnabled: interactive,
-                  rotateGesturesEnabled: interactive,
+                  scrollGesturesEnabled: widget.interactive,
+                  zoomGesturesEnabled: widget.interactive,
+                  tiltGesturesEnabled: widget.interactive,
+                  rotateGesturesEnabled: widget.interactive,
                   onMapCreated: (controller) {
                     injector<MapBloc>().add(MapCreated(controller));
                   },
-                  polylines: isPolyLines == true
-                      ? Set<Polyline>.of(polylines ?? state.polylines.values)
-                      : {},
+                  polylines: Set<Polyline>.of(polylines.values),
                   initialCameraPosition: CameraPosition(
-                    target: currentPosition ?? state.currentPosition,
+                    target: widget.currentPosition ?? state.currentPosition,
                     zoom: 11,
                   ),
-                  markers: (markers ?? state.markers).toSet(),
+                  markers: (widget.markers ?? state.markers).toSet(),
                   myLocationEnabled: true,
                   myLocationButtonEnabled: true,
                 ),
