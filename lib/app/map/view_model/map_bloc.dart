@@ -135,7 +135,19 @@ class MapBloc extends Bloc<MapEvent, MapState> {
           polylineCoordinates.add(LatLng(point.latitude, point.longitude));
         }
       } else {
-        AppLogger.warning('No route found: ${result.errorMessage}');
+        final errorMessage = result.errorMessage ?? 'Unknown error';
+        AppLogger.warning('No route found: $errorMessage');
+
+        // Check if it's an API key authorization error
+        if (errorMessage.contains('not authorized') ||
+            errorMessage.contains('API key') ||
+            errorMessage.contains('IP')) {
+          AppLogger.error(
+            'API Key Authorization Error: Please check Google Cloud Console settings. '
+            'Remove IP restrictions or add your IP to allowed list. '
+            'For mobile apps, use Application restrictions instead of IP restrictions.',
+          );
+        }
       }
 
       final updatedPolylines = _addPolyLine(polylineCoordinates);
