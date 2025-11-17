@@ -46,7 +46,10 @@ class _HomePageState extends State<HomePage> {
           MaterialPageRoute(
             builder: (_) => const ChildLocationDetailView(),
           ),
-        );
+        ).then((_) {
+          // Reset flag when returning from detail view
+          _hasNavigated = false;
+        });
       }
     }
   }
@@ -58,7 +61,10 @@ class _HomePageState extends State<HomePage> {
         MaterialPageRoute(
           builder: (_) => const ChildLocationDetailView(),
         ),
-      );
+      ).then((_) {
+        // Reset flag when returning from detail view
+        _hasNavigated = false;
+      });
     }
   }
 
