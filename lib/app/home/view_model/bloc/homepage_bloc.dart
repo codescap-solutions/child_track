@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:developer';
+
 import 'package:child_track/app/home/model/device_model.dart';
 import 'package:child_track/app/home/model/home_model.dart';
 import 'package:child_track/app/home/model/last_trip_model.dart';
@@ -29,10 +32,11 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
     GetHomepageData event,
     Emitter<HomepageState> emit,
   ) async {
+    log('onGetHomepageData');
     emit(HomepageLoading());
     final response = await _homeRepository.getHomeData();
     if (response.isSuccess) {
-      final homeData = HomeResponse.fromJson(response.data);
+      final homeData = HomeResponse.fromJson(jsonDecode(response.data));
       emit(
         HomepageSuccess(
           deviceInfo: homeData.deviceInfo,

@@ -208,4 +208,38 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     _mapController?.dispose();
     return super.close();
   }
+
+  Future<Map<PolylineId, Polyline>> getPolyLines(List<Marker> markers) async {
+    for (var marker in markers) {
+      final polylineCoordinates = <LatLng>[];
+      final polylineWayPoints = <PolylineWayPoint>[];
+      polylineWayPoints.add(
+        PolylineWayPoint(
+          location: "${marker.position.latitude},${marker.position.longitude}",
+          stopOver: true,
+        ),
+      );
+      final result = await _polylinePoints.getRouteBetweenCoordinates(
+        request: PolylineRequest(
+          origin: PointLatLng(
+            markers.first.position.latitude,
+            markers.first.position.longitude,
+          ),
+          destination: PointLatLng(
+            markers.last.position.latitude,
+            markers.last.position.longitude,
+          ),
+          mode: TravelMode.driving,
+        ),
+      );
+      if (result.points.isNotEmpty) {
+        for (var point in result.points) {
+          polylineCoordinates.add(LatLng(point.latitude, point.longitude));
+        }
+        final updatedPolylines = _addPolyLine(polylineCoordinates);
+        return updatedPolylines;
+      }
+    }
+    return {};
+  }
 }

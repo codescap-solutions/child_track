@@ -350,6 +350,7 @@ class SettingsView extends StatelessWidget {
     );
   }
 
+  /*
   Widget _linkTile(
     BuildContext context,
     IconData icon,
@@ -369,4 +370,5 @@ class SettingsView extends StatelessWidget {
           Navigator.push(context, MaterialPageRoute(builder: (_) => page)),
     );
   }
+  */
 }
