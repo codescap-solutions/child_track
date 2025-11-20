@@ -10,7 +10,7 @@ import 'package:child_track/core/constants/app_sizes.dart';
 import 'package:child_track/core/constants/app_text_styles.dart';
 import 'package:child_track/core/widgets/common_button.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/svg.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../settings/view/settings_view.dart';
 import '../../social_apps/view/social_apps_view.dart';
@@ -61,18 +61,172 @@ class _HomePageState extends State<HomePage> {
         .asUint8List();
   }
 
+  /// Create battery icon as image bytes using CustomPainter
+  Future<Uint8List> _createBatteryIconBytes(double size) async {
+    // Create a recorder and canvas
+    final ui.PictureRecorder recorder = ui.PictureRecorder();
+    final Canvas canvas = Canvas(recorder);
+    
+    // Draw battery icon using CustomPainter approach
+    // Battery icon: rectangle with rounded corners and a small rectangle on the right
+    final double width = size;
+    final double height = size * 0.6;
+    final double cornerRadius = size * 0.1;
+    final double terminalWidth = size * 0.15;
+    final double terminalHeight = size * 0.3;
+    
+    // Main battery body
+    final RRect batteryRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(0, (size - height) / 2, width - terminalWidth, height),
+      Radius.circular(cornerRadius),
+    );
+    
+    // Battery terminal (right side)
+    final RRect terminalRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(
+        width - terminalWidth,
+        (size - terminalHeight) / 2,
+        terminalWidth,
+        terminalHeight,
+      ),
+      Radius.circular(cornerRadius * 0.5),
+    );
+    
+    // Draw battery outline
+    final Paint batteryPaint = Paint()
+      ..color = AppColors.success
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = size * 0.08;
+    
+    canvas.drawRRect(batteryRect, batteryPaint);
+    canvas.drawRRect(terminalRect, batteryPaint);
+    
+    // Fill battery (representing charge level - you can customize this)
+    final Paint fillPaint = Paint()
+      ..color = AppColors.error
+      ..style = PaintingStyle.fill;
+    
+    final double fillWidth = (width - terminalWidth) * 0.8; // 80% charged
+    final RRect fillRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(0, (size - height) / 2, fillWidth, height),
+      Radius.circular(cornerRadius),
+    );
+    canvas.drawRRect(fillRect, fillPaint);
+    
+    // Convert to image
+    final ui.Picture picture = recorder.endRecording();
+    final ui.Image image = await picture.toImage(size.toInt(), size.toInt());
+    final ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+    
+    // Clean up
+    picture.dispose();
+    image.dispose();
+    
+    if (byteData == null) {
+      throw Exception('Failed to create battery icon bytes');
+    }
+    
+    return byteData.buffer.asUint8List();
+  }
+
+  /// Composite marker image with battery icon
+  Future<Uint8List> _compositeMarkerWithBattery(
+    Uint8List markerBytes,
+    Uint8List batteryBytes,
+  ) async {
+    // Decode marker image
+    final ui.Codec markerCodec = await ui.instantiateImageCodec(markerBytes);
+    final ui.FrameInfo markerFrame = await markerCodec.getNextFrame();
+    final ui.Image markerImage = markerFrame.image;
+
+    // Decode battery icon
+    final ui.Codec batteryCodec = await ui.instantiateImageCodec(batteryBytes);
+    final ui.FrameInfo batteryFrame = await batteryCodec.getNextFrame();
+    final ui.Image batteryImage = batteryFrame.image;
+
+    // Create a canvas to composite the images
+    final int markerWidth = markerImage.width;
+    final int markerHeight = markerImage.height;
+    final int batterySize = (markerWidth * 0.3).round(); // Battery icon is 30% of marker size
+
+    // Create a recorder and canvas
+    final ui.PictureRecorder recorder = ui.PictureRecorder();
+    final Canvas canvas = Canvas(recorder);
+
+    // Draw the main marker image
+    canvas.drawImage(markerImage, Offset.zero, Paint());
+
+    // Draw the battery icon in the top-right corner
+    // Position it with some padding from the edges
+    final double batteryX = markerWidth - batterySize - (markerWidth * 0.05);
+    final double batteryY = markerWidth * 0.05;
+
+    // Resize battery image if needed
+    ui.Image resizedBattery = batteryImage;
+    if (batteryImage.width != batterySize) {
+      final ui.Codec resizedCodec = await ui.instantiateImageCodec(
+        batteryBytes,
+        targetWidth: batterySize,
+      );
+      final ui.FrameInfo resizedFrame = await resizedCodec.getNextFrame();
+      resizedBattery = resizedFrame.image;
+    }
+
+    canvas.drawImage(resizedBattery, Offset(batteryX, batteryY), Paint());
+
+    // Convert canvas to image
+    final ui.Picture picture = recorder.endRecording();
+    final ui.Image compositeImage = await picture.toImage(markerWidth, markerHeight);
+
+    // Convert to bytes
+    final ByteData? byteData = await compositeImage.toByteData(format: ui.ImageByteFormat.png);
+    
+    // Dispose images to free memory
+    markerImage.dispose();
+    batteryImage.dispose();
+    if (resizedBattery != batteryImage) {
+      resizedBattery.dispose();
+    }
+    compositeImage.dispose();
+
+    return byteData!.buffer.asUint8List();
+  }
+
   Future<void> _loadCustomMarker() async {
     try {
-      print('HomePage: Loading custom marker icon...');
-      // Default Google Maps marker size is approximately 29x29 pixels
+      print('HomePage: Loading custom marker icon with battery...');
+      // Load main marker image
       final Uint8List markerIconBytes =
-          await _getBytesFromAsset('assets/images/images.png', 150);
-      final icon = BitmapDescriptor.fromBytes(markerIconBytes);
+          await _getBytesFromAsset('assets/images/images.png', 180);
+      
+      // Create battery icon
+      Uint8List batteryIconBytes;
+      try {
+        batteryIconBytes = await _createBatteryIconBytes(80);
+      } catch (e) {
+        print('HomePage: Error creating battery icon, using fallback: $e');
+        // Fallback: use marker without battery
+        final icon = BitmapDescriptor.fromBytes(markerIconBytes);
+        if (mounted) {
+          setState(() {
+            _customMarkerIcon = icon;
+          });
+        }
+        return;
+      }
+
+      // Composite the images
+      final Uint8List compositeBytes = await _compositeMarkerWithBattery(
+        markerIconBytes,
+        batteryIconBytes,
+      );
+
+      final icon = BitmapDescriptor.fromBytes(compositeBytes);
       if (mounted) {
         setState(() {
           _customMarkerIcon = icon;
         });
-        print('HomePage: Custom marker icon loaded successfully (29x29 - default size)');
+        print('HomePage: Custom marker icon with battery loaded successfully');
       }
     } catch (e) {
       print('HomePage: Error loading custom marker icon: $e');

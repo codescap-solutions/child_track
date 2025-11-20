@@ -95,27 +95,38 @@ class _TripCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      height: MediaQuery.of(context).size.height * 0.40,
       margin: const EdgeInsets.only(bottom: AppSizes.spacingL),
+
       decoration: BoxDecoration(
+        
         color: AppColors.surfaceColor,
 
         borderRadius: BorderRadius.all(Radius.circular(AppSizes.radiusL)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: Stack(
+        clipBehavior: Clip.none,
         children: [
           // Map Section (Top part of card)
-          _buildMapSection(markers, polylines),
+          _buildMapSection(markers, polylines,context),
+
+
+              Positioned(
+                            bottom: 10,
+                            right: 10,
+                            left: 10,
+                            child: _buildTripTodayCard(context, withMargin: false),
+                          ),
 
           // Trip Details Section (Bottom part of card)
-          Padding(
+       /*  Padding(
             padding: const EdgeInsets.all(AppSizes.paddingL),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -241,13 +252,14 @@ class _TripCard extends StatelessWidget {
               ],
             ),
           ),
+          */
         ],
       ),
     );
   }
 
   // Map Section with Google Maps showing static route
-  Widget _buildMapSection(List<Marker> markers, List<Polyline> polylines) {
+  Widget _buildMapSection(List<Marker> markers, List<Polyline> polylines,context ) {
     return ClipRRect(
       borderRadius: const BorderRadius.only(
         topLeft: Radius.circular(AppSizes.radiusL),
@@ -257,7 +269,7 @@ class _TripCard extends StatelessWidget {
         children: [
           MapViewWidget(
             width: double.infinity,
-            height: 200,
+             height: MediaQuery.of(context).size.height * 0.40,
             markers: markers,
             polylines: polylines,
             isPolyLines: true,
@@ -284,6 +296,101 @@ class _TripCard extends StatelessWidget {
               ),
             ),
           ),
+        ],
+      ),
+    );
+    
+  }
+  Widget _buildTripTodayCard(BuildContext context, {bool withMargin = true}) {
+    return Container(
+      height: 85,
+      margin: withMargin ? const EdgeInsets.symmetric(horizontal: AppSizes.paddingL) : EdgeInsets.zero,
+      padding: const EdgeInsets.all(AppSizes.paddingS),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceColor,
+        borderRadius: BorderRadius.circular(AppSizes.radiusL),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              
+              Text(
+                '08:43 am - 21:20 pm (12hrs)',
+                style: AppTextStyles.overline.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              // const SizedBox(height: AppSizes.spacingXS),
+              Text(
+                'Kamakshi Palaya - Cubbon Park',
+                style: AppTextStyles.overline.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: AppSizes.spacingM),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSizes.paddingXS,
+                      vertical: AppSizes.paddingXS,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.backgroundColor,
+                      borderRadius: BorderRadius.circular(AppSizes.radiusS),
+                    ),
+                    child: Text('4 Events', style: AppTextStyles.caption),
+                  ),
+                  const SizedBox(width: AppSizes.spacingS),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSizes.paddingS,
+                      vertical: AppSizes.paddingXS,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryColor.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(AppSizes.radiusS),
+                    ),
+                    child: Text(
+                      'today',
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.primaryColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                 
+                ],
+              ),
+            ],
+          ),
+            Spacer(),
+                  CommonButton(
+                    padding: EdgeInsets.zero,
+                    width: 80,
+                    text: 'View all',
+                    fontSize: 12,
+                    textColor: AppColors.surfaceColor,
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) =>  TripDetailView(
+                         trip: trip,
+                                    markers: markers,
+                                    polylines: polylines,
+
+                      )),
+                    ),
+                    height: 30,
+                  ),
         ],
       ),
     );

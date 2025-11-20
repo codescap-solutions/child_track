@@ -140,19 +140,19 @@ class _TripDetailViewState extends State<TripDetailView> {
   ) {
     return Stack(
       children: [
-        // // Google Map (Full screen)
-        // Positioned.fill(
-        //   child: MapViewWidget(
-        //     interactive: true,
+        // Google Map (Full screen)
+        Positioned.fill(
+          child: MapViewWidget(
+            interactive: true,
 
-        //     width: double.infinity,
-        //     height: double.infinity,
-        //     currentPosition: markers.first.position,
-        //     markers: markers,
-        //     polylines: polylines,
-        //     isPolyLines: true,
-        //   ),
-        // ),
+            width: double.infinity,
+            height: double.infinity,
+            currentPosition: markers.first.position,
+            markers: markers,
+            polylines: polylines,
+            isPolyLines: true,
+          ),
+        ),
 
         // App Bar Overlay
         SafeArea(

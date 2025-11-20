@@ -40,64 +40,81 @@ class ChildLocationDetailView extends StatelessWidget {
                   children: [
                     SizedBox(
                       height: MediaQuery.of(context).size.height * 0.45,
-                      child: Padding(
-                        padding: const EdgeInsets.only(
-                          left: AppSizes.paddingM,
-                          right: AppSizes.paddingM,
-                          //bottom: AppSizes.paddingM,
-                          top: AppSizes.paddingM,
-                        ),
-                        child: ClipRRect(
-      borderRadius: BorderRadius.circular(AppSizes.radiusXL),
-      child: Container(
-                            decoration: BoxDecoration(
-                            
-                              borderRadius: BorderRadius.circular(AppSizes.radiusXL),
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(
+                              left: AppSizes.paddingM,
+                              right: AppSizes.paddingM,
+                              //bottom: AppSizes.paddingM,
+                              top: AppSizes.paddingM,
                             ),
-                          // padding: const EdgeInsets.all(AppSizes.paddingM),
-                            child: MapViewWidget(
-                              interactive:true,
-                              isPolyLines: true,
-                              
-                              width: double.infinity,
-                              height: double.infinity,
-                              currentPosition: LatLng(
-                                currentLocation.lat,
-                                currentLocation.lng,
+                            child: ClipRRect(
+                                borderRadius: BorderRadius.circular(AppSizes.radiusXL),
+                                child: Container(
+                                decoration: BoxDecoration(
+                                
+                                  borderRadius: BorderRadius.circular(AppSizes.radiusXL),
+                                ),
+                              // padding: const EdgeInsets.all(AppSizes.paddingM),
+                                child: MapViewWidget(
+                                  interactive:true,
+                                  isPolyLines: true,
+                                  
+                                  width: double.infinity,
+                                  height: double.infinity,
+                                  currentPosition: LatLng(
+                                    currentLocation.lat,
+                                    currentLocation.lng,
+                                  ),
+                                  markers: [
+                                    Marker(
+                                      markerId: MarkerId('start'),
+                                      position: LatLng(
+                                        trip.startLocation.latitude,
+                                        trip.startLocation.longitude,
+                                      ),
+                                      icon: BitmapDescriptor.defaultMarkerWithHue(
+                                        BitmapDescriptor.hueGreen,
+                                      ),
+                                    ),
+                                    Marker(
+                                      markerId: MarkerId('end'),
+                                      position: LatLng(
+                                        trip.endLocation.latitude,
+                                        trip.endLocation.longitude,
+                                      ),
+                                      icon: BitmapDescriptor.defaultMarkerWithHue(
+                                        BitmapDescriptor.hueRed,
+                                      ),
+                                    ),
+                                  ],
+                                  polylines: [
+                                    Polyline(
+                                      polylineId: PolylineId('route'),
+                                      points: trip.polylinePoints,
+                                      color: AppColors.error,
+                                      width: 4,
+                                    ),
+                                  ],
+                                ),
                               ),
-                              markers: [
-                                Marker(
-                                  markerId: MarkerId('start'),
-                                  position: LatLng(
-                                    trip.startLocation.latitude,
-                                    trip.startLocation.longitude,
-                                  ),
-                                  icon: BitmapDescriptor.defaultMarkerWithHue(
-                                    BitmapDescriptor.hueGreen,
-                                  ),
-                                ),
-                                Marker(
-                                  markerId: MarkerId('end'),
-                                  position: LatLng(
-                                    trip.endLocation.latitude,
-                                    trip.endLocation.longitude,
-                                  ),
-                                  icon: BitmapDescriptor.defaultMarkerWithHue(
-                                    BitmapDescriptor.hueRed,
-                                  ),
-                                ),
-                              ],
-                              polylines: [
-                                Polyline(
-                                  polylineId: PolylineId('route'),
-                                  points: trip.polylinePoints,
-                                  color: AppColors.error,
-                                  width: 4,
-                                ),
-                              ],
                             ),
                           ),
-                        ),
+                          // Positioned(
+                          //   top: 0,
+                          //   right: 0,
+                          //   child: _buildTripTodayCard(context)
+                          // ),
+                          Positioned(
+                            bottom: 10,
+                            right: 30,
+                            left: 30,
+                            child: _buildTripTodayCard(context, withMargin: false),
+                          ),
+
+                        ],
                       ),
                     ),
                     _buildChildLocationCardContent(context, trip),
@@ -108,6 +125,97 @@ class ChildLocationDetailView extends StatelessWidget {
             },
           ),
         ),
+      ),
+      
+    );
+    
+  }
+ Widget _buildTripTodayCard(BuildContext context, {bool withMargin = true}) {
+    return Container(
+      height: 85,
+      margin: withMargin ? const EdgeInsets.symmetric(horizontal: AppSizes.paddingL) : EdgeInsets.zero,
+      padding: const EdgeInsets.all(AppSizes.paddingS),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceColor,
+        borderRadius: BorderRadius.circular(AppSizes.radiusL),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              
+              Text(
+                '08:43 am - 21:20 pm (12hrs)',
+                style: AppTextStyles.overline.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              // const SizedBox(height: AppSizes.spacingXS),
+              Text(
+                'Kamakshi Palaya - Cubbon Park',
+                style: AppTextStyles.overline.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: AppSizes.spacingM),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSizes.paddingXS,
+                      vertical: AppSizes.paddingXS,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.backgroundColor,
+                      borderRadius: BorderRadius.circular(AppSizes.radiusS),
+                    ),
+                    child: Text('4 Events', style: AppTextStyles.caption),
+                  ),
+                  const SizedBox(width: AppSizes.spacingS),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSizes.paddingS,
+                      vertical: AppSizes.paddingXS,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryColor.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(AppSizes.radiusS),
+                    ),
+                    child: Text(
+                      'today',
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.primaryColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                 
+                ],
+              ),
+            ],
+          ),
+           const Spacer(),
+                  CommonButton(
+                    padding: EdgeInsets.zero,
+                    width: 80,
+                    text: 'View all',
+                    fontSize: 12,
+                    textColor: AppColors.surfaceColor,
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const TripsView()),
+                    ),
+                    height: 30,
+                  ),
+        ],
       ),
     );
   }
