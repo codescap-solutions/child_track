@@ -313,11 +313,12 @@ class _HomePageState extends State<HomePage> {
                   actions: [
                     IconButton(
                       icon: CircleAvatar(
-                        backgroundColor: AppColors.surfaceColor,
+                      
+                      backgroundColor: AppColors.surfaceColor,
                         child: Icon(
+                        
                           Icons.person,
-                          size: 40,
-                          color: AppColors.primaryColor,
+                          color: AppColors.success,
                         ),
                       ),
                       onPressed: () => Navigator.push(

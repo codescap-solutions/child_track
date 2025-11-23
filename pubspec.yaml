@@ -51,6 +51,10 @@ dependencies:
   permission_handler: ^11.3.1
   flutter_polyline_points: ^3.1.0
   
+  # Device Information
+  battery_plus: ^5.0.1
+  connectivity_plus: ^6.0.5
+  
   # Environment variables
   flutter_dotenv: ^5.1.0
 
