@@ -37,7 +37,7 @@ class SocialAppItem extends StatelessWidget {
           ),
           child: Row(
             children: [
-              CircleAvatar(backgroundImage: icon, radius: 16),
+              _AppIcon(icon: icon),
               const SizedBox(width: AppSizes.spacingM),
               Expanded(
                 child: Column(
@@ -57,6 +57,67 @@ class SocialAppItem extends StatelessWidget {
               _LockIconButton(isLocked: isLocked),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AppIcon extends StatelessWidget {
+  final ImageProvider icon;
+
+  const _AppIcon({required this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    return CircleAvatar(
+      radius: 16,
+      backgroundColor: AppColors.surfaceColor,
+      child: ClipOval(
+        child: Image(
+          image: icon,
+          width: 32,
+          height: 32,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            return Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: AppColors.surfaceColor,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.apps,
+                size: 18,
+                color: AppColors.textSecondary,
+              ),
+            );
+          },
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: AppColors.surfaceColor,
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    value: loadingProgress.expectedTotalBytes != null
+                        ? loadingProgress.cumulativeBytesLoaded /
+                            loadingProgress.expectedTotalBytes!
+                        : null,
+                  ),
+                ),
+              ),
+            );
+          },
         ),
       ),
     );
