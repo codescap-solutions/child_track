@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/services.dart';
 import 'package:child_track/app/home/view_model/bloc/homepage_bloc.dart';
@@ -44,7 +43,7 @@ class _HomePageState extends State<HomePage> {
     //     state.currentLocation.lng,
     //   );
     // }
-    print('HomePage: Static location set to: ${location.latitude}, ${location.longitude}');
+
     _bottomSheetScrollController.addListener(_onScroll);
     _loadCustomMarker();
   }
@@ -57,9 +56,9 @@ class _HomePageState extends State<HomePage> {
       targetWidth: width,
     );
     ui.FrameInfo fi = await codec.getNextFrame();
-    return (await fi.image.toByteData(format: ui.ImageByteFormat.png))!
-        .buffer
-        .asUint8List();
+    return (await fi.image.toByteData(
+      format: ui.ImageByteFormat.png,
+    ))!.buffer.asUint8List();
   }
 
   /// Create battery icon as image bytes using CustomPainter
@@ -67,7 +66,7 @@ class _HomePageState extends State<HomePage> {
     // Create a recorder and canvas
     final ui.PictureRecorder recorder = ui.PictureRecorder();
     final Canvas canvas = Canvas(recorder);
-    
+
     // Draw battery icon using CustomPainter approach
     // Battery icon: rectangle with rounded corners and a small rectangle on the right
     final double width = size;
@@ -75,13 +74,13 @@ class _HomePageState extends State<HomePage> {
     final double cornerRadius = size * 0.1;
     final double terminalWidth = size * 0.15;
     final double terminalHeight = size * 0.3;
-    
+
     // Main battery body
     final RRect batteryRect = RRect.fromRectAndRadius(
       Rect.fromLTWH(0, (size - height) / 2, width - terminalWidth, height),
       Radius.circular(cornerRadius),
     );
-    
+
     // Battery terminal (right side)
     final RRect terminalRect = RRect.fromRectAndRadius(
       Rect.fromLTWH(
@@ -92,41 +91,43 @@ class _HomePageState extends State<HomePage> {
       ),
       Radius.circular(cornerRadius * 0.5),
     );
-    
+
     // Draw battery outline
     final Paint batteryPaint = Paint()
       ..color = AppColors.success
       ..style = PaintingStyle.stroke
       ..strokeWidth = size * 0.08;
-    
+
     canvas.drawRRect(batteryRect, batteryPaint);
     canvas.drawRRect(terminalRect, batteryPaint);
-    
+
     // Fill battery (representing charge level - you can customize this)
     final Paint fillPaint = Paint()
       ..color = AppColors.error
       ..style = PaintingStyle.fill;
-    
+
     final double fillWidth = (width - terminalWidth) * 0.8; // 80% charged
     final RRect fillRect = RRect.fromRectAndRadius(
       Rect.fromLTWH(0, (size - height) / 2, fillWidth, height),
       Radius.circular(cornerRadius),
     );
     canvas.drawRRect(fillRect, fillPaint);
-    
+
     // Convert to image
     final ui.Picture picture = recorder.endRecording();
     final ui.Image image = await picture.toImage(size.toInt(), size.toInt());
-    final ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-    
+    final ByteData? byteData = await image.toByteData(
+      format: ui.ImageByteFormat.png,
+    );
+
     // Clean up
     picture.dispose();
     image.dispose();
-    
+
     if (byteData == null) {
       throw Exception('Failed to create battery icon bytes');
     }
-    
+
     return byteData.buffer.asUint8List();
   }
 
@@ -148,7 +149,8 @@ class _HomePageState extends State<HomePage> {
     // Create a canvas to composite the images
     final int markerWidth = markerImage.width;
     final int markerHeight = markerImage.height;
-    final int batterySize = (markerWidth * 0.3).round(); // Battery icon is 30% of marker size
+    final int batterySize = (markerWidth * 0.3)
+        .round(); // Battery icon is 30% of marker size
 
     // Create a recorder and canvas
     final ui.PictureRecorder recorder = ui.PictureRecorder();
@@ -177,11 +179,16 @@ class _HomePageState extends State<HomePage> {
 
     // Convert canvas to image
     final ui.Picture picture = recorder.endRecording();
-    final ui.Image compositeImage = await picture.toImage(markerWidth, markerHeight);
+    final ui.Image compositeImage = await picture.toImage(
+      markerWidth,
+      markerHeight,
+    );
 
     // Convert to bytes
-    final ByteData? byteData = await compositeImage.toByteData(format: ui.ImageByteFormat.png);
-    
+    final ByteData? byteData = await compositeImage.toByteData(
+      format: ui.ImageByteFormat.png,
+    );
+
     // Dispose images to free memory
     markerImage.dispose();
     batteryImage.dispose();
@@ -195,19 +202,19 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _loadCustomMarker() async {
     try {
-      print('HomePage: Loading custom marker icon with battery...');
       // Load main marker image
-      final Uint8List markerIconBytes =
-          await _getBytesFromAsset('assets/images/images.png', 180);
-      
+      final Uint8List markerIconBytes = await _getBytesFromAsset(
+        'assets/images/images.png',
+        180,
+      );
+
       // Create battery icon
       Uint8List batteryIconBytes;
       try {
         batteryIconBytes = await _createBatteryIconBytes(80);
       } catch (e) {
-        print('HomePage: Error creating battery icon, using fallback: $e');
         // Fallback: use marker without battery
-        final icon = BitmapDescriptor.fromBytes(markerIconBytes);
+        final icon = BitmapDescriptor.bytes(markerIconBytes);
         if (mounted) {
           setState(() {
             _customMarkerIcon = icon;
@@ -222,15 +229,13 @@ class _HomePageState extends State<HomePage> {
         batteryIconBytes,
       );
 
-      final icon = BitmapDescriptor.fromBytes(compositeBytes);
+      final icon = BitmapDescriptor.bytes(compositeBytes);
       if (mounted) {
         setState(() {
           _customMarkerIcon = icon;
         });
-        print('HomePage: Custom marker icon with battery loaded successfully');
       }
     } catch (e) {
-      print('HomePage: Error loading custom marker icon: $e');
       if (mounted) {
         setState(() {
           _customMarkerIcon = null;
@@ -258,14 +263,15 @@ class _HomePageState extends State<HomePage> {
         Navigator.of(context)
             .push(
               MaterialPageRoute(
-                  builder: (_) => const ChildLocationDetailView()),
+                builder: (_) => const ChildLocationDetailView(),
+              ),
             )
             .then((_) {
-          // Reset flag when returning from detail view
-          if (mounted) {
-            _hasNavigated = false;
-          }
-        });
+              // Reset flag when returning from detail view
+              if (mounted) {
+                _hasNavigated = false;
+              }
+            });
       }
     }
   }
@@ -278,11 +284,11 @@ class _HomePageState extends State<HomePage> {
             MaterialPageRoute(builder: (_) => const ChildLocationDetailView()),
           )
           .then((_) {
-        // Reset flag when returning from detail view
-        if (mounted) {
-          _hasNavigated = false;
-        }
-      });
+            // Reset flag when returning from detail view
+            if (mounted) {
+              _hasNavigated = false;
+            }
+          });
     }
   }
 
@@ -314,13 +320,8 @@ class _HomePageState extends State<HomePage> {
                   actions: [
                     IconButton(
                       icon: CircleAvatar(
-                      
-                      backgroundColor: AppColors.surfaceColor,
-                        child: Icon(
-                        
-                          Icons.person,
-                          color: AppColors.success,
-                        ),
+                        backgroundColor: AppColors.surfaceColor,
+                        child: Icon(Icons.person, color: AppColors.success),
                       ),
                       onPressed: () => Navigator.push(
                         context,
@@ -340,38 +341,41 @@ class _HomePageState extends State<HomePage> {
                         //     state.currentLocation.lng,
                         //   );
                         // }
-                        
+
                         // Create custom marker with static location
                         final List<Marker> markers = [];
-                        
+
                         if (_customMarkerIcon != null) {
                           // Use custom marker icon - use unique ID to force update
                           // Anchor at bottom center (0.5, 1.0) to match default marker behavior
                           final customMarker = Marker(
-                            markerId: MarkerId('child_location_custom_${_customMarkerIcon.hashCode}'),
+                            markerId: MarkerId(
+                              'child_location_custom_${_customMarkerIcon.hashCode}',
+                            ),
                             position: location,
                             icon: _customMarkerIcon!,
-                            anchor: const Offset(0.5, 1.0), // Bottom center, same as default marker
+                            anchor: const Offset(
+                              0.5,
+                              1.0,
+                            ), // Bottom center, same as default marker
                           );
                           markers.add(customMarker);
-                          print('HomePage: Custom marker created with icon at: ${location.latitude}, ${location.longitude}');
-                          print('HomePage: Marker ID: ${customMarker.markerId.value}');
                         } else {
                           // Fallback to default marker while icon is loading
                           markers.add(
                             Marker(
-                              markerId: const MarkerId('child_location_default'),
+                              markerId: const MarkerId(
+                                'child_location_default',
+                              ),
                               position: location,
                             ),
                           );
-                          print('HomePage: Default marker created (icon still loading) at: ${location.latitude}, ${location.longitude}');
                         }
-
-                        print('HomePage: Using location for map: ${location.latitude}, ${location.longitude}');
-                        print('HomePage: Markers count: ${markers.length}, Has custom icon: ${_customMarkerIcon != null}');
                         // Use a unique key that changes when icon loads to force complete rebuild
                         return MapViewWidget(
-                          key: ValueKey('map_${_customMarkerIcon != null}_${_customMarkerIcon.hashCode}'),
+                          key: ValueKey(
+                            'map_${_customMarkerIcon != null}_${_customMarkerIcon.hashCode}',
+                          ),
                           width: double.infinity,
                           height: double.infinity,
                           interactive: true,
@@ -379,15 +383,17 @@ class _HomePageState extends State<HomePage> {
                           markers: markers,
                           onMapCreated: (controller) {
                             // Focus on marker with animation
-                            print('HomePage: Focusing camera on: ${location.latitude}, ${location.longitude}');
                             // Small delay to ensure marker is rendered
-                            Future.delayed(const Duration(milliseconds: 100), () {
-                              if (mounted) {
-                                controller.animateCamera(
-                                  CameraUpdate.newLatLngZoom(location, 15.0),
-                                );
-                              }
-                            });
+                            Future.delayed(
+                              const Duration(milliseconds: 100),
+                              () {
+                                if (mounted) {
+                                  controller.animateCamera(
+                                    CameraUpdate.newLatLngZoom(location, 15.0),
+                                  );
+                                }
+                              },
+                            );
                           },
                         );
                       },
@@ -453,20 +459,231 @@ class _HomePageState extends State<HomePage> {
   Widget _buildChildLocationCardContent(BuildContext context) {
     return BlocBuilder<HomepageBloc, HomepageState>(
       builder: (context, state) {
-        if (state is HomepageLoading) {
+        if (state is! HomepageSuccess || state.isLoading) {
           return const Center(child: CircularProgressIndicator());
         }
-        if (state is HomepageError) {
-          return Center(child: Text(state.message));
-        }
-        if (state is HomepageSuccess) {
-          return Padding(
-            padding: const EdgeInsets.all(AppSizes.paddingM),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Title and Save Place button
-                Row(
+        return Padding(
+          padding: const EdgeInsets.all(AppSizes.paddingM),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Title and Save Place button
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${state.currentLocation?.placeName} at ${state.currentLocation?.address}',
+                          style: AppTextStyles.headline3.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: AppSizes.spacingXS),
+                        Text(
+                          'Since ${state.currentLocation?.since} (${state.currentLocation?.durationMinutes} hours)',
+                          style: AppTextStyles.caption.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Save Place button
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => AddandSavePlace(
+                            initialLocation: LatLng(
+                              state.currentLocation?.lat ?? 0,
+                              state.currentLocation?.lng ?? 0,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                    icon: const Icon(
+                      Icons.bookmark,
+                      size: 16,
+                      color: AppColors.textSecondary,
+                    ),
+                    label: Text('save place', style: AppTextStyles.caption),
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: Colors.transparent),
+                      backgroundColor: AppColors.containerBackground,
+
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSizes.paddingM,
+                        vertical: AppSizes.paddingS,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        side: BorderSide(color: Colors.transparent),
+                        borderRadius: BorderRadius.circular(AppSizes.radiusM),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: AppSizes.spacingM),
+
+              // Device status indicators
+              Row(
+                children: [
+                  // Battery
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSizes.paddingXS,
+                      vertical: AppSizes.paddingXS,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.success.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(AppSizes.radiusS),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.battery_full,
+                          color: AppColors.success,
+                          size: 16,
+                        ),
+                        const SizedBox(width: AppSizes.spacingXS),
+                        Text(
+                          '${state.deviceInfo?.batteryPercentage}%',
+                          style: AppTextStyles.overline.copyWith(
+                            color: AppColors.success,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: AppSizes.spacingS),
+                  // Wi-Fi
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSizes.paddingS,
+                      vertical: AppSizes.paddingXS,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.info.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(AppSizes.radiusS),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.wifi, color: AppColors.info, size: 16),
+                        const SizedBox(width: AppSizes.spacingXS),
+                        Text(
+                          state.deviceInfo?.networkStatus.toUpperCase() ?? '',
+                          style: AppTextStyles.overline.copyWith(
+                            color: AppColors.info,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: AppSizes.spacingS),
+                  // Sound
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSizes.paddingS,
+                      vertical: AppSizes.paddingXS,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.warning.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(AppSizes.radiusS),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.volume_up,
+                          color: AppColors.warning,
+                          size: 16,
+                        ),
+                        const SizedBox(width: AppSizes.spacingXS),
+                        Text(
+                          state.deviceInfo?.soundProfile.toUpperCase() ?? '',
+                          style: AppTextStyles.overline.copyWith(
+                            color: AppColors.warning,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Spacer(),
+                  // Action icons
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(
+                          Icons.settings_outlined,
+                          color: AppColors.textSecondary,
+                        ),
+                        onPressed: () {},
+                      ),
+                      IconButton(
+                        icon: const Icon(
+                          Icons.share_outlined,
+                          color: AppColors.textSecondary,
+                        ),
+                        onPressed: () {},
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: AppSizes.spacingM),
+
+              // Feature Cards Row
+              Row(
+                children: [
+                  // Geo Guard card
+
+                  // Scroll card
+                  Expanded(
+                    child: _buildFeatureCard(
+                      title: 'Scroll',
+                      subtitle: 'Social Media &\nApp control',
+                      icon: 'assets/home/scroll_girl.svg',
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const SocialAppsView(),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: AppSizes.spacingM),
+                  Expanded(
+                    child: _buildFeatureCard(
+                      title: 'Geo Guard',
+                      subtitle: 'Places &\nGeofencing',
+                      icon: 'assets/home/geo_guard_girl.svg',
+                      onTap: () {},
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: AppSizes.spacingM),
+
+              // Infinite Real-Time Tracking Banner
+              Container(
+                padding: const EdgeInsets.all(AppSizes.paddingM),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(AppSizes.radiusM),
+                ),
+                child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Expanded(
@@ -474,258 +691,36 @@ class _HomePageState extends State<HomePage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            '${state.currentLocation.placeName} at ${state.currentLocation.address}',
-                            style: AppTextStyles.headline3.copyWith(
+                            'INFINITE REAL-TIME TRACKING',
+                            style: AppTextStyles.subtitle2.copyWith(
                               fontWeight: FontWeight.bold,
+                              color: AppColors.primaryColor,
                             ),
                           ),
                           const SizedBox(height: AppSizes.spacingXS),
                           Text(
-                            'Since ${state.currentLocation.since} (${state.currentLocation.durationMinutes} hours)',
-                            style: AppTextStyles.caption.copyWith(
+                            'Unlimited Updated, just for you',
+                            style: AppTextStyles.overline.copyWith(
                               color: AppColors.textSecondary,
                             ),
                           ),
                         ],
                       ),
                     ),
-                    // Save Place button
-                    OutlinedButton.icon(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => AddandSavePlace(
-                              initialLocation: LatLng(
-                                state.currentLocation.lat,
-                                state.currentLocation.lng,
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                      icon: const Icon(
-                        Icons.bookmark,
-                        size: 16,
-                        color: AppColors.textSecondary,
-                      ),
-                      label: Text('save place', style: AppTextStyles.caption),
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: Colors.transparent),
-                        backgroundColor: AppColors.containerBackground,
-
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSizes.paddingM,
-                          vertical: AppSizes.paddingS,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          side: BorderSide(color: Colors.transparent),
-                          borderRadius: BorderRadius.circular(AppSizes.radiusM),
-                        ),
-                      ),
+                    CommonButton(
+                      padding: EdgeInsets.zero,
+                      height: 28,
+                      width: 78,
+                      fontSize: 10,
+                      text: 'View all',
+                      onPressed: () {},
                     ),
                   ],
                 ),
-
-                const SizedBox(height: AppSizes.spacingM),
-
-                // Device status indicators
-                Row(
-                  children: [
-                    // Battery
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSizes.paddingXS,
-                        vertical: AppSizes.paddingXS,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.success.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(AppSizes.radiusS),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.battery_full,
-                            color: AppColors.success,
-                            size: 16,
-                          ),
-                          const SizedBox(width: AppSizes.spacingXS),
-                          Text(
-                            '${state.deviceInfo.batteryPercentage}%',
-                            style: AppTextStyles.overline.copyWith(
-                              color: AppColors.success,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: AppSizes.spacingS),
-                    // Wi-Fi
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSizes.paddingS,
-                        vertical: AppSizes.paddingXS,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.info.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(AppSizes.radiusS),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.wifi,
-                            color: AppColors.info,
-                            size: 16,
-                          ),
-                          const SizedBox(width: AppSizes.spacingXS),
-                          Text(
-                            state.deviceInfo.networkStatus.toUpperCase(),
-                            style: AppTextStyles.overline.copyWith(
-                              color: AppColors.info,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: AppSizes.spacingS),
-                    // Sound
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSizes.paddingS,
-                        vertical: AppSizes.paddingXS,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.warning.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(AppSizes.radiusS),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.volume_up,
-                            color: AppColors.warning,
-                            size: 16,
-                          ),
-                          const SizedBox(width: AppSizes.spacingXS),
-                          Text(
-                            state.deviceInfo.soundProfile.toUpperCase(),
-                            style: AppTextStyles.overline.copyWith(
-                              color: AppColors.warning,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Spacer(),
-                    // Action icons
-                    Row(
-                      children: [
-                        IconButton(
-                          icon: const Icon(
-                            Icons.settings_outlined,
-                            color: AppColors.textSecondary,
-                          ),
-                          onPressed: () {},
-                        ),
-                        IconButton(
-                          icon: const Icon(
-                            Icons.share_outlined,
-                            color: AppColors.textSecondary,
-                          ),
-                          onPressed: () {},
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: AppSizes.spacingM),
-
-                // Feature Cards Row
-                Row(
-                  children: [
-                    // Geo Guard card
-
-                    // Scroll card
-                    Expanded(
-                      child: _buildFeatureCard(
-                        title: 'Scroll',
-                        subtitle: 'Social Media &\nApp control',
-                        icon: 'assets/home/scroll_girl.svg',
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const SocialAppsView(),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: AppSizes.spacingM),
-                    Expanded(
-                      child: _buildFeatureCard(
-                        title: 'Geo Guard',
-                        subtitle: 'Places &\nGeofencing',
-                        icon: 'assets/home/geo_guard_girl.svg',
-                        onTap: () {},
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: AppSizes.spacingM),
-
-                // Infinite Real-Time Tracking Banner
-                Container(
-                  padding: const EdgeInsets.all(AppSizes.paddingM),
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(AppSizes.radiusM),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'INFINITE REAL-TIME TRACKING',
-                              style: AppTextStyles.subtitle2.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.primaryColor,
-                              ),
-                            ),
-                            const SizedBox(height: AppSizes.spacingXS),
-                            Text(
-                              'Unlimited Updated, just for you',
-                              style: AppTextStyles.overline.copyWith(
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      CommonButton(
-                        padding: EdgeInsets.zero,
-                        height: 28,
-                        width: 78,
-                        fontSize: 10,
-                        text: 'View all',
-                        onPressed: () {},
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
-        //fetching data
-        return CircularProgressIndicator();
+              ),
+            ],
+          ),
+        );
       },
     );
   }

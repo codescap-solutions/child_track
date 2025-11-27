@@ -32,7 +32,7 @@ class MapViewWidget extends StatefulWidget {
 class _MapViewWidgetState extends State<MapViewWidget> {
   Map<PolylineId, Polyline> polylines = {};
   MapType currentMapType = MapType.normal;
-  
+
   @override
   void initState() {
     super.initState();
@@ -67,18 +67,10 @@ class _MapViewWidgetState extends State<MapViewWidget> {
               padding: EdgeInsets.symmetric(vertical: 8),
               child: Text(
                 'Map Type',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
             ),
-            _buildMapTypeOption(
-              context,
-              'Normal',
-              MapType.normal,
-              Icons.map,
-            ),
+            _buildMapTypeOption(context, 'Normal', MapType.normal, Icons.map),
             _buildMapTypeOption(
               context,
               'Satellite',
@@ -112,10 +104,7 @@ class _MapViewWidgetState extends State<MapViewWidget> {
   ) {
     final isSelected = currentMapType == mapType;
     return ListTile(
-      leading: Icon(
-        icon,
-        color: isSelected ? Colors.blue : Colors.grey[600],
-      ),
+      leading: Icon(icon, color: isSelected ? Colors.blue : Colors.grey[600]),
       title: Text(
         label,
         style: TextStyle(
@@ -123,9 +112,7 @@ class _MapViewWidgetState extends State<MapViewWidget> {
           color: isSelected ? Colors.blue : Colors.black87,
         ),
       ),
-      trailing: isSelected
-          ? const Icon(Icons.check, color: Colors.blue)
-          : null,
+      trailing: isSelected ? const Icon(Icons.check, color: Colors.blue) : null,
       onTap: () {
         setState(() {
           currentMapType = mapType;
@@ -163,9 +150,7 @@ class _MapViewWidgetState extends State<MapViewWidget> {
         create: (context) => injector<MapBloc>(),
         child: BlocBuilder<MapBloc, MapState>(
           builder: (context, state) {
-            print('MapViewWidget: BlocBuilder state: ${state.runtimeType}');
             if (state is MapLoaded) {
-              print('MapViewWidget: MapLoaded state - currentPosition: ${state.currentPosition}');
               return Stack(
                 children: [
                   IgnorePointer(
@@ -196,35 +181,24 @@ class _MapViewWidgetState extends State<MapViewWidget> {
                         target: widget.currentPosition ?? state.currentPosition,
                         zoom: widget.currentPosition != null ? 15.0 : 11.0,
                       ),
-                  markers: () {
-                    final markersToUse = widget.markers != null && widget.markers!.isNotEmpty
-                        ? widget.markers!.toSet()
-                        : state.markers.toSet();
-                    print('MapViewWidget: Using ${markersToUse.length} markers');
-                    if (markersToUse.isNotEmpty) {
-                      final firstMarker = markersToUse.first;
-                      print('MapViewWidget: First marker - ID: ${firstMarker.markerId.value}, Position: ${firstMarker.position}');
-                      try {
-                        print('MapViewWidget: Marker has custom icon: ${firstMarker.icon}');
-                      } catch (e) {
-                        print('MapViewWidget: Could not access marker icon property: $e');
-                      }
-                    }
-                    return markersToUse;
-                  }(),
-                  onCameraMoveStarted: () {
-                   
-                  },
-                  onCameraIdle: () {
-                  },
-                  myLocationEnabled: true,
-                  myLocationButtonEnabled: true,
+                      markers: () {
+                        final markersToUse =
+                            widget.markers != null && widget.markers!.isNotEmpty
+                            ? widget.markers!.toSet()
+                            : state.markers.toSet();
+
+                        return markersToUse;
+                      }(),
+                      onCameraMoveStarted: () {},
+                      onCameraIdle: () {},
+                      myLocationEnabled: true,
+                      myLocationButtonEnabled: true,
                     ),
                   ),
                   // Floating layers button
                   Positioned(
                     right: 16,
-                    bottom:160,
+                    bottom: 160,
                     child: Material(
                       color: Colors.white,
                       shape: const CircleBorder(),

@@ -65,8 +65,8 @@ class ChildLocationDetailView extends StatelessWidget {
                                   width: double.infinity,
                                   height: double.infinity,
                                   currentPosition: LatLng(
-                                    currentLocation.lat,
-                                    currentLocation.lng,
+                                    currentLocation?.lat ?? 0,
+                                    currentLocation?.lng ?? 0,
                                   ),
                                   markers: [
                                     Marker(

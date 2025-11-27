@@ -14,4 +14,7 @@ class ApiEndpoints {
   static const String postActivity = 'child/activity';
   static const String postScreenTime = 'child/screentime';
   static const String postTripEvent = 'child/trip-event';
+
+  //parent Endpoints
+  static const String getHome = 'parent/home';
 }

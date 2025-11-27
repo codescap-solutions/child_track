@@ -1,10 +1,10 @@
-import 'dart:convert';
 import 'dart:developer';
-
 import 'package:child_track/app/home/model/device_model.dart';
 import 'package:child_track/app/home/model/home_model.dart';
 import 'package:child_track/app/home/model/last_trip_model.dart';
 import 'package:child_track/app/home/model/location_info_model.dart';
+import 'package:child_track/app/home/model/yesterday_trip_summary_model.dart';
+import 'package:child_track/app/home/model/cards_model.dart';
 import 'package:child_track/app/home/view_model/home_repo.dart';
 import 'package:child_track/app/map/view_model/map_bloc.dart';
 import 'package:child_track/core/utils/app_logger.dart';
@@ -23,7 +23,7 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
     required MapBloc mapBloc,
   }) : _homeRepository = homeRepository,
        _mapBloc = mapBloc,
-       super(MapInitial()) {
+       super(HomepageSuccess.initial()) {
     on<GetHomepageData>(_onGetHomepageData);
     on<FetchChildCurrentDetails>(_onFetchChildCurrentDetails);
   }
@@ -32,20 +32,30 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
     GetHomepageData event,
     Emitter<HomepageState> emit,
   ) async {
-    log('onGetHomepageData');
-    emit(HomepageLoading());
-    final response = await _homeRepository.getHomeData();
-    if (response.isSuccess) {
-      final homeData = response.data as HomeResponse;
-      emit(
-        HomepageSuccess(
-          deviceInfo: homeData.deviceInfo,
-          currentLocation: homeData.currentLocation,
-          yesterdayTrips: homeData.yesterdayTrips,
-        ),
+    final currentState = state;
+    if (currentState is! HomepageSuccess) return;
+    emit(currentState.copyWith(isLoading: true));
+    try {
+      final response = await _homeRepository.getHomeData(
+        childId: event.childId,
       );
-    } else {
-      emit(HomepageError(message: response.message));
+      if (response.isSuccess && response.data != null) {
+        final homeData = response.data!;
+        emit(
+          HomepageSuccess(
+            deviceInfo: homeData.deviceInfo,
+            currentLocation: homeData.currentLocation,
+            yesterdayTrips: homeData.yesterdayTrips,
+            yesterdayTripSummary: homeData.yesterdayTripSummary,
+            cards: homeData.cards,
+          ),
+        );
+      } else {
+        emit(HomepageError(message: response.message));
+      }
+    } catch (e) {
+      AppLogger.error('Error fetching home data: ${e.toString()}');
+      emit(HomepageError(message: 'Failed to load home data: ${e.toString()}'));
     }
   }
 
