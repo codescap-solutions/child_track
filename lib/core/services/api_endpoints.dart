@@ -17,4 +17,6 @@ class ApiEndpoints {
 
   //parent Endpoints
   static const String getHome = 'parent/home';
+  static const String getTrips = 'parent/trips';
+  static String getTripDetail(String tripId) => 'parent/trip/$tripId';
 }

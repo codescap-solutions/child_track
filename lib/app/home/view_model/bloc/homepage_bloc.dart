@@ -1,10 +1,11 @@
-import 'dart:developer';
 import 'package:child_track/app/home/model/device_model.dart';
 import 'package:child_track/app/home/model/home_model.dart';
 import 'package:child_track/app/home/model/last_trip_model.dart';
 import 'package:child_track/app/home/model/location_info_model.dart';
 import 'package:child_track/app/home/model/yesterday_trip_summary_model.dart';
 import 'package:child_track/app/home/model/cards_model.dart';
+import 'package:child_track/app/home/model/trip_list_model.dart';
+import 'package:child_track/app/home/model/trip_detail_model.dart';
 import 'package:child_track/app/home/view_model/home_repo.dart';
 import 'package:child_track/app/map/view_model/map_bloc.dart';
 import 'package:child_track/core/utils/app_logger.dart';
@@ -26,6 +27,8 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
        super(HomepageSuccess.initial()) {
     on<GetHomepageData>(_onGetHomepageData);
     on<FetchChildCurrentDetails>(_onFetchChildCurrentDetails);
+    on<GetTrips>(_onGetTrips);
+    on<GetTripDetail>(_onGetTripDetail);
   }
 
   Future<void> _onGetHomepageData(
@@ -89,6 +92,68 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
       AppLogger.error(e.toString());
     } finally {
       emit(currentState.copyWith(isLoading: false));
+    }
+  }
+
+  Future<void> _onGetTrips(GetTrips event, Emitter<HomepageState> emit) async {
+    final currentState = state;
+    if (currentState is! HomepageSuccess) return;
+    emit(currentState.copyWith(isLoadingTrips: true));
+    try {
+      final response = await _homeRepository.getTrips(
+        childId: event.childId,
+        page: event.page,
+        pageSize: event.pageSize,
+      );
+      if (response.isSuccess && response.data != null) {
+        final tripsData = response.data!;
+        emit(
+          currentState.copyWith(
+            trips: tripsData.trips,
+            tripsPage: tripsData.page,
+            tripsPageSize: tripsData.pageSize,
+            tripsTotalItems: tripsData.totalItems,
+            isLoadingTrips: false,
+          ),
+        );
+      } else {
+        emit(currentState.copyWith(isLoadingTrips: false));
+        AppLogger.error('Failed to fetch trips: ${response.message}');
+      }
+    } catch (e) {
+      AppLogger.error('Error fetching trips: ${e.toString()}');
+      emit(currentState.copyWith(isLoadingTrips: false));
+    }
+  }
+
+  Future<void> _onGetTripDetail(
+    GetTripDetail event,
+    Emitter<HomepageState> emit,
+  ) async {
+    final currentState = state;
+    if (currentState is! HomepageSuccess) return;
+    emit(
+      currentState.copyWith(
+        isLoadingTripDetail: true,
+        selectedTripId: event.tripId,
+      ),
+    );
+    try {
+      final response = await _homeRepository.getTripDetail(event.tripId);
+      if (response.isSuccess && response.data != null) {
+        emit(
+          currentState.copyWith(
+            selectedTripDetail: response.data!,
+            isLoadingTripDetail: false,
+          ),
+        );
+      } else {
+        emit(currentState.copyWith(isLoadingTripDetail: false));
+        AppLogger.error('Failed to fetch trip detail: ${response.message}');
+      }
+    } catch (e) {
+      AppLogger.error('Error fetching trip detail: ${e.toString()}');
+      emit(currentState.copyWith(isLoadingTripDetail: false));
     }
   }
 }
