@@ -19,4 +19,15 @@ class ChildGoogleMapsRepo {
       throw Exception('Error getting child location: $e');
     }
   }
+
+  Future<double> getDistanceBetweenTwoPoints(
+    Position point1,
+    Position point2,
+  ) async {
+    final distance = await _locationService.getDistanceBetweenTwoPoints(
+      point1,
+      point2,
+    );
+    return distance;
+  }
 }

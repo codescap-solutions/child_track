@@ -35,3 +35,14 @@ final class PostChildLocation extends ChildEvent {
   @override
   List<Object> get props => [childLocation];
 }
+
+final class StartTripTracking extends ChildEvent {}
+
+final class StopTripTracking extends ChildEvent {}
+
+final class UpdateTripLocation extends ChildEvent {
+  final Position location;
+  const UpdateTripLocation({required this.location});
+  @override
+  List<Object> get props => [location];
+}

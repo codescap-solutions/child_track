@@ -20,4 +20,9 @@ class ChildRepo extends BaseService {
     final response = await post(ApiEndpoints.postLocation, data: data);
     return response;
   }
+
+  Future<BaseResponse> postTripEvent(Map<String, dynamic> data) async {
+    final response = await post(ApiEndpoints.postTripEvent, data: data);
+    return response;
+  }
 }
