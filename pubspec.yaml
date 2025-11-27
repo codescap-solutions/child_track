@@ -57,6 +57,11 @@ dependencies:
   
   # Environment variables
   flutter_dotenv: ^5.1.0
+  
+  # HTTP and Utilities
+  http: ^1.2.0
+  uuid: ^4.3.3
+  intl: ^0.19.0
 
 dev_dependencies:
   flutter_test:
