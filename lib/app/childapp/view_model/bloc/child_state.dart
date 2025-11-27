@@ -1,36 +1,39 @@
 part of 'child_bloc.dart';
 
-sealed class SosState extends Equatable {
-  const SosState();
+sealed class ChildState extends Equatable {
+  const ChildState();
 
   @override
   List<Object> get props => [];
 }
 
-final class SosDeviceInfoLoaded extends SosState {
+final class ChildDeviceInfoLoaded extends ChildState {
   final DeviceInfo deviceInfo;
   final List<AppScreenTimeModel> screenTime;
-
-  const SosDeviceInfoLoaded({
+  final Position? childLocation;
+  const ChildDeviceInfoLoaded({
     required this.deviceInfo,
     this.screenTime = const [],
+    this.childLocation,
   });
 
   @override
-  List<Object> get props => [deviceInfo, screenTime];
+  List<Object> get props => [deviceInfo, screenTime, ?childLocation];
 
-  SosDeviceInfoLoaded copyWith({
+  ChildDeviceInfoLoaded copyWith({
     DeviceInfo? deviceInfo,
     List<AppScreenTimeModel>? screenTime,
+    Position? childLocation,
   }) {
-    return SosDeviceInfoLoaded(
+    return ChildDeviceInfoLoaded(
       deviceInfo: deviceInfo ?? this.deviceInfo,
       screenTime: screenTime ?? this.screenTime,
+      childLocation: childLocation ?? this.childLocation,
     );
   }
 
-  static SosDeviceInfoLoaded initial() {
-    return SosDeviceInfoLoaded(
+  static ChildDeviceInfoLoaded initial() {
+    return ChildDeviceInfoLoaded(
       deviceInfo: DeviceInfo(
         batteryPercentage: 0,
         networkStatus: '',
@@ -44,7 +47,7 @@ final class SosDeviceInfoLoaded extends SosState {
   }
 }
 
-final class SosError extends SosState {
+final class SosError extends ChildState {
   final String message;
 
   const SosError({required this.message});

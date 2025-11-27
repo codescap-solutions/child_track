@@ -1,6 +1,7 @@
-import 'package:child_track/app/childapp/view_model/child_repo.dart';
+import 'package:child_track/app/childapp/view_model/repository/child_location_repo.dart';
+import 'package:child_track/app/childapp/view_model/repository/child_repo.dart';
 import 'package:child_track/app/home/view_model/home_repo.dart';
-import 'package:child_track/app/childapp/view_model/device_info_service.dart';
+import 'package:child_track/app/childapp/view_model/repository/device_info_service.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/dio_client.dart';
@@ -9,7 +10,7 @@ import '../../app/auth/view_model/auth_repository.dart';
 import '../../app/auth/view_model/bloc/auth_bloc.dart';
 import '../../app/home/view_model/bloc/homepage_bloc.dart';
 import '../../app/map/view_model/map_bloc.dart';
-import '../../app/childapp/view_model/child_bloc.dart';
+import '../../app/childapp/view_model/bloc/child_bloc.dart';
 
 final GetIt injector = GetIt.instance;
 
@@ -43,6 +44,10 @@ Future<void> initializeDependencies() async {
   );
   injector.registerLazySingleton<ChildInfoService>(() => ChildInfoService());
 
+  injector.registerLazySingleton<ChildGoogleMapsRepo>(
+    () => ChildGoogleMapsRepo(),
+  );
+
   // Register blocs
   injector.registerLazySingleton<AuthBloc>(() => AuthBloc());
   injector.registerLazySingleton<MapBloc>(() => MapBloc());
@@ -55,7 +60,8 @@ Future<void> initializeDependencies() async {
   injector.registerLazySingleton<ChildBloc>(
     () => ChildBloc(
       deviceInfoService: injector<ChildInfoService>(),
-      sosRepo: injector<ChildRepo>(),
+      childRepo: injector<ChildRepo>(),
+      childLocationRepo: injector<ChildGoogleMapsRepo>(),
     ),
   );
 }

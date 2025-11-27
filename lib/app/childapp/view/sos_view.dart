@@ -1,6 +1,6 @@
 import 'package:child_track/app/home/view/home_page.dart';
 import 'package:child_track/app/home/model/device_model.dart';
-import 'package:child_track/app/childapp/view_model/child_bloc.dart';
+import 'package:child_track/app/childapp/view_model/bloc/child_bloc.dart';
 import 'package:child_track/core/di/injector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -97,17 +97,17 @@ class _SosViewContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<ChildBloc, SosState>(
+    return BlocListener<ChildBloc, ChildState>(
       listenWhen: (previous, current) {
-        return previous is! SosDeviceInfoLoaded &&
-            current is SosDeviceInfoLoaded;
+        return previous is! ChildDeviceInfoLoaded &&
+            current is ChildDeviceInfoLoaded;
       },
       listener: (context, state) {
-        if (state is SosDeviceInfoLoaded) {
+        if (state is ChildDeviceInfoLoaded) {
           _showDeviceInfoDialog(context, state.deviceInfo);
         }
       },
-      child: BlocBuilder<ChildBloc, SosState>(
+      child: BlocBuilder<ChildBloc, ChildState>(
         builder: (context, state) {
           return Scaffold(
             backgroundColor: AppColors.surfaceColor,

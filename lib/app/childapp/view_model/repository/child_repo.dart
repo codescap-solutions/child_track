@@ -7,18 +7,17 @@ class ChildRepo extends BaseService {
   ChildRepo({required DioClient dioClient}) : super(dioClient);
 
   Future<BaseResponse> postChildData(Map<String, dynamic> data) async {
-    final response = await post<Map<String, dynamic>>(
-      ApiEndpoints.postDeviceInfo,
-      data: data,
-    );
+    final response = await post(ApiEndpoints.postDeviceInfo, data: data);
     return response;
   }
 
   Future<BaseResponse> postScreenTime(Map<String, dynamic> data) async {
-    final response = await post<Map<String, dynamic>>(
-      ApiEndpoints.postScreenTime,
-      data: data,
-    );
+    final response = await post(ApiEndpoints.postScreenTime, data: data);
+    return response;
+  }
+
+  Future<BaseResponse> postChildLocation(Map<String, dynamic> data) async {
+    final response = await post(ApiEndpoints.postLocation, data: data);
     return response;
   }
 }

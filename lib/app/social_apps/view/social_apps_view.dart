@@ -4,7 +4,7 @@ import 'package:child_track/core/constants/app_colors.dart';
 import 'package:child_track/core/constants/app_sizes.dart';
 import 'package:child_track/core/constants/app_text_styles.dart';
 import 'package:child_track/core/widgets/common_button.dart';
-import 'package:child_track/app/childapp/view_model/device_info_service.dart';
+import 'package:child_track/app/childapp/view_model/repository/device_info_service.dart';
 import 'package:child_track/app/social_apps/model/installed_app_model.dart';
 import '../../settings/view/settings_view.dart';
 import 'widgets/social_app_item.dart';
