@@ -4,7 +4,7 @@ import 'package:child_track/core/constants/app_colors.dart';
 import 'package:child_track/core/constants/app_sizes.dart';
 import 'package:child_track/core/constants/app_text_styles.dart';
 import 'package:child_track/core/widgets/common_button.dart';
-import 'package:child_track/core/services/device_info_service.dart';
+import 'package:child_track/app/childapp/view_model/device_info_service.dart';
 import 'package:child_track/app/social_apps/model/installed_app_model.dart';
 import '../../settings/view/settings_view.dart';
 import 'widgets/social_app_item.dart';
@@ -17,7 +17,7 @@ class SocialAppsView extends StatefulWidget {
 }
 
 class _SocialAppsViewState extends State<SocialAppsView> {
-  final DeviceInfoService _deviceInfoService = DeviceInfoService();
+  final ChildInfoService _deviceInfoService = ChildInfoService();
   List<InstalledApp> _apps = [];
   bool _isLoading = true;
   String? _error;
@@ -36,7 +36,7 @@ class _SocialAppsViewState extends State<SocialAppsView> {
 
   Future<void> _loadApps() async {
     debugPrint('_loadApps called - setting loading to true');
-    
+
     // Ensure loading state is set immediately
     if (mounted) {
       setState(() {
@@ -53,16 +53,16 @@ class _SocialAppsViewState extends State<SocialAppsView> {
 
     try {
       debugPrint('Starting to fetch apps...');
-      
+
       if (mounted) {
         setState(() {
           _loadingMessage = 'Fetching installed apps...';
         });
       }
-      
+
       final apps = await _deviceInfoService.getInstalledApps();
       debugPrint('Apps fetched: ${apps.length}');
-      
+
       if (mounted) {
         setState(() {
           _totalApps = apps.length;
@@ -74,23 +74,25 @@ class _SocialAppsViewState extends State<SocialAppsView> {
       if (apps.isNotEmpty) {
         const batchSize = 10;
         final processedApps = <InstalledApp>[];
-        
+
         for (int i = 0; i < apps.length; i += batchSize) {
-          final end = (i + batchSize < apps.length) ? i + batchSize : apps.length;
+          final end = (i + batchSize < apps.length)
+              ? i + batchSize
+              : apps.length;
           final batch = apps.sublist(i, end);
           processedApps.addAll(batch);
-          
+
           if (mounted) {
             setState(() {
               _loadedApps = processedApps.length;
               _loadingMessage = 'Loading apps...';
             });
           }
-          
+
           // Small delay to show progress animation
           await Future.delayed(const Duration(milliseconds: 50));
         }
-        
+
         if (mounted) {
           setState(() {
             _apps = processedApps;
@@ -105,7 +107,7 @@ class _SocialAppsViewState extends State<SocialAppsView> {
           });
         }
       }
-      
+
       debugPrint('Loading set to false');
     } catch (e) {
       debugPrint('Error loading apps: $e');
@@ -121,8 +123,10 @@ class _SocialAppsViewState extends State<SocialAppsView> {
   @override
   Widget build(BuildContext context) {
     // Debug: Print loading state
-    debugPrint('SocialAppsView build - isLoading: $_isLoading, apps count: ${_apps.length}');
-    
+    debugPrint(
+      'SocialAppsView build - isLoading: $_isLoading, apps count: ${_apps.length}',
+    );
+
     return Scaffold(
       backgroundColor: AppColors.backgroundColor,
       appBar: AppBar(
@@ -130,7 +134,7 @@ class _SocialAppsViewState extends State<SocialAppsView> {
           icon: const Icon(Icons.arrow_back_ios_new, size: 18),
           onPressed: () => Navigator.of(context).maybePop(),
         ),
-        title: Text('Scroll',style: AppTextStyles.headline3,),
+        title: Text('Scroll', style: AppTextStyles.headline3),
         backgroundColor: AppColors.surfaceColor,
         elevation: 0,
         foregroundColor: AppColors.textPrimary,
@@ -140,7 +144,9 @@ class _SocialAppsViewState extends State<SocialAppsView> {
         child: _isLoading
             ? _buildLoadingView()
             : Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingM),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSizes.paddingM,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -152,9 +158,7 @@ class _SocialAppsViewState extends State<SocialAppsView> {
                     const SizedBox(height: AppSizes.spacingM),
                     const FilterTabs(),
                     const SizedBox(height: AppSizes.spacingS),
-                    Expanded(
-                      child: _buildAppsList(),
-                    ),
+                    Expanded(child: _buildAppsList()),
                   ],
                 ),
               ),
@@ -164,7 +168,7 @@ class _SocialAppsViewState extends State<SocialAppsView> {
 
   Widget _buildLoadingView() {
     final progress = _totalApps > 0 ? (_loadedApps / _totalApps) : 0.0;
-    
+
     return Container(
       width: double.infinity,
       height: double.infinity,
@@ -178,7 +182,9 @@ class _SocialAppsViewState extends State<SocialAppsView> {
               width: 50,
               height: 50,
               child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryColor),
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  AppColors.primaryColor,
+                ),
                 strokeWidth: 4,
               ),
             ),
@@ -194,7 +200,9 @@ class _SocialAppsViewState extends State<SocialAppsView> {
             // Progress bar
             if (_totalApps > 0) ...[
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingXL),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSizes.paddingXL,
+                ),
                 child: Column(
                   children: [
                     ClipRRect(
@@ -202,7 +210,9 @@ class _SocialAppsViewState extends State<SocialAppsView> {
                       child: LinearProgressIndicator(
                         value: progress,
                         backgroundColor: AppColors.borderColor,
-                        valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primaryColor),
+                        valueColor: const AlwaysStoppedAnimation<Color>(
+                          AppColors.primaryColor,
+                        ),
                         minHeight: 6,
                       ),
                     ),
@@ -227,7 +237,9 @@ class _SocialAppsViewState extends State<SocialAppsView> {
               ),
             ] else ...[
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingL),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSizes.paddingL,
+                ),
                 child: Text(
                   'Fetching installed apps from your device',
                   style: AppTextStyles.caption.copyWith(
@@ -272,10 +284,7 @@ class _SocialAppsViewState extends State<SocialAppsView> {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: AppSizes.spacingM),
-            CommonButton(
-              text: 'Retry',
-              onPressed: _loadApps,
-            ),
+            CommonButton(text: 'Retry', onPressed: _loadApps),
           ],
         ),
       );
@@ -293,10 +302,7 @@ class _SocialAppsViewState extends State<SocialAppsView> {
               ),
             ),
             const SizedBox(height: AppSizes.spacingS),
-            CommonButton(
-              text: 'Refresh',
-              onPressed: _loadApps,
-            ),
+            CommonButton(text: 'Refresh', onPressed: _loadApps),
           ],
         ),
       );
@@ -317,8 +323,10 @@ class _SocialAppsViewState extends State<SocialAppsView> {
           return SocialAppItem(
             icon: iconProvider,
             name: app.appName,
-            usage: _getRandomUsage(), // Placeholder - you can implement real usage tracking later
-            isLocked: false, // Placeholder - you can implement lock state management
+            usage:
+                _getRandomUsage(), // Placeholder - you can implement real usage tracking later
+            isLocked:
+                false, // Placeholder - you can implement lock state management
           );
         }),
         const SizedBox(height: AppSizes.spacingL),
@@ -394,7 +402,7 @@ class _ScreenTimeHeader extends StatelessWidget {
               width: double.infinity,
               text: 'Block Everything temporarily',
               onPressed: () {},
-               height: 50,
+              height: 50,
             ),
           ],
         ),
@@ -413,11 +421,7 @@ class FilterTabs extends StatefulWidget {
 class _FilterTabsState extends State<FilterTabs> {
   int selectedIndex = 0;
 
-  final tabs = [
-    "All",
-    "Active",
-    "Blocked (0)",
-  ];
+  final tabs = ["All", "Active", "Blocked (0)"];
 
   @override
   Widget build(BuildContext context) {
@@ -431,12 +435,11 @@ class _FilterTabsState extends State<FilterTabs> {
             onTap: () => setState(() => selectedIndex = index),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 250),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 20,
-                vertical: 10,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               decoration: BoxDecoration(
-                color: isSelected ? const Color(0xffE8EEFF) : const Color.fromARGB(255, 255, 255, 255),
+                color: isSelected
+                    ? const Color(0xffE8EEFF)
+                    : const Color.fromARGB(255, 255, 255, 255),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(

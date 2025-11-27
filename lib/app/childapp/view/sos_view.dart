@@ -1,6 +1,6 @@
 import 'package:child_track/app/home/view/home_page.dart';
 import 'package:child_track/app/home/model/device_model.dart';
-import 'package:child_track/app/childapp/view_model/sos_bloc.dart';
+import 'package:child_track/app/childapp/view_model/child_bloc.dart';
 import 'package:child_track/core/di/injector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -15,7 +15,7 @@ class SosView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) => injector<SosBloc>()..add(LoadDeviceInfo()),
+      create: (context) => injector<ChildBloc>()..add(LoadDeviceInfo()),
       child: const _SosViewContent(),
     );
   }
@@ -97,9 +97,8 @@ class _SosViewContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<SosBloc, SosState>(
+    return BlocListener<ChildBloc, SosState>(
       listenWhen: (previous, current) {
-       
         return previous is! SosDeviceInfoLoaded &&
             current is SosDeviceInfoLoaded;
       },
@@ -108,7 +107,7 @@ class _SosViewContent extends StatelessWidget {
           _showDeviceInfoDialog(context, state.deviceInfo);
         }
       },
-      child: BlocBuilder<SosBloc, SosState>(
+      child: BlocBuilder<ChildBloc, SosState>(
         builder: (context, state) {
           return Scaffold(
             backgroundColor: AppColors.surfaceColor,

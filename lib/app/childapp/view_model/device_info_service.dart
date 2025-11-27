@@ -1,32 +1,31 @@
 import 'dart:io';
 import 'package:battery_plus/battery_plus.dart';
+import 'package:child_track/app/childapp/model/scree_time_model.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/services.dart';
 import 'package:child_track/app/home/model/device_model.dart';
 import 'package:child_track/app/social_apps/model/installed_app_model.dart';
 import 'package:child_track/core/utils/app_logger.dart';
 
-class DeviceInfoService {
-  static final DeviceInfoService _instance = DeviceInfoService._internal();
-  factory DeviceInfoService() => _instance;
-  DeviceInfoService._internal();
-
+class ChildInfoService {
   final Battery _battery = Battery();
   final Connectivity _connectivity = Connectivity();
-  static const MethodChannel _channel = MethodChannel('com.example.child_track/device_info');
+  static const MethodChannel _channel = MethodChannel(
+    'com.example.child_track/device_info',
+  );
 
   /// Get current device information
   Future<DeviceInfo> getDeviceInfo() async {
     try {
       // Get battery percentage
       final batteryPercentage = await _getBatteryPercentage();
-      
+
       // Get network information
       final networkInfo = await _getNetworkInfo();
-      
+
       // Get sound profile
       final soundProfile = await _getSoundProfile();
-      
+
       return DeviceInfo(
         batteryPercentage: batteryPercentage,
         networkStatus: networkInfo['status'] ?? 'unknown',
@@ -64,7 +63,7 @@ class DeviceInfoService {
   Future<Map<String, dynamic>> _getNetworkInfo() async {
     try {
       final connectivityResults = await _connectivity.checkConnectivity();
-      
+
       String status = 'disconnected';
       String type = 'none';
       bool isOnline = false;
@@ -100,18 +99,10 @@ class DeviceInfoService {
         isOnline = false;
       }
 
-      return {
-        'status': status,
-        'type': type,
-        'isOnline': isOnline,
-      };
+      return {'status': status, 'type': type, 'isOnline': isOnline};
     } catch (e) {
       AppLogger.error('Error getting network info: $e');
-      return {
-        'status': 'unknown',
-        'type': 'unknown',
-        'isOnline': false,
-      };
+      return {'status': 'unknown', 'type': 'unknown', 'isOnline': false};
     }
   }
 
@@ -132,7 +123,9 @@ class DeviceInfoService {
   /// Get current time in 12-hour format
   String _getCurrentTime() {
     final now = DateTime.now();
-    final hour = now.hour > 12 ? now.hour - 12 : (now.hour == 0 ? 12 : now.hour);
+    final hour = now.hour > 12
+        ? now.hour - 12
+        : (now.hour == 0 ? 12 : now.hour);
     final minute = now.minute.toString().padLeft(2, '0');
     final period = now.hour >= 12 ? 'pm' : 'am';
     return '$hour:$minute$period';
@@ -142,7 +135,9 @@ class DeviceInfoService {
   Future<List<InstalledApp>> getInstalledApps() async {
     try {
       if (Platform.isAndroid || Platform.isIOS) {
-        final result = await _channel.invokeMethod<List<dynamic>>('getInstalledApps');
+        final result = await _channel.invokeMethod<List<dynamic>>(
+          'getInstalledApps',
+        );
         if (result != null) {
           final apps = <InstalledApp>[];
           for (final item in result) {
@@ -177,5 +172,20 @@ class DeviceInfoService {
       return [];
     }
   }
-}
 
+  //todo: aneesh get screen time and convert to list of AppScreenTimeModel
+  Future<List<AppScreenTimeModel>> getScreenTime() async {
+    try {
+      final result = await _channel.invokeMethod<List<dynamic>>(
+        'getScreenTime',
+      );
+      if (result != null) {
+        return result.map((e) => AppScreenTimeModel.fromJson(e)).toList();
+      }
+      return [];
+    } catch (e) {
+      AppLogger.error('Error getting screen time: $e');
+      return [];
+    }
+  }
+}
