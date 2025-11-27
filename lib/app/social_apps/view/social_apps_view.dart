@@ -512,7 +512,7 @@ class _AdvancedSegmentedTabState extends State<AdvancedSegmentedTab>
           TabBar(
             controller: _controller,
             indicatorColor: Colors.transparent,
-            overlayColor: MaterialStateProperty.all(Colors.transparent),
+            overlayColor: WidgetStateProperty.all(Colors.transparent),
             labelColor: Colors.black,
             unselectedLabelColor: Colors.black87,
             labelStyle: const TextStyle(

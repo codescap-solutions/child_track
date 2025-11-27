@@ -182,7 +182,7 @@ class _AddandSavePlaceState extends State<AddandSavePlace> {
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: AppColors.primaryColor.withOpacity(0.1),
+                color: AppColors.primaryColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(AppSizes.radiusM),
               ),
               child: Icon(
@@ -503,7 +503,7 @@ class _AddPlaceDialogState extends State<_AddPlaceDialog> {
                         borderRadius: BorderRadius.circular(AppSizes.radiusM),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
+                            color: Colors.black.withValues(alpha: 0.1),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
@@ -574,7 +574,7 @@ class _AddPlaceDialogState extends State<_AddPlaceDialog> {
                 color: AppColors.surfaceColor,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
+                    color: Colors.black.withValues(alpha: 0.1),
                     blurRadius: 8,
                     offset: const Offset(0, -2),
                   ),
