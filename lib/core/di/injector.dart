@@ -7,6 +7,7 @@ import '../../app/auth/view_model/auth_repository.dart';
 import '../../app/auth/view_model/bloc/auth_bloc.dart';
 import '../../app/home/view_model/bloc/homepage_bloc.dart';
 import '../../app/map/view_model/map_bloc.dart';
+import '../../app/childapp/view_model/sos_bloc.dart';
 
 final GetIt injector = GetIt.instance;
 
@@ -44,4 +45,5 @@ Future<void> initializeDependencies() async {
       mapBloc: injector<MapBloc>(),
     ),
   );
+  injector.registerLazySingleton<SosBloc>(() => SosBloc());
 }

@@ -36,7 +36,7 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
     emit(HomepageLoading());
     final response = await _homeRepository.getHomeData();
     if (response.isSuccess) {
-      final homeData = HomeResponse.fromJson(jsonDecode(response.data));
+      final homeData = response.data as HomeResponse;
       emit(
         HomepageSuccess(
           deviceInfo: homeData.deviceInfo,

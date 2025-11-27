@@ -1,10 +1,10 @@
+import 'package:child_track/app/childapp/view/sos_view.dart';
 import 'package:flutter/material.dart';
 import 'package:child_track/core/constants/app_colors.dart';
 import 'package:child_track/core/constants/app_sizes.dart';
 import 'package:child_track/core/constants/app_text_styles.dart';
 import 'package:child_track/core/widgets/common_button.dart';
 import 'package:child_track/core/widgets/common_textfield.dart';
-import '../../../childapp/sos_view.dart';
 
 class AddKidView extends StatefulWidget {
   const AddKidView({super.key});
@@ -47,7 +47,7 @@ class _AddKidViewState extends State<AddKidView> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                  textAlign: TextAlign.center,
+                    textAlign: TextAlign.center,
                     'Add Kid',
                     style: AppTextStyles.headline1.copyWith(
                       color: AppColors.primaryColor,
@@ -55,7 +55,7 @@ class _AddKidViewState extends State<AddKidView> {
                   ),
                   const SizedBox(height: AppSizes.spacingS),
                   Text(
-                     textAlign: TextAlign.center,
+                    textAlign: TextAlign.center,
                     'It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum.',
                     style: AppTextStyles.body2.copyWith(
                       color: AppColors.textSecondary,
@@ -63,13 +63,12 @@ class _AddKidViewState extends State<AddKidView> {
                   ),
                   const SizedBox(height: AppSizes.spacingXL),
                   CommonTextField(
-                    
                     fillColor: AppColors.containerBackground,
                     controller: _idController,
                     hintText: 'identity number',
                   ),
-                 // const Spacer(),
-                 SizedBox(height: 40,),
+                  // const Spacer(),
+                  SizedBox(height: 40),
                   CommonButton(
                     text: 'Next',
                     onPressed: () => Navigator.push(

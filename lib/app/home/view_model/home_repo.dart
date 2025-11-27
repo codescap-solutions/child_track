@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:child_track/core/models/base_response.dart';
 import 'package:child_track/core/services/base_service.dart';
 import 'package:child_track/core/services/dio_client.dart';
 import 'package:child_track/app/home/model/home_model.dart';
@@ -95,7 +96,7 @@ class HomeRepository extends BaseService {
     return BaseResponse(
       isSuccess: true,
       message: "Static home data ",
-      data: jsonEncode(staticJson),
+      data: HomeResponse.fromJson(staticJson),
     );
   }
 
