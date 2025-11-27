@@ -14,6 +14,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../settings/view/settings_view.dart';
 import '../../social_apps/view/social_apps_view.dart';
+import '../../addplace/add_and_saveplace.dart';
 import 'child_location_detail_view.dart';
 
 class HomePage extends StatefulWidget {
@@ -490,7 +491,19 @@ class _HomePageState extends State<HomePage> {
                     ),
                     // Save Place button
                     OutlinedButton.icon(
-                      onPressed: () {},
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => AddandSavePlace(
+                              initialLocation: LatLng(
+                                state.currentLocation.lat,
+                                state.currentLocation.lng,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
                       icon: const Icon(
                         Icons.bookmark,
                         size: 16,
