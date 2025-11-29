@@ -15,7 +15,7 @@ class SosView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) => injector<ChildBloc>()..add(LoadDeviceInfo()),
+      create: (context) => injector<ChildBloc>()..onInitialize(),
       child: const _SosViewContent(),
     );
   }
