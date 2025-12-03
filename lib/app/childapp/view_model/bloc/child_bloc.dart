@@ -157,6 +157,8 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
   ) async {
     try {
       final requestBody = {
+        "address": 'Malappuram',
+        "place_name": 'Malappuram 3',
         "child_id": "6905a34dc1ddbf66b31a77e9",
         "lat": event.childLocation.latitude,
         "lng": event.childLocation.longitude,

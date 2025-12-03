@@ -2,6 +2,8 @@ import 'package:child_track/app/childapp/view_model/repository/child_location_re
 import 'package:child_track/app/childapp/view_model/repository/child_repo.dart';
 import 'package:child_track/app/home/view_model/home_repo.dart';
 import 'package:child_track/app/childapp/view_model/repository/device_info_service.dart';
+import 'package:child_track/core/services/connectivity/bloc/connectivity_bloc.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/dio_client.dart';
@@ -24,8 +26,18 @@ Future<void> initializeDependencies() async {
   // Register SharedPrefsService
   injector.registerSingleton<SharedPrefsService>(SharedPrefsService());
 
-  // Register DioClient
-  injector.registerSingleton<DioClient>(DioClient());
+  // Register Connectivity (required by ConnectivityBloc)
+  injector.registerLazySingleton<Connectivity>(() => Connectivity());
+
+  // Register ConnectivityBloc (required by DioClient)
+  injector.registerLazySingleton<ConnectivityBloc>(
+    () => ConnectivityBloc(connectivity: injector<Connectivity>()),
+  );
+
+  // Register DioClient (requires ConnectivityBloc)
+  injector.registerSingleton<DioClient>(
+    DioClient(connectivityBloc: injector<ConnectivityBloc>()),
+  );
 
   // Register Repositories
   injector.registerLazySingleton<AuthRepository>(

@@ -10,10 +10,21 @@ class Point {
   });
 
   factory Point.fromJson(Map<String, dynamic> json) {
+    // Helper function to safely convert to double (handles both string and number)
+    double _toDouble(dynamic value) {
+      if (value == null) return 0.0;
+      if (value is double) return value;
+      if (value is int) return value.toDouble();
+      if (value is String) {
+        return double.tryParse(value) ?? 0.0;
+      }
+      return 0.0;
+    }
+
     return Point(
       name: json['name'] ?? '',
-      lat: (json['lat'] ?? 0).toDouble(),
-      lng: (json['lng'] ?? 0).toDouble(),
+      lat: _toDouble(json['lat']),
+      lng: _toDouble(json['lng']),
     );
   }
 

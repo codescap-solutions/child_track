@@ -1,5 +1,3 @@
-import 'package:child_track/core/models/base_response.dart';
-
 import '../../../core/services/dio_client.dart';
 import '../../../core/services/shared_prefs_service.dart';
 import '../../../core/services/api_endpoints.dart';
@@ -15,12 +13,11 @@ class AuthRepository extends BaseService {
        super(dioClient);
 
   // Send OTP
-  Future<BaseResponse<Map<String, dynamic>>> sendOtp(String phoneNumber) async {
+  Future<BaseResponse> sendOtp(String phoneNumber) async {
     try {
-      final response = await post<Map<String, dynamic>>(
+      final response = await post(
         ApiEndpoints.sendOtp,
         data: {'phone_number': phoneNumber},
-        fromJson: (json) => json,
       );
 
       if (response.isSuccess) {
@@ -35,7 +32,7 @@ class AuthRepository extends BaseService {
   }
 
   // Verify OTP
-  Future<BaseResponse<Map<String, dynamic>>> verifyOtp(String otp) async {
+  Future<BaseResponse> verifyOtp(String otp) async {
     try {
       final phoneNumber = _sharedPrefsService.getUserPhone();
       if (phoneNumber == null) {
@@ -44,10 +41,9 @@ class AuthRepository extends BaseService {
         );
       }
 
-      final response = await post<Map<String, dynamic>>(
+      final response = await post(
         ApiEndpoints.verifyOtp,
         data: {'phone_number': phoneNumber, 'otp': otp},
-        fromJson: (json) => json,
       );
 
       if (response.isSuccess && response.data != null) {
@@ -68,12 +64,9 @@ class AuthRepository extends BaseService {
   }
 
   // Refresh Token
-  Future<BaseResponse<Map<String, dynamic>>> refreshToken() async {
+  Future<BaseResponse> refreshToken() async {
     try {
-      final response = await post<Map<String, dynamic>>(
-        ApiEndpoints.refreshToken,
-        fromJson: (json) => json,
-      );
+      final response = await post(ApiEndpoints.refreshToken);
 
       if (response.isSuccess && response.data != null) {
         final token = response.data!['token'] as String?;
@@ -89,12 +82,9 @@ class AuthRepository extends BaseService {
   }
 
   // Logout
-  Future<BaseResponse<bool>> logout() async {
+  Future<BaseResponse> logout() async {
     try {
-      final response = await post<bool>(
-        ApiEndpoints.logout,
-        fromJson: (json) => true,
-      );
+      final response = await post(ApiEndpoints.logout);
 
       // Clear local storage regardless of API response
       await _sharedPrefsService.logout();

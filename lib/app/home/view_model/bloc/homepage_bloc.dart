@@ -51,6 +51,7 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
             yesterdayTrips: homeData.yesterdayTrips,
             yesterdayTripSummary: homeData.yesterdayTripSummary,
             cards: homeData.cards,
+            isLoading: false,
           ),
         );
       } else {

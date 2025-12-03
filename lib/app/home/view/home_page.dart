@@ -298,7 +298,9 @@ class _HomePageState extends State<HomePage> {
     final bottomSheetHeight = screenHeight * 0.4;
 
     return BlocProvider.value(
-      value: injector<HomepageBloc>()..add(GetHomepageData()),
+      value: injector<HomepageBloc>()..add(GetHomepageData(
+        childId: '6905a34dc1ddbf66b31a77e9',
+      )),
       child: Scaffold(
         backgroundColor: AppColors.backgroundColor,
         body: Stack(
@@ -459,6 +461,33 @@ class _HomePageState extends State<HomePage> {
   Widget _buildChildLocationCardContent(BuildContext context) {
     return BlocBuilder<HomepageBloc, HomepageState>(
       builder: (context, state) {
+        if (state is HomepageError) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'Error: ${state.message}',
+                  style: AppTextStyles.body1.copyWith(
+                    color: AppColors.error,
+                  ),
+                ),
+                const SizedBox(height: AppSizes.spacingM),
+                CommonButton(
+                  text: 'Retry',
+                  onPressed: () {
+                    context.read<HomepageBloc>().add(
+                      GetHomepageData(
+                        childId: '6905a34dc1ddbf66b31a77e9',
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          );
+        }
+        
         if (state is! HomepageSuccess || state.isLoading) {
           return const Center(child: CircularProgressIndicator());
         }
