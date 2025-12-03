@@ -43,4 +43,11 @@ post_install do |installer|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
     end
   end
+  
+  # Inject Google Maps API Key from .env file
+  script_path = File.join(__dir__, 'scripts/inject_env.rb')
+  if File.exist?(script_path)
+    load script_path
+    inject_api_key(__dir__) if defined?(inject_api_key)
+  end
 end

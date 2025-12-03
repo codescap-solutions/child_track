@@ -1,3 +1,4 @@
+import 'package:child_track/app/auth/view/onboarding/add_kid_view.dart';
 import 'package:flutter/material.dart';
 import '../../app/auth/view/login_screen.dart';
 import '../../app/auth/view/otp_screen.dart';
@@ -7,6 +8,12 @@ import 'route_names.dart';
 class AppRouter {
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
+      case RouteNames.addChild:
+        return MaterialPageRoute(
+          builder: (_) => const AddKidView(),
+          settings: settings,
+        );
+
       case RouteNames.login:
         return MaterialPageRoute(
           builder: (_) => const LoginScreen(),

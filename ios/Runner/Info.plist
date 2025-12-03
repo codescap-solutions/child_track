@@ -52,5 +52,17 @@
 	<string>This app needs access to your location to track your position.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>This app needs access to your location to show your current position on the map.</string>
+	<!-- URL Schemes for app detection -->
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>prefs</string>
+		<string>http</string>
+		<string>https</string>
+		<string>mailto</string>
+		<string>sms</string>
+		<string>tel</string>
+		<string>camera</string>
+		<string>photos-redirect</string>
+	</array>
 </dict>
 </plist>

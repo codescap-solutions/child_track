@@ -102,23 +102,28 @@ class SettingsView extends StatelessWidget {
                       'Restrict from deleting',
                       'contact details of each location',
                     ),
-              Padding(
-                       padding: const EdgeInsets.all(8.0),
-                       child: const Divider(height: 1,endIndent: 20,
-                                           indent: 20,),
-                     ),
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: const Divider(
+                        height: 1,
+                        endIndent: 20,
+                        indent: 20,
+                      ),
+                    ),
                     _toggleTile(
                       context,
                       Icons.do_not_disturb_on_outlined,
                       'Block 18plus Websites',
                       'contact details of each location',
                     ),
-             Padding(
-                       padding: const EdgeInsets.all(8.0),
-                       child: const Divider(height: 1,endIndent: 20,
-                                           indent: 20,),
-                     ),
-                 
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: const Divider(
+                        height: 1,
+                        endIndent: 20,
+                        indent: 20,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -145,13 +150,16 @@ class SettingsView extends StatelessWidget {
                         ),
                       ),
                     ),
-               Padding(
-                       padding: const EdgeInsets.all(8.0),
-                       child: const Divider(height: 1,endIndent: 20,
-                                           indent: 20,),
-                     ),
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: const Divider(
+                        height: 1,
+                        endIndent: 20,
+                        indent: 20,
+                      ),
+                    ),
 
-                      SettingTile(
+                    SettingTile(
                       subtitle: 'Get live location of others',
                       leading: const Icon(
                         Icons.notifications_none,
@@ -170,13 +178,16 @@ class SettingsView extends StatelessWidget {
                         ),
                       ),
                     ),
-               Padding(
-                       padding: const EdgeInsets.all(8.0),
-                       child: const Divider(height: 1,endIndent: 20,
-                                           indent: 20,),
-                     ),
-                       SettingTile(
-                        subtitle: 'Details contact shown in kids app',
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: const Divider(
+                        height: 1,
+                        endIndent: 20,
+                        indent: 20,
+                      ),
+                    ),
+                    SettingTile(
+                      subtitle: 'Details contact shown in kids app',
                       leading: const Icon(
                         Icons.family_restroom_rounded,
                         color: AppColors.textSecondary,
@@ -189,15 +200,18 @@ class SettingsView extends StatelessWidget {
                       ),
                       onTap: () {},
                     ),
-                     Padding(
-                       padding: const EdgeInsets.all(8.0),
-                       child: const Divider(height: 1,endIndent: 20,
-                                           indent: 20,),
-                     ),
-                    
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: const Divider(
+                        height: 1,
+                        endIndent: 20,
+                        indent: 20,
+                      ),
+                    ),
+
                     SizedBox(height: 10),
-                SettingTile(
-                        subtitle: 'Manage your subscription',
+                    SettingTile(
+                      subtitle: 'Manage your subscription',
                       leading: const Icon(
                         Icons.family_restroom_rounded,
                         color: AppColors.textSecondary,
@@ -210,12 +224,14 @@ class SettingsView extends StatelessWidget {
                       ),
                       onTap: () {},
                     ),
-              Padding(
-                       padding: const EdgeInsets.all(8.0),
-                       child: const Divider(height: 1,endIndent: 20,
-                                           indent: 20,),
-                     ),
-                  
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: const Divider(
+                        height: 1,
+                        endIndent: 20,
+                        indent: 20,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -223,9 +239,8 @@ class SettingsView extends StatelessWidget {
               SectionCard(
                 child: Column(
                   children: [
-                         SettingTile(
-                          
-                        subtitle: 'Your account details',
+                    SettingTile(
+                      subtitle: 'Your account details',
                       leading: const Icon(
                         Icons.person,
                         color: AppColors.textSecondary,
@@ -238,14 +253,16 @@ class SettingsView extends StatelessWidget {
                       ),
                       onTap: () {},
                     ),
-                      Padding(
-                       padding: const EdgeInsets.all(8.0),
-                       child: const Divider(height: 1,endIndent: 20,
-                                           indent: 20,),
-                     ),
-                       SettingTile(
-                          
-                        subtitle: 'Device details',
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: const Divider(
+                        height: 1,
+                        endIndent: 20,
+                        indent: 20,
+                      ),
+                    ),
+                    SettingTile(
+                      subtitle: 'Device details',
                       leading: const Icon(
                         Icons.person,
                         color: AppColors.textSecondary,
@@ -258,16 +275,18 @@ class SettingsView extends StatelessWidget {
                       ),
                       onTap: () {},
                     ),
-                
-             Padding(
-                       padding: const EdgeInsets.all(8.0),
-                       child: const Divider(height: 1,endIndent: 20,
-                                           indent: 20,),
-                     ),
 
-                  SettingTile(
-                          
-                        subtitle: 'Help and support',
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: const Divider(
+                        height: 1,
+                        endIndent: 20,
+                        indent: 20,
+                      ),
+                    ),
+
+                    SettingTile(
+                      subtitle: 'Help and support',
                       leading: const Icon(
                         Icons.person,
                         color: AppColors.textSecondary,
@@ -280,14 +299,16 @@ class SettingsView extends StatelessWidget {
                       ),
                       onTap: () {},
                     ),
-              Padding(
-                       padding: const EdgeInsets.all(8.0),
-                       child: const Divider(height: 1,endIndent: 20,
-                                           indent: 20,),
-                     ),
-                   SettingTile(
-                          
-                        subtitle: 'About the app',
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: const Divider(
+                        height: 1,
+                        endIndent: 20,
+                        indent: 20,
+                      ),
+                    ),
+                    SettingTile(
+                      subtitle: 'About the app',
                       leading: const Icon(
                         Icons.person,
                         color: AppColors.textSecondary,
@@ -303,8 +324,6 @@ class SettingsView extends StatelessWidget {
                   ],
                 ),
               ),
-
-        
             ],
           ),
         ),
@@ -331,6 +350,7 @@ class SettingsView extends StatelessWidget {
     );
   }
 
+  /*
   Widget _linkTile(
     BuildContext context,
     IconData icon,
@@ -350,4 +370,5 @@ class SettingsView extends StatelessWidget {
           Navigator.push(context, MaterialPageRoute(builder: (_) => page)),
     );
   }
+  */
 }

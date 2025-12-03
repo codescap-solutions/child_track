@@ -36,7 +36,7 @@ class SubscriptionView extends StatelessWidget {
             child: Container(
               height: 120,
               decoration: BoxDecoration(
-                color: AppColors.borderColor.withOpacity(0.35),
+                color: AppColors.borderColor.withValues(alpha: 0.35),
                 borderRadius: BorderRadius.circular(AppSizes.radiusM),
               ),
             ),

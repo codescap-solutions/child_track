@@ -1,10 +1,10 @@
+import 'package:child_track/app/childapp/view/sos_view.dart';
 import 'package:flutter/material.dart';
 import 'package:child_track/core/constants/app_colors.dart';
 import 'package:child_track/core/constants/app_sizes.dart';
 import 'package:child_track/core/constants/app_text_styles.dart';
 import 'package:child_track/core/widgets/common_button.dart';
 import 'package:child_track/core/widgets/common_textfield.dart';
-import 'sos_view.dart';
 
 class AddKidView extends StatefulWidget {
   const AddKidView({super.key});
@@ -38,39 +38,46 @@ class _AddKidViewState extends State<AddKidView> {
       ),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(AppSizes.paddingL),
+          padding: const EdgeInsets.all(AppSizes.paddingM),
           child: Form(
             key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Add Kid',
-                  style: AppTextStyles.headline3.copyWith(
-                    color: AppColors.primaryColor,
+            child: Padding(
+              padding: const EdgeInsets.all(AppSizes.paddingM),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    textAlign: TextAlign.center,
+                    'Add Kid',
+                    style: AppTextStyles.headline1.copyWith(
+                      color: AppColors.primaryColor,
+                    ),
                   ),
-                ),
-                const SizedBox(height: AppSizes.spacingS),
-                Text(
-                  'It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum.',
-                  style: AppTextStyles.caption.copyWith(
-                    color: AppColors.textSecondary,
+                  const SizedBox(height: AppSizes.spacingS),
+                  Text(
+                    textAlign: TextAlign.center,
+                    'It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum.',
+                    style: AppTextStyles.body2.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
                   ),
-                ),
-                const SizedBox(height: AppSizes.spacingXL),
-                CommonTextField(
-                  controller: _idController,
-                  hintText: 'identity number',
-                ),
-                const Spacer(),
-                CommonButton(
-                  text: 'Next',
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const SosView()),
+                  const SizedBox(height: AppSizes.spacingXL),
+                  CommonTextField(
+                    fillColor: AppColors.containerBackground,
+                    controller: _idController,
+                    hintText: 'identity number',
                   ),
-                ),
-              ],
+                  // const Spacer(),
+                  SizedBox(height: 40),
+                  CommonButton(
+                    text: 'Next',
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const SosView()),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

@@ -1,4 +1,8 @@
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 class AppStrings {
+  // Keys
+  static String get googleMapsApiKey => dotenv.env['GOOGLE_MAPS_API_KEY'] ?? '';
   // App Info
   static const String appName = 'Child Track';
   static const String appTitle = 'Child Track';

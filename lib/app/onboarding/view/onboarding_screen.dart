@@ -135,10 +135,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     // Continue button for navigation
                     CommonButton(
                       text: 'Continue',
-                      onPressed: () => Navigator.push(
+                      onPressed: () { 
+                        _selectedRole== "Kid"?
+  Navigator.of(
+                context,
+              ).pushNamedAndRemoveUntil(RouteNames.addChild, (route) => false):
+                        Navigator.push(
                         context,
                         MaterialPageRoute(builder: (_) => const SignUpView()),
-                      ),
+                      );}
                     ),
                     const SizedBox(height: AppSizes.spacingL),
 

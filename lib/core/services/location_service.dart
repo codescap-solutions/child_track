@@ -116,4 +116,21 @@ class LocationService {
       return null;
     }
   }
+
+  Future<double> getDistanceBetweenTwoPoints(
+    Position point1,
+    Position point2,
+  ) async {
+    try {
+      return Geolocator.distanceBetween(
+        point1.latitude,
+        point1.longitude,
+        point2.latitude,
+        point2.longitude,
+      );
+    } catch (e) {
+      AppLogger.error('Error getting distance between two points: $e');
+      return 0;
+    }
+  }
 }
