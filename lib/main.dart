@@ -37,6 +37,9 @@ class ChildTrackApp extends StatelessWidget {
         BlocProvider<ConnectivityBloc>(
           create: (context) => injector<ConnectivityBloc>(),
         ),
+        BlocProvider<AuthBloc>(
+          create: (context) => injector<AuthBloc>(),
+        ),
       ],
       child: MaterialApp(
         title: AppStrings.appTitle,

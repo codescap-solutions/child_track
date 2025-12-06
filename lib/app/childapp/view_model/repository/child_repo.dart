@@ -5,6 +5,20 @@ import 'package:child_track/core/services/dio_client.dart';
 class ChildRepo extends BaseService {
   ChildRepo({required DioClient dioClient}) : super(dioClient);
 
+  Future<BaseResponse> createChild({
+    required String name,
+    required int age,
+  }) async {
+    final response = await post(
+      ApiEndpoints.createChild,
+      data: {
+        'name': name,
+        'age': age,
+      },
+    );
+    return response;
+  }
+
   Future<BaseResponse> postChildData(Map<String, dynamic> data) async {
     final response = await post(ApiEndpoints.postDeviceInfo, data: data);
     return response;

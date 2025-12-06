@@ -17,7 +17,7 @@ class AuthRepository extends BaseService {
     try {
       final response = await post(
         ApiEndpoints.sendOtp,
-        data: {'phone_number': phoneNumber},
+        data: {'phoneNumber': phoneNumber},
       );
 
       if (response.isSuccess) {
@@ -43,17 +43,25 @@ class AuthRepository extends BaseService {
 
       final response = await post(
         ApiEndpoints.verifyOtp,
-        data: {'phone_number': phoneNumber, 'otp': otp},
+        data: {'phoneNumber': phoneNumber, 'otp': otp},
       );
 
       if (response.isSuccess && response.data != null) {
         // Save auth token and user ID
-        final token = response.data!['token'] as String?;
-        final userId = response.data!['user_id'] as String?;
+        // Handle different response structures
+        final data = response.data!;
+        final token = data['token'] as String?;
+        final userId = data['user_id'] as String? ?? data['_id'] as String?;
+        final name = data['name'] as String?;
 
-        if (token != null && userId != null) {
-          await _sharedPrefsService.setAuthToken(token);
+        if (userId != null) {
           await _sharedPrefsService.setUserId(userId);
+        }
+        if (token != null) {
+          await _sharedPrefsService.setAuthToken(token);
+        }
+        if (name != null) {
+          // Optionally save user name if needed
         }
       }
 

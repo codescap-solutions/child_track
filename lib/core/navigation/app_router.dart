@@ -1,4 +1,5 @@
 import 'package:child_track/app/auth/view/onboarding/add_kid_view.dart';
+import 'package:child_track/app/home/view/home_page.dart';
 import 'package:flutter/material.dart';
 import '../../app/auth/view/login_screen.dart';
 import '../../app/auth/view/otp_screen.dart';
@@ -29,7 +30,7 @@ class AppRouter {
 
       case RouteNames.home:
         return MaterialPageRoute(
-          builder: (_) => const HomeScreen(),
+          builder: (_) => const HomePage(),
           settings: settings,
         );
 
