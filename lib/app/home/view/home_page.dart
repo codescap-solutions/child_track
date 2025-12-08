@@ -1,6 +1,7 @@
 import 'dart:ui' as ui;
 import 'package:child_track/core/navigation/app_router.dart';
 import 'package:child_track/core/navigation/route_names.dart';
+import 'package:child_track/core/services/shared_prefs_service.dart';
 import 'package:flutter/services.dart';
 import 'package:child_track/app/home/view_model/bloc/homepage_bloc.dart';
 import 'package:child_track/app/map/view/map_view.dart';
@@ -50,83 +51,80 @@ class _HomePageState extends State<HomePage> {
 
   /// Create battery icon as image bytes using CustomPainter
   Future<Uint8List> _createBatteryIconBytes(
-    double size,
-    int batteryPercentage,
-  ) async {
-    // Create a recorder and canvas
-    final ui.PictureRecorder recorder = ui.PictureRecorder();
-    final Canvas canvas = Canvas(recorder);
+  double size,
+  int batteryPercentage,
+) async {
+  final ui.PictureRecorder recorder = ui.PictureRecorder();
+  final Canvas canvas = Canvas(recorder);
 
-    // Draw battery icon using CustomPainter approach
-    // Battery icon: rectangle with rounded corners and a small rectangle on the right
-    final double width = size;
-    final double height = size * 0.6;
-    final double cornerRadius = size * 0.1;
-    final double terminalWidth = size * 0.15;
-    final double terminalHeight = size * 0.3;
+  // Responsive battery size
+  final double width = size * 1;        // FIXED: No more hard-coded 300
+  final double height = size * 0.5;
+  final double cornerRadius = size * 0.1;
+  final double terminalWidth = size * 0.12;
+  final double terminalHeight = size * 0.25;
 
-    // Main battery body
-    final RRect batteryRect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(0, (size - height) / 2, width - terminalWidth, height),
-      Radius.circular(cornerRadius),
-    );
+  // Battery body
+  final RRect batteryRect = RRect.fromRectAndRadius(
+    Rect.fromLTWH(0, (size - height) / 2, width - terminalWidth, height),
+    Radius.circular(cornerRadius),
+  );
 
-    // Battery terminal (right side)
-    final RRect terminalRect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(
-        width - terminalWidth,
-        (size - terminalHeight) / 2,
-        terminalWidth,
-        terminalHeight,
-      ),
-      Radius.circular(cornerRadius * 0.5),
-    );
+  // Battery terminal
+  final RRect terminalRect = RRect.fromRectAndRadius(
+    Rect.fromLTWH(
+      width - terminalWidth,
+      (size - terminalHeight) / 2,
+      terminalWidth,
+      terminalHeight,
+    ),
+    Radius.circular(cornerRadius * 0.5),
+  );
 
-    // Determine battery color based on percentage
-    final Color batteryColor = batteryPercentage > 20
-        ? AppColors.success
-        : AppColors.error;
+  // Colors
+  final Color batteryColor =
+      batteryPercentage > 20 ? AppColors.success : AppColors.error;
 
-    // Draw battery outline
-    final Paint batteryPaint = Paint()
-      ..color = batteryColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = size * 0.08;
+  // Outline
+  final Paint batteryPaint = Paint()
+    ..color = batteryColor
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = size * 0.06;
 
-    canvas.drawRRect(batteryRect, batteryPaint);
-    canvas.drawRRect(terminalRect, batteryPaint);
+  canvas.drawRRect(batteryRect, batteryPaint);
+  canvas.drawRRect(terminalRect, batteryPaint);
 
-    // Fill battery (representing charge level from API)
-    final Paint fillPaint = Paint()
-      ..color = batteryColor
-      ..style = PaintingStyle.fill;
+  // Battery fill
+  final Paint fillPaint = Paint()
+    ..color = batteryColor
+    ..style = PaintingStyle.fill;
 
-    // Clamp battery percentage between 0 and 100
-    final double clampedPercentage = batteryPercentage.clamp(0, 100) / 100;
-    final double fillWidth = (width - terminalWidth) * clampedPercentage;
-    final RRect fillRect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(0, (size - height) / 2, fillWidth, height),
-      Radius.circular(cornerRadius),
-    );
-    canvas.drawRRect(fillRect, fillPaint);
+  final double clampedPercentage =
+      batteryPercentage.clamp(0, 100) / 100;
 
-    // Convert to image
-    final ui.Picture picture = recorder.endRecording();
-    final ui.Image image = await picture.toImage(size.toInt(), size.toInt());
-    final ByteData? byteData = await image.toByteData(
-      format: ui.ImageByteFormat.png,
-    );
+  final double fillWidth = (width - terminalWidth) * clampedPercentage;
 
-    // Clean up
-    picture.dispose();
-    image.dispose();
+  final RRect fillRect = RRect.fromRectAndRadius(
+    Rect.fromLTWH(0, (size - height) / 2, fillWidth, height),
+    Radius.circular(cornerRadius),
+  );
 
-    if (byteData == null) {
-      throw Exception('Failed to create battery icon bytes');
-    }
+  canvas.drawRRect(fillRect, fillPaint);
 
-    return byteData.buffer.asUint8List();
-  }
+  // Convert to image — keep a proper aspect
+  final ui.Picture picture = recorder.endRecording();
+  final ui.Image image =
+      await picture.toImage(width.toInt(), size.toInt());
+
+  final byteData =
+      await image.toByteData(format: ui.ImageByteFormat.png);
+
+  picture.dispose();
+  image.dispose();
+
+  return byteData!.buffer.asUint8List();
+}
+
 
   /// Composite marker image with battery icon
   Future<Uint8List> _compositeMarkerWithBattery(
@@ -202,13 +200,13 @@ class _HomePageState extends State<HomePage> {
       // Load main marker image
       final Uint8List markerIconBytes = await _getBytesFromAsset(
         'assets/images/images.png',
-        180,
+      250,
       );
 
       // Create battery icon with dynamic battery percentage
       Uint8List batteryIconBytes;
       try {
-        batteryIconBytes = await _createBatteryIconBytes(80, batteryPercentage);
+        batteryIconBytes = await _createBatteryIconBytes(300, batteryPercentage);
       } catch (e) {
         // Fallback: use marker without battery
         return BitmapDescriptor.bytes(markerIconBytes);
@@ -281,7 +279,7 @@ class _HomePageState extends State<HomePage> {
 
     return BlocProvider.value(
       value: injector<HomepageBloc>()
-        ..add(GetHomepageData(childId: null)), // Will get from SharedPreferences
+        ..add(GetHomepageData(childId:'6937293f9026941d7fc783b5')), // Will get from SharedPreferences
       child: BlocBuilder<HomepageBloc, HomepageState>(
         builder: (context, state) {
           return Scaffold(

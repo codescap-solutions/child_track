@@ -137,19 +137,20 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
     if (currentState is! HomepageSuccess) return;
 
     // Get child_id from event or SharedPreferences
-    final childId = event.childId ?? _sharedPrefsService.getString('child_id');
+    final childId = "6937293f9026941d7fc783b5";
+    //event.childId ?? _sharedPrefsService.getString('child_id');
     
     // If no child_id, check if parent has children
-    if (childId == null) {
-      final childrenCount = _sharedPrefsService.getInt('children_count') ?? 0;
-      if (childrenCount == 0) {
-        emit(currentState.copyWith(
-          isLoading: false,
-          hasNoChild: true,
-        ));
-        return;
-      }
-    }
+    // if (childId == null) {
+    //   final childrenCount = _sharedPrefsService.getInt('children_count') ?? 0;
+    //   if (childrenCount == 0) {
+    //     emit(currentState.copyWith(
+    //       isLoading: false,
+    //       hasNoChild: true,
+    //     ));
+    //     return;
+    //   }
+    // }
 
     // Start polling on first call
     if (_pollingTimer == null || !_pollingTimer!.isActive) {
