@@ -279,7 +279,7 @@ class _HomePageState extends State<HomePage> {
 
     return BlocProvider.value(
       value: injector<HomepageBloc>()
-        ..add(GetHomepageData(childId: '6905a34dc1ddbf66b31a77e9')),
+        ..add(GetHomepageData(childId: null)), // Will get from SharedPreferences
       child: BlocBuilder<HomepageBloc, HomepageState>(
         builder: (context, state) {
           return Scaffold(
@@ -419,7 +419,7 @@ class _HomePageState extends State<HomePage> {
                   text: 'Retry',
                   onPressed: () {
                     context.read<HomepageBloc>().add(
-                      GetHomepageData(childId: '6905a34dc1ddbf66b31a77e9'),
+                      GetHomepageData(childId: null),
                     );
                   },
                 ),
@@ -431,6 +431,12 @@ class _HomePageState extends State<HomePage> {
         if (state is! HomepageSuccess || state.isLoading) {
           return const Center(child: CircularProgressIndicator());
         }
+
+        // Show "no child connected" UI
+        if (state.hasNoChild) {
+          return _buildNoChildConnectedUI(context);
+        }
+
         return Padding(
           padding: const EdgeInsets.all(AppSizes.paddingM),
           child: Column(
@@ -748,6 +754,58 @@ class _HomePageState extends State<HomePage> {
                 //borderRadius: BorderRadius.circular(AppSizes.radiusS),
               ),
               child: SvgPicture.asset(icon, width: 60),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNoChildConnectedUI(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSizes.paddingXL),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                color: AppColors.primaryColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(AppSizes.radiusXXL),
+              ),
+              child: const Icon(
+                Icons.child_care_outlined,
+                size: 60,
+                color: AppColors.primaryColor,
+              ),
+            ),
+            const SizedBox(height: AppSizes.spacingXL),
+            Text(
+              'Child Not Connected',
+              style: AppTextStyles.headline2.copyWith(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: AppSizes.spacingM),
+            Text(
+              'Please connect and add a matched child to view tracking information.',
+              style: AppTextStyles.body1.copyWith(
+                color: AppColors.textSecondary,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: AppSizes.spacingXL),
+            CommonButton(
+              text: 'Add Child',
+              onPressed: () {
+                // Navigate to add child screen or connect screen
+                Navigator.of(context).pushNamed('/add-child');
+              },
+              width: double.infinity,
             ),
           ],
         ),

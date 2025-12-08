@@ -39,15 +39,19 @@ class _OtpScreenState extends State<OtpScreen> {
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
         if (state is AuthSuccess) {
-          // Navigate to home screen when user data exists
-          // Navigator.of(context).pushNamedAndRemoveUntil(
-          //   RouteNames.home,
-          //   (route) => false,
-          // );
-           Navigator.of(context).pushNamedAndRemoveUntil(
-            RouteNames.addChild,
-            (route) => false,
-          );
+          if (state.hasChildren) {
+            // User has children - navigate to home screen
+            Navigator.of(context).pushNamedAndRemoveUntil(
+              RouteNames.home,
+              (route) => false,
+            );
+          } else {
+            // New user with no children - navigate to add child screen
+            Navigator.of(context).pushNamedAndRemoveUntil(
+              RouteNames.addChild,
+              (route) => false,
+            );
+          }
         } else if (state is AuthNeedsRegistration) {
           // Navigate to registration screen when data is null
           Navigator.of(context).pushNamedAndRemoveUntil(

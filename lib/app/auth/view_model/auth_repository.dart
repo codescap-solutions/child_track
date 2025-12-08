@@ -47,21 +47,44 @@ class AuthRepository extends BaseService {
       );
 
       if (response.isSuccess && response.data != null) {
-        // Save auth token and user ID
+        // Save auth token and user ID (parent ID)
         // Handle different response structures
         final data = response.data!;
         final token = data['token'] as String?;
-        final userId = data['user_id'] as String? ?? data['_id'] as String?;
+        final parentId = data['user_id'] as String? ?? data['_id'] as String?;
         final name = data['name'] as String?;
+        final children = data['children'] as List<dynamic>?;
 
-        if (userId != null) {
-          await _sharedPrefsService.setUserId(userId);
+        if (parentId != null) {
+          await _sharedPrefsService.setUserId(parentId);
+          // Also save as parent_id for clarity
+          await _sharedPrefsService.setString('parent_id', parentId);
         }
         if (token != null) {
           await _sharedPrefsService.setAuthToken(token);
         }
         if (name != null) {
-          // Optionally save user name if needed
+          await _sharedPrefsService.setString('parent_name', name);
+        }
+        // Save children count for checking if child is connected
+        if (children != null) {
+          await _sharedPrefsService.setInt('children_count', children.length);
+          // If there's at least one child, save the first child ID
+          // Children can be array of strings (IDs) or array of objects
+          if (children.isNotEmpty) {
+            String? childId;
+            if (children[0] is String) {
+              // Array of IDs: ["693721db9026941d7fc780df"]
+              childId = children[0] as String;
+            } else if (children[0] is Map) {
+              // Array of objects: [{"_id": "...", ...}]
+              final firstChild = children[0] as Map<String, dynamic>;
+              childId = firstChild['_id'] as String? ?? firstChild['id'] as String?;
+            }
+            if (childId != null) {
+              await _sharedPrefsService.setString('child_id', childId);
+            }
+          }
         }
       }
 

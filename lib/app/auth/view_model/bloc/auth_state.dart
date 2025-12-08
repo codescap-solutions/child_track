@@ -29,6 +29,13 @@ class AuthError extends AuthState {
   List<Object?> get props => [message];
 }
 
-class AuthSuccess extends AuthState {}
+class AuthSuccess extends AuthState {
+  final bool hasChildren;
+
+  const AuthSuccess({this.hasChildren = false});
+
+  @override
+  List<Object?> get props => [hasChildren];
+}
 
 class AuthNeedsRegistration extends AuthState {}

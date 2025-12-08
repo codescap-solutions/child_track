@@ -14,6 +14,7 @@ final class HomepageSuccess extends HomepageState {
   final YesterdayTripSummary? yesterdayTripSummary;
   final Cards? cards;
   final bool isLoading;
+  final bool hasNoChild; // Flag to indicate no child is connected
   // Trips data
   final List<Trip> trips;
   final int? tripsPage;
@@ -32,6 +33,7 @@ final class HomepageSuccess extends HomepageState {
     this.yesterdayTripSummary,
     this.cards,
     this.isLoading = false,
+    this.hasNoChild = false,
     this.trips = const [],
     this.tripsPage,
     this.tripsPageSize,
@@ -50,6 +52,7 @@ final class HomepageSuccess extends HomepageState {
           yesterdayTripSummary: null,
           cards: null,
           isLoading: false,
+          hasNoChild: false,
           trips: const [],
           tripsPage: null,
           tripsPageSize: null,
@@ -67,6 +70,7 @@ final class HomepageSuccess extends HomepageState {
         if (yesterdayTripSummary != null) yesterdayTripSummary!,
         if (cards != null) cards!,
         isLoading,
+        hasNoChild,
         trips,
         if (tripsPage != null) tripsPage!,
         if (tripsPageSize != null) tripsPageSize!,
@@ -83,6 +87,7 @@ final class HomepageSuccess extends HomepageState {
     YesterdayTripSummary? yesterdayTripSummary,
     Cards? cards,
     bool? isLoading,
+    bool? hasNoChild,
     List<Trip>? trips,
     int? tripsPage,
     int? tripsPageSize,
@@ -99,6 +104,7 @@ final class HomepageSuccess extends HomepageState {
       yesterdayTripSummary: yesterdayTripSummary ?? this.yesterdayTripSummary,
       cards: cards ?? this.cards,
       isLoading: isLoading ?? this.isLoading,
+      hasNoChild: hasNoChild ?? this.hasNoChild,
       trips: trips ?? this.trips,
       tripsPage: tripsPage ?? this.tripsPage,
       tripsPageSize: tripsPageSize ?? this.tripsPageSize,

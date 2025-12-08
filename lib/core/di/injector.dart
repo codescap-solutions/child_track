@@ -52,7 +52,10 @@ Future<void> initializeDependencies() async {
   );
 
   injector.registerLazySingleton<ChildRepo>(
-    () => ChildRepo(dioClient: injector<DioClient>()),
+    () => ChildRepo(
+      dioClient: injector<DioClient>(),
+      sharedPrefsService: injector<SharedPrefsService>(),
+    ),
   );
   injector.registerLazySingleton<ChildInfoService>(() => ChildInfoService());
 
@@ -69,6 +72,7 @@ Future<void> initializeDependencies() async {
     () => HomepageBloc(
       homeRepository: injector<HomeRepository>(),
       mapBloc: injector<MapBloc>(),
+      sharedPrefsService: injector<SharedPrefsService>(),
     ),
   );
   injector.registerLazySingleton<ChildBloc>(

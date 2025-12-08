@@ -9,6 +9,7 @@ import 'package:child_track/app/home/model/trip_list_model.dart';
 import 'package:child_track/app/home/model/trip_detail_model.dart';
 import 'package:child_track/app/home/view_model/home_repo.dart';
 import 'package:child_track/app/map/view_model/map_bloc.dart';
+import 'package:child_track/core/services/shared_prefs_service.dart';
 import 'package:child_track/core/utils/app_logger.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
@@ -20,14 +21,17 @@ part 'homepage_state.dart';
 class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
   final HomeRepository _homeRepository;
   final MapBloc _mapBloc;
+  final SharedPrefsService _sharedPrefsService;
   Timer? _pollingTimer;
   String? _lastChildId;
 
   HomepageBloc({
     required HomeRepository homeRepository,
     required MapBloc mapBloc,
+    SharedPrefsService? sharedPrefsService,
   }) : _homeRepository = homeRepository,
        _mapBloc = mapBloc,
+       _sharedPrefsService = sharedPrefsService ?? SharedPrefsService(),
        super(HomepageSuccess.initial()) {
     on<GetHomepageData>(_onGetHomepageData);
     on<FetchChildCurrentDetails>(_onFetchChildCurrentDetails);
@@ -61,15 +65,30 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
     final currentState = state;
     if (currentState is! HomepageSuccess) return;
 
+    // Get child_id from event or SharedPreferences
+    final childId = event.childId ?? _sharedPrefsService.getString('child_id');
+    
+    // If no child_id, check if parent has children
+    if (childId == null) {
+      final childrenCount = _sharedPrefsService.getInt('children_count') ?? 0;
+      if (childrenCount == 0) {
+        emit(currentState.copyWith(
+          isLoading: false,
+          hasNoChild: true,
+        ));
+        return;
+      }
+    }
+
     // Start polling on first call
     if (_pollingTimer == null || !_pollingTimer!.isActive) {
-      _startPolling(event.childId);
+      _startPolling(childId);
     }
 
     emit(currentState.copyWith(isLoading: true));
     try {
       final response = await _homeRepository.getHomeData(
-        childId: event.childId,
+        childId: childId,
       );
       if (response.isSuccess && response.data != null) {
         final homeData = response.data!;
@@ -81,10 +100,20 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
             yesterdayTripSummary: homeData.yesterdayTripSummary,
             cards: homeData.cards,
             isLoading: false,
+            hasNoChild: false,
           ),
         );
       } else {
-        emit(HomepageError(message: response.message));
+        // Check if error is due to no child connected
+        if (response.message.toLowerCase().contains('child') || 
+            response.message.toLowerCase().contains('not found')) {
+          emit(currentState.copyWith(
+            isLoading: false,
+            hasNoChild: true,
+          ));
+        } else {
+          emit(HomepageError(message: response.message));
+        }
       }
     } catch (e) {
       AppLogger.error('Error fetching home data: ${e.toString()}');

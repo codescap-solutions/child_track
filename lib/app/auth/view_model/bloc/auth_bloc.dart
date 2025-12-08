@@ -51,7 +51,10 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         if (response.data == null) {
           emit(AuthNeedsRegistration());
         } else {
-          emit(AuthSuccess());
+          // Check if user has children
+          final children = response.data!['children'] as List<dynamic>?;
+          final hasChildren = children != null && children.isNotEmpty;
+          emit(AuthSuccess(hasChildren: hasChildren));
         }
       } else {
         emit(AuthError(message: response.message));
@@ -63,7 +66,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   }
 
   void _onAuthLoggedIn(AuthLoggedIn event, Emitter<AuthState> emit) {
-    emit(AuthSuccess());
+    emit(const AuthSuccess(hasChildren: false));
   }
 
   void _onAuthLoggedOut(AuthLoggedOut event, Emitter<AuthState> emit) {

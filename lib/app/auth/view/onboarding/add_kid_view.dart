@@ -1,6 +1,6 @@
-import 'package:child_track/app/auth/view/onboarding/connect_to_parent_screen.dart';
 import 'package:child_track/app/childapp/view_model/repository/child_repo.dart';
 import 'package:child_track/core/di/injector.dart';
+import 'package:child_track/core/navigation/route_names.dart';
 import 'package:child_track/core/services/shared_prefs_service.dart';
 import 'package:child_track/core/utils/app_logger.dart';
 import 'package:child_track/core/utils/app_snackbar.dart';
@@ -130,26 +130,30 @@ class _AddKidViewState extends State<AddKidView> {
           final childCode = response.data!['child_code'] as String?;
           final childId = response.data!['child_id'] as String?;
           
-          if (childCode != null) {
-            // Save child code and child ID
-            await _sharedPrefsService.setString('child_code', childCode);
-            if (childId != null) {
-              await _sharedPrefsService.setString('child_id', childId);
+          if (childId != null) {
+            // Save child ID (this is what we need for home API)
+            await _sharedPrefsService.setString('child_id', childId);
+            // Update children count
+            final currentCount = _sharedPrefsService.getInt('children_count') ?? 0;
+            await _sharedPrefsService.setInt('children_count', currentCount + 1);
+            
+            if (childCode != null) {
+              // Save child code for display
+              await _sharedPrefsService.setString('child_code', childCode);
             }
             
-            AppLogger.info('Child created successfully. Code: $childCode');
+            AppLogger.info('Child created successfully. ID: $childId, Code: $childCode');
             
-            // Navigate to connect to parent screen
+            // Navigate to home screen after successful child creation
             if (mounted) {
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(
-                  builder: (_) => const ConnectToParentScreen(),
-                ),
+              Navigator.of(context).pushNamedAndRemoveUntil(
+                RouteNames.home,
+                (route) => false,
               );
             }
           } else {
             if (mounted) {
-              AppSnackbar.showError(context, 'Child code not received');
+              AppSnackbar.showError(context, 'Child ID not received');
             }
           }
         } else {
