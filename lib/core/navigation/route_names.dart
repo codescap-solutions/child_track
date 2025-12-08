@@ -7,7 +7,7 @@ class RouteNames {
   static const String home = '/home';
   static const String profile = '/profile';
   static const String settings = '/settings';
-
+  static const String sos = '/sos';
   // Child Tracking Routes
   static const String childList = '/child-list';
   static const String childDetail = '/child-detail';

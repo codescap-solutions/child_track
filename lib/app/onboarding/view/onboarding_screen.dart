@@ -1,3 +1,5 @@
+import 'package:child_track/app/childapp/view/sos_view.dart';
+import 'package:child_track/app/home/view/home_page.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:child_track/core/constants/app_colors.dart';
@@ -139,16 +141,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       onPressed: () {
                         if (_selectedRole == "Kid") {
                           Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const ConnectToParentScreen(),
-                            ),
+                            MaterialPageRoute(builder: (_) => const SosView()),
                           );
                         } else {
                           Navigator.push(
                             context,
-                            MaterialPageRoute(
-                              builder: (_) => const SignUpView(),
-                            ),
+                            MaterialPageRoute(builder: (_) => const HomePage()),
                           );
                         }
                       },

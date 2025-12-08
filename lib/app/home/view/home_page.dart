@@ -26,26 +26,11 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final ScrollController _bottomSheetScrollController = ScrollController();
   bool _hasNavigated = false;
-  BitmapDescriptor? _customMarkerIcon;
-  LatLng location = LatLng(0, 0);
+
   @override
   void initState() {
     super.initState();
-    // Static location for home screen (Chennai, India)
-    location = LatLng(
-      13.082680, // Static latitude
-      80.270721, // Static longitude
-    );
-    // Old dynamic location (commented out):
-    // if (state is HomepageSuccess) {
-    //   location = LatLng(
-    //     state.currentLocation.lat,
-    //     state.currentLocation.lng,
-    //   );
-    // }
-
     _bottomSheetScrollController.addListener(_onScroll);
-    _loadCustomMarker();
   }
 
   /// Resize image from asset to specified width while maintaining aspect ratio
@@ -62,7 +47,10 @@ class _HomePageState extends State<HomePage> {
   }
 
   /// Create battery icon as image bytes using CustomPainter
-  Future<Uint8List> _createBatteryIconBytes(double size) async {
+  Future<Uint8List> _createBatteryIconBytes(
+    double size,
+    int batteryPercentage,
+  ) async {
     // Create a recorder and canvas
     final ui.PictureRecorder recorder = ui.PictureRecorder();
     final Canvas canvas = Canvas(recorder);
@@ -92,21 +80,28 @@ class _HomePageState extends State<HomePage> {
       Radius.circular(cornerRadius * 0.5),
     );
 
+    // Determine battery color based on percentage
+    final Color batteryColor = batteryPercentage > 20
+        ? AppColors.success
+        : AppColors.error;
+
     // Draw battery outline
     final Paint batteryPaint = Paint()
-      ..color = AppColors.success
+      ..color = batteryColor
       ..style = PaintingStyle.stroke
       ..strokeWidth = size * 0.08;
 
     canvas.drawRRect(batteryRect, batteryPaint);
     canvas.drawRRect(terminalRect, batteryPaint);
 
-    // Fill battery (representing charge level - you can customize this)
+    // Fill battery (representing charge level from API)
     final Paint fillPaint = Paint()
-      ..color = AppColors.error
+      ..color = batteryColor
       ..style = PaintingStyle.fill;
 
-    final double fillWidth = (width - terminalWidth) * 0.8; // 80% charged
+    // Clamp battery percentage between 0 and 100
+    final double clampedPercentage = batteryPercentage.clamp(0, 100) / 100;
+    final double fillWidth = (width - terminalWidth) * clampedPercentage;
     final RRect fillRect = RRect.fromRectAndRadius(
       Rect.fromLTWH(0, (size - height) / 2, fillWidth, height),
       Radius.circular(cornerRadius),
@@ -200,7 +195,7 @@ class _HomePageState extends State<HomePage> {
     return byteData!.buffer.asUint8List();
   }
 
-  Future<void> _loadCustomMarker() async {
+  Future<BitmapDescriptor?> _loadCustomMarker(int batteryPercentage) async {
     try {
       // Load main marker image
       final Uint8List markerIconBytes = await _getBytesFromAsset(
@@ -208,19 +203,13 @@ class _HomePageState extends State<HomePage> {
         180,
       );
 
-      // Create battery icon
+      // Create battery icon with dynamic battery percentage
       Uint8List batteryIconBytes;
       try {
-        batteryIconBytes = await _createBatteryIconBytes(80);
+        batteryIconBytes = await _createBatteryIconBytes(80, batteryPercentage);
       } catch (e) {
         // Fallback: use marker without battery
-        final icon = BitmapDescriptor.bytes(markerIconBytes);
-        if (mounted) {
-          setState(() {
-            _customMarkerIcon = icon;
-          });
-        }
-        return;
+        return BitmapDescriptor.bytes(markerIconBytes);
       }
 
       // Composite the images
@@ -229,18 +218,9 @@ class _HomePageState extends State<HomePage> {
         batteryIconBytes,
       );
 
-      final icon = BitmapDescriptor.bytes(compositeBytes);
-      if (mounted) {
-        setState(() {
-          _customMarkerIcon = icon;
-        });
-      }
+      return BitmapDescriptor.bytes(compositeBytes);
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _customMarkerIcon = null;
-        });
-      }
+      return null;
     }
   }
 
@@ -298,161 +278,125 @@ class _HomePageState extends State<HomePage> {
     final bottomSheetHeight = screenHeight * 0.4;
 
     return BlocProvider.value(
-      value: injector<HomepageBloc>()..add(GetHomepageData(
-        childId: '6905a34dc1ddbf66b31a77e9',
-      )),
-      child: Scaffold(
-        backgroundColor: AppColors.backgroundColor,
-        body: Stack(
-          children: [
-            CustomScrollView(
-              slivers: [
-                // App Bar with collapsing effect
-                SliverAppBar(
-                  expandedHeight: MediaQuery.of(context).size.height * 0.7,
-                  floating: false,
-                  pinned: true,
-                  backgroundColor: AppColors.surfaceColor,
-                  foregroundColor: AppColors.textPrimary,
-                  elevation: 0,
-                  leading: IconButton(
-                    icon: const Icon(Icons.arrow_back_ios_new, size: 18),
-                    onPressed: () => Navigator.of(context).maybePop(),
+      value: injector<HomepageBloc>()
+        ..add(GetHomepageData(childId: '6905a34dc1ddbf66b31a77e9')),
+      child: BlocBuilder<HomepageBloc, HomepageState>(
+        builder: (context, state) {
+          return Scaffold(
+            backgroundColor: AppColors.backgroundColor,
+            body: Stack(
+              children: [
+                // Loading overlay
+                if (state is HomepageSuccess && state.isLoading)
+                  Container(
+                    color: AppColors.backgroundColor.withValues(alpha: 0.7),
+                    child: const Center(child: CircularProgressIndicator()),
                   ),
-                  actions: [
-                    IconButton(
-                      icon: CircleAvatar(
-                        backgroundColor: AppColors.surfaceColor,
-                        child: Icon(Icons.person, color: AppColors.success),
+                CustomScrollView(
+                  slivers: [
+                    // App Bar with collapsing effect
+                    SliverAppBar(
+                      expandedHeight: MediaQuery.of(context).size.height * 0.7,
+                      floating: false,
+                      pinned: true,
+                      backgroundColor: AppColors.surfaceColor,
+                      foregroundColor: AppColors.textPrimary,
+                      elevation: 0,
+                      leading: IconButton(
+                        icon: const Icon(Icons.arrow_back_ios_new, size: 18),
+                        onPressed: () => Navigator.of(context).maybePop(),
                       ),
-                      onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const SettingsView()),
+                      actions: [
+                        IconButton(
+                          icon: CircleAvatar(
+                            backgroundColor: AppColors.surfaceColor,
+                            child: Icon(Icons.person, color: AppColors.success),
+                          ),
+                          onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const SettingsView(),
+                            ),
+                          ),
+                        ),
+                      ],
+                      flexibleSpace: FlexibleSpaceBar(
+                        background: _MapViewWithMarker(
+                          location:
+                              state is HomepageSuccess &&
+                                  state.currentLocation != null
+                              ? LatLng(
+                                  state.currentLocation!.lat,
+                                  state.currentLocation!.lng,
+                                )
+                              : const LatLng(
+                                  13.082680,
+                                  80.270721,
+                                ), // Fallback to default location
+                          batteryPercentage:
+                              state is HomepageSuccess &&
+                                  state.deviceInfo != null
+                              ? state.deviceInfo!.batteryPercentage
+                              : 0,
+                          loadCustomMarker: _loadCustomMarker,
+                        ),
                       ),
                     ),
                   ],
-                  flexibleSpace: FlexibleSpaceBar(
-                    background: Builder(
-                      builder: (context) {
-                        // Always use static location for home screen (Chennai, India)
-                        // Static location: 13.082680, 80.270721
-                        // Old dynamic location (commented out):
-                        // if (state is HomepageSuccess) {
-                        //   location = LatLng(
-                        //     state.currentLocation.lat,
-                        //     state.currentLocation.lng,
-                        //   );
-                        // }
-
-                        // Create custom marker with static location
-                        final List<Marker> markers = [];
-
-                        if (_customMarkerIcon != null) {
-                          // Use custom marker icon - use unique ID to force update
-                          // Anchor at bottom center (0.5, 1.0) to match default marker behavior
-                          final customMarker = Marker(
-                            markerId: MarkerId(
-                              'child_location_custom_${_customMarkerIcon.hashCode}',
+                ),
+                // Bottom sheet container
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    height: bottomSheetHeight,
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceColor,
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(AppSizes.radiusXL),
+                        topRight: Radius.circular(AppSizes.radiusXL),
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        // Drag handle
+                        GestureDetector(
+                          onTap: _navigateToDetail,
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(
+                              vertical: AppSizes.spacingS,
                             ),
-                            position: location,
-                            icon: _customMarkerIcon!,
-                            anchor: const Offset(
-                              0.5,
-                              1.0,
-                            ), // Bottom center, same as default marker
-                          );
-                          markers.add(customMarker);
-                        } else {
-                          // Fallback to default marker while icon is loading
-                          markers.add(
-                            Marker(
-                              markerId: const MarkerId(
-                                'child_location_default',
+                            width: 40,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: AppColors.textSecondary.withValues(
+                                alpha: 0.3,
                               ),
-                              position: location,
+                              borderRadius: BorderRadius.circular(2),
                             ),
-                          );
-                        }
-                        // Use a unique key that changes when icon loads to force complete rebuild
-                        return MapViewWidget(
-                          key: ValueKey(
-                            'map_${_customMarkerIcon != null}_${_customMarkerIcon.hashCode}',
                           ),
-                          width: double.infinity,
-                          height: double.infinity,
-                          interactive: true,
-                          currentPosition: location,
-                          markers: markers,
-                          onMapCreated: (controller) {
-                            // Focus on marker with animation
-                            // Small delay to ensure marker is rendered
-                            Future.delayed(
-                              const Duration(milliseconds: 100),
-                              () {
-                                if (mounted) {
-                                  controller.animateCamera(
-                                    CameraUpdate.newLatLngZoom(location, 15.0),
-                                  );
-                                }
-                              },
-                            );
-                          },
-                        );
-                      },
+                        ),
+                        // Scrollable content
+                        Expanded(
+                          child: SingleChildScrollView(
+                            controller: _bottomSheetScrollController,
+                            child: Padding(
+                              padding: const EdgeInsets.only(
+                                bottom: AppSizes.paddingL,
+                              ),
+                              child: _buildChildLocationCardContent(context),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
               ],
             ),
-            // Bottom sheet container
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: Container(
-                height: bottomSheetHeight,
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceColor,
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(AppSizes.radiusXL),
-                    topRight: Radius.circular(AppSizes.radiusXL),
-                  ),
-                ),
-                child: Column(
-                  children: [
-                    // Drag handle
-                    GestureDetector(
-                      onTap: _navigateToDetail,
-                      child: Container(
-                        margin: const EdgeInsets.symmetric(
-                          vertical: AppSizes.spacingS,
-                        ),
-                        width: 40,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: AppColors.textSecondary.withValues(alpha: 0.3),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
-                    // Scrollable content
-                    Expanded(
-                      child: SingleChildScrollView(
-                        controller: _bottomSheetScrollController,
-                        child: Padding(
-                          padding: const EdgeInsets.only(
-                            bottom: AppSizes.paddingL,
-                          ),
-                          child: _buildChildLocationCardContent(context),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -468,18 +412,14 @@ class _HomePageState extends State<HomePage> {
               children: [
                 Text(
                   'Error: ${state.message}',
-                  style: AppTextStyles.body1.copyWith(
-                    color: AppColors.error,
-                  ),
+                  style: AppTextStyles.body1.copyWith(color: AppColors.error),
                 ),
                 const SizedBox(height: AppSizes.spacingM),
                 CommonButton(
                   text: 'Retry',
                   onPressed: () {
                     context.read<HomepageBloc>().add(
-                      GetHomepageData(
-                        childId: '6905a34dc1ddbf66b31a77e9',
-                      ),
+                      GetHomepageData(childId: '6905a34dc1ddbf66b31a77e9'),
                     );
                   },
                 ),
@@ -487,7 +427,7 @@ class _HomePageState extends State<HomePage> {
             ),
           );
         }
-        
+
         if (state is! HomepageSuccess || state.isLoading) {
           return const Center(child: CircularProgressIndicator());
         }
@@ -512,7 +452,7 @@ class _HomePageState extends State<HomePage> {
                         ),
                         const SizedBox(height: AppSizes.spacingXS),
                         Text(
-                          'Since ${state.currentLocation?.since} (${state.currentLocation?.durationMinutes} hours)',
+                          'Since ${state.currentLocation?.since} (${state.currentLocation?.durationMinutes ?? 0} min)',
                           style: AppTextStyles.caption.copyWith(
                             color: AppColors.textSecondary,
                           ),
@@ -812,6 +752,70 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
       ),
+    );
+  }
+}
+
+// Separate widget for map view with marker loading
+class _MapViewWithMarker extends StatelessWidget {
+  final LatLng location;
+  final int batteryPercentage;
+  final Future<BitmapDescriptor?> Function(int) loadCustomMarker;
+
+  const _MapViewWithMarker({
+    required this.location,
+    required this.batteryPercentage,
+    required this.loadCustomMarker,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<BitmapDescriptor?>(
+      future: loadCustomMarker(batteryPercentage),
+      builder: (context, snapshot) {
+        final List<Marker> markers = [];
+
+        if (snapshot.hasData && snapshot.data != null) {
+          // Use custom marker icon
+          markers.add(
+            Marker(
+              markerId: MarkerId(
+                'child_location_custom_${snapshot.data.hashCode}',
+              ),
+              position: location,
+              icon: snapshot.data!,
+              anchor: const Offset(0.5, 1.0), // Bottom center
+            ),
+          );
+        } else {
+          // Fallback to default marker while icon is loading
+          markers.add(
+            Marker(
+              markerId: const MarkerId('child_location_default'),
+              position: location,
+            ),
+          );
+        }
+
+        return MapViewWidget(
+          key: ValueKey(
+            'map_${snapshot.hasData}_${snapshot.data?.hashCode ?? 0}',
+          ),
+          width: double.infinity,
+          height: double.infinity,
+          interactive: true,
+          currentPosition: location,
+          markers: markers,
+          onMapCreated: (controller) {
+            // Focus on marker with animation
+            Future.delayed(const Duration(milliseconds: 100), () {
+              controller.animateCamera(
+                CameraUpdate.newLatLngZoom(location, 15.0),
+              );
+            });
+          },
+        );
+      },
     );
   }
 }

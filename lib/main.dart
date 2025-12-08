@@ -37,9 +37,7 @@ class ChildTrackApp extends StatelessWidget {
         BlocProvider<ConnectivityBloc>(
           create: (context) => injector<ConnectivityBloc>(),
         ),
-        BlocProvider<AuthBloc>(
-          create: (context) => injector<AuthBloc>(),
-        ),
+        BlocProvider<AuthBloc>(create: (context) => injector<AuthBloc>()),
       ],
       child: MaterialApp(
         title: AppStrings.appTitle,
@@ -87,7 +85,7 @@ class _SplashScreenState extends State<SplashScreen> {
       if (authBloc.state is AuthSuccess) {
         Navigator.pushReplacementNamed(context, RouteNames.home);
       } else {
-        Navigator.pushReplacementNamed(context, RouteNames.login);
+        Navigator.pushReplacementNamed(context, RouteNames.sos);
       }
     }
   }

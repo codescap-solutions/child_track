@@ -1,9 +1,9 @@
 import 'package:child_track/app/auth/view/onboarding/add_kid_view.dart';
+import 'package:child_track/app/childapp/view/sos_view.dart';
 import 'package:child_track/app/home/view/home_page.dart';
 import 'package:flutter/material.dart';
 import '../../app/auth/view/login_screen.dart';
 import '../../app/auth/view/otp_screen.dart';
-import '../../app/home/view/home_screen.dart';
 import 'route_names.dart';
 
 class AppRouter {
@@ -31,6 +31,11 @@ class AppRouter {
       case RouteNames.home:
         return MaterialPageRoute(
           builder: (_) => const HomePage(),
+          settings: settings,
+        );
+      case RouteNames.sos:
+        return MaterialPageRoute(
+          builder: (_) => const SosView(),
           settings: settings,
         );
 
