@@ -38,7 +38,6 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
     on<StartTripTracking>(_onStartTripTracking);
     on<StopTripTracking>(_onStopTripTracking);
     on<UpdateTripLocation>(_onUpdateTripLocation);
-  
   }
   void onInitialize() {
     add(LoadDeviceInfo());
@@ -156,9 +155,15 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
     Emitter<ChildState> emit,
   ) async {
     try {
+      // Get dynamic address and place name from coordinates
+      final locationInfo = await _childLocationRepo.getAddressAndPlaceName(
+        event.childLocation.latitude,
+        event.childLocation.longitude,
+      );
+
       final requestBody = {
-        "address": 'Malappuram',
-        "place_name": 'Malappuram 3',
+        "address": locationInfo?['address'] ?? 'Unknown',
+        "place_name": locationInfo?['place_name'] ?? 'Unknown',
         "child_id": "6905a34dc1ddbf66b31a77e9",
         "lat": event.childLocation.latitude,
         "lng": event.childLocation.longitude,
@@ -308,8 +313,16 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
           ),
         );
 
+        // Get dynamic address and place name from coordinates
+        final locationInfo = await _childLocationRepo.getAddressAndPlaceName(
+          newLocation.latitude,
+          newLocation.longitude,
+        );
+
         // Post location update to API
         final requestBody = {
+          "address": locationInfo?['address'] ?? 'Unknown',
+          "place_name": locationInfo?['place_name'] ?? 'Unknown',
           "child_id": "6905a34dc1ddbf66b31a77e9",
           "lat": newLocation.latitude,
           "lng": newLocation.longitude,
@@ -368,6 +381,16 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
       final endTime = DateTime.now();
       final duration = endTime.difference(state.tripStartTime!);
 
+      // Get dynamic address and place name for start and end locations
+      final startLocationInfo = await _childLocationRepo.getAddressAndPlaceName(
+        startLocation.latitude,
+        startLocation.longitude,
+      );
+      final endLocationInfo = await _childLocationRepo.getAddressAndPlaceName(
+        endLocation.latitude,
+        endLocation.longitude,
+      );
+
       // Calculate distance (sum of distances between consecutive points)
       double totalDistance = 0.0;
       double maxSpeed = 0.0;
@@ -394,8 +417,12 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
         "max_speed_kmph": maxSpeed,
         "start_lat": startLocation.latitude,
         "start_lng": startLocation.longitude,
+        "start_address": startLocationInfo?['address'] ?? 'Unknown',
+        "start_place_name": startLocationInfo?['place_name'] ?? 'Unknown',
         "end_lat": endLocation.latitude,
         "end_lng": endLocation.longitude,
+        "end_address": endLocationInfo?['address'] ?? 'Unknown',
+        "end_place_name": endLocationInfo?['place_name'] ?? 'Unknown',
         "start_time": state.tripStartTime!.toIso8601String(),
         "end_time": endTime.toIso8601String(),
       };

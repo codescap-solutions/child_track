@@ -1,4 +1,4 @@
-class RouteNames {
+class   RouteNames {
   // Auth Routes
   static const String login = '/login';
   static const String otp = '/otp';
@@ -8,6 +8,7 @@ class RouteNames {
   static const String profile = '/profile';
   static const String settings = '/settings';
   static const String sos = '/sos';
+  static const String trips = '/trips';
   // Child Tracking Routes
   static const String childList = '/child-list';
   static const String childDetail = '/child-detail';

@@ -31,11 +31,14 @@ class HomeResponse {
       cards: json['cards'] != null
           ? Cards.fromJson(json['cards'] as Map<String, dynamic>)
           : null,
-      yesterdayTrips: json['yesterday_trip_summary'] != null &&
+      yesterdayTrips:
+          json['yesterday_trip_summary'] != null &&
               json['yesterday_trip_summary'] is List
           ? (json['yesterday_trip_summary'] as List<dynamic>)
-              .map((trip) => TripSegment.fromJson(trip as Map<String, dynamic>))
-              .toList()
+                .map(
+                  (trip) => TripSegment.fromJson(trip as Map<String, dynamic>),
+                )
+                .toList()
           : [],
     );
   }

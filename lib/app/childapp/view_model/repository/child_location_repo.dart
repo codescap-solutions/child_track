@@ -30,4 +30,16 @@ class ChildGoogleMapsRepo {
     );
     return distance;
   }
+
+  /// Get address and place name from coordinates using LocationService
+  Future<Map<String, String>?> getAddressAndPlaceName(
+    double latitude,
+    double longitude,
+  ) async {
+    try {
+      return await _locationService.getAddressAndPlaceName(latitude, longitude);
+    } catch (e) {
+      return {'address': 'Unknown', 'place_name': 'Unknown'};
+    }
+  }
 }

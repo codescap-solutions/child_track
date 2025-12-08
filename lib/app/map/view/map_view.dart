@@ -17,6 +17,10 @@ class MapViewWidget extends StatefulWidget {
     this.polylines,
     this.isPolyLines = false,
     this.onMapCreated,
+    this.myLocationEnabled = true,
+    this.myLocationButtonEnabled = true,
+    this.minZoom = 5.0,
+    this.maxZoom = 15.0,
   });
   final double width, height;
   final bool interactive, isPolyLines;
@@ -24,7 +28,10 @@ class MapViewWidget extends StatefulWidget {
   final List<Marker>? markers;
   final List<Polyline>? polylines;
   final void Function(GoogleMapController)? onMapCreated;
-
+  final bool myLocationEnabled;
+  final bool myLocationButtonEnabled;
+  final double minZoom;
+  final double maxZoom;
   @override
   State<MapViewWidget> createState() => _MapViewWidgetState();
 }
@@ -168,9 +175,14 @@ class _MapViewWidgetState extends State<MapViewWidget> {
                             }
                           : <Factory<OneSequenceGestureRecognizer>>{},
                       scrollGesturesEnabled: widget.interactive,
+                      minMaxZoomPreference: MinMaxZoomPreference(
+                        widget.minZoom,
+                        widget.maxZoom,
+                      ),
                       zoomGesturesEnabled: widget.interactive,
                       tiltGesturesEnabled: widget.interactive,
                       rotateGesturesEnabled: widget.interactive,
+
                       onMapCreated: (controller) {
                         injector<MapBloc>().add(MapCreated(controller));
                         // Call custom onMapCreated callback if provided
@@ -191,8 +203,8 @@ class _MapViewWidgetState extends State<MapViewWidget> {
                       }(),
                       onCameraMoveStarted: () {},
                       onCameraIdle: () {},
-                      myLocationEnabled: true,
-                      myLocationButtonEnabled: true,
+                      myLocationEnabled: widget.myLocationEnabled,
+                      myLocationButtonEnabled: widget.myLocationButtonEnabled,
                     ),
                   ),
                   // Floating layers button
