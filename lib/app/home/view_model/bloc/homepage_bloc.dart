@@ -23,6 +23,70 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
   Timer? _pollingTimer;
   String? _lastChildId;
 
+  // Sample data fallback for yesterday trips
+  static const List<Map<String, dynamic>> _sampleYesterdayTrips = [
+    {
+      "segment_id": "S1",
+      "type": "ride",
+      "start_latitude": 11.2488,
+      "start_longitude": 75.7839,
+      "end_latitude": 11.354909,
+      "end_longitude": 75.790219,
+      "start_time": "10:00am",
+      "end_time": "12:00pm",
+      "start_point": {"name": "Home"},
+      "end_point": {"name": "Mall"},
+      "distance_km": 6.0,
+      "duration_minutes": 120,
+      "max_speed_kmph": 40,
+      "polyline_points": [
+        {"latitude": 11.2488, "longitude": 75.7839},
+        {"latitude": 11.354909, "longitude": 75.790219},
+      ],
+      "progress": 30,
+    },
+    {
+      "segment_id": "S2",
+      "type": "ride",
+      "start_time": "11:00pm",
+      "end_time": "11:30pm",
+      "start_point": {"name": "Mall"},
+      "end_point": {"name": "Park"},
+      "distance_km": 10.5,
+      "duration_minutes": 180,
+      "max_speed_kmph": 55,
+      "start_latitude": 11.433278,
+      "start_longitude": 75.785960,
+      "end_latitude": 11.390055,
+      "end_longitude": 75.774120,
+      "polyline_points": [
+        {"latitude": 11.433278, "longitude": 75.785960},
+        {"latitude": 11.390055, "longitude": 75.774120},
+      ],
+      "progress": 60,
+    },
+    {
+      "segment_id": "S3",
+      "type": "walk",
+      "start_time": "10:30pm",
+      "end_time": "12:00am",
+      "start_latitude": 11.390055,
+      "start_longitude": 75.774120,
+      "end_latitude": 11.354909,
+      "end_longitude": 75.790219,
+      "start_point": {"name": "Park"},
+      "end_point": {"name": "Ice Cream Shop"},
+      "distance_km": 1.2,
+      "duration_minutes": 30,
+      "max_speed_kmph": 6,
+      "polyline_points": [
+        {"latitude": 11.390055, "longitude": 75.774120},
+        {"latitude": 11.354909, "longitude": 75.790219},
+      ],
+      "progress": 100,
+    },
+  ];
+
   HomepageBloc({
     required HomeRepository homeRepository,
     required MapBloc mapBloc,
@@ -54,6 +118,13 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
     return super.close();
   }
 
+  /// Convert sample data to TripSegment objects
+  List<TripSegment> _getSampleTripSegments() {
+    return _sampleYesterdayTrips
+        .map((json) => TripSegment.fromJson(json))
+        .toList();
+  }
+
   Future<void> _onGetHomepageData(
     GetHomepageData event,
     Emitter<HomepageState> emit,
@@ -73,11 +144,16 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
       );
       if (response.isSuccess && response.data != null) {
         final homeData = response.data!;
+        // Use sample data if yesterdayTrips is null or empty
+        final tripsToUse = homeData.yesterdayTrips.isEmpty
+            ? _getSampleTripSegments()
+            : homeData.yesterdayTrips;
+
         emit(
           HomepageSuccess(
             deviceInfo: homeData.deviceInfo,
             currentLocation: homeData.currentLocation,
-            yesterdayTrips: homeData.yesterdayTrips,
+            yesterdayTrips: tripsToUse,
             yesterdayTripSummary: homeData.yesterdayTripSummary,
             cards: homeData.cards,
             isLoading: false,

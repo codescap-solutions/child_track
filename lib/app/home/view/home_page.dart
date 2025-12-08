@@ -1,4 +1,6 @@
 import 'dart:ui' as ui;
+import 'package:child_track/core/navigation/app_router.dart';
+import 'package:child_track/core/navigation/route_names.dart';
 import 'package:flutter/services.dart';
 import 'package:child_track/app/home/view_model/bloc/homepage_bloc.dart';
 import 'package:child_track/app/map/view/map_view.dart';
@@ -682,7 +684,9 @@ class _HomePageState extends State<HomePage> {
                       width: 78,
                       fontSize: 10,
                       text: 'View all',
-                      onPressed: () {},
+                      onPressed: () {
+                        AppRouter.push(context, RouteNames.trips);
+                      },
                     ),
                   ],
                 ),

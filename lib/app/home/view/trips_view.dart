@@ -39,7 +39,6 @@ class TripsView extends StatelessWidget {
           if (state is HomepageSuccess) {
             return ListView.builder(
               shrinkWrap: true,
-
               padding: const EdgeInsets.all(AppSizes.paddingL),
               itemCount: state.yesterdayTrips.length,
               itemBuilder: (context, index) {
@@ -113,144 +112,13 @@ class _TripCard extends StatelessWidget {
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          // Map Section (Top part of card)
           _buildMapSection(markers, polylines, context),
-
           Positioned(
             bottom: 10,
             right: 10,
             left: 10,
             child: _buildTripTodayCard(context, withMargin: false),
           ),
-
-          // Trip Details Section (Bottom part of card)
-          /*  Padding(
-            padding: const EdgeInsets.all(AppSizes.paddingL),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Time and Duration Row
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        children: [
-                          Text(
-                            '${trip.startTime} - ${trip.endTime} (${trip.durationMinutes / 60}hrs)',
-                            style: AppTextStyles.subtitle2.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          SizedBox(height: AppSizes.spacingS),
-                          Row(
-                            children: [
-                              Container(
-                                width: 6,
-                                height: 6,
-                                decoration: BoxDecoration(
-                                  color: AppColors.textSecondary,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: AppSizes.spacingS),
-                              Text(
-                                trip.startPlace,
-                                style: AppTextStyles.caption.copyWith(
-                                  color: AppColors.textSecondary,
-                                ),
-                              ),
-                            ],
-                          ),
-                          Row(
-                            children: [
-                              Container(
-                                width: 6,
-                                height: 6,
-                                decoration: BoxDecoration(
-                                  color: AppColors.textSecondary,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: AppSizes.spacingS),
-                              Text(
-                                trip.endPlace,
-                                style: AppTextStyles.caption.copyWith(
-                                  color: AppColors.textSecondary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    // Distance badge
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        // SizedBox(height: AppSizes.spacingS),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppSizes.paddingXS,
-                            vertical: AppSizes.paddingXS,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.backgroundColor,
-                            borderRadius: BorderRadius.circular(
-                              AppSizes.radiusXL,
-                            ),
-                          ),
-                          child: Text(
-                            '${trip.distanceKm}km',
-                            style: AppTextStyles.caption.copyWith(
-                              color: AppColors.textSecondary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        SizedBox(height: AppSizes.spacingS),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: CommonButton(
-                            text: 'View details',
-                            fontSize: 12,
-                            padding: EdgeInsets.zero,
-                            textColor: AppColors.surfaceColor,
-                            height: 28,
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => TripDetailView(
-                                    trip: trip,
-                                    markers: markers,
-                                    polylines: polylines,
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-
-                // const SizedBox(height: AppSizes.spacingM),
-
-                // Locations
-
-                //  const SizedBox(height: AppSizes.spacingXS),
-
-                //  const SizedBox(height: AppSizes.spacingM),
-
-                // View all button
-              ],
-            ),
-          ),
-          */
         ],
       ),
     );
@@ -275,28 +143,12 @@ class _TripCard extends StatelessWidget {
             markers: markers,
             polylines: polylines,
             isPolyLines: true,
+            interactive: false, // Disable touch to move
             currentPosition: markers.first.position,
-          ),
-          Positioned(
-            right: AppSizes.paddingM,
-            bottom: AppSizes.paddingM,
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSizes.paddingS,
-                vertical: AppSizes.paddingXS,
-              ),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceColor.withValues(alpha: 0.9),
-                borderRadius: BorderRadius.circular(AppSizes.radiusS),
-              ),
-              child: Text(
-                trip.startPlace,
-                style: AppTextStyles.caption.copyWith(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
+            myLocationEnabled: false, // Disable my location
+            myLocationButtonEnabled: false,
+            minZoom: 10.0,
+            maxZoom: 11.0,
           ),
         ],
       ),
@@ -327,14 +179,14 @@ class _TripCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '08:43 am - 21:20 pm (12hrs)',
+                '${trip.startTime} - ${trip.endTime} (${trip.durationMinutes} mins)',
                 style: AppTextStyles.overline.copyWith(
                   color: AppColors.textSecondary,
                 ),
               ),
               // const SizedBox(height: AppSizes.spacingXS),
               Text(
-                'Kamakshi Palaya - Cubbon Park',
+                '${trip.startPlace} - ${trip.endPlace}',
                 style: AppTextStyles.overline.copyWith(
                   color: AppColors.textSecondary,
                 ),
@@ -351,7 +203,10 @@ class _TripCard extends StatelessWidget {
                       color: AppColors.backgroundColor,
                       borderRadius: BorderRadius.circular(AppSizes.radiusS),
                     ),
-                    child: Text('4 Events', style: AppTextStyles.caption),
+                    child: Text(
+                      '${trip.segmentId} Events',
+                      style: AppTextStyles.caption,
+                    ),
                   ),
                   const SizedBox(width: AppSizes.spacingS),
                   Container(
@@ -364,7 +219,7 @@ class _TripCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(AppSizes.radiusS),
                     ),
                     child: Text(
-                      'today',
+                      trip.type.toUpperCase(),
                       style: AppTextStyles.caption.copyWith(
                         color: AppColors.primaryColor,
                         fontWeight: FontWeight.w600,
