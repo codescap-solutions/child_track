@@ -7,8 +7,6 @@ import 'package:child_track/core/constants/app_sizes.dart';
 import 'package:child_track/core/constants/app_text_styles.dart';
 import 'package:child_track/core/navigation/route_names.dart';
 import 'package:child_track/core/widgets/common_button.dart';
-import '../../auth/view/onboarding/sign_up_view.dart';
-import '../../auth/view/onboarding/connect_to_parent_screen.dart';
 import 'widgets/role_selector.dart';
 
 class OnboardingScreen extends StatefulWidget {

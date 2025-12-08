@@ -99,7 +99,6 @@ class _TripCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: AppSizes.spacingL),
 
       decoration: BoxDecoration(
-        
         color: AppColors.surfaceColor,
 
         borderRadius: BorderRadius.all(Radius.circular(AppSizes.radiusL)),
@@ -115,18 +114,17 @@ class _TripCard extends StatelessWidget {
         clipBehavior: Clip.none,
         children: [
           // Map Section (Top part of card)
-          _buildMapSection(markers, polylines,context),
+          _buildMapSection(markers, polylines, context),
 
-
-              Positioned(
-                            bottom: 10,
-                            right: 10,
-                            left: 10,
-                            child: _buildTripTodayCard(context, withMargin: false),
-                          ),
+          Positioned(
+            bottom: 10,
+            right: 10,
+            left: 10,
+            child: _buildTripTodayCard(context, withMargin: false),
+          ),
 
           // Trip Details Section (Bottom part of card)
-       /*  Padding(
+          /*  Padding(
             padding: const EdgeInsets.all(AppSizes.paddingL),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -259,7 +257,11 @@ class _TripCard extends StatelessWidget {
   }
 
   // Map Section with Google Maps showing static route
-  Widget _buildMapSection(List<Marker> markers, List<Polyline> polylines,context ) {
+  Widget _buildMapSection(
+    List<Marker> markers,
+    List<Polyline> polylines,
+    context,
+  ) {
     return ClipRRect(
       borderRadius: const BorderRadius.only(
         topLeft: Radius.circular(AppSizes.radiusL),
@@ -269,7 +271,7 @@ class _TripCard extends StatelessWidget {
         children: [
           MapViewWidget(
             width: double.infinity,
-             height: MediaQuery.of(context).size.height * 0.40,
+            height: MediaQuery.of(context).size.height * 0.40,
             markers: markers,
             polylines: polylines,
             isPolyLines: true,
@@ -299,12 +301,14 @@ class _TripCard extends StatelessWidget {
         ],
       ),
     );
-    
   }
+
   Widget _buildTripTodayCard(BuildContext context, {bool withMargin = true}) {
     return Container(
       height: 85,
-      margin: withMargin ? const EdgeInsets.symmetric(horizontal: AppSizes.paddingL) : EdgeInsets.zero,
+      margin: withMargin
+          ? const EdgeInsets.symmetric(horizontal: AppSizes.paddingL)
+          : EdgeInsets.zero,
       padding: const EdgeInsets.all(AppSizes.paddingS),
       decoration: BoxDecoration(
         color: AppColors.surfaceColor,
@@ -322,7 +326,6 @@ class _TripCard extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              
               Text(
                 '08:43 am - 21:20 pm (12hrs)',
                 style: AppTextStyles.overline.copyWith(
@@ -368,29 +371,29 @@ class _TripCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                 
                 ],
               ),
             ],
           ),
-            Spacer(),
-                  CommonButton(
-                    padding: EdgeInsets.zero,
-                    width: 80,
-                    text: 'View all',
-                    fontSize: 12,
-                    textColor: AppColors.surfaceColor,
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) =>  TripDetailView(
-                         trip: trip,
-                                    markers: markers,
-                                    polylines: polylines,
-
-                      )),
-                    ),
-                    height: 30,
-                  ),
+          Spacer(),
+          CommonButton(
+            padding: EdgeInsets.zero,
+            width: 80,
+            text: 'View all',
+            fontSize: 12,
+            textColor: AppColors.surfaceColor,
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => TripDetailView(
+                  trip: trip,
+                  markers: markers,
+                  polylines: polylines,
+                ),
+              ),
+            ),
+            height: 30,
+          ),
         ],
       ),
     );

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:child_track/app/home/model/device_model.dart';
 import 'package:child_track/app/home/model/home_model.dart';
 import 'package:child_track/app/home/model/last_trip_model.dart';
@@ -19,6 +20,9 @@ part 'homepage_state.dart';
 class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
   final HomeRepository _homeRepository;
   final MapBloc _mapBloc;
+  Timer? _pollingTimer;
+  String? _lastChildId;
+
   HomepageBloc({
     required HomeRepository homeRepository,
     required MapBloc mapBloc,
@@ -31,12 +35,37 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
     on<GetTripDetail>(_onGetTripDetail);
   }
 
+  void _startPolling(String? childId) {
+    _lastChildId = childId;
+    _pollingTimer?.cancel();
+    _pollingTimer = Timer.periodic(const Duration(seconds: 60), (_) {
+      add(GetHomepageData(childId: _lastChildId));
+    });
+  }
+
+  void _stopPolling() {
+    _pollingTimer?.cancel();
+    _pollingTimer = null;
+  }
+
+  @override
+  Future<void> close() {
+    _stopPolling();
+    return super.close();
+  }
+
   Future<void> _onGetHomepageData(
     GetHomepageData event,
     Emitter<HomepageState> emit,
   ) async {
     final currentState = state;
     if (currentState is! HomepageSuccess) return;
+
+    // Start polling on first call
+    if (_pollingTimer == null || !_pollingTimer!.isActive) {
+      _startPolling(event.childId);
+    }
+
     emit(currentState.copyWith(isLoading: true));
     try {
       final response = await _homeRepository.getHomeData(

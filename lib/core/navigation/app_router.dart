@@ -46,4 +46,24 @@ class AppRouter {
         );
     }
   }
+
+  static void push(BuildContext context, String routeName) {
+    Navigator.pushNamed(context, routeName);
+  }
+
+  static void pushReplacement(BuildContext context, String routeName) {
+    Navigator.pushReplacementNamed(context, routeName);
+  }
+
+  static void pushAndRemoveUntil(BuildContext context, Widget widget) {
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => widget),
+      (route) => false,
+    );
+  }
+
+  static void pop(BuildContext context) {
+    Navigator.pop(context);
+  }
 }
