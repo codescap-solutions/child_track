@@ -27,6 +27,25 @@ class VerifyOtp extends AuthEvent {
   List<Object?> get props => [otp];
 }
 
+class RegisterUser extends AuthEvent {
+  final String phoneNumber;
+  final String name;
+  final Map<String, dynamic>? address;
+
+  const RegisterUser({
+    required this.phoneNumber,
+    required this.name,
+    this.address,
+  });
+
+  @override
+  List<Object?> get props => [
+        phoneNumber,
+        name,
+        if (address != null) address!,
+      ];
+}
+
 class AuthLoggedIn extends AuthEvent {}
 
 class AuthLoggedOut extends AuthEvent {}

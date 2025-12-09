@@ -1,3 +1,4 @@
+import 'package:child_track/app/auth/view/onboarding/sign_in_view.dart';
 import 'package:child_track/app/auth/view_model/bloc/auth_bloc.dart';
 import 'package:child_track/app/auth/view_model/bloc/auth_event.dart';
 import 'package:child_track/app/auth/view_model/bloc/auth_state.dart';
@@ -38,7 +39,14 @@ class _OtpScreenState extends State<OtpScreen> {
   Widget build(BuildContext context) {
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
-        if (state is AuthSuccess) {
+        if (state is AuthNewUser) {
+          // New user - navigate to registration screen with phone number
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (_) => SignInView(phoneNumber: state.phoneNumber),
+            ),
+          );
+        } else if (state is AuthSuccess) {
           if (state.hasChildren) {
             // User has children - navigate to home screen
             Navigator.of(context).pushNamedAndRemoveUntil(
@@ -46,7 +54,7 @@ class _OtpScreenState extends State<OtpScreen> {
               (route) => false,
             );
           } else {
-            // New user with no children - navigate to add child screen
+            // Existing user with no children - navigate to add child screen
             Navigator.of(context).pushNamedAndRemoveUntil(
               RouteNames.addChild,
               (route) => false,

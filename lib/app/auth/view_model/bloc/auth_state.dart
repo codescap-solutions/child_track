@@ -38,4 +38,13 @@ class AuthSuccess extends AuthState {
   List<Object?> get props => [hasChildren];
 }
 
+class AuthNewUser extends AuthState {
+  final String phoneNumber;
+
+  const AuthNewUser({required this.phoneNumber});
+
+  @override
+  List<Object?> get props => [phoneNumber];
+}
+
 class AuthNeedsRegistration extends AuthState {}

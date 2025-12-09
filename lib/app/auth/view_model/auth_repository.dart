@@ -47,42 +47,53 @@ class AuthRepository extends BaseService {
       );
 
       if (response.isSuccess && response.data != null) {
-        // Save auth token and user ID (parent ID)
-        // Handle different response structures
         final data = response.data!;
-        final token = data['token'] as String?;
-        final parentId = data['user_id'] as String? ?? data['_id'] as String?;
-        final name = data['name'] as String?;
-        final children = data['children'] as List<dynamic>?;
+        final isNewUser = data['is_new_user'] as bool? ?? false;
+        final phoneNumber = data['phoneNumber'] as String?;
+        
+        // Save phone number if provided
+        if (phoneNumber != null) {
+          await _sharedPrefsService.setUserPhone(phoneNumber);
+        }
+        
+        // If new user, don't save auth data yet (will be saved after registration)
+        if (!isNewUser) {
+          // Save auth token and user ID (parent ID)
+          // Handle different response structures
+          final token = data['token'] as String?;
+          final parentId = data['user_id'] as String? ?? data['_id'] as String?;
+          final name = data['name'] as String?;
+          final children = data['children'] as List<dynamic>?;
 
-        if (parentId != null) {
-          await _sharedPrefsService.setUserId(parentId);
-          // Also save as parent_id for clarity
-          await _sharedPrefsService.setString('parent_id', parentId);
-        }
-        if (token != null) {
-          await _sharedPrefsService.setAuthToken(token);
-        }
-        if (name != null) {
-          await _sharedPrefsService.setString('parent_name', name);
-        }
-        // Save children count for checking if child is connected
-        if (children != null) {
-          await _sharedPrefsService.setInt('children_count', children.length);
-          // If there's at least one child, save the first child ID
-          // Children can be array of strings (IDs) or array of objects
-          if (children.isNotEmpty) {
-            String? childId;
-            if (children[0] is String) {
-              // Array of IDs: ["693721db9026941d7fc780df"]
-              childId = children[0] as String;
-            } else if (children[0] is Map) {
-              // Array of objects: [{"_id": "...", ...}]
-              final firstChild = children[0] as Map<String, dynamic>;
-              childId = firstChild['_id'] as String? ?? firstChild['id'] as String?;
-            }
-            if (childId != null) {
-              await _sharedPrefsService.setString('child_id', childId);
+          if (parentId != null) {
+            await _sharedPrefsService.setUserId(parentId);
+            // Also save as parent_id for clarity
+            await _sharedPrefsService.setString('parent_id', parentId);
+          }
+          if (token != null) {
+            await _sharedPrefsService.setAuthToken(token);
+          }
+          if (name != null) {
+            await _sharedPrefsService.setString('parent_name', name);
+          }
+          // Save children count for checking if child is connected
+          if (children != null) {
+            await _sharedPrefsService.setInt('children_count', children.length);
+            // If there's at least one child, save the first child ID
+            // Children can be array of strings (IDs) or array of objects
+            if (children.isNotEmpty) {
+              String? childId;
+              if (children[0] is String) {
+                // Array of IDs: ["693721db9026941d7fc780df"]
+                childId = children[0] as String;
+              } else if (children[0] is Map) {
+                // Array of objects: [{"_id": "...", ...}]
+                final firstChild = children[0] as Map<String, dynamic>;
+                childId = firstChild['_id'] as String? ?? firstChild['id'] as String?;
+              }
+              if (childId != null) {
+                await _sharedPrefsService.setString('child_id', childId);
+              }
             }
           }
         }
@@ -131,6 +142,54 @@ class AuthRepository extends BaseService {
   // Check if user is logged in
   bool isLoggedIn() {
     return _sharedPrefsService.isLoggedIn();
+  }
+
+  // Register User
+  Future<BaseResponse> registerUser({
+    required String phoneNumber,
+    required String name,
+    Map<String, dynamic>? address,
+  }) async {
+    try {
+      final data = <String, dynamic>{
+        'phoneNumber': phoneNumber,
+        'name': name,
+      };
+      
+      if (address != null) {
+        data['address'] = address;
+      }
+
+      final response = await post(
+        ApiEndpoints.registerUser,
+        data: data,
+      );
+
+      if (response.isSuccess && response.data != null) {
+        // Save auth token and user ID (parent ID) after registration
+        final responseData = response.data!;
+        final token = responseData['token'] as String?;
+        final parentId = responseData['user_id'] as String? ?? responseData['_id'] as String?;
+        final savedName = responseData['name'] as String?;
+
+        if (parentId != null) {
+          await _sharedPrefsService.setUserId(parentId);
+          await _sharedPrefsService.setString('parent_id', parentId);
+        }
+        if (token != null) {
+          await _sharedPrefsService.setAuthToken(token);
+        }
+        if (savedName != null) {
+          await _sharedPrefsService.setString('parent_name', savedName);
+        }
+        // New user has no children initially
+        await _sharedPrefsService.setInt('children_count', 0);
+      }
+
+      return response;
+    } catch (e) {
+      return BaseResponse.error(message: e.toString());
+    }
   }
 
   // Get current user info

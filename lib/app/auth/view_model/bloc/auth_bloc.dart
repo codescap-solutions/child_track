@@ -13,6 +13,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<AuthStarted>(_onAuthStarted);
     on<SendOtp>(_onSendOtp);
     on<VerifyOtp>(_onVerifyOtp);
+    on<RegisterUser>(_onRegisterUser);
     on<AuthLoggedIn>(_onAuthLoggedIn);
     on<AuthLoggedOut>(_onAuthLoggedOut);
   }
@@ -46,15 +47,21 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(AuthLoading());
     try {
       final response = await _authRepository.verifyOtp(event.otp);
-      if (response.isSuccess) {
-        // Check if data is null - if null, user needs to register
-        if (response.data == null) {
-          emit(AuthNeedsRegistration());
-        } else {
-          // Check if user has children
-          final children = response.data!['children'] as List<dynamic>?;
+      if (response.isSuccess && response.data != null) {
+        final data = response.data!;
+        final isNewUser = data['is_new_user'] as bool? ?? false;
+        final phoneNumber = data['phoneNumber'] as String?;
+        
+        // Check if this is a new user
+        if (isNewUser && phoneNumber != null) {
+          emit(AuthNewUser(phoneNumber: phoneNumber));
+        } else if (response.data != null) {
+          // Existing user - check if user has children
+          final children = data['children'] as List<dynamic>?;
           final hasChildren = children != null && children.isNotEmpty;
           emit(AuthSuccess(hasChildren: hasChildren));
+        } else {
+          emit(AuthNeedsRegistration());
         }
       } else {
         emit(AuthError(message: response.message));
@@ -62,6 +69,29 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     } catch (e) {
       AppLogger.error('Error verifying OTP: ${e.toString()}');
       emit(AuthError(message: 'Failed to verify OTP: ${e.toString()}'));
+    }
+  }
+
+  Future<void> _onRegisterUser(
+    RegisterUser event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(AuthLoading());
+    try {
+      final response = await _authRepository.registerUser(
+        phoneNumber: event.phoneNumber,
+        name: event.name,
+        address: event.address,
+      );
+      if (response.isSuccess) {
+        // After registration, user has no children yet
+        emit(const AuthSuccess(hasChildren: false));
+      } else {
+        emit(AuthError(message: response.message));
+      }
+    } catch (e) {
+      AppLogger.error('Error registering user: ${e.toString()}');
+      emit(AuthError(message: 'Failed to register: ${e.toString()}'));
     }
   }
 
