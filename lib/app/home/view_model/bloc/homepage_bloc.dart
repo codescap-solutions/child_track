@@ -137,9 +137,9 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
     if (currentState is! HomepageSuccess) return;
 
     // Get child_id from event or SharedPreferences
-    final childId = "6937293f9026941d7fc783b5";
+    final childId = "69378103a8366c90ed8159d2";
     //event.childId ?? _sharedPrefsService.getString('child_id');
-    
+
     // If no child_id, check if parent has children
     // if (childId == null) {
     //   final childrenCount = _sharedPrefsService.getInt('children_count') ?? 0;
@@ -159,9 +159,7 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
 
     emit(currentState.copyWith(isLoading: true));
     try {
-      final response = await _homeRepository.getHomeData(
-        childId: childId,
-      );
+      final response = await _homeRepository.getHomeData(childId: childId);
       if (response.isSuccess && response.data != null) {
         final homeData = response.data!;
         // Use sample data if yesterdayTrips is null or empty
@@ -182,12 +180,9 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
         );
       } else {
         // Check if error is due to no child connected
-        if (response.message.toLowerCase().contains('child') || 
+        if (response.message.toLowerCase().contains('child') ||
             response.message.toLowerCase().contains('not found')) {
-          emit(currentState.copyWith(
-            isLoading: false,
-            hasNoChild: true,
-          ));
+          emit(currentState.copyWith(isLoading: false, hasNoChild: true));
         } else {
           emit(HomepageError(message: response.message));
         }
