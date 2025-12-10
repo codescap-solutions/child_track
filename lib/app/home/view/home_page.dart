@@ -1,7 +1,6 @@
 import 'dart:ui' as ui;
 import 'package:child_track/core/navigation/app_router.dart';
 import 'package:child_track/core/navigation/route_names.dart';
-import 'package:child_track/core/services/shared_prefs_service.dart';
 import 'package:flutter/services.dart';
 import 'package:child_track/app/home/view_model/bloc/homepage_bloc.dart';
 import 'package:child_track/app/map/view/map_view.dart';
@@ -276,129 +275,99 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
     final bottomSheetHeight = screenHeight * 0.4;
-
     return BlocProvider.value(
       value: injector<HomepageBloc>()
         ..add(
           GetHomepageData(childId: '69378103a8366c90ed8159d2'),
         ), // Will get from SharedPreferences
-      child: BlocBuilder<HomepageBloc, HomepageState>(
-        builder: (context, state) {
-          return Scaffold(
-            backgroundColor: AppColors.backgroundColor,
-            body: Stack(
-              children: [
-                // Loading overlay
-                if (state is HomepageSuccess && state.isLoading)
-                  Container(
-                    color: AppColors.backgroundColor.withValues(alpha: 0.7),
-                    child: const Center(child: CircularProgressIndicator()),
+      child: Scaffold(
+        backgroundColor: AppColors.backgroundColor,
+        body: Stack(
+          children: [
+            CustomScrollView(
+              slivers: [
+                // App Bar with collapsing effect
+                SliverAppBar(
+                  expandedHeight: MediaQuery.of(context).size.height * 0.7,
+                  floating: false,
+                  pinned: true,
+                  backgroundColor: AppColors.surfaceColor,
+                  foregroundColor: AppColors.textPrimary,
+                  elevation: 0,
+                  leading: IconButton(
+                    icon: const Icon(Icons.arrow_back_ios_new, size: 18),
+                    onPressed: () => Navigator.of(context).maybePop(),
                   ),
-                CustomScrollView(
-                  slivers: [
-                    // App Bar with collapsing effect
-                    SliverAppBar(
-                      expandedHeight: MediaQuery.of(context).size.height * 0.7,
-                      floating: false,
-                      pinned: true,
-                      backgroundColor: AppColors.surfaceColor,
-                      foregroundColor: AppColors.textPrimary,
-                      elevation: 0,
-                      leading: IconButton(
-                        icon: const Icon(Icons.arrow_back_ios_new, size: 18),
-                        onPressed: () => Navigator.of(context).maybePop(),
+                  actions: [
+                    IconButton(
+                      icon: CircleAvatar(
+                        backgroundColor: AppColors.surfaceColor,
+                        child: Icon(Icons.person, color: AppColors.success),
                       ),
-                      actions: [
-                        IconButton(
-                          icon: CircleAvatar(
-                            backgroundColor: AppColors.surfaceColor,
-                            child: Icon(Icons.person, color: AppColors.success),
-                          ),
-                          onPressed: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const SettingsView(),
-                            ),
-                          ),
-                        ),
-                      ],
-                      flexibleSpace: FlexibleSpaceBar(
-                        background: _MapViewWithMarker(
-                          location:
-                              state is HomepageSuccess &&
-                                  state.currentLocation != null
-                              ? LatLng(
-                                  state.currentLocation!.lat,
-                                  state.currentLocation!.lng,
-                                )
-                              : const LatLng(
-                                  13.082680,
-                                  80.270721,
-                                ), // Fallback to default location
-                          batteryPercentage:
-                              state is HomepageSuccess &&
-                                  state.deviceInfo != null
-                              ? state.deviceInfo!.batteryPercentage
-                              : 0,
-                          loadCustomMarker: _loadCustomMarker,
-                        ),
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const SettingsView()),
                       ),
                     ),
                   ],
-                ),
-                // Bottom sheet container
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: Container(
-                    height: bottomSheetHeight,
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceColor,
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(AppSizes.radiusXL),
-                        topRight: Radius.circular(AppSizes.radiusXL),
-                      ),
-                    ),
-                    child: Column(
-                      children: [
-                        // Drag handle
-                        GestureDetector(
-                          onTap: _navigateToDetail,
-                          child: Container(
-                            margin: const EdgeInsets.symmetric(
-                              vertical: AppSizes.spacingS,
-                            ),
-                            width: 40,
-                            height: 4,
-                            decoration: BoxDecoration(
-                              color: AppColors.textSecondary.withValues(
-                                alpha: 0.3,
-                              ),
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                          ),
-                        ),
-                        // Scrollable content
-                        Expanded(
-                          child: SingleChildScrollView(
-                            controller: _bottomSheetScrollController,
-                            child: Padding(
-                              padding: const EdgeInsets.only(
-                                bottom: AppSizes.paddingL,
-                              ),
-                              child: _buildChildLocationCardContent(context),
-                            ),
-                          ),
-                        ),
-                      ],
+                  flexibleSpace: FlexibleSpaceBar(
+                    background: _HomeMapBackground(
+                      defaultLocation: const LatLng(13.082680, 80.270721),
+                      loadCustomMarker: _loadCustomMarker,
                     ),
                   ),
                 ),
               ],
             ),
-          );
-        },
+            // Bottom sheet container
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: Container(
+                height: bottomSheetHeight,
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceColor,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(AppSizes.radiusXL),
+                    topRight: Radius.circular(AppSizes.radiusXL),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    // Drag handle
+                    GestureDetector(
+                      onTap: _navigateToDetail,
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(
+                          vertical: AppSizes.spacingS,
+                        ),
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: AppColors.textSecondary.withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    // Scrollable content
+                    Expanded(
+                      child: SingleChildScrollView(
+                        controller: _bottomSheetScrollController,
+                        child: Padding(
+                          padding: const EdgeInsets.only(
+                            bottom: AppSizes.paddingL,
+                          ),
+                          child: _buildChildLocationCardContent(context),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -430,7 +399,7 @@ class _HomePageState extends State<HomePage> {
           );
         }
 
-        if (state is! HomepageSuccess || state.isLoading) {
+        if (state is! HomepageSuccess) {
           return const Center(child: CircularProgressIndicator());
         }
 
@@ -444,6 +413,8 @@ class _HomePageState extends State<HomePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (state.isLoading) const LinearProgressIndicator(minHeight: 2),
+              if (state.isLoading) const SizedBox(height: AppSizes.spacingS),
               // Title and Save Place button
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -818,66 +789,134 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-// Separate widget for map view with marker loading
-class _MapViewWithMarker extends StatelessWidget {
-  final LatLng location;
-  final int batteryPercentage;
+/// Dedicated map background that avoids full-page rebuilds and flicker.
+class _HomeMapBackground extends StatefulWidget {
+  final LatLng defaultLocation;
   final Future<BitmapDescriptor?> Function(int) loadCustomMarker;
 
-  const _MapViewWithMarker({
-    required this.location,
-    required this.batteryPercentage,
+  const _HomeMapBackground({
+    required this.defaultLocation,
     required this.loadCustomMarker,
   });
 
   @override
+  State<_HomeMapBackground> createState() => _HomeMapBackgroundState();
+}
+
+class _HomeMapBackgroundState extends State<_HomeMapBackground> {
+  BitmapDescriptor? _cachedMarkerIcon;
+  int? _cachedBatteryPercentage;
+  GoogleMapController? _mapController;
+
+  @override
+  void initState() {
+    super.initState();
+  }
+
+  Future<void> _loadMarkerIcon(int batteryPercentage) async {
+    if (_cachedMarkerIcon != null &&
+        _cachedBatteryPercentage == batteryPercentage) {
+      return;
+    }
+    final icon = await widget.loadCustomMarker(batteryPercentage);
+    if (!mounted) return;
+    setState(() {
+      _cachedMarkerIcon = icon;
+      _cachedBatteryPercentage = batteryPercentage;
+    });
+  }
+
+  void _animateTo(LatLng target) {
+    if (_mapController == null) return;
+    _mapController!.animateCamera(CameraUpdate.newLatLngZoom(target, 15.0));
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return FutureBuilder<BitmapDescriptor?>(
-      future: loadCustomMarker(batteryPercentage),
-      builder: (context, snapshot) {
-        final List<Marker> markers = [];
-
-        if (snapshot.hasData && snapshot.data != null) {
-          // Use custom marker icon
-          markers.add(
-            Marker(
-              markerId: MarkerId(
-                'child_location_custom_${snapshot.data.hashCode}',
-              ),
-              position: location,
-              icon: snapshot.data!,
-              anchor: const Offset(0.5, 1.0), // Bottom center
-            ),
-          );
-        } else {
-          // Fallback to default marker while icon is loading
-          markers.add(
-            Marker(
-              markerId: const MarkerId('child_location_default'),
-              position: location,
-            ),
-          );
+    return BlocListener<HomepageBloc, HomepageState>(
+      listenWhen: (prev, curr) {
+        if (prev is HomepageSuccess && curr is HomepageSuccess) {
+          final locChanged =
+              prev.currentLocation?.lat != curr.currentLocation?.lat ||
+              prev.currentLocation?.lng != curr.currentLocation?.lng;
+          final batteryChanged =
+              prev.deviceInfo?.batteryPercentage !=
+              curr.deviceInfo?.batteryPercentage;
+          return locChanged || batteryChanged;
         }
-
-        return MapViewWidget(
-          key: ValueKey(
-            'map_${snapshot.hasData}_${snapshot.data?.hashCode ?? 0}',
-          ),
-          width: double.infinity,
-          height: double.infinity,
-          interactive: true,
-          currentPosition: location,
-          markers: markers,
-          onMapCreated: (controller) {
-            // Focus on marker with animation
-            Future.delayed(const Duration(milliseconds: 100), () {
-              controller.animateCamera(
-                CameraUpdate.newLatLngZoom(location, 15.0),
-              );
-            });
-          },
-        );
+        return prev.runtimeType != curr.runtimeType;
       },
+      listener: (context, state) {
+        if (state is HomepageSuccess) {
+          final loc = state.currentLocation != null
+              ? LatLng(state.currentLocation!.lat, state.currentLocation!.lng)
+              : widget.defaultLocation;
+          _animateTo(loc);
+          final battery = state.deviceInfo?.batteryPercentage ?? 0;
+          _loadMarkerIcon(battery);
+        }
+      },
+      child: BlocBuilder<HomepageBloc, HomepageState>(
+        buildWhen: (prev, curr) {
+          if (prev is HomepageSuccess && curr is HomepageSuccess) {
+            final locChanged =
+                prev.currentLocation?.lat != curr.currentLocation?.lat ||
+                prev.currentLocation?.lng != curr.currentLocation?.lng;
+            final batteryChanged =
+                prev.deviceInfo?.batteryPercentage !=
+                curr.deviceInfo?.batteryPercentage;
+            return locChanged || batteryChanged;
+          }
+          return prev.runtimeType != curr.runtimeType;
+        },
+        builder: (context, state) {
+          final battery = state is HomepageSuccess && state.deviceInfo != null
+              ? state.deviceInfo!.batteryPercentage
+              : 0;
+          final location =
+              state is HomepageSuccess && state.currentLocation != null
+              ? LatLng(state.currentLocation!.lat, state.currentLocation!.lng)
+              : widget.defaultLocation;
+          // Fire-and-forget load; widget will update when ready
+          _loadMarkerIcon(battery);
+
+          final markers = <Marker>{
+            if (_cachedMarkerIcon != null)
+              Marker(
+                markerId: const MarkerId('child_location'),
+                position: location,
+                icon: _cachedMarkerIcon!,
+                anchor: const Offset(0.5, 1.0),
+              )
+            else
+              Marker(
+                markerId: const MarkerId('child_location'),
+                position: location,
+              ),
+          };
+
+          return MapViewWidget(
+            key: const ValueKey('home_map_static'),
+            width: double.infinity,
+            height: double.infinity,
+            interactive: true,
+            currentPosition: location,
+            markers: markers.toList(),
+            myLocationEnabled: false,
+            myLocationButtonEnabled: false,
+            onMapCreated: (controller) {
+              _mapController = controller;
+              _animateTo(location);
+            },
+          );
+        },
+      ),
     );
+  }
+
+  @override
+  void dispose() {
+    _mapController = null;
+    super.dispose();
   }
 }
