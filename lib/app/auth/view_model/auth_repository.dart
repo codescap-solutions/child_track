@@ -169,7 +169,7 @@ class AuthRepository extends BaseService {
         // Save auth token and user ID (parent ID) after registration
         final responseData = response.data!;
         final token = responseData['token'] as String?;
-        final parentId = responseData['user_id'] as String? ?? responseData['_id'] as String?;
+        final parentId = responseData['user']? ['id'] as String? ?? responseData['_id'] as String?;
         final savedName = responseData['name'] as String?;
 
         if (parentId != null) {

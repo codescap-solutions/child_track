@@ -10,8 +10,27 @@ import 'widgets/section_card.dart';
 import 'widgets/setting_tile.dart';
 import 'notification_settings_view.dart';
 
-class SettingsView extends StatelessWidget {
+class SettingsView extends StatefulWidget {
   const SettingsView({super.key});
+
+  @override
+  State<SettingsView> createState() => _SettingsViewState();
+}
+
+class _SettingsViewState extends State<SettingsView> {
+  final _sharedPrefsService = SharedPrefsService();
+  String? _childId;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadChildId();
+  }
+
+  void _loadChildId() {
+    _childId = _sharedPrefsService.getString('child_code');
+    setState(() {});
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -76,7 +95,7 @@ class SettingsView extends StatelessWidget {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            '547327423747',
+                            _childId ?? 'No child connected',
                             style: AppTextStyles.caption.copyWith(
                               color: AppColors.textSecondary,
                             ),
