@@ -123,33 +123,38 @@ class _AddKidViewState extends State<AddKidView> {
       try {
         final name = _nameController.text.trim();
         final age = int.parse(_ageController.text.trim());
-        
+
         final response = await _childRepo.createChild(name: name, age: age);
-        
+
         if (response.isSuccess && response.data != null) {
           final childCode = response.data!['child_code'] as String?;
           final childId = response.data!['child_id'] as String?;
-          
+
           if (childId != null) {
             // Save child ID (this is what we need for home API)
             await _sharedPrefsService.setString('child_id', childId);
             // Update children count
-            final currentCount = _sharedPrefsService.getInt('children_count') ?? 0;
-            await _sharedPrefsService.setInt('children_count', currentCount + 1);
-            
+            final currentCount =
+                _sharedPrefsService.getInt('children_count') ?? 0;
+            await _sharedPrefsService.setInt(
+              'children_count',
+              currentCount + 1,
+            );
+
             if (childCode != null) {
               // Save child code for display
               await _sharedPrefsService.setString('child_code', childCode);
             }
-            
-            AppLogger.info('Child created successfully. ID: $childId, Code: $childCode');
-            
+
+            AppLogger.info(
+              'Child created successfully. ID: $childId, Code: $childCode',
+            );
+
             // Navigate to home screen after successful child creation
             if (mounted) {
-              Navigator.of(context).pushNamedAndRemoveUntil(
-                RouteNames.home,
-                (route) => false,
-              );
+              Navigator.of(
+                context,
+              ).pushNamedAndRemoveUntil(RouteNames.home, (route) => false);
             }
           } else {
             if (mounted) {
@@ -164,7 +169,10 @@ class _AddKidViewState extends State<AddKidView> {
       } catch (e) {
         AppLogger.error('Error creating child: ${e.toString()}');
         if (mounted) {
-          AppSnackbar.showError(context, 'Failed to create child: ${e.toString()}');
+          AppSnackbar.showError(
+            context,
+            'Failed to create child: ${e.toString()}',
+          );
         }
       } finally {
         if (mounted) {
