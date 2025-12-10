@@ -2,6 +2,7 @@ import 'package:child_track/core/services/api_endpoints.dart';
 import 'package:child_track/core/services/base_service.dart';
 import 'package:child_track/core/services/dio_client.dart';
 import 'package:child_track/core/services/shared_prefs_service.dart';
+import 'package:child_track/core/utils/app_logger.dart';
 
 class ChildRepo extends BaseService {
   final SharedPrefsService _sharedPrefsService;
@@ -22,14 +23,25 @@ class ChildRepo extends BaseService {
       if (response.isSuccess && response.data != null) {
         final data = response.data!;
         final token = data['token'] as String?;
-        final childId = data['child_id'] as String? ?? data['_id'] as String?;
+        
+        // Extract child data from nested structure
+        final childData = data['child'] as Map<String, dynamic>?;
+        final childId = childData?['child_id'] as String?;
 
         if (token != null) {
           await _sharedPrefsService.setAuthToken(token);
+          AppLogger.info('Child login: Auth token saved');
         }
         if (childId != null) {
           await _sharedPrefsService.setString('child_id', childId);
           await _sharedPrefsService.setString('child_code', childCode);
+          AppLogger.info('Child login: Child ID saved: $childId');
+          
+          // Verify it was saved correctly
+          final savedChildId = _sharedPrefsService.getString('child_id');
+          AppLogger.info('Child login: Verified saved child_id: $savedChildId');
+        } else {
+          AppLogger.warning('Child login: Child ID not found in response');
         }
       }
 
