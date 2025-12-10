@@ -1,3 +1,10 @@
+import 'package:child_track/app/childapp/view_model/repository/child_repo.dart';
+import 'package:child_track/app/home/view_model/home_repo.dart';
+import 'package:child_track/core/di/injector.dart';
+import 'package:child_track/core/navigation/route_names.dart';
+import 'package:child_track/core/services/shared_prefs_service.dart';
+import 'package:child_track/core/utils/app_logger.dart';
+import 'package:child_track/core/utils/app_snackbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:child_track/core/constants/app_colors.dart';
@@ -5,7 +12,6 @@ import 'package:child_track/core/constants/app_sizes.dart';
 import 'package:child_track/core/constants/app_text_styles.dart';
 import 'package:child_track/core/widgets/common_button.dart';
 import 'package:child_track/core/widgets/common_textfield.dart';
-import '../../../childapp/sos_view.dart';
 
 class AddKidView extends StatefulWidget {
   const AddKidView({super.key});
@@ -16,11 +22,17 @@ class AddKidView extends StatefulWidget {
 
 class _AddKidViewState extends State<AddKidView> {
   final _formKey = GlobalKey<FormState>();
-  final _idController = TextEditingController();
+  final _nameController = TextEditingController();
+  final _ageController = TextEditingController();
+  final _childRepo = injector<ChildRepo>();
+  final _homeRepo = injector<HomeRepository>();
+  final _sharedPrefsService = SharedPrefsService();
+  bool _isLoading = false;
 
   @override
   void dispose() {
-    _idController.dispose();
+    _nameController.dispose();
+    _ageController.dispose();
     super.dispose();
   }
 
@@ -48,7 +60,7 @@ class _AddKidViewState extends State<AddKidView> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                  textAlign: TextAlign.center,
+                    textAlign: TextAlign.center,
                     'Add Kid',
                     style: AppTextStyles.headline1.copyWith(
                       color: AppColors.primaryColor,
@@ -56,7 +68,7 @@ class _AddKidViewState extends State<AddKidView> {
                   ),
                   const SizedBox(height: AppSizes.spacingS),
                   Text(
-                     textAlign: TextAlign.center,
+                    textAlign: TextAlign.center,
                     'It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum.',
                     style: AppTextStyles.body2.copyWith(
                       color: AppColors.textSecondary,
@@ -64,19 +76,40 @@ class _AddKidViewState extends State<AddKidView> {
                   ),
                   const SizedBox(height: AppSizes.spacingXL),
                   CommonTextField(
-                    
                     fillColor: AppColors.containerBackground,
-                    controller: _idController,
-                    hintText: 'identity number',
+                    controller: _nameController,
+                    hintText: 'Enter child name',
+                    labelText: 'Name',
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter child name';
+                      }
+                      return null;
+                    },
                   ),
-                 // const Spacer(),
-                 SizedBox(height: 40,),
+                  const SizedBox(height: AppSizes.spacingM),
+                  CommonTextField(
+                    fillColor: AppColors.containerBackground,
+                    controller: _ageController,
+                    hintText: 'Enter age',
+                    labelText: 'Age',
+                    keyboardType: TextInputType.number,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter age';
+                      }
+                      final age = int.tryParse(value);
+                      if (age == null || age < 1 || age > 18) {
+                        return 'Please enter a valid age (1-18)';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 40),
                   CommonButton(
                     text: 'Next',
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const SosView()),
-                    ),
+                    onPressed: _isLoading ? null : _createChild,
+                    isLoading: _isLoading,
                   ),
                 ],
               ),
@@ -86,8 +119,6 @@ class _AddKidViewState extends State<AddKidView> {
       ),
     );
   }
-<<<<<<< Updated upstream
-=======
 
   Future<void> _createChild() async {
     if (_formKey.currentState?.validate() ?? false) {
@@ -118,13 +149,26 @@ class _AddKidViewState extends State<AddKidView> {
             if (childCode != null) {
               // Save child code for display
               await _sharedPrefsService.setString('child_code', childCode);
+
+              // Link child to parent account
+              AppLogger.info('Linking child to parent with code: $childCode');
+              final linkResponse = await _homeRepo.linkChild(childCode: childCode);
+              
+              if (linkResponse.isSuccess) {
+                AppLogger.info('Child linked to parent successfully');
+              } else {
+                AppLogger.warning(
+                  'Failed to link child to parent: ${linkResponse.message}',
+                );
+                // Continue even if linking fails - child is still created
+              }
             }
 
             AppLogger.info(
               'Child created successfully. ID: $childId, Code: $childCode',
             );
 
-            // Navigate to child code screen
+            // Navigate to child code screen after successful child creation
             if (mounted && childCode != null) {
               Navigator.of(context).pushReplacementNamed(
                 RouteNames.childCode,
@@ -162,5 +206,4 @@ class _AddKidViewState extends State<AddKidView> {
       }
     }
   }
->>>>>>> Stashed changes
 }

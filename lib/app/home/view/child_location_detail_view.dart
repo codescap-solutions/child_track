@@ -51,22 +51,25 @@ class ChildLocationDetailView extends StatelessWidget {
                               top: AppSizes.paddingM,
                             ),
                             child: ClipRRect(
-                                borderRadius: BorderRadius.circular(AppSizes.radiusXL),
-                                child: Container(
+                              borderRadius: BorderRadius.circular(
+                                AppSizes.radiusXL,
+                              ),
+                              child: Container(
                                 decoration: BoxDecoration(
-                                
-                                  borderRadius: BorderRadius.circular(AppSizes.radiusXL),
+                                  borderRadius: BorderRadius.circular(
+                                    AppSizes.radiusXL,
+                                  ),
                                 ),
-                              // padding: const EdgeInsets.all(AppSizes.paddingM),
+                                // padding: const EdgeInsets.all(AppSizes.paddingM),
                                 child: MapViewWidget(
-                                  interactive:true,
+                                  interactive: true,
                                   isPolyLines: true,
-                                  
+
                                   width: double.infinity,
                                   height: double.infinity,
                                   currentPosition: LatLng(
-                                    currentLocation.lat,
-                                    currentLocation.lng,
+                                    currentLocation?.lat ?? 0,
+                                    currentLocation?.lng ?? 0,
                                   ),
                                   markers: [
                                     Marker(
@@ -75,9 +78,10 @@ class ChildLocationDetailView extends StatelessWidget {
                                         trip.startLocation.latitude,
                                         trip.startLocation.longitude,
                                       ),
-                                      icon: BitmapDescriptor.defaultMarkerWithHue(
-                                        BitmapDescriptor.hueGreen,
-                                      ),
+                                      icon:
+                                          BitmapDescriptor.defaultMarkerWithHue(
+                                            BitmapDescriptor.hueGreen,
+                                          ),
                                     ),
                                     Marker(
                                       markerId: MarkerId('end'),
@@ -85,9 +89,10 @@ class ChildLocationDetailView extends StatelessWidget {
                                         trip.endLocation.latitude,
                                         trip.endLocation.longitude,
                                       ),
-                                      icon: BitmapDescriptor.defaultMarkerWithHue(
-                                        BitmapDescriptor.hueRed,
-                                      ),
+                                      icon:
+                                          BitmapDescriptor.defaultMarkerWithHue(
+                                            BitmapDescriptor.hueRed,
+                                          ),
                                     ),
                                   ],
                                   polylines: [
@@ -111,9 +116,11 @@ class ChildLocationDetailView extends StatelessWidget {
                             bottom: 10,
                             right: 30,
                             left: 30,
-                            child: _buildTripTodayCard(context, withMargin: false),
+                            child: _buildTripTodayCard(
+                              context,
+                              withMargin: false,
+                            ),
                           ),
-
                         ],
                       ),
                     ),
@@ -126,14 +133,15 @@ class ChildLocationDetailView extends StatelessWidget {
           ),
         ),
       ),
-      
     );
-    
   }
- Widget _buildTripTodayCard(BuildContext context, {bool withMargin = true}) {
+
+  Widget _buildTripTodayCard(BuildContext context, {bool withMargin = true}) {
     return Container(
       height: 85,
-      margin: withMargin ? const EdgeInsets.symmetric(horizontal: AppSizes.paddingL) : EdgeInsets.zero,
+      margin: withMargin
+          ? const EdgeInsets.symmetric(horizontal: AppSizes.paddingL)
+          : EdgeInsets.zero,
       padding: const EdgeInsets.all(AppSizes.paddingS),
       decoration: BoxDecoration(
         color: AppColors.surfaceColor,
@@ -151,7 +159,6 @@ class ChildLocationDetailView extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              
               Text(
                 '08:43 am - 21:20 pm (12hrs)',
                 style: AppTextStyles.overline.copyWith(
@@ -197,24 +204,23 @@ class ChildLocationDetailView extends StatelessWidget {
                       ),
                     ),
                   ),
-                 
                 ],
               ),
             ],
           ),
-           const Spacer(),
-                  CommonButton(
-                    padding: EdgeInsets.zero,
-                    width: 80,
-                    text: 'View all',
-                    fontSize: 12,
-                    textColor: AppColors.surfaceColor,
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const TripsView()),
-                    ),
-                    height: 30,
-                  ),
+          const Spacer(),
+          CommonButton(
+            padding: EdgeInsets.zero,
+            width: 80,
+            text: 'View all',
+            fontSize: 12,
+            textColor: AppColors.surfaceColor,
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const TripsView()),
+            ),
+            height: 30,
+          ),
         ],
       ),
     );
@@ -306,13 +312,12 @@ class ChildLocationDetailView extends StatelessWidget {
                     const SizedBox(height: AppSizes.spacingS),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                    
+
                       children: [
                         _buildActivityMetric(
                           '${trip.startPlace} - ${trip.endPlace}',
-                        
-                          'Route',
 
+                          'Route',
                         ),
                         const SizedBox(width: AppSizes.spacingS),
                         _buildActivityMetric(

@@ -64,71 +64,17 @@ class _AddandSavePlaceState extends State<AddandSavePlace> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppSizes.radiusXL),
-        ),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(AppSizes.paddingS),
-              decoration: BoxDecoration(
-                color: AppColors.error.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(AppSizes.radiusM),
-              ),
-              child: Icon(
-                Icons.delete_outline_rounded,
-                color: AppColors.error,
-                size: 24,
-              ),
-            ),
-            const SizedBox(width: AppSizes.spacingM),
-            Expanded(
-              child: Text(
-                'Delete Place',
-                style: AppTextStyles.headline6.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
-        content: Text(
-          'Are you sure you want to delete "${place.name}"? This action cannot be undone.',
-          style: AppTextStyles.body2.copyWith(
-            color: AppColors.textSecondary,
-          ),
-        ),
+        title: const Text('Delete Place'),
+        content: Text('Are you sure you want to delete "${place.name}"?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSizes.paddingL,
-                vertical: AppSizes.paddingM,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppSizes.radiusM),
-              ),
-            ),
-            child: Text(
-              'Cancel',
-              style: AppTextStyles.button.copyWith(
-                color: AppColors.textPrimary,
-              ),
-            ),
+            child: const Text('Cancel'),
           ),
-          FilledButton(
+          TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.error,
-              foregroundColor: AppColors.surfaceColor,
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSizes.paddingL,
-                vertical: AppSizes.paddingM,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppSizes.radiusM),
-              ),
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.error,
             ),
             child: const Text('Delete'),
           ),
@@ -158,133 +104,64 @@ class _AddandSavePlaceState extends State<AddandSavePlace> {
         backgroundColor: AppColors.surfaceColor,
         foregroundColor: AppColors.textPrimary,
         elevation: 0,
-        scrolledUnderElevation: 1,
-        surfaceTintColor: AppColors.primaryColor.withOpacity(0.1),
         title: Text(
           'Saved Places',
-          style: AppTextStyles.headline5.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
+          style: AppTextStyles.headline5,
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+          icon: const Icon(Icons.arrow_back_ios_new, size: 18),
           onPressed: () => Navigator.of(context).pop(),
-          tooltip: 'Back',
         ),
-        centerTitle: false,
       ),
       body: _isLoading
-          ? Center(
-              child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryColor),
-              ),
-            )
+          ? const Center(child: CircularProgressIndicator())
           : _savedPlaces.isEmpty
-              ? _buildEmptyState()
-              : RefreshIndicator(
-                  onRefresh: _loadSavedPlaces,
-                  color: AppColors.primaryColor,
-                  child: CustomScrollView(
-                    slivers: [
-                      SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(
-                          AppSizes.paddingM,
-                          AppSizes.paddingM,
-                          AppSizes.paddingM,
-                          AppSizes.paddingXL + 80,
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.bookmark_border,
+                        size: 64,
+                        color: AppColors.textSecondary,
+                      ),
+                      const SizedBox(height: AppSizes.spacingM),
+                      Text(
+                        'No saved places yet',
+                        style: AppTextStyles.headline6.copyWith(
+                          color: AppColors.textSecondary,
                         ),
-                        sliver: SliverList(
-                          delegate: SliverChildBuilderDelegate(
-                            (context, index) {
-                              final place = _savedPlaces[index];
-                              return Padding(
-                                padding: EdgeInsets.only(
-                                  bottom: index == _savedPlaces.length - 1
-                                      ? 0
-                                      : AppSizes.spacingM,
-                                ),
-                                child: _buildPlaceCard(place),
-                              );
-                            },
-                            childCount: _savedPlaces.length,
-                          ),
+                      ),
+                      const SizedBox(height: AppSizes.spacingS),
+                      Text(
+                        'Tap the + button to add a place',
+                        style: AppTextStyles.body2.copyWith(
+                          color: AppColors.textSecondary,
                         ),
                       ),
                     ],
+                  ),
+                )
+              : RefreshIndicator(
+                  onRefresh: _loadSavedPlaces,
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(AppSizes.paddingM),
+                    itemCount: _savedPlaces.length,
+                    itemBuilder: (context, index) {
+                      final place = _savedPlaces[index];
+                      return _buildPlaceCard(place);
+                    },
                   ),
                 ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showAddPlaceDialog,
         backgroundColor: AppColors.primaryColor,
-        foregroundColor: AppColors.surfaceColor,
-        elevation: 4,
-        highlightElevation: 8,
-        icon: const Icon(Icons.add_rounded, size: 24),
+        icon: const Icon(Icons.add, color: AppColors.surfaceColor),
         label: Text(
           'Add Place',
           style: AppTextStyles.button.copyWith(
             color: AppColors.surfaceColor,
-            fontWeight: FontWeight.w600,
           ),
-        ),
-        tooltip: 'Add a new place',
-      ),
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSizes.paddingXL),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(AppSizes.paddingXL),
-              decoration: BoxDecoration(
-                color: AppColors.primaryColor.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.location_on_outlined,
-                size: 80,
-                color: AppColors.primaryColor,
-              ),
-            ),
-            const SizedBox(height: AppSizes.spacingXL),
-            Text(
-              'No saved places yet',
-              style: AppTextStyles.headline5.copyWith(
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: AppSizes.spacingS),
-            Text(
-              'Start by adding your first place to track',
-              style: AppTextStyles.body2.copyWith(
-                color: AppColors.textSecondary,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: AppSizes.spacingXL),
-            FilledButton.icon(
-              onPressed: _showAddPlaceDialog,
-              icon: const Icon(Icons.add_rounded, size: 20),
-              label: const Text('Add Your First Place'),
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.primaryColor,
-                foregroundColor: AppColors.surfaceColor,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSizes.paddingL,
-                  vertical: AppSizes.paddingM,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppSizes.radiusL),
-                ),
-              ),
-            ),
-          ],
         ),
       ),
     );
@@ -292,128 +169,66 @@ class _AddandSavePlaceState extends State<AddandSavePlace> {
 
   Widget _buildPlaceCard(SavedPlace place) {
     return Card(
-      elevation: 1,
-      shadowColor: Colors.black.withOpacity(0.1),
+      margin: const EdgeInsets.only(bottom: AppSizes.spacingM),
+      elevation: 2,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppSizes.radiusL),
+        borderRadius: BorderRadius.circular(AppSizes.radiusM),
       ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () {
-          // Could add navigation to map view or place details
-        },
-        borderRadius: BorderRadius.circular(AppSizes.radiusL),
-        child: Padding(
-          padding: const EdgeInsets.all(AppSizes.paddingM),
-          child: Row(
-            children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      AppColors.primaryColor,
-                      AppColors.primaryColor.withOpacity(0.7),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(AppSizes.radiusM),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.primaryColor.withOpacity(0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Icon(
-                  Icons.place_rounded,
-                  color: AppColors.surfaceColor,
-                  size: 28,
-                ),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSizes.paddingM),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: AppColors.primaryColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(AppSizes.radiusM),
               ),
-              const SizedBox(width: AppSizes.spacingM),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      place.name,
-                      style: AppTextStyles.subtitle1.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: AppSizes.spacingXS),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.location_on_outlined,
-                          size: 14,
-                          color: AppColors.textSecondary,
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            place.address,
-                            style: AppTextStyles.body2.copyWith(
-                              color: AppColors.textSecondary,
-                              fontSize: 13,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppSizes.spacingXS),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.calendar_today_outlined,
-                          size: 12,
-                          color: AppColors.textHint,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Saved ${DateFormat('MMM dd, yyyy').format(place.savedAt)}',
-                          style: AppTextStyles.caption.copyWith(
-                            color: AppColors.textHint,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+              child: Icon(
+                Icons.place,
+                color: AppColors.primaryColor,
+                size: 24,
               ),
-              const SizedBox(width: AppSizes.spacingS),
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () => _deletePlace(place),
-                  borderRadius: BorderRadius.circular(AppSizes.radiusM),
-                  child: Container(
-                    padding: const EdgeInsets.all(AppSizes.paddingS),
-                    decoration: BoxDecoration(
-                      color: AppColors.error.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(AppSizes.radiusM),
-                    ),
-                    child: Icon(
-                      Icons.delete_outline_rounded,
-                      color: AppColors.error,
-                      size: 20,
+            ),
+            const SizedBox(width: AppSizes.spacingM),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    place.name,
+                    style: AppTextStyles.subtitle1.copyWith(
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                ),
+                  const SizedBox(height: AppSizes.spacingXS),
+                  Text(
+                    place.address,
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: AppSizes.spacingXS),
+                  Text(
+                    'Saved on ${DateFormat('MMM dd, yyyy').format(place.savedAt)}',
+                    style: AppTextStyles.overline.copyWith(
+                      color: AppColors.textHint,
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+            IconButton(
+              icon: const Icon(
+                Icons.delete_outline,
+                color: AppColors.error,
+              ),
+              onPressed: () => _deletePlace(place),
+            ),
+          ],
         ),
       ),
     );
@@ -593,103 +408,46 @@ class _AddPlaceDialogState extends State<_AddPlaceDialog> {
   @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
-    final dialogHeight = screenHeight * 0.9;
+    final dialogHeight = screenHeight * 0.85;
 
     return Dialog(
       backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(
-        horizontal: AppSizes.paddingM,
-        vertical: AppSizes.paddingL,
-      ),
+      insetPadding: const EdgeInsets.all(AppSizes.paddingM),
       child: Container(
         height: dialogHeight,
         decoration: BoxDecoration(
           color: AppColors.surfaceColor,
           borderRadius: BorderRadius.circular(AppSizes.radiusXL),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.2),
-              blurRadius: 24,
-              offset: const Offset(0, 8),
-            ),
-          ],
         ),
         child: Column(
           children: [
             // Header
             Container(
-              padding: const EdgeInsets.fromLTRB(
-                AppSizes.paddingL,
-                AppSizes.paddingM,
-                AppSizes.paddingS,
-                AppSizes.paddingM,
-              ),
+              padding: const EdgeInsets.all(AppSizes.paddingM),
               decoration: BoxDecoration(
                 border: Border(
-                  bottom: BorderSide(
-                    color: AppColors.borderColor.withOpacity(0.5),
-                    width: 1,
-                  ),
+                  bottom: BorderSide(color: AppColors.borderColor),
                 ),
               ),
               child: Row(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(AppSizes.paddingS),
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(AppSizes.radiusM),
-                    ),
-                    child: Icon(
-                      Icons.add_location_alt_rounded,
-                      color: AppColors.primaryColor,
-                      size: 24,
+                  Text(
+                    'Add New Place',
+                    style: AppTextStyles.headline6.copyWith(
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(width: AppSizes.spacingM),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Add New Place',
-                          style: AppTextStyles.headline6.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Select a location on the map',
-                          style: AppTextStyles.caption.copyWith(
-                            color: AppColors.textSecondary,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  const Spacer(),
                   IconButton(
-                    icon: const Icon(Icons.close_rounded, size: 22),
+                    icon: const Icon(Icons.close, size: 20),
                     onPressed: () => Navigator.of(context).pop(false),
-                    tooltip: 'Close',
-                    style: IconButton.styleFrom(
-                      backgroundColor: AppColors.borderColor.withOpacity(0.3),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(AppSizes.radiusM),
-                      ),
-                    ),
                   ),
                 ],
               ),
             ),
             // Search Bar
             Container(
-              padding: const EdgeInsets.fromLTRB(
-                AppSizes.paddingL,
-                AppSizes.paddingM,
-                AppSizes.paddingL,
-                AppSizes.paddingS,
-              ),
+              padding: const EdgeInsets.all(AppSizes.paddingM),
               color: AppColors.surfaceColor,
               child: Column(
                 children: [
@@ -700,18 +458,10 @@ class _AddPlaceDialogState extends State<_AddPlaceDialog> {
                       hintStyle: AppTextStyles.body2.copyWith(
                         color: AppColors.textHint,
                       ),
-                      prefixIcon: Icon(
-                        Icons.search_rounded,
-                        color: AppColors.textSecondary,
-                        size: 22,
-                      ),
+                      prefixIcon: const Icon(Icons.search, color: AppColors.textSecondary),
                       suffixIcon: _searchController.text.isNotEmpty
                           ? IconButton(
-                              icon: Icon(
-                                Icons.clear_rounded,
-                                color: AppColors.textSecondary,
-                                size: 20,
-                              ),
+                              icon: const Icon(Icons.clear, color: AppColors.textSecondary),
                               onPressed: () {
                                 _searchController.clear();
                                 setState(() {
@@ -719,31 +469,13 @@ class _AddPlaceDialogState extends State<_AddPlaceDialog> {
                                   _searchResults = [];
                                 });
                               },
-                              tooltip: 'Clear',
                             )
                           : null,
                       filled: true,
                       fillColor: AppColors.containerBackground,
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(AppSizes.radiusL),
-                        borderSide: BorderSide(
-                          color: AppColors.borderColor.withOpacity(0.5),
-                          width: 1,
-                        ),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(AppSizes.radiusL),
-                        borderSide: BorderSide(
-                          color: AppColors.borderColor.withOpacity(0.5),
-                          width: 1,
-                        ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(AppSizes.radiusL),
-                        borderSide: BorderSide(
-                          color: AppColors.primaryColor,
-                          width: 2,
-                        ),
+                        borderRadius: BorderRadius.circular(AppSizes.radiusM),
+                        borderSide: BorderSide.none,
                       ),
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: AppSizes.paddingM,
@@ -768,71 +500,34 @@ class _AddPlaceDialogState extends State<_AddPlaceDialog> {
                       margin: const EdgeInsets.only(top: AppSizes.spacingS),
                       decoration: BoxDecoration(
                         color: AppColors.surfaceColor,
-                        borderRadius: BorderRadius.circular(AppSizes.radiusL),
-                        border: Border.all(
-                          color: AppColors.borderColor.withOpacity(0.3),
-                        ),
+                        borderRadius: BorderRadius.circular(AppSizes.radiusM),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.08),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
+                            color: Colors.black.withValues(alpha: 0.1),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
                           ),
                         ],
                       ),
-                      constraints: const BoxConstraints(maxHeight: 180),
-                      child: ListView.separated(
+                      constraints: const BoxConstraints(maxHeight: 150),
+                      child: ListView.builder(
                         shrinkWrap: true,
-                        padding: const EdgeInsets.symmetric(
-                          vertical: AppSizes.paddingS,
-                        ),
                         itemCount: _searchResults.length,
-                        separatorBuilder: (context, index) => Divider(
-                          height: 1,
-                          thickness: 1,
-                          color: AppColors.borderColor.withOpacity(0.3),
-                          indent: AppSizes.paddingL + 24,
-                        ),
                         itemBuilder: (context, index) {
                           final place = _searchResults[index];
-                          return Material(
-                            color: Colors.transparent,
-                            child: ListTile(
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: AppSizes.paddingM,
-                                vertical: AppSizes.paddingXS,
-                              ),
-                              leading: Container(
-                                padding: const EdgeInsets.all(AppSizes.paddingS),
-                                decoration: BoxDecoration(
-                                  color: AppColors.primaryColor.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(AppSizes.radiusM),
-                                ),
-                                child: Icon(
-                                  Icons.place_rounded,
-                                  color: AppColors.primaryColor,
-                                  size: 20,
-                                ),
-                              ),
-                              title: Text(
-                                place.name,
-                                style: AppTextStyles.subtitle2.copyWith(
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              subtitle: Text(
-                                place.address,
-                                style: AppTextStyles.caption.copyWith(
-                                  fontSize: 12,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              onTap: () => _onPlaceSelected(place),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(AppSizes.radiusM),
-                              ),
+                          return ListTile(
+                            leading: const Icon(Icons.place, color: AppColors.primaryColor),
+                            title: Text(
+                              place.name,
+                              style: AppTextStyles.subtitle2,
                             ),
+                            subtitle: Text(
+                              place.address,
+                              style: AppTextStyles.caption,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            onTap: () => _onPlaceSelected(place),
                           );
                         },
                       ),
@@ -843,88 +538,45 @@ class _AddPlaceDialogState extends State<_AddPlaceDialog> {
 
             // Map
             Expanded(
-              child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                  bottom: Radius.circular(AppSizes.radiusXL),
-                ),
-                child: Stack(
-                  children: [
-                    GoogleMap(
-                      initialCameraPosition: CameraPosition(
-                        target: _selectedLocation,
-                        zoom: 15.0,
-                      ),
-                      markers: _selectedMarker != null ? {_selectedMarker!} : {},
-                      onMapCreated: (controller) {
-                        _mapController = controller;
-                      },
-                      onTap: _onMapTap,
-                      onCameraIdle: _onCameraIdle,
-                      myLocationEnabled: true,
-                      myLocationButtonEnabled: true,
-                      zoomControlsEnabled: false,
-                      mapToolbarEnabled: false,
-                      mapType: MapType.normal,
+              child: Stack(
+                children: [
+                  GoogleMap(
+                    initialCameraPosition: CameraPosition(
+                      target: _selectedLocation,
+                      zoom: 15.0,
                     ),
-                    // Center marker indicator with shadow
-                    Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            decoration: BoxDecoration(
-                              color: AppColors.error.withOpacity(0.2),
-                              shape: BoxShape.circle,
-                            ),
-                            padding: const EdgeInsets.all(4),
-                            child: Icon(
-                              Icons.location_on_rounded,
-                              size: 40,
-                              color: AppColors.error,
-                              shadows: [
-                                Shadow(
-                                  color: Colors.black.withOpacity(0.3),
-                                  blurRadius: 4,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Container(
-                            width: 4,
-                            height: 20,
-                            decoration: BoxDecoration(
-                              color: AppColors.error,
-                              borderRadius: BorderRadius.circular(2),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.2),
-                                  blurRadius: 4,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
+                    markers: _selectedMarker != null ? {_selectedMarker!} : {},
+                    onMapCreated: (controller) {
+                      _mapController = controller;
+                    },
+                    onTap: _onMapTap,
+                    onCameraIdle: _onCameraIdle,
+                    myLocationEnabled: true,
+                    myLocationButtonEnabled: true,
+                    zoomControlsEnabled: false,
+                    mapToolbarEnabled: false,
+                  ),
+                  // Center marker indicator
+                  Center(
+                    child: Icon(
+                      Icons.location_on,
+                      size: 48,
+                      color: AppColors.error,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
             // Location info and save section
             Container(
-              padding: const EdgeInsets.all(AppSizes.paddingL),
+              padding: const EdgeInsets.all(AppSizes.paddingM),
               decoration: BoxDecoration(
                 color: AppColors.surfaceColor,
-                borderRadius: const BorderRadius.vertical(
-                  bottom: Radius.circular(AppSizes.radiusXL),
-                ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 12,
-                    offset: const Offset(0, -4),
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, -2),
                   ),
                 ],
               ),
@@ -932,112 +584,45 @@ class _AddPlaceDialogState extends State<_AddPlaceDialog> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(AppSizes.paddingS),
-                        decoration: BoxDecoration(
-                          color: AppColors.primaryColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(AppSizes.radiusM),
-                        ),
-                        child: Icon(
-                          Icons.location_on_rounded,
-                          size: 18,
-                          color: AppColors.primaryColor,
-                        ),
-                      ),
-                      const SizedBox(width: AppSizes.spacingS),
-                      Text(
-                        'Selected Location',
-                        style: AppTextStyles.subtitle2.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
+                  Text(
+                    'Selected Location',
+                    style: AppTextStyles.subtitle2.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                  const SizedBox(height: AppSizes.spacingS),
+                  const SizedBox(height: AppSizes.spacingXS),
                   if (_isLoadingAddress)
-                    Row(
+                    const Row(
                       children: [
                         SizedBox(
                           width: 16,
                           height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              AppColors.primaryColor,
-                            ),
-                          ),
+                          child: CircularProgressIndicator(strokeWidth: 2),
                         ),
-                        const SizedBox(width: AppSizes.spacingS),
-                        Text(
-                          'Loading address...',
-                          style: AppTextStyles.body2.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
+                        SizedBox(width: AppSizes.spacingS),
+                        Text('Loading address...'),
                       ],
                     )
                   else
-                    Container(
-                      padding: const EdgeInsets.all(AppSizes.paddingM),
-                      decoration: BoxDecoration(
-                        color: AppColors.containerBackground,
-                        borderRadius: BorderRadius.circular(AppSizes.radiusM),
-                        border: Border.all(
-                          color: AppColors.borderColor.withOpacity(0.3),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              _selectedAddress,
-                              style: AppTextStyles.body2.copyWith(
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                          ),
-                        ],
+                    Text(
+                      _selectedAddress,
+                      style: AppTextStyles.body2.copyWith(
+                        color: AppColors.textSecondary,
                       ),
                     ),
                   const SizedBox(height: AppSizes.spacingM),
                   TextField(
                     controller: _nameController,
                     decoration: InputDecoration(
-                      labelText: 'Place Name',
-                      hintText: 'e.g., Home, School, Office',
+                      hintText: 'Enter place name',
                       hintStyle: AppTextStyles.body2.copyWith(
                         color: AppColors.textHint,
-                      ),
-                      labelStyle: AppTextStyles.body2.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
-                      prefixIcon: Icon(
-                        Icons.edit_location_alt_rounded,
-                        color: AppColors.textSecondary,
-                        size: 22,
                       ),
                       filled: true,
                       fillColor: AppColors.containerBackground,
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(AppSizes.radiusL),
-                        borderSide: BorderSide(
-                          color: AppColors.borderColor.withOpacity(0.5),
-                        ),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(AppSizes.radiusL),
-                        borderSide: BorderSide(
-                          color: AppColors.borderColor.withOpacity(0.5),
-                        ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(AppSizes.radiusL),
-                        borderSide: BorderSide(
-                          color: AppColors.primaryColor,
-                          width: 2,
-                        ),
+                        borderRadius: BorderRadius.circular(AppSizes.radiusM),
+                        borderSide: BorderSide(color: AppColors.borderColor),
                       ),
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: AppSizes.paddingM,
@@ -1045,9 +630,8 @@ class _AddPlaceDialogState extends State<_AddPlaceDialog> {
                       ),
                     ),
                     style: AppTextStyles.body2,
-                    textCapitalization: TextCapitalization.words,
                   ),
-                  const SizedBox(height: AppSizes.spacingL),
+                  const SizedBox(height: AppSizes.spacingM),
                   Row(
                     children: [
                       Expanded(
@@ -1057,19 +641,15 @@ class _AddPlaceDialogState extends State<_AddPlaceDialog> {
                             padding: const EdgeInsets.symmetric(
                               vertical: AppSizes.paddingM,
                             ),
-                            side: BorderSide(
-                              color: AppColors.borderColor,
-                              width: 1.5,
-                            ),
+                            side: BorderSide(color: AppColors.borderColor),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(AppSizes.radiusL),
+                              borderRadius: BorderRadius.circular(AppSizes.radiusM),
                             ),
                           ),
                           child: Text(
                             'Cancel',
                             style: AppTextStyles.button.copyWith(
                               color: AppColors.textPrimary,
-                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ),
@@ -1081,13 +661,6 @@ class _AddPlaceDialogState extends State<_AddPlaceDialog> {
                           text: 'Save Place',
                           onPressed: _isSaving ? null : _savePlace,
                           isLoading: _isSaving,
-                          icon: _isSaving
-                              ? null
-                              : const Icon(
-                                  Icons.check_rounded,
-                                  size: 20,
-                                  color: AppColors.surfaceColor,
-                                ),
                         ),
                       ),
                     ],

@@ -1,11 +1,14 @@
 import 'package:child_track/core/constants/app_colors.dart';
 import 'package:child_track/core/constants/app_sizes.dart';
 import 'package:child_track/core/constants/app_text_styles.dart';
+import 'package:child_track/core/di/injector.dart';
 import 'package:child_track/core/navigation/route_names.dart';
+import 'package:child_track/core/services/shared_prefs_service.dart';
 import 'package:child_track/core/utils/app_snackbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:child_track/core/widgets/common_button.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ChildCodeScreen extends StatelessWidget {
   final String childCode;
@@ -97,6 +100,7 @@ class ChildCodeScreen extends StatelessWidget {
                 child: CommonButton(
                   text: 'Continue to Home',
                   onPressed: () {
+                   injector<SharedPrefsService>().setString('child_id', childCode);
                     Navigator.of(context).pushNamedAndRemoveUntil(
                       RouteNames.home,
                       (route) => false,

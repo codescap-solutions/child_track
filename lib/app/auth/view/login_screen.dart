@@ -1,5 +1,8 @@
+import 'package:child_track/app/auth/view/otp_screen.dart';
 import 'package:child_track/app/auth/view_model/bloc/auth_bloc.dart';
 import 'package:child_track/app/auth/view_model/bloc/auth_event.dart';
+import 'package:child_track/app/auth/view_model/bloc/auth_state.dart';
+import 'package:child_track/core/utils/app_snackbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -31,25 +34,40 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.backgroundColor,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSizes.paddingL),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Spacer(),
-                _buildHeader(),
-                const SizedBox(height: AppSizes.spacingXXL),
-                _buildPhoneField(),
-                const SizedBox(height: AppSizes.spacingXL),
-                _buildSendOtpButton(),
-                const Spacer(),
-                _buildFooter(),
-              ],
+    return BlocListener<AuthBloc, AuthState>(
+      listener: (context, state) {
+        if (state is AuthOtpSent) {
+          // Navigate to OTP screen on success
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => OtpScreen(phoneNumber: state.phoneNumber),
+            ),
+          );
+        } else if (state is AuthError) {
+          // Show error message
+          AppSnackbar.showError(context, state.message);
+        }
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.backgroundColor,
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSizes.paddingL),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Spacer(),
+                  _buildHeader(),
+                  const SizedBox(height: AppSizes.spacingXXL),
+                  _buildPhoneField(),
+                  const SizedBox(height: AppSizes.spacingXL),
+                  _buildSendOtpButton(),
+                  const Spacer(),
+                  _buildFooter(),
+                ],
+              ),
             ),
           ),
         ),
@@ -116,10 +134,16 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget _buildSendOtpButton() {
-    return CommonButton(
-      text: AppStrings.sendOtp,
-      onPressed: _sendOtp,
-      width: double.infinity,
+    return BlocBuilder<AuthBloc, AuthState>(
+      builder: (context, state) {
+        final isLoading = state is AuthLoading;
+        return CommonButton(
+          text: AppStrings.sendOtp,
+          onPressed: isLoading ? null : _sendOtp,
+          width: double.infinity,
+          isLoading: isLoading,
+        );
+      },
     );
   }
 
@@ -142,7 +166,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _sendOtp() {
     if (_formKey.currentState?.validate() ?? false) {
-      context.read<AuthBloc>().add(AuthStarted());
+      final phoneNumber = _phoneController.text.trim();
+      context.read<AuthBloc>().add(SendOtp(phoneNumber: phoneNumber));
     }
   }
 }

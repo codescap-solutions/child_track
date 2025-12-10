@@ -171,7 +171,7 @@ class _SavedPlacesViewState extends State<SavedPlacesView> {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: AppColors.primaryColor.withOpacity(0.1),
+                  color: AppColors.primaryColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(AppSizes.radiusM),
                 ),
                 child: Icon(

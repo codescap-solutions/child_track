@@ -1,5 +1,9 @@
+import 'package:child_track/app/auth/view/onboarding/sign_in_view.dart';
 import 'package:child_track/app/auth/view_model/bloc/auth_bloc.dart';
 import 'package:child_track/app/auth/view_model/bloc/auth_event.dart';
+import 'package:child_track/app/auth/view_model/bloc/auth_state.dart';
+import 'package:child_track/core/navigation/route_names.dart';
+import 'package:child_track/core/utils/app_snackbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -33,31 +37,66 @@ class _OtpScreenState extends State<OtpScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.backgroundColor,
-      appBar: AppBar(
-        title: const Text('Verify OTP'),
-        backgroundColor: AppColors.primaryColor,
-        foregroundColor: AppColors.surfaceColor,
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSizes.paddingL),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Spacer(),
-                _buildHeader(),
-                const SizedBox(height: AppSizes.spacingXXL),
-                _buildOtpField(),
-                const SizedBox(height: AppSizes.spacingXL),
-                _buildVerifyOtpButton(),
-                const SizedBox(height: AppSizes.spacingL),
-                _buildResendOtpButton(),
-                const Spacer(),
-              ],
+    return BlocListener<AuthBloc, AuthState>(
+      listener: (context, state) {
+        if (state is AuthNewUser) {
+          // New user - navigate to registration screen with phone number
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (_) => SignInView(phoneNumber: state.phoneNumber),
+            ),
+          );
+        } else if (state is AuthSuccess) {
+          if (state.hasChildren) {
+            // User has children - navigate to home screen
+            Navigator.of(context).pushNamedAndRemoveUntil(
+              RouteNames.home,
+              (route) => false,
+            );
+          } else {
+            // Existing user with no children - navigate to add child screen
+            Navigator.of(context).pushNamedAndRemoveUntil(
+              RouteNames.addChild,
+              (route) => false,
+            );
+          }
+        } else if (state is AuthNeedsRegistration) {
+          // Navigate to registration screen when data is null
+          Navigator.of(context).pushNamedAndRemoveUntil(
+            RouteNames.addChild,
+            (route) => false,
+          );
+        } else if (state is AuthError) {
+          // Show error message
+          AppSnackbar.showError(context, state.message);
+        }
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.backgroundColor,
+        appBar: AppBar(
+          title: const Text('Verify OTP'),
+          backgroundColor: AppColors.primaryColor,
+          foregroundColor: AppColors.surfaceColor,
+        ),
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSizes.paddingL),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Spacer(),
+                  _buildHeader(),
+                  const SizedBox(height: AppSizes.spacingXXL),
+                  _buildOtpField(),
+                  const SizedBox(height: AppSizes.spacingXL),
+                  _buildVerifyOtpButton(),
+                  const SizedBox(height: AppSizes.spacingL),
+                  _buildResendOtpButton(),
+                  const Spacer(),
+                ],
+              ),
             ),
           ),
         ),
@@ -113,13 +152,13 @@ class _OtpScreenState extends State<OtpScreen> {
       prefixIcon: const Icon(Icons.lock, color: AppColors.textSecondary),
       inputFormatters: [
         FilteringTextInputFormatter.digitsOnly,
-        LengthLimitingTextInputFormatter(6),
+        LengthLimitingTextInputFormatter(4),
       ],
       validator: (value) {
         if (value == null || value.isEmpty) {
           return AppStrings.otpRequired;
         }
-        if (value.length != 6) {
+        if (value.length != 4) {
           return AppStrings.invalidOtp;
         }
         return null;
@@ -129,29 +168,41 @@ class _OtpScreenState extends State<OtpScreen> {
   }
 
   Widget _buildVerifyOtpButton() {
-    return CommonButton(
-      text: AppStrings.verifyOtp,
-      onPressed: _verifyOtp,
-      width: double.infinity,
+    return BlocBuilder<AuthBloc, AuthState>(
+      builder: (context, state) {
+        final isLoading = state is AuthLoading;
+        return CommonButton(
+          text: AppStrings.verifyOtp,
+          onPressed: isLoading ? null : _verifyOtp,
+          width: double.infinity,
+          isLoading: isLoading,
+        );
+      },
     );
   }
 
   Widget _buildResendOtpButton() {
-    return CommonButton(
-      text: AppStrings.resendOtp,
-      onPressed: _resendOtp,
-      isOutlined: true,
-      width: double.infinity,
+    return BlocBuilder<AuthBloc, AuthState>(
+      builder: (context, state) {
+        final isLoading = state is AuthLoading;
+        return CommonButton(
+          text: AppStrings.resendOtp,
+          onPressed: isLoading ? null : _resendOtp,
+          isOutlined: true,
+          width: double.infinity,
+        );
+      },
     );
   }
 
   void _verifyOtp() {
     if (_formKey.currentState?.validate() ?? false) {
-      context.read<AuthBloc>().add(AuthStarted());
+      final otp = _otpController.text.trim();
+      context.read<AuthBloc>().add(VerifyOtp(otp: otp));
     }
   }
 
   void _resendOtp() {
-    context.read<AuthBloc>().add(AuthStarted());
+    context.read<AuthBloc>().add(SendOtp(phoneNumber: widget.phoneNumber));
   }
 }

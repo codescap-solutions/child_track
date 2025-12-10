@@ -1,8 +1,10 @@
 import 'package:child_track/app/auth/view_model/bloc/auth_bloc.dart';
 import 'package:child_track/app/auth/view_model/bloc/auth_state.dart';
-import 'package:child_track/app/home/view/home_page.dart';
 import 'package:child_track/app/onboarding/view/onboarding_screen.dart';
+import 'package:child_track/core/services/connectivity/bloc/connectivity_bloc.dart';
+import 'package:child_track/core/utils/app_snackbar.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'core/di/injector.dart';
@@ -30,13 +32,31 @@ class ChildTrackApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: AppStrings.appTitle,
-      theme: AppTheme.lightTheme,
-      debugShowCheckedModeBanner: false,
-      onGenerateRoute: AppRouter.generateRoute,
-     // home: HomePage(),
-      home: OnboardingScreen(),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<ConnectivityBloc>(
+          create: (context) => injector<ConnectivityBloc>(),
+        ),
+        BlocProvider<AuthBloc>(create: (context) => injector<AuthBloc>()),
+      ],
+      child: MaterialApp(
+        title: AppStrings.appTitle,
+        theme: AppTheme.lightTheme,
+        debugShowCheckedModeBanner: false,
+        onGenerateRoute: AppRouter.generateRoute,
+        builder: (context, widget) {
+          return BlocListener<ConnectivityBloc, ConnectivityState>(
+            listener: (context, state) {
+              if (state is ConnectivityOffline) {
+                AppSnackbar.showError(context, AppStrings.networkError);
+              }
+            },
+            child: widget ?? const SizedBox.shrink(),
+          );
+        },
+        // home: HomePage(),
+        home: OnboardingScreen(),
+      ),
     );
   }
 }
@@ -65,7 +85,7 @@ class _SplashScreenState extends State<SplashScreen> {
       if (authBloc.state is AuthSuccess) {
         Navigator.pushReplacementNamed(context, RouteNames.home);
       } else {
-        Navigator.pushReplacementNamed(context, RouteNames.login);
+        Navigator.pushReplacementNamed(context, RouteNames.sos);
       }
     }
   }

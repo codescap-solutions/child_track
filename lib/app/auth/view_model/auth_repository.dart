@@ -13,12 +13,11 @@ class AuthRepository extends BaseService {
        super(dioClient);
 
   // Send OTP
-  Future<BaseResponse<Map<String, dynamic>>> sendOtp(String phoneNumber) async {
+  Future<BaseResponse> sendOtp(String phoneNumber) async {
     try {
-      final response = await post<Map<String, dynamic>>(
+      final response = await post(
         ApiEndpoints.sendOtp,
-        data: {'phone_number': phoneNumber},
-        fromJson: (json) => json,
+        data: {'phoneNumber': phoneNumber},
       );
 
       if (response.isSuccess) {
@@ -33,7 +32,7 @@ class AuthRepository extends BaseService {
   }
 
   // Verify OTP
-  Future<BaseResponse<Map<String, dynamic>>> verifyOtp(String otp) async {
+  Future<BaseResponse> verifyOtp(String otp) async {
     try {
       final phoneNumber = _sharedPrefsService.getUserPhone();
       if (phoneNumber == null) {
@@ -42,20 +41,61 @@ class AuthRepository extends BaseService {
         );
       }
 
-      final response = await post<Map<String, dynamic>>(
+      final response = await post(
         ApiEndpoints.verifyOtp,
-        data: {'phone_number': phoneNumber, 'otp': otp},
-        fromJson: (json) => json,
+        data: {'phoneNumber': phoneNumber, 'otp': otp},
       );
 
       if (response.isSuccess && response.data != null) {
-        // Save auth token and user ID
-        final token = response.data!['token'] as String?;
-        final userId = response.data!['user_id'] as String?;
+        final data = response.data!;
+        final isNewUser = data['is_new_user'] as bool? ?? false;
+        final phoneNumber = data['phoneNumber'] as String?;
+        
+        // Save phone number if provided
+        if (phoneNumber != null) {
+          await _sharedPrefsService.setUserPhone(phoneNumber);
+        }
+        
+        // If new user, don't save auth data yet (will be saved after registration)
+        if (!isNewUser) {
+          // Save auth token and user ID (parent ID)
+          // Handle different response structures
+          final token = data['token'] as String?;
+          final parentId = data['user_id'] as String? ?? data['_id'] as String?;
+          final name = data['name'] as String?;
+          final children = data['children'] as List<dynamic>?;
 
-        if (token != null && userId != null) {
-          await _sharedPrefsService.setAuthToken(token);
-          await _sharedPrefsService.setUserId(userId);
+          if (parentId != null) {
+            await _sharedPrefsService.setUserId(parentId);
+            // Also save as parent_id for clarity
+            await _sharedPrefsService.setString('parent_id', parentId);
+          }
+          if (token != null) {
+            await _sharedPrefsService.setAuthToken(token);
+          }
+          if (name != null) {
+            await _sharedPrefsService.setString('parent_name', name);
+          }
+          // Save children count for checking if child is connected
+          if (children != null) {
+            await _sharedPrefsService.setInt('children_count', children.length);
+            // If there's at least one child, save the first child ID
+            // Children can be array of strings (IDs) or array of objects
+            if (children.isNotEmpty) {
+              String? childId;
+              if (children[0] is String) {
+                // Array of IDs: ["693721db9026941d7fc780df"]
+                childId = children[0] as String;
+              } else if (children[0] is Map) {
+                // Array of objects: [{"_id": "...", ...}]
+                final firstChild = children[0] as Map<String, dynamic>;
+                childId = firstChild['_id'] as String? ?? firstChild['id'] as String?;
+              }
+              if (childId != null) {
+                await _sharedPrefsService.setString('child_id', childId);
+              }
+            }
+          }
         }
       }
 
@@ -66,12 +106,9 @@ class AuthRepository extends BaseService {
   }
 
   // Refresh Token
-  Future<BaseResponse<Map<String, dynamic>>> refreshToken() async {
+  Future<BaseResponse> refreshToken() async {
     try {
-      final response = await post<Map<String, dynamic>>(
-        ApiEndpoints.refreshToken,
-        fromJson: (json) => json,
-      );
+      final response = await post(ApiEndpoints.refreshToken);
 
       if (response.isSuccess && response.data != null) {
         final token = response.data!['token'] as String?;
@@ -87,12 +124,9 @@ class AuthRepository extends BaseService {
   }
 
   // Logout
-  Future<BaseResponse<bool>> logout() async {
+  Future<BaseResponse> logout() async {
     try {
-      final response = await post<bool>(
-        ApiEndpoints.logout,
-        fromJson: (json) => true,
-      );
+      final response = await post(ApiEndpoints.logout);
 
       // Clear local storage regardless of API response
       await _sharedPrefsService.logout();
@@ -110,8 +144,6 @@ class AuthRepository extends BaseService {
     return _sharedPrefsService.isLoggedIn();
   }
 
-<<<<<<< Updated upstream
-=======
   // Register User
   Future<BaseResponse> registerUser({
     required String phoneNumber,
@@ -137,11 +169,8 @@ class AuthRepository extends BaseService {
         // Save auth token and user ID (parent ID) after registration
         final responseData = response.data!;
         final token = responseData['token'] as String?;
-        
-        // Extract user object from response
-        final userData = responseData['user'] as Map<String, dynamic>?;
-        final parentId = userData?['id'] as String?;
-        final savedName = userData?['name'] as String?;
+        final parentId = responseData['user_id'] as String? ?? responseData['_id'] as String?;
+        final savedName = responseData['name'] as String?;
 
         if (parentId != null) {
           await _sharedPrefsService.setUserId(parentId);
@@ -163,7 +192,6 @@ class AuthRepository extends BaseService {
     }
   }
 
->>>>>>> Stashed changes
   // Get current user info
   Map<String, String?> getCurrentUser() {
     return {

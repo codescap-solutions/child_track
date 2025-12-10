@@ -3,7 +3,7 @@ import 'dio_client.dart';
 class BaseResponse<T> {
   final bool isSuccess;
   final String message;
-  final dynamic data;
+  final T? data;
   final int? statusCode;
 
   BaseResponse({
@@ -13,16 +13,11 @@ class BaseResponse<T> {
     this.statusCode,
   });
 
-  factory BaseResponse.fromJson(
-    Map<String, dynamic> json,
-    T Function(Map<String, dynamic>)? fromJsonT,
-  ) {
+  factory BaseResponse.fromJson(Map<String, dynamic> json) {
     return BaseResponse<T>(
-      isSuccess: json['success'] ?? false,
+      isSuccess: json['is_success'] ?? json['success'] ?? false,
       message: json['message'] ?? '',
-      data: json['data'] != null && fromJsonT != null
-          ? fromJsonT(json['data'])
-          : json['data'],
+      data: json['data'],
       statusCode: json['status_code'],
     );
   }
@@ -54,6 +49,22 @@ abstract class BaseService {
 
   BaseService(this._dioClient);
 
+  // Extract error message from exception, removing "Exception:" prefix if present
+  String _extractErrorMessage(dynamic error) {
+    if (error == null) {
+      return 'An unknown error occurred';
+    }
+
+    String errorMessage = error.toString();
+
+    // Remove "Exception: " prefix if present
+    if (errorMessage.startsWith('Exception: ')) {
+      errorMessage = errorMessage.substring('Exception: '.length);
+    }
+
+    return errorMessage;
+  }
+
   // GET Request
   Future<BaseResponse<T>> get<T>(
     String path, {
@@ -66,9 +77,9 @@ abstract class BaseService {
         queryParameters: queryParameters,
       );
 
-      return BaseResponse.fromJson(response.data, fromJson);
+      return BaseResponse.fromJson(response.data);
     } catch (e) {
-      return BaseResponse.error(message: e.toString());
+      return BaseResponse.error(message: _extractErrorMessage(e));
     }
   }
 
@@ -77,7 +88,6 @@ abstract class BaseService {
     String path, {
     dynamic data,
     Map<String, dynamic>? queryParameters,
-    T Function(Map<String, dynamic>)? fromJson,
   }) async {
     try {
       final response = await _dioClient.post(
@@ -86,9 +96,9 @@ abstract class BaseService {
         queryParameters: queryParameters,
       );
 
-      return BaseResponse.fromJson(response.data, fromJson);
+      return BaseResponse.fromJson(response.data);
     } catch (e) {
-      return BaseResponse.error(message: e.toString());
+      return BaseResponse.error(message: _extractErrorMessage(e));
     }
   }
 
@@ -106,9 +116,9 @@ abstract class BaseService {
         queryParameters: queryParameters,
       );
 
-      return BaseResponse.fromJson(response.data, fromJson);
+      return BaseResponse.fromJson(response.data);
     } catch (e) {
-      return BaseResponse.error(message: e.toString());
+      return BaseResponse.error(message: _extractErrorMessage(e));
     }
   }
 
@@ -126,9 +136,9 @@ abstract class BaseService {
         queryParameters: queryParameters,
       );
 
-      return BaseResponse.fromJson(response.data, fromJson);
+      return BaseResponse.fromJson(response.data);
     } catch (e) {
-      return BaseResponse.error(message: e.toString());
+      return BaseResponse.error(message: _extractErrorMessage(e));
     }
   }
 }

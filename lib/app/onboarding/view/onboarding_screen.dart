@@ -1,3 +1,5 @@
+import 'package:child_track/app/auth/view/onboarding/connect_to_parent_screen.dart';
+import 'package:child_track/app/home/view/home_page.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:child_track/core/constants/app_colors.dart';
@@ -5,7 +7,6 @@ import 'package:child_track/core/constants/app_sizes.dart';
 import 'package:child_track/core/constants/app_text_styles.dart';
 import 'package:child_track/core/navigation/route_names.dart';
 import 'package:child_track/core/widgets/common_button.dart';
-import '../../auth/view/onboarding/sign_up_view.dart';
 import 'widgets/role_selector.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -135,15 +136,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     // Continue button for navigation
                     CommonButton(
                       text: 'Continue',
-                      onPressed: () { 
-                        _selectedRole== "Kid"?
-  Navigator.of(
-                context,
-              ).pushNamedAndRemoveUntil(RouteNames.addChild, (route) => false):
-                        Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const SignUpView()),
-                      );}
+                      onPressed: () {
+                        if (_selectedRole == "Kid") {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const ConnectToParentScreen(),
+                            ),
+                          );
+                        } else {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const HomePage()),
+                          );
+                        }
+                      },
                     ),
                     const SizedBox(height: AppSizes.spacingL),
 

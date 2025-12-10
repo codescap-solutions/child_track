@@ -1,15 +1,11 @@
 import 'package:child_track/app/auth/view/onboarding/add_kid_view.dart';
-<<<<<<< Updated upstream
-=======
 import 'package:child_track/app/auth/view/onboarding/child_code_screen.dart';
 import 'package:child_track/app/childapp/view/sos_view.dart';
 import 'package:child_track/app/home/view/home_page.dart';
 import 'package:child_track/app/home/view/trips_view.dart';
->>>>>>> Stashed changes
 import 'package:flutter/material.dart';
 import '../../app/auth/view/login_screen.dart';
 import '../../app/auth/view/otp_screen.dart';
-import '../../app/home/view/home_screen.dart';
 import 'route_names.dart';
 
 class AppRouter {
@@ -45,7 +41,18 @@ class AppRouter {
 
       case RouteNames.home:
         return MaterialPageRoute(
-          builder: (_) => const HomeScreen(),
+          builder: (_) => const HomePage(),
+          settings: settings,
+        );
+      case RouteNames.sos:
+        return MaterialPageRoute(
+          builder: (_) => const SosView(),
+          settings: settings,
+        );
+
+      case RouteNames.trips:
+        return MaterialPageRoute(
+          builder: (_) => const TripsView(),
           settings: settings,
         );
 
@@ -55,5 +62,25 @@ class AppRouter {
           settings: settings,
         );
     }
+  }
+
+  static void push(BuildContext context, String routeName) {
+    Navigator.pushNamed(context, routeName);
+  }
+
+  static void pushReplacement(BuildContext context, String routeName) {
+    Navigator.pushReplacementNamed(context, routeName);
+  }
+
+  static void pushAndRemoveUntil(BuildContext context, Widget widget) {
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => widget),
+      (route) => false,
+    );
+  }
+
+  static void pop(BuildContext context) {
+    Navigator.pop(context);
   }
 }
