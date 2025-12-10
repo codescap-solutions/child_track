@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:child_track/core/services/api_endpoints.dart';
 import 'package:child_track/core/services/base_service.dart';
 import 'package:child_track/core/services/dio_client.dart';
@@ -22,13 +24,15 @@ class ChildRepo extends BaseService {
       if (response.isSuccess && response.data != null) {
         final data = response.data!;
         final token = data['token'] as String?;
-        final childId = data['child_id'] as String? ?? data['_id'] as String?;
+        final childId =
+            data['child']?['child_id'] as String? ?? data['_id'] as String?;
 
         if (token != null) {
           await _sharedPrefsService.setAuthToken(token);
         }
         if (childId != null) {
           await _sharedPrefsService.setString('child_id', childId);
+          log('child_id saved: $childId');
           await _sharedPrefsService.setString('child_code', childCode);
         }
       }
@@ -45,10 +49,7 @@ class ChildRepo extends BaseService {
   }) async {
     final response = await post(
       ApiEndpoints.createChild,
-      data: {
-        'name': name,
-        'age': age,
-      },
+      data: {'name': name, 'age': age},
     );
     return response;
   }
