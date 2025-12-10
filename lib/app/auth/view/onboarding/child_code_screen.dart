@@ -12,9 +12,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class ChildCodeScreen extends StatelessWidget {
   final String childCode;
+  final String childId;
 
   const ChildCodeScreen({
     super.key,
+    required this.childId,
     required this.childCode,
   });
 
@@ -100,7 +102,7 @@ class ChildCodeScreen extends StatelessWidget {
                 child: CommonButton(
                   text: 'Continue to Home',
                   onPressed: () {
-                   injector<SharedPrefsService>().setString('child_id', childCode);
+                   injector<SharedPrefsService>().setString('child_id', childId);
                     Navigator.of(context).pushNamedAndRemoveUntil(
                       RouteNames.home,
                       (route) => false,

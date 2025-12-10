@@ -2,6 +2,7 @@ class   RouteNames {
   // Auth Routes
   static const String login = '/login';
   static const String otp = '/otp';
+  static const String onBoarding = '/on-boarding';
 
   // Main Routes
   static const String home = '/home';
@@ -19,6 +20,7 @@ class   RouteNames {
   // Location Routes
   static const String locationHistory = '/location-history';
   static const String liveTracking = '/live-tracking';
+
 
   // Attendance Routes
   static const String attendance = '/attendance';

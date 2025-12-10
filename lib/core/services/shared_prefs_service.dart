@@ -177,12 +177,17 @@ class SharedPrefsService {
         userId.isNotEmpty;
   }
 
+
   // Logout user
   Future<bool> logout() async {
     try {
       await removeAuthToken();
       await removeUserId();
       await removeUserPhone();
+      await removeChildId();
+      await removeParentId();
+  
+      await removeAuthToken();
       AppLogger.info('User logged out successfully');
       return true;
     } catch (e) {
@@ -190,4 +195,24 @@ class SharedPrefsService {
       return false;
     }
   }
+  
+   
+  Future<bool> removeChildId() async {
+    try {
+      return await prefs.remove('child_id');
+    } catch (e) {
+      AppLogger.error('Error removing child ID: $e');
+      return false;
+    }
+  }
+
+  Future<bool> removeParentId() async {
+    try {
+      return await prefs.remove('parent_id');
+    } catch (e) {
+      AppLogger.error('Error removing parent ID: $e');
+      return false;
+    }
+  }
+
 }

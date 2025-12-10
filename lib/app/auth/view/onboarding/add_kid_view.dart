@@ -172,7 +172,10 @@ class _AddKidViewState extends State<AddKidView> {
             if (mounted && childCode != null) {
               Navigator.of(context).pushReplacementNamed(
                 RouteNames.childCode,
-                arguments: {'childCode': childCode},
+                arguments: {
+                  'childCode': childCode,
+                  'childId': childId,
+                },
               );
             } else if (mounted) {
               // Navigate to home if child code is not available

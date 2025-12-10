@@ -1,3 +1,6 @@
+import 'package:child_track/core/di/injector.dart';
+import 'package:child_track/core/navigation/route_names.dart';
+import 'package:child_track/core/services/shared_prefs_service.dart';
 import 'package:flutter/cupertino.dart' show CupertinoSwitch;
 import 'package:flutter/material.dart';
 import 'package:child_track/core/constants/app_colors.dart';
@@ -320,6 +323,23 @@ class SettingsView extends StatelessWidget {
                         color: AppColors.textSecondary,
                       ),
                       onTap: () {},
+                    ),
+                     SettingTile(
+                      subtitle: 'About the app',
+                      leading: const Icon(
+                        Icons.logout,
+                        color: AppColors.textSecondary,
+                      ),
+                      title: 'Logout',
+                      trailing: const Icon(
+                        Icons.arrow_forward_ios,
+                        size: 16,
+                        color: AppColors.textSecondary,
+                      ),
+                      onTap: () {
+                        injector<SharedPrefsService>().logout();
+                        Navigator.pushNamedAndRemoveUntil(context, RouteNames.onBoarding, (route) => false);
+                      },
                     ),
                   ],
                 ),

@@ -77,6 +77,7 @@ Future<void> initializeDependencies() async {
   );
   injector.registerLazySingleton<ChildBloc>(
     () => ChildBloc(
+      sharedPrefsService: injector<SharedPrefsService>(),
       deviceInfoService: injector<ChildInfoService>(),
       childRepo: injector<ChildRepo>(),
       childLocationRepo: injector<ChildGoogleMapsRepo>(),

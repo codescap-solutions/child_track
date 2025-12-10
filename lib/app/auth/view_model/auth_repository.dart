@@ -91,9 +91,9 @@ class AuthRepository extends BaseService {
                 final firstChild = children[0] as Map<String, dynamic>;
                 childId = firstChild['_id'] as String? ?? firstChild['id'] as String?;
               }
-              if (childId != null) {
-                await _sharedPrefsService.setString('child_id', childId);
-              }
+              // if (childId != null) {
+              //   await _sharedPrefsService.setString('child_id', childId);
+              // }
             }
           }
         }

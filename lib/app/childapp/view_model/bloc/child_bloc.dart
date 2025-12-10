@@ -4,6 +4,7 @@ import 'package:child_track/app/childapp/view_model/repository/child_location_re
 import 'package:child_track/app/childapp/view_model/repository/child_repo.dart';
 import 'package:child_track/app/home/model/device_model.dart';
 import 'package:child_track/app/childapp/view_model/repository/device_info_service.dart';
+import 'package:child_track/core/services/shared_prefs_service.dart';
 import 'package:child_track/core/utils/app_logger.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -15,6 +16,7 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
   final ChildInfoService _deviceInfoService;
   final ChildRepo _childRepo;
   final ChildGoogleMapsRepo _childLocationRepo;
+  final SharedPrefsService _sharedPrefsService;
   // Timers
   Timer? _deviceInfoTimer; // 10 minutes
   Timer? _screenTimeTimer; // 1 hour
@@ -22,12 +24,14 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
   Timer? _tripLocationTimer; // 5 seconds for trip tracking
 
   ChildBloc({
+    required SharedPrefsService sharedPrefsService,
     required ChildInfoService deviceInfoService,
     required ChildRepo childRepo,
     required ChildGoogleMapsRepo childLocationRepo,
   }) : _deviceInfoService = deviceInfoService,
        _childRepo = childRepo,
        _childLocationRepo = childLocationRepo,
+       _sharedPrefsService = sharedPrefsService,
        super(ChildDeviceInfoLoaded.initial()) {
     on<LoadDeviceInfo>(_onLoadDeviceInfo);
     on<PostDeviceInfo>(_onPostDeviceInfo);
@@ -64,7 +68,7 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
   ) async {
     try {
       final requestBody = {
-        "child_id": "69378103a8366c90ed8159d2",
+        "child_id": "_sharedPrefsService.getString('child_id')",
         "battery_percentage": event.deviceInfo.batteryPercentage,
         "network_status": event.deviceInfo.networkStatus,
         "network_type": event.deviceInfo.networkType,
@@ -101,7 +105,7 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
   ) async {
     try {
       final requestBody = {
-        "child_id": "69378103a8366c90ed8159d2",
+        "child_id": "_sharedPrefsService.getString('child_id')",
         "date": DateTime.now().toIso8601String().split('T')[0],
         "total_seconds": event.appScreenTimes.fold(
           0,
@@ -164,7 +168,8 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
       final requestBody = {
         "address": locationInfo?['address'] ?? 'Unknown',
         "place_name": locationInfo?['place_name'] ?? 'Unknown',
-        "child_id": "69378103a8366c90ed8159d2",
+        "child_id": _sharedPrefsService.getString('child_id'),
+     
         "lat": event.childLocation.latitude,
         "lng": event.childLocation.longitude,
         "accuracy_m": event.childLocation.accuracy,
@@ -323,7 +328,7 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
         final requestBody = {
           "address": locationInfo?['address'] ?? 'Unknown',
           "place_name": locationInfo?['place_name'] ?? 'Unknown',
-          "child_id": "69378103a8366c90ed8159d2",
+          "child_id": "_sharedPrefsService.getString('child_id')",
           "lat": newLocation.latitude,
           "lng": newLocation.longitude,
           "accuracy_m": newLocation.accuracy,
@@ -410,7 +415,7 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
       }
 
       final requestBody = {
-        "child_id": "69378103a8366c90ed8159d2",
+        "child_id": "_sharedPrefsService.getString('child_id')",
         "event_type": "ride",
         "distance_m": totalDistance.round(),
         "duration_s": duration.inSeconds,

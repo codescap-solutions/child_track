@@ -2,6 +2,7 @@ import 'package:child_track/app/auth/view_model/bloc/auth_bloc.dart';
 import 'package:child_track/app/auth/view_model/bloc/auth_state.dart';
 import 'package:child_track/app/onboarding/view/onboarding_screen.dart';
 import 'package:child_track/core/services/connectivity/bloc/connectivity_bloc.dart';
+import 'package:child_track/core/services/shared_prefs_service.dart';
 import 'package:child_track/core/utils/app_snackbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -55,7 +56,7 @@ class ChildTrackApp extends StatelessWidget {
           );
         },
         // home: HomePage(),
-        home: OnboardingScreen(),
+        home: SplashScreen(),
       ),
     );
   }
@@ -79,14 +80,17 @@ class _SplashScreenState extends State<SplashScreen> {
     // Add a small delay for splash screen
     await Future.delayed(const Duration(seconds: 2));
 
-    final authBloc = GetIt.instance<AuthBloc>();
-
+final childId = injector<SharedPrefsService>().getString('child_id');
+final parentId = injector<SharedPrefsService>().getString('parent_id');
     if (mounted) {
-      if (authBloc.state is AuthSuccess) {
-        Navigator.pushReplacementNamed(context, RouteNames.home);
-      } else {
-        Navigator.pushReplacementNamed(context, RouteNames.sos);
-      }
+  if (parentId != null && parentId.isNotEmpty) {
+    Navigator.pushReplacementNamed(context, RouteNames.home);
+  } else if (childId != null && childId.isNotEmpty) {
+    Navigator.pushReplacementNamed(context, RouteNames.sos);
+  } else {
+    Navigator.pushReplacementNamed(context, RouteNames.onBoarding);
+  }
+
     }
   }
 
