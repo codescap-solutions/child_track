@@ -1,4 +1,11 @@
 import 'package:child_track/app/auth/view/onboarding/add_kid_view.dart';
+<<<<<<< Updated upstream
+=======
+import 'package:child_track/app/auth/view/onboarding/child_code_screen.dart';
+import 'package:child_track/app/childapp/view/sos_view.dart';
+import 'package:child_track/app/home/view/home_page.dart';
+import 'package:child_track/app/home/view/trips_view.dart';
+>>>>>>> Stashed changes
 import 'package:flutter/material.dart';
 import '../../app/auth/view/login_screen.dart';
 import '../../app/auth/view/otp_screen.dart';
@@ -11,6 +18,15 @@ class AppRouter {
       case RouteNames.addChild:
         return MaterialPageRoute(
           builder: (_) => const AddKidView(),
+          settings: settings,
+        );
+
+      case RouteNames.childCode:
+        final args = settings.arguments as Map<String, dynamic>?;
+        return MaterialPageRoute(
+          builder: (_) => ChildCodeScreen(
+            childCode: args?['childCode'] ?? '',
+          ),
           settings: settings,
         );
 

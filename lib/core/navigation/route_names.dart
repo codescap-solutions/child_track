@@ -13,6 +13,7 @@ class RouteNames {
   static const String childDetail = '/child-detail';
   static const String addChild = '/add-child';
   static const String editChild = '/edit-child';
+  static const String childCode = '/child-code';
 
   // Location Routes
   static const String locationHistory = '/location-history';

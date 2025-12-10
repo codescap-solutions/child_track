@@ -110,6 +110,60 @@ class AuthRepository extends BaseService {
     return _sharedPrefsService.isLoggedIn();
   }
 
+<<<<<<< Updated upstream
+=======
+  // Register User
+  Future<BaseResponse> registerUser({
+    required String phoneNumber,
+    required String name,
+    Map<String, dynamic>? address,
+  }) async {
+    try {
+      final data = <String, dynamic>{
+        'phoneNumber': phoneNumber,
+        'name': name,
+      };
+      
+      if (address != null) {
+        data['address'] = address;
+      }
+
+      final response = await post(
+        ApiEndpoints.registerUser,
+        data: data,
+      );
+
+      if (response.isSuccess && response.data != null) {
+        // Save auth token and user ID (parent ID) after registration
+        final responseData = response.data!;
+        final token = responseData['token'] as String?;
+        
+        // Extract user object from response
+        final userData = responseData['user'] as Map<String, dynamic>?;
+        final parentId = userData?['id'] as String?;
+        final savedName = userData?['name'] as String?;
+
+        if (parentId != null) {
+          await _sharedPrefsService.setUserId(parentId);
+          await _sharedPrefsService.setString('parent_id', parentId);
+        }
+        if (token != null) {
+          await _sharedPrefsService.setAuthToken(token);
+        }
+        if (savedName != null) {
+          await _sharedPrefsService.setString('parent_name', savedName);
+        }
+        // New user has no children initially
+        await _sharedPrefsService.setInt('children_count', 0);
+      }
+
+      return response;
+    } catch (e) {
+      return BaseResponse.error(message: e.toString());
+    }
+  }
+
+>>>>>>> Stashed changes
   // Get current user info
   Map<String, String?> getCurrentUser() {
     return {
