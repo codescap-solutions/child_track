@@ -65,7 +65,7 @@ Future<void> initializeDependencies() async {
 
   // Register blocs
   injector.registerLazySingleton<AuthBloc>(
-    () => AuthBloc(authRepository: injector<AuthRepository>()),
+    () => AuthBloc(authRepository: injector<AuthRepository>(), sharedPrefsService: injector<SharedPrefsService>()),
   );
   injector.registerLazySingleton<MapBloc>(() => MapBloc());
   injector.registerLazySingleton<HomepageBloc>(

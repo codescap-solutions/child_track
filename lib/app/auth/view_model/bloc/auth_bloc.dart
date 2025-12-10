@@ -1,14 +1,16 @@
 import 'package:child_track/app/auth/view_model/auth_repository.dart';
 import 'package:child_track/app/auth/view_model/bloc/auth_event.dart';
 import 'package:child_track/app/auth/view_model/bloc/auth_state.dart';
+import 'package:child_track/core/services/shared_prefs_service.dart';
 import 'package:child_track/core/utils/app_logger.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final AuthRepository _authRepository;
-
-  AuthBloc({required AuthRepository authRepository})
+  final SharedPrefsService _sharedPrefsService;
+  AuthBloc({required AuthRepository authRepository, required SharedPrefsService sharedPrefsService})
       : _authRepository = authRepository,
+        _sharedPrefsService = sharedPrefsService,
         super(AuthInitial()) {
     on<AuthStarted>(_onAuthStarted);
     on<SendOtp>(_onSendOtp);
@@ -51,7 +53,12 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         final data = response.data!;
         final isNewUser = data['is_new_user'] as bool? ?? false;
         final phoneNumber = data['phoneNumber'] as String?;
+        final parentId = data['user']?['id'] as String?;
+        if (parentId != null) {
+          await _sharedPrefsService.setString('parent_id', parentId);
+        }
         
+
         // Check if this is a new user
         if (isNewUser && phoneNumber != null) {
           emit(AuthNewUser(phoneNumber: phoneNumber));

@@ -431,7 +431,7 @@ class _HomePageState extends State<HomePage> {
                         ),
                         const SizedBox(height: AppSizes.spacingXS),
                         Text(
-                          'Since ${state.currentLocation?.since} (${state.currentLocation?.durationMinutes ?? 0} min)',
+                          _formatTimeAgo(state.currentLocation?.since),
                           style: AppTextStyles.caption.copyWith(
                             color: AppColors.textSecondary,
                           ),
@@ -734,6 +734,33 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
     );
+  }
+
+  String _formatTimeAgo(String? timestamp) {
+    if (timestamp == null || timestamp.isEmpty) {
+      return 'Unknown time';
+    }
+
+    try {
+      final timestampDate = DateTime.parse(timestamp);
+      final now = DateTime.now();
+      final difference = now.difference(timestampDate);
+
+      if (difference.inMinutes < 1) {
+        return 'Just now';
+      } else if (difference.inMinutes < 60) {
+        final minutes = difference.inMinutes;
+        return '$minutes ${minutes == 1 ? 'minute' : 'minutes'} ago';
+      } else if (difference.inHours < 24) {
+        final hours = difference.inHours;
+        return '$hours ${hours == 1 ? 'hour' : 'hours'} ago';
+      } else {
+        final days = difference.inDays;
+        return '$days ${days == 1 ? 'day' : 'days'} ago';
+      }
+    } catch (e) {
+      return 'Invalid time';
+    }
   }
 
   Widget _buildNoChildConnectedUI(BuildContext context) {
