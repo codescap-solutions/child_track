@@ -44,6 +44,10 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
     on<UpdateTripLocation>(_onUpdateTripLocation);
   }
   void onInitialize() {
+    final childId = _sharedPrefsService.getString('child_id');
+    if (childId != null) {
+      _childRepo.initializeSocket(childId);
+    }
     add(LoadDeviceInfo());
     add(GetScreenTime());
     add(GetChildLocation());
