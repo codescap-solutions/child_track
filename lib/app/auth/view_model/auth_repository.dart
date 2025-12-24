@@ -61,8 +61,11 @@ class AuthRepository extends BaseService {
           // Save auth token and user ID (parent ID)
           // Handle different response structures
           final token = data['token'] as String?;
-          final parentId = data['user_id'] as String? ?? data['_id'] as String?;
-          final name = data['name'] as String?;
+          final userData = data['user'] as Map<String, dynamic>?;
+          final parentId = userData?['id'] as String? ?? 
+                          data['user_id'] as String? ?? 
+                          data['_id'] as String?;
+          final name = userData?['name'] as String? ?? data['name'] as String?;
           final children = data['children'] as List<dynamic>?;
 
           if (parentId != null) {
@@ -87,13 +90,15 @@ class AuthRepository extends BaseService {
                 // Array of IDs: ["693721db9026941d7fc780df"]
                 childId = children[0] as String;
               } else if (children[0] is Map) {
-                // Array of objects: [{"_id": "...", ...}]
+                // Array of objects: [{"child_id": "...", ...}]
                 final firstChild = children[0] as Map<String, dynamic>;
-                childId = firstChild['_id'] as String? ?? firstChild['id'] as String?;
+                childId = firstChild['child_id'] as String? ?? 
+                         firstChild['_id'] as String? ?? 
+                         firstChild['id'] as String?;
               }
-              // if (childId != null) {
-              //   await _sharedPrefsService.setString('child_id', childId);
-              // }
+              if (childId != null) {
+                await _sharedPrefsService.setString('child_id', childId);
+              }
             }
           }
         }

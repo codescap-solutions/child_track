@@ -144,10 +144,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             ),
                           );
                         } else {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const HomePage()),
-                          );
+                          // Navigator.push(
+                          //   context,
+                          //   MaterialPageRoute(builder: (_) => const HomePage()),
+                          // );
+                           Navigator.of(
+                                  context,
+                                ).pushNamed(RouteNames.login);
                         }
                       },
                     ),

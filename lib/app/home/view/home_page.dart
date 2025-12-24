@@ -199,25 +199,25 @@ class _HomePageState extends State<HomePage> {
         250,
       );
 
-      // Create battery icon with dynamic battery percentage
-      Uint8List batteryIconBytes;
-      try {
-        batteryIconBytes = await _createBatteryIconBytes(
-          300,
-          batteryPercentage,
-        );
-      } catch (e) {
-        // Fallback: use marker without battery
-        return BitmapDescriptor.bytes(markerIconBytes);
-      }
+      // // Create battery icon with dynamic battery percentage
+      // Uint8List batteryIconBytes;
+      // try {
+      //   batteryIconBytes = await _createBatteryIconBytes(
+      //     300,
+      //     batteryPercentage,
+      //   );
+      // } catch (e) {
+      //   // Fallback: use marker without battery
+      //   return BitmapDescriptor.bytes(markerIconBytes);
+      // }
 
-      // Composite the images
-      final Uint8List compositeBytes = await _compositeMarkerWithBattery(
-        markerIconBytes,
-        batteryIconBytes,
-      );
+      // // Composite the images
+      // final Uint8List compositeBytes = await _compositeMarkerWithBattery(
+      //   markerIconBytes,
+      //   batteryIconBytes,
+      // );
 
-      return BitmapDescriptor.bytes(compositeBytes);
+      return BitmapDescriptor.bytes(markerIconBytes);
     } catch (e) {
       return null;
     }
@@ -431,7 +431,10 @@ class _HomePageState extends State<HomePage> {
                         ),
                         const SizedBox(height: AppSizes.spacingXS),
                         Text(
-                          _formatTimeAgo(state.currentLocation?.since),
+                          //this time i get timestamp: 2025-12-10T17:43:35.926 need to convert this into minutes ago
+                         // '${DateTime.parse(state.currentLocation?.since ?? '').difference(DateTime.now()).inMinutes} minute ago',
+                         _formatTimeAgo(state.currentLocation?.since),
+
                           style: AppTextStyles.caption.copyWith(
                             color: AppColors.textSecondary,
                           ),
@@ -734,6 +737,7 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
     );
+    
   }
 
   String _formatTimeAgo(String? timestamp) {

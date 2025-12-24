@@ -54,10 +54,16 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         final isNewUser = data['is_new_user'] as bool? ?? false;
         final phoneNumber = data['phoneNumber'] as String?;
         final parentId = data['user']?['id'] as String?;
+        final token = data['token'] as String?;
+        
+        // Save parent ID and token
         if (parentId != null) {
           await _sharedPrefsService.setString('parent_id', parentId);
+          await _sharedPrefsService.setUserId(parentId);
         }
-        
+        if (token != null) {
+          await _sharedPrefsService.setAuthToken(token);
+        }
 
         // Check if this is a new user
         if (isNewUser && phoneNumber != null) {
@@ -66,6 +72,24 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           // Existing user - check if user has children
           final children = data['children'] as List<dynamic>?;
           final hasChildren = children != null && children.isNotEmpty;
+          
+          // If user has children, save the first child's ID
+          if (hasChildren) {
+            final firstChild = children[0] as Map<String, dynamic>?;
+            final childId = firstChild?['child_id'] as String?;
+            final childCode = firstChild?['child_code'] as String?;
+            
+            if (childId != null) {
+              await _sharedPrefsService.setString('child_id', childId);
+              AppLogger.info('OTP verification: Child ID saved: $childId');
+            }
+            if (childCode != null) {
+              await _sharedPrefsService.setString('child_code', childCode);
+            }
+            // Save children count
+            await _sharedPrefsService.setInt('children_count', children.length);
+          }
+          
           emit(AuthSuccess(hasChildren: hasChildren));
         } else {
           emit(AuthNeedsRegistration());

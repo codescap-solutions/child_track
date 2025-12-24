@@ -80,7 +80,7 @@ class _SettingsViewState extends State<SettingsView> {
                           Row(
                             children: [
                               Text(
-                                'Ananya Pandey',
+                                'Child',
                                 style: AppTextStyles.subtitle1.copyWith(
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -95,7 +95,7 @@ class _SettingsViewState extends State<SettingsView> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            _childId ?? 'No child connected',
+                            "chils code $_childId" ?? 'No child connected',
                             style: AppTextStyles.caption.copyWith(
                               color: AppColors.textSecondary,
                             ),
