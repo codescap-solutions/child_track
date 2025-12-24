@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:child_track/core/services/api_endpoints.dart';
 import 'package:flutter/foundation.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 
@@ -14,7 +13,7 @@ class SocketService {
   SocketService._internal();
 
   IO.Socket? _socket;
-  final String _serverUrl = ApiEndpoints.baseUrl;
+  final String _serverUrl = "https://naviq-server.codescap.com:443";
 
   // Streams
   final _locationController =
@@ -36,8 +35,8 @@ class SocketService {
     _socket = IO.io(
       _serverUrl,
       IO.OptionBuilder()
-          .setTransports(['websocket']) // for Flutter or Dart VM
-          .enableAutoConnect() // disable auto-connection
+          .setTransports(['polling', 'websocket']) // Try polling first
+          .enableAutoConnect()
           .setReconnectionAttempts(double.infinity)
           .build(),
     );
