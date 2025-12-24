@@ -44,6 +44,15 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
     on<UpdateTripLocation>(_onUpdateTripLocation);
   }
   void onInitialize() {
+    if (isClosed) return;
+    
+    final childId = _sharedPrefsService.getString('child_id');
+    if (childId != null) {
+      _childRepo.initializeSocket(childId);
+    }
+    if (!isClosed) add(LoadDeviceInfo());
+    if (!isClosed) add(GetScreenTime());
+    if (!isClosed) add(GetChildLocation());
     add(LoadDeviceInfo());
     add(GetScreenTime());
     add(GetChildLocation());
@@ -188,6 +197,10 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
   void _startDeviceInfoTimer() {
     _stopDeviceInfoTimer();
     _deviceInfoTimer = Timer.periodic(const Duration(minutes: 10), (timer) {
+      if (isClosed) {
+        timer.cancel();
+        return;
+      }
       add(LoadDeviceInfo());
     });
   }
@@ -200,6 +213,10 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
   void _startScreenTimeTimer() {
     _stopScreenTimeTimer();
     _screenTimeTimer = Timer.periodic(const Duration(hours: 1), (timer) {
+      if (isClosed) {
+        timer.cancel();
+        return;
+      }
       final currentState = state;
       if (currentState is ChildDeviceInfoLoaded) {
         add(GetScreenTime());
@@ -220,6 +237,10 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
   void _startChildLocationTimer() {
     _stopChildLocationTimer();
     _childLocationTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (isClosed) {
+        timer.cancel();
+        return;
+      }
       add(GetChildLocation());
     });
   }
@@ -346,6 +367,10 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
   void _startTripLocationTimer() {
     _stopTripLocationTimer();
     _tripLocationTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      if (isClosed) {
+        timer.cancel();
+        return;
+      }
       final currentState = state;
       if (currentState is! ChildDeviceInfoLoaded ||
           !currentState.isTripTracking) {
@@ -357,7 +382,7 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
       _childLocationRepo
           .getChildLocation()
           .then((location) {
-            if (location != null) {
+            if (location != null && !isClosed) {
               add(UpdateTripLocation(location: location));
             }
           })

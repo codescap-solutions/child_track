@@ -8,14 +8,18 @@ import 'package:child_track/core/constants/app_colors.dart';
 import 'package:child_track/core/constants/app_sizes.dart';
 import 'package:child_track/core/constants/app_text_styles.dart';
 import 'package:child_track/core/widgets/common_button.dart';
+import 'package:child_track/core/services/shared_prefs_service.dart';
 
 class SosView extends StatelessWidget {
   const SosView({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) => injector<ChildBloc>()..onInitialize(),
+    final childBloc = injector<ChildBloc>();
+    childBloc.onInitialize();
+    
+    return BlocProvider.value(
+      value: childBloc,
       child: const _SosViewContent(),
     );
   }
@@ -109,6 +113,10 @@ class _SosViewContent extends StatelessWidget {
       },
       child: BlocBuilder<ChildBloc, ChildState>(
         builder: (context, state) {
+          final sharedPrefsService = injector<SharedPrefsService>();
+          final childName = sharedPrefsService.getString('child_name') ?? 'Child';
+          final childCode = sharedPrefsService.getString('child_code') ?? '';
+          
           return Scaffold(
             backgroundColor: AppColors.surfaceColor,
             body: SafeArea(
@@ -120,13 +128,18 @@ class _SosViewContent extends StatelessWidget {
                 child: Column(
                   children: [
                     Text(
-                      'Adhvaidh',
+                      childName,
                       style: AppTextStyles.headline5.copyWith(
                         color: AppColors.primaryColor,
                       ),
                     ),
                     const SizedBox(height: 4),
-                    const Text('154561231656456'),
+                    Text(
+                      childCode,
+                      style: AppTextStyles.body2.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
                     const Spacer(),
                     Container(
                       width: 220,
@@ -175,7 +188,6 @@ class _SosViewContent extends StatelessWidget {
                       ),
                     ),
                     const Spacer(),
-                    const Text('Father'),
                     const SizedBox(height: 4),
                     const Text('+91 889656 2587'),
                     const SizedBox(

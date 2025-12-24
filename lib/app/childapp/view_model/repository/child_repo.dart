@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:child_track/core/services/api_endpoints.dart';
 import 'package:child_track/core/services/base_service.dart';
 import 'package:child_track/core/services/dio_client.dart';
@@ -23,10 +25,11 @@ class ChildRepo extends BaseService {
       if (response.isSuccess && response.data != null) {
         final data = response.data!;
         final token = data['token'] as String?;
-        
-        // Extract child data from nested structure
         final childData = data['child'] as Map<String, dynamic>?;
-        final childId = childData?['child_id'] as String?;
+        final childId =
+            childData?['child_id'] as String? ?? data['_id'] as String?;
+        final childName = childData?['name'] as String?;
+        final childCodeFromResponse = childData?['child_code'] as String?;
 
         if (token != null) {
           await _sharedPrefsService.setAuthToken(token);
@@ -34,9 +37,15 @@ class ChildRepo extends BaseService {
         }
         if (childId != null) {
           await _sharedPrefsService.setString('child_id', childId);
-          await _sharedPrefsService.setString('child_code', childCode);
+          log('child_id saved: $childId');
+          await _sharedPrefsService.setString('child_code', childCodeFromResponse ?? childCode);
           AppLogger.info('Child login: Child ID saved: $childId');
-          
+
+          if (childName != null) {
+            await _sharedPrefsService.setString('child_name', childName);
+            AppLogger.info('Child login: Child name saved: $childName');
+          }
+
           // Verify it was saved correctly
           final savedChildId = _sharedPrefsService.getString('child_id');
           AppLogger.info('Child login: Verified saved child_id: $savedChildId');
