@@ -31,10 +31,10 @@ final class GetTrips extends HomepageEvent {
 
   @override
   List<Object> get props => [
-        // if (childId != null) childId!,
-        if (page != null) page!,
-        if (pageSize != null) pageSize!,
-      ];
+    // if (childId != null) childId!,
+    if (page != null) page!,
+    if (pageSize != null) pageSize!,
+  ];
 }
 
 final class GetTripDetail extends HomepageEvent {
@@ -44,4 +44,22 @@ final class GetTripDetail extends HomepageEvent {
 
   @override
   List<Object> get props => [tripId];
+}
+
+final class UpdateSocketLocation extends HomepageEvent {
+  final Map<String, dynamic> locationData;
+
+  const UpdateSocketLocation(this.locationData);
+
+  @override
+  List<Object> get props => [locationData];
+}
+
+final class UpdateSocketTrip extends HomepageEvent {
+  final Map<String, dynamic> tripData;
+
+  const UpdateSocketTrip(this.tripData);
+
+  @override
+  List<Object> get props => [tripData];
 }

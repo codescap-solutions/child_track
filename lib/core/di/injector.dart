@@ -3,6 +3,7 @@ import 'package:child_track/app/childapp/view_model/repository/child_repo.dart';
 import 'package:child_track/app/home/view_model/home_repo.dart';
 import 'package:child_track/app/childapp/view_model/repository/device_info_service.dart';
 import 'package:child_track/core/services/connectivity/bloc/connectivity_bloc.dart';
+import 'package:child_track/core/services/firebase_notification_service.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -82,5 +83,10 @@ Future<void> initializeDependencies() async {
       childRepo: injector<ChildRepo>(),
       childLocationRepo: injector<ChildGoogleMapsRepo>(),
     ),
+  );
+
+  // Register Firebase Notification Service
+  injector.registerLazySingleton<FirebaseNotificationService>(
+    () => FirebaseNotificationService(),
   );
 }

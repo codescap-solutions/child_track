@@ -44,15 +44,10 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
     on<UpdateTripLocation>(_onUpdateTripLocation);
   }
   void onInitialize() {
-    if (isClosed) return;
-    
     final childId = _sharedPrefsService.getString('child_id');
     if (childId != null) {
       _childRepo.initializeSocket(childId);
     }
-    if (!isClosed) add(LoadDeviceInfo());
-    if (!isClosed) add(GetScreenTime());
-    if (!isClosed) add(GetChildLocation());
     add(LoadDeviceInfo());
     add(GetScreenTime());
     add(GetChildLocation());
@@ -77,7 +72,7 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
   ) async {
     try {
       final requestBody = {
-        "child_id": _sharedPrefsService.getString('child_id') ?? '',
+        "child_id": _sharedPrefsService.getString('child_id'),
         "battery_percentage": event.deviceInfo.batteryPercentage,
         "network_status": event.deviceInfo.networkStatus,
         "network_type": event.deviceInfo.networkType,
@@ -114,7 +109,7 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
   ) async {
     try {
       final requestBody = {
-        "child_id" : _sharedPrefsService.getString('child_id') ?? '',
+        "child_id": _sharedPrefsService.getString('child_id'),
         "date": DateTime.now().toIso8601String().split('T')[0],
         "total_seconds": event.appScreenTimes.fold(
           0,
@@ -177,8 +172,8 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
       final requestBody = {
         "address": locationInfo?['address'] ?? 'Unknown',
         "place_name": locationInfo?['place_name'] ?? 'Unknown',
-        "child_id": _sharedPrefsService.getString('child_id') ?? '',
-      
+        "child_id": _sharedPrefsService.getString('child_id'),
+
         "lat": event.childLocation.latitude,
         "lng": event.childLocation.longitude,
         "accuracy_m": event.childLocation.accuracy,
@@ -349,7 +344,7 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
         final requestBody = {
           "address": locationInfo?['address'] ?? 'Unknown',
           "place_name": locationInfo?['place_name'] ?? 'Unknown',
-          "child_id": _sharedPrefsService.getString('child_id') ?? '',
+          "child_id": _sharedPrefsService.getString('child_id'),
           "lat": newLocation.latitude,
           "lng": newLocation.longitude,
           "accuracy_m": newLocation.accuracy,
@@ -440,7 +435,7 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
       }
 
       final requestBody = {
-        "child_id": _sharedPrefsService.getString('child_id') ?? '',
+        "child_id": _sharedPrefsService.getString('child_id'),
         "event_type": "ride",
         "distance_m": totalDistance.round(),
         "duration_s": duration.inSeconds,

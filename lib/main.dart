@@ -1,12 +1,12 @@
 import 'package:child_track/app/auth/view_model/bloc/auth_bloc.dart';
-import 'package:child_track/app/auth/view_model/bloc/auth_state.dart';
-import 'package:child_track/app/onboarding/view/onboarding_screen.dart';
 import 'package:child_track/core/services/connectivity/bloc/connectivity_bloc.dart';
 import 'package:child_track/core/services/shared_prefs_service.dart';
+import 'package:child_track/core/services/firebase_notification_service.dart';
 import 'package:child_track/core/utils/app_snackbar.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:get_it/get_it.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'core/di/injector.dart';
 import 'core/navigation/app_router.dart';
@@ -22,8 +22,17 @@ void main() async {
   // Load environment variables
   await dotenv.load(fileName: ".env");
 
+  // Initialize Firebase
+  await Firebase.initializeApp();
+
+  // Set up background message handler
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+
   // Initialize dependencies
   await initializeDependencies();
+
+  // Initialize Firebase Notification Service
+  await injector<FirebaseNotificationService>().initialize();
 
   runApp(const ChildTrackApp());
 }

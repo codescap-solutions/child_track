@@ -2,6 +2,9 @@ import Flutter
 import UIKit
 import GoogleMaps
 import AVFoundation
+import FirebaseCore
+import FirebaseMessaging
+import UserNotifications
 
 @main
 @objc class AppDelegate: FlutterAppDelegate {
@@ -9,12 +12,33 @@ import AVFoundation
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
+    // Initialize Firebase
+    FirebaseApp.configure()
+    
     // NOTE: This key should match the GOOGLE_MAPS_API_KEY in your .env file
     // For iOS, you need to manually update this key to match your .env file
     // TODO: Consider reading from Info.plist or using build configurations for better security
     GMSServices.provideAPIKey("AIzaSyASaOyJsO7dp01jjv625MI9Tw9HwEeTuQg")
     
     GeneratedPluginRegistrant.register(with: self)
+    
+    // Set up Firebase Messaging delegate
+    if #available(iOS 10.0, *) {
+      UNUserNotificationCenter.current().delegate = self
+      let authOptions: UNAuthorizationOptions = [.alert, .badge, .sound]
+      UNUserNotificationCenter.current().requestAuthorization(
+        options: authOptions,
+        completionHandler: { _, _ in }
+      )
+    } else {
+      let settings: UIUserNotificationSettings =
+        UIUserNotificationSettings(types: [.alert, .badge, .sound], categories: nil)
+      application.registerUserNotificationSettings(settings)
+    }
+    
+    application.registerForRemoteNotifications()
+    
+    Messaging.messaging().delegate = self
     
     // Setup method channel for device info after plugins are registered
     if let controller = window?.rootViewController as? FlutterViewController {
@@ -110,5 +134,70 @@ import AVFoundation
     // to use MDM (Mobile Device Management) or other enterprise solutions.
     
     return apps
+  }
+  
+  // Handle APNS token
+  override func application(_ application: UIApplication,
+                            didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+    Messaging.messaging().apnsToken = deviceToken
+  }
+  
+  // Handle APNS token registration failure
+  override func application(_ application: UIApplication,
+                            didFailToRegisterForRemoteNotificationsWithError error: Error) {
+    print("Failed to register for remote notifications: \(error)")
+  }
+}
+
+// MARK: - UNUserNotificationCenterDelegate
+@available(iOS 10, *)
+extension AppDelegate: UNUserNotificationCenterDelegate {
+  // Receive displayed notifications for iOS 10 devices
+  func userNotificationCenter(_ center: UNUserNotificationCenter,
+                              willPresent notification: UNNotification,
+                              withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+    let userInfo = notification.request.content.userInfo
+    
+    // Print message ID
+    if let messageID = userInfo["gcm.message_id"] {
+      print("Message ID: \(messageID)")
+    }
+    
+    // Print full message
+    print(userInfo)
+    
+    // Change this to your preferred presentation option
+    completionHandler([[.banner, .badge, .sound]])
+  }
+  
+  // Handle notification tap
+  func userNotificationCenter(_ center: UNUserNotificationCenter,
+                              didReceive response: UNNotificationResponse,
+                              withCompletionHandler completionHandler: @escaping () -> Void) {
+    let userInfo = response.notification.request.content.userInfo
+    
+    // Print message ID
+    if let messageID = userInfo["gcm.message_id"] {
+      print("Message ID: \(messageID)")
+    }
+    
+    // Print full message
+    print(userInfo)
+    
+    completionHandler()
+  }
+}
+
+// MARK: - MessagingDelegate
+extension AppDelegate: MessagingDelegate {
+  func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
+    print("Firebase registration token: \(String(describing: fcmToken))")
+    
+    let dataDict: [String: String] = ["token": fcmToken ?? ""]
+    NotificationCenter.default.post(
+      name: Notification.Name("FCMToken"),
+      object: nil,
+      userInfo: dataDict
+    )
   }
 }

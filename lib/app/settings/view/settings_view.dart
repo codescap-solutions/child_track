@@ -95,7 +95,7 @@ class _SettingsViewState extends State<SettingsView> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            "chils code $_childId" ?? 'No child connected',
+                            "Child code $_childId" ?? 'No child connected',
                             style: AppTextStyles.caption.copyWith(
                               color: AppColors.textSecondary,
                             ),

@@ -36,4 +36,22 @@ class LocationInfo {
       durationMinutes: json['duration_minutes'] ?? 0,
     );
   }
+
+  LocationInfo copyWith({
+    double? lat,
+    double? lng,
+    String? address,
+    String? placeName,
+    String? since,
+    num? durationMinutes,
+  }) {
+    return LocationInfo(
+      lat: lat ?? this.lat,
+      lng: lng ?? this.lng,
+      address: address ?? this.address,
+      placeName: placeName ?? this.placeName,
+      since: since ?? this.since,
+      durationMinutes: durationMinutes ?? this.durationMinutes,
+    );
+  }
 }
