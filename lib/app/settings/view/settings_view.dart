@@ -95,7 +95,7 @@ class _SettingsViewState extends State<SettingsView> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            "Child code $_childId" ?? 'No child connected',
+                            "Child code $_childId",
                             style: AppTextStyles.caption.copyWith(
                               color: AppColors.textSecondary,
                             ),
@@ -343,7 +343,7 @@ class _SettingsViewState extends State<SettingsView> {
                       ),
                       onTap: () {},
                     ),
-                     SettingTile(
+                    SettingTile(
                       subtitle: 'About the app',
                       leading: const Icon(
                         Icons.logout,
@@ -357,7 +357,11 @@ class _SettingsViewState extends State<SettingsView> {
                       ),
                       onTap: () {
                         injector<SharedPrefsService>().logout();
-                        Navigator.pushNamedAndRemoveUntil(context, RouteNames.onBoarding, (route) => false);
+                        Navigator.pushNamedAndRemoveUntil(
+                          context,
+                          RouteNames.onBoarding,
+                          (route) => false,
+                        );
                       },
                     ),
                   ],

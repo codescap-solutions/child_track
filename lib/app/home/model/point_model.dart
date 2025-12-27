@@ -11,7 +11,7 @@ class Point {
 
   factory Point.fromJson(Map<String, dynamic> json) {
     // Helper function to safely convert to double (handles both string and number)
-    double _toDouble(dynamic value) {
+    double toDouble(dynamic value) {
       if (value == null) return 0.0;
       if (value is double) return value;
       if (value is int) return value.toDouble();
@@ -23,8 +23,8 @@ class Point {
 
     return Point(
       name: json['name'] ?? '',
-      lat: _toDouble(json['lat']),
-      lng: _toDouble(json['lng']),
+      lat: toDouble(json['lat']),
+      lng: toDouble(json['lng']),
     );
   }
 

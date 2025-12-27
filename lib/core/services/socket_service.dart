@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:child_track/core/utils/app_logger.dart';
 import 'package:flutter/foundation.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 
@@ -13,7 +14,7 @@ class SocketService {
   SocketService._internal();
 
   IO.Socket? _socket;
-  final String _serverUrl = "https://naviq-server.codescap.com:443";
+  final String _serverUrl = "wss://naviq-server.codescap.com";
 
   // Streams
   final _locationController =
@@ -30,7 +31,11 @@ class SocketService {
   bool get isConnected => _socket?.connected ?? false;
 
   void initSocket() {
-    if (_socket != null) return;
+    if (_socket != null) {
+      _socket!.disconnect();
+      _socket!.dispose();
+      _socket = null;
+    }
 
     _socket = IO.io(
       _serverUrl,
@@ -78,6 +83,7 @@ class SocketService {
     // Listen for server events
     _socket!.on('location_update', (data) {
       if (data != null && data is Map<String, dynamic>) {
+        AppLogger.debug(" location_update: $data");
         _locationController.add(data);
       }
     });

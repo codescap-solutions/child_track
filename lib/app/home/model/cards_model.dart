@@ -15,7 +15,7 @@ class ActivityCard {
 
   factory ActivityCard.fromJson(Map<String, dynamic> json) {
     // Helper function to safely convert to double (handles both string and number)
-    double _toDouble(dynamic value) {
+    double toDouble(dynamic value) {
       if (value == null) return 0.0;
       if (value is double) return value;
       if (value is int) return value.toDouble();
@@ -27,9 +27,9 @@ class ActivityCard {
 
     return ActivityCard(
       steps: json['steps'] ?? 0,
-      walkingKm: _toDouble(json['walking_km']),
-      routeKm: _toDouble(json['route_km']),
-      maxSpeedKmph: _toDouble(json['max_speed_kmph']),
+      walkingKm: toDouble(json['walking_km']),
+      routeKm: toDouble(json['route_km']),
+      maxSpeedKmph: toDouble(json['max_speed_kmph']),
       improvementPercentage: json['improvement_percentage'] ?? 0,
     );
   }

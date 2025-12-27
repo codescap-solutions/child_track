@@ -8,7 +8,6 @@ import 'package:child_track/core/utils/app_snackbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:child_track/core/widgets/common_button.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class ChildCodeScreen extends StatelessWidget {
   final String childCode;

@@ -18,11 +18,7 @@ class TripRouteMap extends StatefulWidget {
 
 class _TripRouteMapState extends State<TripRouteMap> {
   GoogleMapController? _mapController;
-  final Set<Polyline> _polylines = {};
   final Set<Marker> _markers = {};
-  BitmapDescriptor? _startMarkerIcon;
-  BitmapDescriptor? _endMarkerIcon; 
-  BitmapDescriptor? _intermediateMarkerIcon;
   final LocationService _locationService = LocationService();
   Position? _currentPosition;
   bool _isLoading = true;

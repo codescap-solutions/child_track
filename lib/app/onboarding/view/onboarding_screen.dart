@@ -1,5 +1,4 @@
 import 'package:child_track/app/auth/view/onboarding/connect_to_parent_screen.dart';
-import 'package:child_track/app/home/view/home_page.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:child_track/core/constants/app_colors.dart';

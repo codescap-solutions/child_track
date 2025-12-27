@@ -57,7 +57,7 @@ class _HomePageState extends State<HomePage> {
     final Canvas canvas = Canvas(recorder);
 
     // Responsive battery size
-    final double width = size * 1; // FIXED: No more hard-coded 300
+    final double width = size * 1; 
     final double height = size * 0.5;
     final double cornerRadius = size * 0.1;
     final double terminalWidth = size * 0.12;
