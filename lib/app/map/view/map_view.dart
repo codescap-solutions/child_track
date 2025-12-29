@@ -165,7 +165,7 @@ class _MapViewWidgetState extends State<MapViewWidget> {
                     child: GoogleMap(
                       mapType: currentMapType,
                       mapToolbarEnabled: true,
-                      zoomControlsEnabled: false,
+                      zoomControlsEnabled: true,
                       compassEnabled: false,
                       gestureRecognizers: widget.interactive
                           ? <Factory<OneSequenceGestureRecognizer>>{

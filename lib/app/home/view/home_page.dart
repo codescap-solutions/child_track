@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:child_track/core/navigation/app_router.dart';
 import 'package:child_track/core/navigation/route_names.dart';
@@ -768,12 +769,23 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildNoChildConnectedUI(BuildContext context) {
-    return Center(
+    final screenHeight = MediaQuery.of(context).size.height;
+    final bottomSheetHeight = screenHeight * 0.4;
+    
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        minHeight: bottomSheetHeight - 100, // Account for padding and drag handle
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(AppSizes.paddingXL),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSizes.paddingXL,
+          vertical: AppSizes.paddingL,
+        ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            const SizedBox(height: AppSizes.spacingL),
             Container(
               width: 120,
               height: 120,
@@ -797,22 +809,29 @@ class _HomePageState extends State<HomePage> {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: AppSizes.spacingM),
-            Text(
-              'Please connect and add a matched child to view tracking information.',
-              style: AppTextStyles.body1.copyWith(
-                color: AppColors.textSecondary,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingS),
+              child: Text(
+                'Please connect and add a matched child to view tracking information.',
+                style: AppTextStyles.body1.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
             ),
             const SizedBox(height: AppSizes.spacingXL),
-            CommonButton(
-              text: 'Add Child',
-              onPressed: () {
-                // Navigate to add child screen or connect screen
-                Navigator.of(context).pushNamed('/add-child');
-              },
-              width: double.infinity,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingM),
+              child: CommonButton(
+                text: 'Add Child',
+                onPressed: () {
+                  // Navigate to add child screen or connect screen
+                  Navigator.of(context).pushNamed('/add-child');
+                },
+                width: double.infinity,
+              ),
             ),
+            const SizedBox(height: AppSizes.spacingL),
           ],
         ),
       ),
@@ -838,6 +857,7 @@ class _HomeMapBackgroundState extends State<_HomeMapBackground> {
   BitmapDescriptor? _cachedMarkerIcon;
   int? _cachedBatteryPercentage;
   GoogleMapController? _mapController;
+  LatLng? _lastAnimatedLocation;
 
   @override
   void initState() {
@@ -859,7 +879,37 @@ class _HomeMapBackgroundState extends State<_HomeMapBackground> {
 
   void _animateTo(LatLng target) {
     if (_mapController == null) return;
+    
+    // Check if this is a significantly different location (at least 10 meters)
+    // This prevents unnecessary animations for minor GPS fluctuations
+    if (_lastAnimatedLocation != null) {
+      final distance = _calculateDistance(
+        _lastAnimatedLocation!.latitude,
+        _lastAnimatedLocation!.longitude,
+        target.latitude,
+        target.longitude,
+      );
+      // Only animate if moved more than 10 meters
+      if (distance < 10.0) { // 10 meters
+        return;
+      }
+    }
+    
+    _lastAnimatedLocation = target;
     _mapController!.animateCamera(CameraUpdate.newLatLngZoom(target, 15.0));
+  }
+
+  double _calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+    // Haversine formula to calculate distance between two points in meters
+    const double earthRadius = 6371000; // meters
+    final double dLat = (lat2 - lat1) * (math.pi / 180);
+    final double dLon = (lon2 - lon1) * (math.pi / 180);
+    final double a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(lat1 * (math.pi / 180)) *
+            math.cos(lat2 * (math.pi / 180)) *
+            math.sin(dLon / 2) * math.sin(dLon / 2);
+    final double c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+    return earthRadius * c;
   }
 
   @override
@@ -878,17 +928,35 @@ class _HomeMapBackgroundState extends State<_HomeMapBackground> {
         return prev.runtimeType != curr.runtimeType;
       },
       listener: (context, state) {
-        if (state is HomepageSuccess) {
-          final loc = state.currentLocation != null
-              ? LatLng(state.currentLocation!.lat, state.currentLocation!.lng)
-              : widget.defaultLocation;
-          _animateTo(loc);
+        if (state is HomepageSuccess && state.currentLocation != null) {
+          final loc = LatLng(state.currentLocation!.lat, state.currentLocation!.lng);
+          
+          // Load marker icon first
           final battery = state.deviceInfo?.batteryPercentage ?? 0;
           _loadMarkerIcon(battery);
+          
+          // Animate to location - always try to animate when location updates
+          if (_mapController != null) {
+            // Use a small delay to ensure map is ready
+            Future.delayed(const Duration(milliseconds: 100), () {
+              if (mounted && _mapController != null) {
+                _animateTo(loc);
+              }
+            });
+          } else {
+            // If controller not ready yet, reset last location so it will animate when controller is ready
+            _lastAnimatedLocation = null;
+          }
         }
       },
       child: BlocBuilder<HomepageBloc, HomepageState>(
         buildWhen: (prev, curr) {
+          // Always rebuild when state type changes
+          if (prev.runtimeType != curr.runtimeType) {
+            return true;
+          }
+          
+          // For HomepageSuccess states, rebuild if location or battery changed
           if (prev is HomepageSuccess && curr is HomepageSuccess) {
             final locChanged =
                 prev.currentLocation?.lat != curr.currentLocation?.lat ||
@@ -898,7 +966,8 @@ class _HomeMapBackgroundState extends State<_HomeMapBackground> {
                 curr.deviceInfo?.batteryPercentage;
             return locChanged || batteryChanged;
           }
-          return prev.runtimeType != curr.runtimeType;
+          
+          return false;
         },
         builder: (context, state) {
           final battery = state is HomepageSuccess && state.deviceInfo != null
@@ -937,7 +1006,15 @@ class _HomeMapBackgroundState extends State<_HomeMapBackground> {
             myLocationButtonEnabled: false,
             onMapCreated: (controller) {
               _mapController = controller;
-              _animateTo(location);
+              // Animate to current location when map is created
+              // Use a small delay to ensure map is fully initialized
+              Future.delayed(const Duration(milliseconds: 300), () {
+                if (mounted && _mapController != null) {
+                  // Reset last animated location to force animation
+                  _lastAnimatedLocation = null;
+                  _animateTo(location);
+                }
+              });
             },
           );
         },

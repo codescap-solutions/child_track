@@ -151,9 +151,9 @@ import UserNotifications
 
 // MARK: - UNUserNotificationCenterDelegate
 @available(iOS 10, *)
-extension AppDelegate: UNUserNotificationCenterDelegate {
+extension AppDelegate {
   // Receive displayed notifications for iOS 10 devices
-  func userNotificationCenter(_ center: UNUserNotificationCenter,
+  override func userNotificationCenter(_ center: UNUserNotificationCenter,
                               willPresent notification: UNNotification,
                               withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
     let userInfo = notification.request.content.userInfo
@@ -171,7 +171,7 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
   }
   
   // Handle notification tap
-  func userNotificationCenter(_ center: UNUserNotificationCenter,
+  override func userNotificationCenter(_ center: UNUserNotificationCenter,
                               didReceive response: UNNotificationResponse,
                               withCompletionHandler completionHandler: @escaping () -> Void) {
     let userInfo = response.notification.request.content.userInfo

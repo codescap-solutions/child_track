@@ -343,8 +343,16 @@ class _SettingsViewState extends State<SettingsView> {
                       ),
                       onTap: () {},
                     ),
+                     Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: const Divider(
+                        height: 1,
+                        endIndent: 20,
+                        indent: 20,
+                      ),
+                    ),
                     SettingTile(
-                      subtitle: 'About the app',
+                      subtitle: 'Logout the app',
                       leading: const Icon(
                         Icons.logout,
                         color: AppColors.textSecondary,

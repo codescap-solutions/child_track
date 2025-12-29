@@ -1,4 +1,3 @@
-import 'package:child_track/app/home/view/home_page.dart';
 import 'package:child_track/app/home/model/device_model.dart';
 import 'package:child_track/app/childapp/view_model/bloc/child_bloc.dart';
 import 'package:child_track/core/di/injector.dart';
@@ -9,6 +8,8 @@ import 'package:child_track/core/constants/app_sizes.dart';
 import 'package:child_track/core/constants/app_text_styles.dart';
 import 'package:child_track/core/widgets/common_button.dart';
 import 'package:child_track/core/services/shared_prefs_service.dart';
+import 'package:child_track/core/services/socket_service.dart';
+import 'package:child_track/core/navigation/route_names.dart';
 
 class SosView extends StatelessWidget {
   const SosView({super.key});
@@ -99,6 +100,85 @@ class _SosViewContent extends StatelessWidget {
     );
   }
 
+  void _handleLogout(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppSizes.radiusL),
+        ),
+        title: Text(
+          'Logout',
+          style: AppTextStyles.headline6.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Text(
+          'Are you sure you want to logout?',
+          style: AppTextStyles.body2,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(
+              'Cancel',
+              style: AppTextStyles.body2.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.of(dialogContext).pop();
+              await _performLogout(context);
+            },
+            child: Text(
+              'Logout',
+              style: AppTextStyles.body2.copyWith(
+                color: AppColors.error,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _performLogout(BuildContext context) async {
+    try {
+      // Disconnect socket service
+      final socketService = injector<SocketService>();
+      if (socketService.isConnected) {
+        final childId = injector<SharedPrefsService>().getString('child_id');
+        if (childId != null) {
+          socketService.leaveRoom(childId);
+        }
+        socketService.disconnect();
+      }
+
+      // Clear all user data
+      final sharedPrefsService = injector<SharedPrefsService>();
+      await sharedPrefsService.logout();
+
+      // Navigate to onboarding screen and remove all previous routes
+      if (context.mounted) {
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          RouteNames.onBoarding,
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      // Even if there's an error, try to navigate to onboarding
+      if (context.mounted) {
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          RouteNames.onBoarding,
+          (route) => false,
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocListener<ChildBloc, ChildState>(
@@ -183,23 +263,25 @@ class _SosViewContent extends StatelessWidget {
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
+                             const SizedBox(height: 4),
+                     Text('+91 889656 2587',
+                      style: AppTextStyles.button.copyWith(
+                                color: AppColors.surfaceColor,
+                              ),),
                           ],
                         ),
                       ),
                     ),
                     const Spacer(),
-                    const SizedBox(height: 4),
-                    const Text('+91 889656 2587'),
+                   
                     const SizedBox(
                       height: AppSizes.spacingXL,
                       width: double.infinity,
                     ),
                     CommonButton(
-                      text: 'Next',
-                      onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const HomePage()),
-                      ),
+                      height: 50,
+                      text: 'Logout',
+                      onPressed: () => _handleLogout(context),
                     ),
                   ],
                 ),

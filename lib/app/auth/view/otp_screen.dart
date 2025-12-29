@@ -186,6 +186,7 @@ class _OtpScreenState extends State<OtpScreen> {
       builder: (context, state) {
         final isLoading = state is AuthLoading;
         return CommonButton(
+          textColor: AppColors.primaryColor,
           text: AppStrings.resendOtp,
           onPressed: isLoading ? null : _resendOtp,
           isOutlined: true,

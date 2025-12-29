@@ -181,12 +181,27 @@ class MapBloc extends Bloc<MapEvent, MapState> {
   ) async {
     final currentState = state;
     if (currentState is! MapLoaded) return;
+    
+    // Replace the existing child location marker instead of adding a new one
+    const childMarkerId = MarkerId('child_location');
+    final existingMarkers = currentState.markers
+        .where((marker) => marker.markerId != childMarkerId)
+        .toList();
+    
     final newMarker = Marker(
       consumeTapEvents: false,
-      markerId: MarkerId(event.currentLocation.toString()),
+      markerId: childMarkerId,
       position: event.currentLocation,
     );
-    final updatedMarkers = [...currentState.markers, newMarker];
+    
+    final updatedMarkers = [...existingMarkers, newMarker];
+
+    // Animate camera to new location
+    if (_mapController != null) {
+      _mapController!.animateCamera(
+        CameraUpdate.newLatLngZoom(event.currentLocation, 15.0),
+      );
+    }
 
     emit(
       currentState.copyWith(
@@ -195,12 +210,6 @@ class MapBloc extends Bloc<MapEvent, MapState> {
         currentPosition: event.currentLocation,
       ),
     );
-    // If we have more than one marker, calculate directions
-    if (updatedMarkers.length > 1) {
-      await _getDirections(updatedMarkers, emit);
-    } else {
-      emit(currentState.copyWith(markers: updatedMarkers, isLoading: false));
-    }
   }
 
   @override

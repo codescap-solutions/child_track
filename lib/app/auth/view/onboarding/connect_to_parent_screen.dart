@@ -65,12 +65,12 @@ class _ConnectToParentScreenState extends State<ConnectToParentScreen> {
                     onPressed: _isLoading ? null : _connectToParent,
                     isLoading: _isLoading,
                   ),
-                  const SizedBox(height: AppSizes.spacingM),
-                  CommonButton(
-                    text: 'Skip for now',
-                    onPressed: _isLoading ? null : _skipConnection,
-                    isOutlined: true,
-                  ),
+                  // const SizedBox(height: AppSizes.spacingM),
+                  // CommonButton(
+                  //   text: 'Skip for now',
+                  //   onPressed: _isLoading ? null : _skipConnection,
+                  //   isOutlined: true,
+                  // ),
                 ],
               ),
             ),

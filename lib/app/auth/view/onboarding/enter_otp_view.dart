@@ -67,7 +67,9 @@ class _EnterOtpViewState extends State<EnterOtpView> {
                   Text("Didn't get OTP? "),
                   Text(
                     'Resend OTP',
-                    style: TextStyle(color: AppColors.primaryColor),
+                    style: TextStyle(
+                      
+                      color: AppColors.primaryColor),
                   ),
                 ],
               ),

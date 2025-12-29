@@ -39,7 +39,7 @@ class ChildGoogleMapsRepo {
     try {
       return await _locationService.getAddressAndPlaceName(latitude, longitude);
     } catch (e) {
-      return {'address': 'Unknown', 'place_name': 'Unknown'};
+      return {'address': 'Unknown-1', 'place_name': 'Unknown -2'};
     }
   }
 }
