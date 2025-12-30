@@ -2,6 +2,7 @@ import 'package:child_track/app/auth/view_model/bloc/auth_bloc.dart';
 import 'package:child_track/core/services/connectivity/bloc/connectivity_bloc.dart';
 import 'package:child_track/core/services/shared_prefs_service.dart';
 import 'package:child_track/core/services/firebase_notification_service.dart';
+import 'package:child_track/core/services/background_location_service.dart';
 import 'package:child_track/core/utils/app_snackbar.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -33,6 +34,9 @@ void main() async {
 
   // Initialize Firebase Notification Service
   await injector<FirebaseNotificationService>().initialize();
+
+  // Initialize Background Location Service
+  await BackgroundLocationService().initialize();
 
   runApp(const ChildTrackApp());
 }

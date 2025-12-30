@@ -272,6 +272,51 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  /// Format address to hide plus codes (e.g. "F9FJ+GQF,") and pin codes,
+  /// showing only locality and state (e.g. "Devala, Tamil Nadu").
+  String _formatAddress(String? address) {
+    if (address == null) return '';
+    final trimmed = address.trim();
+    if (trimmed.isEmpty) return '';
+
+    // Split by comma into parts
+    final rawParts = trimmed.split(',');
+    final parts = rawParts
+        .map((p) => p.trim())
+        .where((p) => p.isNotEmpty)
+        .toList();
+
+    if (parts.isEmpty) return trimmed;
+
+    // Detect and skip leading plus code part like "F9FJ+GQF"
+    final plusCodeRegex = RegExp(r'^[A-Z0-9+]{4,}$');
+    int startIndex = 0;
+    if (plusCodeRegex.hasMatch(parts.first)) {
+      startIndex = 1;
+    }
+
+    if (startIndex >= parts.length) {
+      return parts.last;
+    }
+
+    // Locality (e.g. "Devala")
+    final locality = parts[startIndex];
+
+    // State part (e.g. "Tamil Nadu 643270" -> "Tamil Nadu")
+    String? statePart;
+    if (startIndex + 1 < parts.length) {
+      statePart = parts[startIndex + 1];
+      // Drop trailing pin code / numbers from state part
+      statePart = statePart.replaceFirst(RegExp(r'\s*\d.*$'), '').trim();
+    }
+
+    if (statePart == null || statePart.isEmpty) {
+      return locality;
+    }
+
+    return '$locality, $statePart';
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
@@ -425,7 +470,7 @@ class _HomePageState extends State<HomePage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '${state.currentLocation?.placeName} at ${state.currentLocation?.address}',
+                          _formatAddress(state.currentLocation?.address),
                           style: AppTextStyles.headline3.copyWith(
                             fontWeight: FontWeight.bold,
                           ),

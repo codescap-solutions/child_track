@@ -53,6 +53,10 @@
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>This app needs access to your location to show your current position on the map.</string>
 	<!-- URL Schemes for app detection -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+	</array>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>prefs</string>

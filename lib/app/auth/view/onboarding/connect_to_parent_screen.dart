@@ -1,10 +1,13 @@
 import 'package:child_track/app/childapp/view/sos_view.dart';
 import 'package:child_track/app/childapp/view_model/repository/child_repo.dart';
 import 'package:child_track/core/di/injector.dart';
+import 'package:child_track/core/services/location_service.dart';
+import 'package:child_track/core/services/background_location_service.dart';
 import 'package:child_track/core/utils/app_logger.dart';
 import 'package:child_track/core/utils/app_snackbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:child_track/core/constants/app_colors.dart';
 import 'package:child_track/core/constants/app_sizes.dart';
 import 'package:child_track/core/constants/app_text_styles.dart';
@@ -172,18 +175,41 @@ class _ConnectToParentScreenState extends State<ConnectToParentScreen> {
       setState(() => _isLoading = true);
       try {
         final childCode = _childCodeController.text.trim().toUpperCase();
-        
+
         AppLogger.info('Logging in with child code: $childCode');
-        
+
         // Call child login API
         final response = await _childRepo.childLogin(childCode: childCode);
-        
+
         if (response.isSuccess) {
           AppLogger.info('Child login successful');
+
+          // Ensure location permission is set to "always allow"
+          final locationService = LocationService();
+          bool hasAlwaysPermission = await _ensureAlwaysAllowPermission(context, locationService);
           
+          if (!mounted) return;
+          
+          if (!hasAlwaysPermission) {
+            // Permission not granted - show error and don't proceed
+            AppSnackbar.showError(
+              context,
+              'Location permission must be set to "Always Allow" to track your location in background.',
+            );
+            return;
+          }
+
+          // Start background location service for continuous tracking
+          try {
+            await BackgroundLocationService().start();
+            AppLogger.info('Background location service started');
+          } catch (e) {
+            AppLogger.error('Failed to start background service: $e');
+          }
+
           if (mounted) {
             AppSnackbar.showSuccess(context, 'Connected successfully!');
-            
+
             // Navigate to SOS view (child app main screen)
             Navigator.of(context).pushReplacement(
               MaterialPageRoute(
@@ -207,6 +233,129 @@ class _ConnectToParentScreenState extends State<ConnectToParentScreen> {
         }
       }
     }
+  }
+
+  /// Ensure location permission is set to "always allow"
+  /// Shows dialog repeatedly until user grants "always allow" permission
+  Future<bool> _ensureAlwaysAllowPermission(
+    BuildContext context,
+    LocationService locationService,
+  ) async {
+    int maxAttempts = 5; // Prevent infinite loop
+    int attempts = 0;
+
+    while (attempts < maxAttempts) {
+      attempts++;
+      
+      // Request "always allow" permission
+      final hasAlwaysPermission = await locationService.requestAlwaysAllowPermission();
+      
+      if (hasAlwaysPermission) {
+        AppLogger.info('Always allow permission granted');
+        return true;
+      }
+
+      // Check current permission status
+      final currentPermission = await locationService.checkPermission();
+      
+      if (!mounted) return false;
+
+      // Show dialog explaining why "always allow" is needed
+      final shouldRetry = await _showLocationPermissionDialog(
+        context,
+        currentPermission == LocationPermission.deniedForever,
+      );
+
+      if (!shouldRetry) {
+        // User cancelled or doesn't want to grant permission
+        return false;
+      }
+
+      // If permanently denied, try to open settings
+      if (currentPermission == LocationPermission.deniedForever) {
+        final openedSettings = await locationService.openLocationSettings();
+        if (openedSettings) {
+          // Wait a bit for user to change settings, then check again
+          await Future.delayed(const Duration(seconds: 2));
+          continue;
+        }
+      }
+    }
+
+    // Max attempts reached
+    return false;
+  }
+
+  /// Show dialog explaining why "always allow" permission is needed
+  Future<bool> _showLocationPermissionDialog(
+    BuildContext context,
+    bool isPermanentlyDenied,
+  ) async {
+    return await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppSizes.radiusL),
+        ),
+        title: Text(
+          'Location Permission Required',
+          style: AppTextStyles.headline6.copyWith(
+            fontWeight: FontWeight.bold,
+            color: AppColors.primaryColor,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'This app needs "Always Allow" location permission to track your location in the background, even when the app is closed.',
+              style: AppTextStyles.body2,
+            ),
+            const SizedBox(height: AppSizes.spacingM),
+            if (isPermanentlyDenied)
+              Text(
+                'Please enable "Always Allow" location permission in your device settings.',
+                style: AppTextStyles.body2.copyWith(
+                  color: AppColors.error,
+                  fontWeight: FontWeight.w600,
+                ),
+              )
+            else
+              Text(
+                'Please select "Always Allow" when prompted.',
+                style: AppTextStyles.body2.copyWith(
+                  color: AppColors.primaryColor,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+          ],
+        ),
+        actions: [
+          if (isPermanentlyDenied)
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(
+                'Cancel',
+                style: AppTextStyles.body2.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(
+              isPermanentlyDenied ? 'Open Settings' : 'Grant Permission',
+              style: AppTextStyles.body2.copyWith(
+                color: AppColors.primaryColor,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    ) ?? false;
   }
 
   void _skipConnection() {

@@ -1,6 +1,7 @@
 import 'package:child_track/app/home/model/device_model.dart';
 import 'package:child_track/app/childapp/view_model/bloc/child_bloc.dart';
 import 'package:child_track/core/di/injector.dart';
+import 'package:child_track/core/utils/app_logger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:child_track/core/constants/app_colors.dart';
@@ -9,6 +10,7 @@ import 'package:child_track/core/constants/app_text_styles.dart';
 import 'package:child_track/core/widgets/common_button.dart';
 import 'package:child_track/core/services/shared_prefs_service.dart';
 import 'package:child_track/core/services/socket_service.dart';
+import 'package:child_track/core/services/background_location_service.dart';
 import 'package:child_track/core/navigation/route_names.dart';
 
 class SosView extends StatelessWidget {
@@ -147,6 +149,24 @@ class _SosViewContent extends StatelessWidget {
 
   Future<void> _performLogout(BuildContext context) async {
     try {
+      // Stop ChildBloc timers and tracking
+      try {
+        final childBloc = injector<ChildBloc>();
+        childBloc.stopChildTracking();
+        AppLogger.info('ChildBloc: Stopped all tracking activities');
+      } catch (e) {
+        AppLogger.error('Error stopping ChildBloc: $e');
+      }
+
+      // Stop background location service
+      try {
+        await BackgroundLocationService().stop();
+        AppLogger.info('Background location service stopped');
+      } catch (e) {
+        // Ignore errors if service wasn't running
+        AppLogger.warning('Error stopping background service: $e');
+      }
+
       // Disconnect socket service
       final socketService = injector<SocketService>();
       if (socketService.isConnected) {
