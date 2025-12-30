@@ -96,13 +96,18 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
         }
 
         final tripsToUse = homeData.yesterdayTrips;
-
+        _mapBloc.add(
+          UpdateChildLocation(
+            LatLng(homeData.currentLocation.lat, homeData.currentLocation.lng),
+          ),
+        );
         emit(
           HomepageSuccess(
             deviceInfo: homeData.deviceInfo,
             yesterdayTrips: tripsToUse,
             yesterdayTripSummary: homeData.yesterdayTripSummary,
             cards: homeData.cards,
+            currentLocation: homeData.currentLocation,
             isLoading: false,
             hasNoChild: false,
           ),
