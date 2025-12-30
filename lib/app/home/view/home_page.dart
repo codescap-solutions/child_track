@@ -85,7 +85,7 @@ class _HomePageState extends State<HomePage> {
       // Load main marker image
       final Uint8List markerIconBytes = await _getBytesFromAsset(
         'assets/images/images.png',
-        250,
+        150,
       );
 
       return BitmapDescriptor.bytes(markerIconBytes);
@@ -921,6 +921,7 @@ class _HomeMapBackgroundState extends State<_HomeMapBackground> {
             currentPosition: location,
             markers: markers.toList(),
             myLocationEnabled: false,
+            minZoom: 0.0,
             myLocationButtonEnabled: false,
             onMapCreated: (controller) {
               _mapController = controller;

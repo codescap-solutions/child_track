@@ -19,8 +19,8 @@ class MapViewWidget extends StatefulWidget {
     this.onMapCreated,
     this.myLocationEnabled = true,
     this.myLocationButtonEnabled = true,
-    this.minZoom = 5.0,
-    this.maxZoom = 15.0,
+    this.minZoom = 1.0,
+    this.maxZoom = 20.0,
   });
   final double width, height;
   final bool interactive, isPolyLines;

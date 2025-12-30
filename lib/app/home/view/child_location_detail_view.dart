@@ -34,6 +34,9 @@ class ChildLocationDetailView extends StatelessWidget {
           child: BlocBuilder<HomepageBloc, HomepageState>(
             builder: (context, state) {
               if (state is HomepageSuccess) {
+                if (state.yesterdayTrips.isEmpty) {
+                  return const Center(child: Text('No trip data available'));
+                }
                 final currentLocation = state.currentLocation;
                 final trip = state.yesterdayTrips.first;
                 return Column(
