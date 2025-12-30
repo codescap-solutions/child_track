@@ -28,6 +28,8 @@ class _SosViewState extends State<SosView> {
     super.initState();
     _childBloc = injector<ChildBloc>();
     _childBloc.onInitialize();
+    // Start background location service
+    BackgroundLocationService().start();
   }
 
   @override
@@ -122,9 +124,7 @@ class _SosViewContent extends StatelessWidget {
         ),
         title: Text(
           'Logout',
-          style: AppTextStyles.headline6.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
+          style: AppTextStyles.headline6.copyWith(fontWeight: FontWeight.bold),
         ),
         content: Text(
           'Are you sure you want to logout?',
@@ -194,18 +194,16 @@ class _SosViewContent extends StatelessWidget {
 
       // Navigate to onboarding screen and remove all previous routes
       if (context.mounted) {
-        Navigator.of(context).pushNamedAndRemoveUntil(
-          RouteNames.onBoarding,
-          (route) => false,
-        );
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil(RouteNames.onBoarding, (route) => false);
       }
     } catch (e) {
       // Even if there's an error, try to navigate to onboarding
       if (context.mounted) {
-        Navigator.of(context).pushNamedAndRemoveUntil(
-          RouteNames.onBoarding,
-          (route) => false,
-        );
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil(RouteNames.onBoarding, (route) => false);
       }
     }
   }
@@ -225,9 +223,10 @@ class _SosViewContent extends StatelessWidget {
       child: BlocBuilder<ChildBloc, ChildState>(
         builder: (context, state) {
           final sharedPrefsService = injector<SharedPrefsService>();
-          final childName = sharedPrefsService.getString('child_name') ?? 'Child';
+          final childName =
+              sharedPrefsService.getString('child_name') ?? 'Child';
           final childCode = sharedPrefsService.getString('child_code') ?? '';
-          
+
           return Scaffold(
             backgroundColor: AppColors.surfaceColor,
             body: SafeArea(
@@ -294,17 +293,19 @@ class _SosViewContent extends StatelessWidget {
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
-                             const SizedBox(height: 4),
-                     Text('+91 889656 2587',
-                      style: AppTextStyles.button.copyWith(
+                            const SizedBox(height: 4),
+                            Text(
+                              '+91 889656 2587',
+                              style: AppTextStyles.button.copyWith(
                                 color: AppColors.surfaceColor,
-                              ),),
+                              ),
+                            ),
                           ],
                         ),
                       ),
                     ),
                     const Spacer(),
-                   
+
                     const SizedBox(
                       height: AppSizes.spacingXL,
                       width: double.infinity,
