@@ -196,6 +196,23 @@ class _ConnectToParentScreenState extends State<ConnectToParentScreen> {
               context,
               'Location permission must be set to "Always Allow" to track your location in background.',
             );
+            setState(() => _isLoading = false);
+            return;
+          }
+
+          // Wait a moment after permission is granted to ensure system has updated
+          await Future.delayed(const Duration(milliseconds: 500));
+
+          // Verify permission one more time before starting service
+          final finalPermission = await locationService.checkPermission();
+          if (finalPermission != LocationPermission.always) {
+            if (mounted) {
+              AppSnackbar.showError(
+                context,
+                'Please ensure "Always Allow" permission is enabled in Settings.',
+              );
+              setState(() => _isLoading = false);
+            }
             return;
           }
 
@@ -203,8 +220,17 @@ class _ConnectToParentScreenState extends State<ConnectToParentScreen> {
           try {
             await BackgroundLocationService().start();
             AppLogger.info('Background location service started');
-          } catch (e) {
+          } catch (e, stackTrace) {
             AppLogger.error('Failed to start background service: $e');
+            AppLogger.error('Stack trace: $stackTrace');
+            if (mounted) {
+              AppSnackbar.showError(
+                context,
+                'Failed to start location tracking. Please try again.',
+              );
+              setState(() => _isLoading = false);
+              return;
+            }
           }
 
           if (mounted) {
@@ -248,7 +274,9 @@ class _ConnectToParentScreenState extends State<ConnectToParentScreen> {
       attempts++;
       
       // Request "always allow" permission
-      final hasAlwaysPermission = await locationService.requestAlwaysAllowPermission();
+      final result = await locationService.requestAlwaysAllowPermission();
+      final hasAlwaysPermission = result['granted'] as bool;
+      final needsSettings = result['needsSettings'] as bool;
       
       if (hasAlwaysPermission) {
         AppLogger.info('Always allow permission granted');
@@ -261,9 +289,11 @@ class _ConnectToParentScreenState extends State<ConnectToParentScreen> {
       if (!mounted) return false;
 
       // Show dialog explaining why "always allow" is needed
+      // If needsSettings is true, it means user needs to go to Settings to enable "Always allow"
       final shouldRetry = await _showLocationPermissionDialog(
         context,
-        currentPermission == LocationPermission.deniedForever,
+        needsSettings || currentPermission == LocationPermission.deniedForever,
+        currentPermission == LocationPermission.whileInUse,
       );
 
       if (!shouldRetry) {
@@ -271,12 +301,24 @@ class _ConnectToParentScreenState extends State<ConnectToParentScreen> {
         return false;
       }
 
-      // If permanently denied, try to open settings
-      if (currentPermission == LocationPermission.deniedForever) {
+      // If needs settings or permanently denied, try to open settings
+      if (needsSettings || currentPermission == LocationPermission.deniedForever) {
         final openedSettings = await locationService.openLocationSettings();
         if (openedSettings) {
-          // Wait a bit for user to change settings, then check again
-          await Future.delayed(const Duration(seconds: 2));
+          // Wait longer for user to change settings and return to app
+          // The app might be resumed when user returns from Settings
+          await Future.delayed(const Duration(seconds: 3));
+          
+          // Check if app is still mounted after returning from Settings
+          if (!mounted) return false;
+          
+          // Re-check permission after returning from Settings
+          final recheckPermission = await locationService.checkPermission();
+          if (recheckPermission == LocationPermission.always) {
+            AppLogger.info('Always allow permission granted after returning from Settings');
+            return true;
+          }
+          
           continue;
         }
       }
@@ -289,7 +331,8 @@ class _ConnectToParentScreenState extends State<ConnectToParentScreen> {
   /// Show dialog explaining why "always allow" permission is needed
   Future<bool> _showLocationPermissionDialog(
     BuildContext context,
-    bool isPermanentlyDenied,
+    bool needsSettings,
+    bool hasWhileInUsePermission,
   ) async {
     return await showDialog<bool>(
       context: context,
@@ -314,13 +357,29 @@ class _ConnectToParentScreenState extends State<ConnectToParentScreen> {
               style: AppTextStyles.body2,
             ),
             const SizedBox(height: AppSizes.spacingM),
-            if (isPermanentlyDenied)
-              Text(
-                'Please enable "Always Allow" location permission in your device settings.',
-                style: AppTextStyles.body2.copyWith(
-                  color: AppColors.error,
-                  fontWeight: FontWeight.w600,
-                ),
+            if (needsSettings)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    hasWhileInUsePermission
+                        ? 'You have granted "While using the app" permission. To enable background tracking, please:'
+                        : 'Please enable "Always Allow" location permission in your device settings.',
+                    style: AppTextStyles.body2.copyWith(
+                      color: AppColors.error,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  if (hasWhileInUsePermission) ...[
+                    const SizedBox(height: AppSizes.spacingS),
+                    Text(
+                      '1. Tap "Open Settings" below\n2. Go to "Permissions" → "Location"\n3. Select "Allow all the time"',
+                      style: AppTextStyles.body2.copyWith(
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ],
+                ],
               )
             else
               Text(
@@ -333,7 +392,7 @@ class _ConnectToParentScreenState extends State<ConnectToParentScreen> {
           ],
         ),
         actions: [
-          if (isPermanentlyDenied)
+          if (needsSettings)
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
               child: Text(
@@ -346,7 +405,7 @@ class _ConnectToParentScreenState extends State<ConnectToParentScreen> {
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
             child: Text(
-              isPermanentlyDenied ? 'Open Settings' : 'Grant Permission',
+              needsSettings ? 'Open Settings' : 'Grant Permission',
               style: AppTextStyles.body2.copyWith(
                 color: AppColors.primaryColor,
                 fontWeight: FontWeight.w600,

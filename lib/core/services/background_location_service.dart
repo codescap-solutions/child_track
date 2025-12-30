@@ -189,6 +189,19 @@ void onStart(ServiceInstance service) async {
         return;
       }
 
+      // Check location permission before trying to get location
+      try {
+        final permission = await Geolocator.checkPermission();
+        if (permission != LocationPermission.whileInUse && 
+            permission != LocationPermission.always) {
+          AppLogger.warning('Location permission not granted for trip tracking: $permission');
+          return;
+        }
+      } catch (e) {
+        AppLogger.error('Error checking location permission for trip: $e');
+        // Continue anyway, getChildLocation will handle the error
+      }
+
       final newLocation = await childLocationRepo.getChildLocation();
       if (newLocation == null) return;
 
@@ -285,6 +298,21 @@ void onStart(ServiceInstance service) async {
         return;
       }
 
+      // Check location permission before trying to get location
+      try {
+        final permission = await Geolocator.checkPermission();
+        if (permission != LocationPermission.whileInUse && 
+            permission != LocationPermission.always) {
+          AppLogger.warning('Location permission not granted: $permission');
+          // Don't stop service, just skip this location update
+          // Permission might be granted later
+          return;
+        }
+      } catch (e) {
+        AppLogger.error('Error checking location permission: $e');
+        // Continue anyway, getChildLocation will handle the error
+      }
+
       final location = await childLocationRepo.getChildLocation();
       if (location == null) {
         AppLogger.warning('Failed to get location');
@@ -349,8 +377,11 @@ void onStart(ServiceInstance service) async {
     postLocation();
   });
 
-  // Initial location post
-  postLocation();
+  // Initial location post - delay to allow service to fully initialize
+  // and ensure permissions are ready
+  Future.delayed(const Duration(seconds: 2), () {
+    postLocation();
+  });
 }
 
 @pragma('vm:entry-point')
