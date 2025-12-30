@@ -96,13 +96,14 @@ class LocationService {
 
   /// Request location permission and ensure it's set to "always allow"
   /// Returns true if "always allow" permission is granted, false otherwise
-  Future<bool> requestAlwaysAllowPermission() async {
+  /// Returns a map with 'granted' (bool) and 'needsSettings' (bool) to indicate if user needs to go to settings
+  Future<Map<String, dynamic>> requestAlwaysAllowPermission() async {
     try {
       // First check if location services are enabled
       bool serviceEnabled = await isLocationServiceEnabled();
       if (!serviceEnabled) {
         AppLogger.warning('Location services are disabled');
-        return false;
+        return {'granted': false, 'needsSettings': false};
       }
 
       // Step 1: Request foreground location permission first
@@ -112,13 +113,13 @@ class LocationService {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
           AppLogger.warning('Location permissions are denied');
-          return false;
+          return {'granted': false, 'needsSettings': false};
         }
       }
 
       if (permission == LocationPermission.deniedForever) {
         AppLogger.warning('Location permissions are permanently denied');
-        return false;
+        return {'granted': false, 'needsSettings': true};
       }
 
       // Step 2: Ensure we have "always allow" permission
@@ -140,6 +141,7 @@ class LocationService {
           
           if (!backgroundStatus.isGranted) {
             // Request background permission - this will show system dialog
+            // On Android 10+, this may show a dialog that guides user to Settings
             final backgroundPermission = await permission_handler.Permission.locationAlways.request();
             
             if (backgroundPermission.isGranted) {
@@ -147,10 +149,12 @@ class LocationService {
               permission = LocationPermission.always;
             } else if (backgroundPermission.isPermanentlyDenied) {
               AppLogger.warning('Background location permission permanently denied');
-              return false; // User needs to enable it manually in settings
+              return {'granted': false, 'needsSettings': true};
             } else {
-              AppLogger.warning('Background location permission denied');
-              return false; // Not granted, need to request again
+              // On Android 10+, if not granted, user typically needs to go to Settings
+              // The system dialog usually guides them there
+              AppLogger.warning('Background location permission denied - user needs to enable in Settings');
+              return {'granted': false, 'needsSettings': true};
             }
           } else {
             AppLogger.info('Background location permission already granted');
@@ -164,23 +168,20 @@ class LocationService {
       final hasAlwaysPermission = finalPermission == LocationPermission.always;
       
       AppLogger.info('Final location permission: $finalPermission, hasAlwaysPermission: $hasAlwaysPermission');
-      return hasAlwaysPermission;
+      return {'granted': hasAlwaysPermission, 'needsSettings': !hasAlwaysPermission && permission == LocationPermission.whileInUse};
     } catch (e) {
       AppLogger.error('Error requesting always allow permission: $e');
-      return false;
+      return {'granted': false, 'needsSettings': false};
     }
   }
 
   /// Open app settings so user can manually enable "always allow" permission
   Future<bool> openLocationSettings() async {
     try {
-      // Check if permission is permanently denied
-      final backgroundStatus = await permission_handler.Permission.locationAlways.status;
-      if (backgroundStatus.isPermanentlyDenied) {
-        // Open app settings
-        return await permission_handler.openAppSettings();
-      }
-      return false;
+      // On Android 10+, users need to go to Settings to enable "Always allow"
+      // even if they've granted "While using the app" permission
+      // Open app settings to allow user to change permission
+      return await permission_handler.openAppSettings();
     } catch (e) {
       AppLogger.error('Error opening location settings: $e');
       return false;
