@@ -20,15 +20,17 @@ class SettingsView extends StatefulWidget {
 class _SettingsViewState extends State<SettingsView> {
   final _sharedPrefsService = SharedPrefsService();
   String? _childId;
+  String? _childName;
 
   @override
   void initState() {
     super.initState();
-    _loadChildId();
+    _loadChildData();
   }
 
-  void _loadChildId() {
+  void _loadChildData() {
     _childId = _sharedPrefsService.getString('child_code');
+    _childName = _sharedPrefsService.getString('child_name');
     setState(() {});
   }
 
@@ -80,7 +82,7 @@ class _SettingsViewState extends State<SettingsView> {
                           Row(
                             children: [
                               Text(
-                                'Child',
+                                _childName ?? 'Child',
                                 style: AppTextStyles.subtitle1.copyWith(
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -343,7 +345,7 @@ class _SettingsViewState extends State<SettingsView> {
                       ),
                       onTap: () {},
                     ),
-                     Padding(
+                    Padding(
                       padding: const EdgeInsets.all(8.0),
                       child: const Divider(
                         height: 1,

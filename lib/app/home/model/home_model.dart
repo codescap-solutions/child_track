@@ -5,6 +5,8 @@ import 'package:child_track/app/home/model/yesterday_trip_summary_model.dart';
 import 'package:child_track/app/home/model/cards_model.dart';
 
 class HomeResponse {
+  final String? childName;
+  final String? childCode;
   final DeviceInfo deviceInfo;
   final LocationInfo currentLocation;
   final YesterdayTripSummary? yesterdayTripSummary;
@@ -12,6 +14,8 @@ class HomeResponse {
   final List<TripSegment> yesterdayTrips; // kept for backward compatibility
 
   HomeResponse({
+    this.childName,
+    this.childCode,
     required this.deviceInfo,
     required this.currentLocation,
     this.yesterdayTripSummary,
@@ -21,6 +25,8 @@ class HomeResponse {
 
   factory HomeResponse.fromJson(Map<String, dynamic> json) {
     return HomeResponse(
+      childName: json['child_name'] as String?,
+      childCode: json['child_code'] as String?,
       deviceInfo: DeviceInfo.fromJson(json['device_info'] ?? {}),
       currentLocation: LocationInfo.fromJson(json['current_location'] ?? {}),
       yesterdayTripSummary: json['yesterday_trip_summary'] != null

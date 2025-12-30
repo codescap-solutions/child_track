@@ -77,6 +77,20 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
       final response = await _homeRepository.getHomeData(childId: childId);
       if (response.isSuccess && response.data != null) {
         final homeData = response.data!;
+
+        if (homeData.childName != null) {
+          await _sharedPrefsService.setString(
+            'child_name',
+            homeData.childName!,
+          );
+        }
+        if (homeData.childCode != null) {
+          await _sharedPrefsService.setString(
+            'child_code',
+            homeData.childCode!,
+          );
+        }
+
         final tripsToUse = homeData.yesterdayTrips;
 
         emit(
