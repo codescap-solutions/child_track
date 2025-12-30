@@ -28,7 +28,6 @@ class SocketService {
 
   Stream<Map<String, dynamic>> get locationStream => _locationController.stream;
   Stream<Map<String, dynamic>> get statusStream => _statusController.stream;
-  Stream<Map<String, dynamic>> get tripStream => _tripController.stream;
   Stream<bool> get connectionStatusStream => _connectionStatusController.stream;
 
   bool get isConnected => _socket?.connected ?? false;
@@ -393,7 +392,7 @@ class SocketService {
     _socket!.on('joined_room', (data) {
       log('[SocketService] ✅✅✅ Server confirmed: joined_room');
       log('[SocketService] Joined room data: $data');
-      log('[SocketService] ✅ Room join successful - should now receive location_update events');
+      log('[SocketService] ✅ Room join successful - should now receive location_ update events');
     });
     
     _socket!.on('room_join_success', (data) {

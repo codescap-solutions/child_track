@@ -35,7 +35,6 @@ class _HomePageState extends State<HomePage> {
   final SocketService _socketService = SocketService();
   final SharedPrefsService _sharedPrefsService = injector<SharedPrefsService>();
   StreamSubscription? _locationSubscription;
-  StreamSubscription? _tripSubscription;
 
   @override
   void initState() {
@@ -57,19 +56,12 @@ class _HomePageState extends State<HomePage> {
           injector<HomepageBloc>().add(UpdateSocketLocation(data));
         }
       });
-
-      _tripSubscription = _socketService.tripStream.listen((data) {
-        if (mounted) {
-          injector<HomepageBloc>().add(UpdateSocketTrip(data));
-        }
-      });
     }
   }
 
   @override
   void dispose() {
     _locationSubscription?.cancel();
-    _tripSubscription?.cancel();
     _bottomSheetScrollController.removeListener(_onScroll);
     _bottomSheetScrollController.dispose();
     super.dispose();

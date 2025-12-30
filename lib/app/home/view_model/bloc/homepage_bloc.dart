@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:child_track/app/home/model/device_model.dart';
-import 'package:child_track/app/home/model/home_model.dart';
 import 'package:child_track/app/home/model/last_trip_model.dart';
 import 'package:child_track/app/home/model/location_info_model.dart';
 import 'package:child_track/app/home/model/yesterday_trip_summary_model.dart';
@@ -23,24 +22,24 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
   final HomeRepository _homeRepository;
   final MapBloc _mapBloc;
   final SharedPrefsService _sharedPrefsService;
-  final SocketService _socketService = SocketService();
+  final SocketService _socketService;
   StreamSubscription? _locationSubscription;
-  StreamSubscription? _tripSubscription;
 
   HomepageBloc({
     required HomeRepository homeRepository,
     required MapBloc mapBloc,
     SharedPrefsService? sharedPrefsService,
+    required SocketService socketService,
   }) : _homeRepository = homeRepository,
        _mapBloc = mapBloc,
        _sharedPrefsService = sharedPrefsService ?? SharedPrefsService(),
+       _socketService = socketService,
        super(HomepageSuccess.initial()) {
     on<GetHomepageData>(_onGetHomepageData);
-    on<FetchChildCurrentDetails>(_onFetchChildCurrentDetails);
+    // on<FetchChildCurrentDetails>(_onFetchChildCurrentDetails);
     on<GetTrips>(_onGetTrips);
     on<GetTripDetail>(_onGetTripDetail);
     on<UpdateSocketLocation>(_onUpdateSocketLocation);
-    on<UpdateSocketTrip>(_onUpdateSocketTrip);
   }
 
   void _initSocketListeners(String childId) {
@@ -51,17 +50,11 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
     _locationSubscription = _socketService.locationStream.listen((data) {
       add(UpdateSocketLocation(data));
     });
-
-    _tripSubscription?.cancel();
-    _tripSubscription = _socketService.tripStream.listen((data) {
-      add(UpdateSocketTrip(data));
-    });
   }
 
   @override
   Future<void> close() {
     _locationSubscription?.cancel();
-    _tripSubscription?.cancel();
     _socketService.disconnect();
     return super.close();
   }
@@ -110,7 +103,7 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
       emit(HomepageError(message: 'Failed to load home data: ${e.toString()}'));
     }
   }
-
+  /*
   Future<void> _onFetchChildCurrentDetails(
     FetchChildCurrentDetails event,
     Emitter<HomepageState> emit,
@@ -143,6 +136,7 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
       emit(currentState.copyWith(isLoading: false));
     }
   }
+*/
 
   Future<void> _onGetTrips(GetTrips event, Emitter<HomepageState> emit) async {
     final currentState = state;
@@ -282,38 +276,6 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
     } catch (e, stackTrace) {
       AppLogger.error('Error handling socket location update: $e');
       AppLogger.error('Stack trace: $stackTrace');
-    }
-  }
-
-  Future<void> _onUpdateSocketTrip(
-    UpdateSocketTrip event,
-    Emitter<HomepageState> emit,
-  ) async {
-    final currentState = state;
-    if (currentState is! HomepageSuccess) return;
-
-    try {
-      final tripData = event.tripData;
-      // Handle trip updates
-      // IF tripData['id'] == currentState.selectedTripId, update details
-
-      final tripId = tripData['trip_id'] ?? tripData['_id'];
-      if (tripId != null && tripId == currentState.selectedTripId) {
-        // This assumes we can parse tripData to TripDetailModel or similar
-        // For now, let's just trigger a re-fetch or patch if model is compatible.
-        // Or emit new state if we can construct the object.
-
-        // Assuming we could just refresh:
-        add(GetTripDetail(tripId: tripId));
-      }
-
-      // Also might want to refresh the list if a trip ended/started
-      if (tripData['status'] == 'ended' || tripData['status'] == 'started') {
-        add(GetTrips(page: 1, pageSize: 10)); // Refresh list
-        add(GetHomepageData()); // Refresh summary
-      }
-    } catch (e) {
-      AppLogger.error('Error handling socket trip update: $e');
     }
   }
 }

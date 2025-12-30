@@ -16,7 +16,7 @@ final class GetHomepageData extends HomepageEvent {
   // List<Object> get props => [if (childId != null) childId!];
 }
 
-final class FetchChildCurrentDetails extends HomepageEvent {}
+// final class FetchChildCurrentDetails extends HomepageEvent {}
 
 final class GetTrips extends HomepageEvent {
   // final String? childId;
@@ -53,13 +53,4 @@ final class UpdateSocketLocation extends HomepageEvent {
 
   @override
   List<Object> get props => [locationData];
-}
-
-final class UpdateSocketTrip extends HomepageEvent {
-  final Map<String, dynamic> tripData;
-
-  const UpdateSocketTrip(this.tripData);
-
-  @override
-  List<Object> get props => [tripData];
 }
