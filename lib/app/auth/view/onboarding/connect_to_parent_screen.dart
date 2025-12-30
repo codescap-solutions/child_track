@@ -110,9 +110,7 @@ class _ConnectToParentScreenState extends State<ConnectToParentScreen> {
         const SizedBox(height: AppSizes.spacingS),
         Text(
           'Enter your child code to connect and share your location and screen time',
-          style: AppTextStyles.body2.copyWith(
-            color: AppColors.textSecondary,
-          ),
+          style: AppTextStyles.body2.copyWith(color: AppColors.textSecondary),
           textAlign: TextAlign.center,
         ),
       ],
@@ -126,9 +124,7 @@ class _ConnectToParentScreenState extends State<ConnectToParentScreen> {
       hintText: 'Enter child code',
       labelText: 'Child Code',
       textInputAction: TextInputAction.done,
-      inputFormatters: [
-        UpperCaseTextFormatter(),
-      ],
+      inputFormatters: [UpperCaseTextFormatter()],
       validator: (value) {
         if (value == null || value.isEmpty) {
           return 'Please enter child code';
@@ -186,10 +182,13 @@ class _ConnectToParentScreenState extends State<ConnectToParentScreen> {
 
           // Ensure location permission is set to "always allow"
           final locationService = LocationService();
-          bool hasAlwaysPermission = await _ensureAlwaysAllowPermission(context, locationService);
-          
+          bool hasAlwaysPermission = await _ensureAlwaysAllowPermission(
+            context,
+            locationService,
+          );
+
           if (!mounted) return;
-          
+
           if (!hasAlwaysPermission) {
             // Permission not granted - show error and don't proceed
             AppSnackbar.showError(
@@ -238,9 +237,7 @@ class _ConnectToParentScreenState extends State<ConnectToParentScreen> {
 
             // Navigate to SOS view (child app main screen)
             Navigator.of(context).pushReplacement(
-              MaterialPageRoute(
-                builder: (_) => const SosView(),
-              ),
+              MaterialPageRoute(builder: (_) => const SosView()),
             );
           }
         } else {
@@ -272,12 +269,12 @@ class _ConnectToParentScreenState extends State<ConnectToParentScreen> {
 
     while (attempts < maxAttempts) {
       attempts++;
-      
+
       // Request "always allow" permission
       final result = await locationService.requestAlwaysAllowPermission();
       final hasAlwaysPermission = result['granted'] as bool;
       final needsSettings = result['needsSettings'] as bool;
-      
+
       if (hasAlwaysPermission) {
         AppLogger.info('Always allow permission granted');
         return true;
@@ -285,7 +282,7 @@ class _ConnectToParentScreenState extends State<ConnectToParentScreen> {
 
       // Check current permission status
       final currentPermission = await locationService.checkPermission();
-      
+
       if (!mounted) return false;
 
       // Show dialog explaining why "always allow" is needed
@@ -302,23 +299,26 @@ class _ConnectToParentScreenState extends State<ConnectToParentScreen> {
       }
 
       // If needs settings or permanently denied, try to open settings
-      if (needsSettings || currentPermission == LocationPermission.deniedForever) {
+      if (needsSettings ||
+          currentPermission == LocationPermission.deniedForever) {
         final openedSettings = await locationService.openLocationSettings();
         if (openedSettings) {
           // Wait longer for user to change settings and return to app
           // The app might be resumed when user returns from Settings
           await Future.delayed(const Duration(seconds: 3));
-          
+
           // Check if app is still mounted after returning from Settings
           if (!mounted) return false;
-          
+
           // Re-check permission after returning from Settings
           final recheckPermission = await locationService.checkPermission();
           if (recheckPermission == LocationPermission.always) {
-            AppLogger.info('Always allow permission granted after returning from Settings');
+            AppLogger.info(
+              'Always allow permission granted after returning from Settings',
+            );
             return true;
           }
-          
+
           continue;
         }
       }
@@ -335,95 +335,87 @@ class _ConnectToParentScreenState extends State<ConnectToParentScreen> {
     bool hasWhileInUsePermission,
   ) async {
     return await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppSizes.radiusL),
-        ),
-        title: Text(
-          'Location Permission Required',
-          style: AppTextStyles.headline6.copyWith(
-            fontWeight: FontWeight.bold,
-            color: AppColors.primaryColor,
-          ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'This app needs "Always Allow" location permission to track your location in the background, even when the app is closed.',
-              style: AppTextStyles.body2,
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogContext) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppSizes.radiusL),
             ),
-            const SizedBox(height: AppSizes.spacingM),
-            if (needsSettings)
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+            title: Text(
+              'Location Permission Required',
+              style: AppTextStyles.headline6.copyWith(
+                fontWeight: FontWeight.bold,
+                color: AppColors.primaryColor,
+              ),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'This app needs "Always Allow" location permission to track your location in the background, even when the app is closed.',
+                  style: AppTextStyles.body2,
+                ),
+                const SizedBox(height: AppSizes.spacingM),
+                if (needsSettings)
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        hasWhileInUsePermission
+                            ? 'You have granted "While using the app" permission. To enable background tracking, please:'
+                            : 'Please enable "Always Allow" location permission in your device settings.',
+                        style: AppTextStyles.body2.copyWith(
+                          color: AppColors.error,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      if (hasWhileInUsePermission) ...[
+                        const SizedBox(height: AppSizes.spacingS),
+                        Text(
+                          '1. Tap "Open Settings" below\n2. Go to "Permissions" → "Location"\n3. Select "Allow all the time"',
+                          style: AppTextStyles.body2.copyWith(
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                      ],
+                    ],
+                  )
+                else
                   Text(
-                    hasWhileInUsePermission
-                        ? 'You have granted "While using the app" permission. To enable background tracking, please:'
-                        : 'Please enable "Always Allow" location permission in your device settings.',
+                    'Please select "Always Allow" when prompted.',
                     style: AppTextStyles.body2.copyWith(
-                      color: AppColors.error,
+                      color: AppColors.primaryColor,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  if (hasWhileInUsePermission) ...[
-                    const SizedBox(height: AppSizes.spacingS),
-                    Text(
-                      '1. Tap "Open Settings" below\n2. Go to "Permissions" → "Location"\n3. Select "Allow all the time"',
-                      style: AppTextStyles.body2.copyWith(
-                        color: AppColors.textPrimary,
-                      ),
+              ],
+            ),
+            actions: [
+              if (needsSettings)
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: Text(
+                    'Cancel',
+                    style: AppTextStyles.body2.copyWith(
+                      color: AppColors.textSecondary,
                     ),
-                  ],
-                ],
-              )
-            else
-              Text(
-                'Please select "Always Allow" when prompted.',
-                style: AppTextStyles.body2.copyWith(
-                  color: AppColors.primaryColor,
-                  fontWeight: FontWeight.w600,
+                  ),
+                ),
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: Text(
+                  needsSettings ? 'Open Settings' : 'Grant Permission',
+                  style: AppTextStyles.body2.copyWith(
+                    color: AppColors.primaryColor,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
-          ],
-        ),
-        actions: [
-          if (needsSettings)
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: Text(
-                'Cancel',
-                style: AppTextStyles.body2.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-              ),
-            ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(
-              needsSettings ? 'Open Settings' : 'Grant Permission',
-              style: AppTextStyles.body2.copyWith(
-                color: AppColors.primaryColor,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+            ],
           ),
-        ],
-      ),
-    ) ?? false;
-  }
-
-  void _skipConnection() {
-    // Navigate to SOS view without connecting
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (_) => const SosView(),
-      ),
-    );
+        ) ??
+        false;
   }
 }
 
@@ -440,4 +432,3 @@ class UpperCaseTextFormatter extends TextInputFormatter {
     );
   }
 }
-
