@@ -28,7 +28,7 @@ final class HomepageSuccess extends HomepageState {
 
   const HomepageSuccess({
     required this.deviceInfo,
-    required this.currentLocation,
+     this.currentLocation,
     this.yesterdayTrips = const [],
     this.yesterdayTripSummary,
     this.cards,

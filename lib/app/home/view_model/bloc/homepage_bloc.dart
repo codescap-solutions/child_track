@@ -24,8 +24,9 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
   final MapBloc _mapBloc;
   final SharedPrefsService _sharedPrefsService;
   final SocketService _socketService = SocketService();
-  StreamSubscription? _connectionStatusSubscription;
-  String? _currentChildId;
+  StreamSubscription? _locationSubscription;
+  StreamSubscription? _tripSubscription;
+  Timer? _pollingTimer;
 
   // Sample data fallback for yesterday trips
   static const List<Map<String, dynamic>> _sampleYesterdayTrips = [
@@ -107,17 +108,39 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
     on<UpdateSocketTrip>(_onUpdateSocketTrip);
   }
 
+  void _initSocketListeners(String childId) {
+    _socketService.initSocket();
+    _socketService.joinRoom(childId);
 
+    _locationSubscription?.cancel();
+    _locationSubscription = _socketService.locationStream.listen((data) {
+      add(UpdateSocketLocation(data));
+    });
 
+    _tripSubscription?.cancel();
+    _tripSubscription = _socketService.tripStream.listen((data) {
+      add(UpdateSocketTrip(data));
+    });
+  }
 
+  void _startPolling(String? childId) {
+    _pollingTimer?.cancel();
+    _pollingTimer = Timer.periodic(const Duration(seconds: 60), (_) {
+      add(GetHomepageData());
+    });
+  }
 
-
+  void _stopPolling() {
+    _pollingTimer?.cancel();
+    _pollingTimer = null;
+  }
 
   @override
   Future<void> close() {
-    _connectionStatusSubscription?.cancel();
-    // Don't disconnect socket here as child app might still be using it
-    // Only disconnect if this is the only app using it
+    _stopPolling();
+    _locationSubscription?.cancel();
+    _tripSubscription?.cancel();
+    _socketService.disconnect();
     return super.close();
   }
 
@@ -151,7 +174,14 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
     //   }
     // }
 
-
+    // Start polling on first call
+    if (_pollingTimer == null || !_pollingTimer!.isActive) {
+      _startPolling(childId);
+      // Initialize socket listeners
+      if (childId != null) {
+        _initSocketListeners(childId);
+      }
+    }
 
     emit(currentState.copyWith(isLoading: true));
     try {
@@ -165,8 +195,9 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
 
         emit(
           HomepageSuccess(
+            
             deviceInfo: homeData.deviceInfo,
-            currentLocation: homeData.currentLocation,
+            // currentLocation: homeData.currentLocation,
             yesterdayTrips: tripsToUse,
             yesterdayTripSummary: homeData.yesterdayTripSummary,
             cards: homeData.cards,
@@ -293,60 +324,34 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
 
     try {
       final data = event.locationData;
-      AppLogger.info('[HomepageBloc] Processing socket location update: $data');
+      // Parse data to LocationInfoModel or just extract fields
+      // Assuming data matches structure: {lat, lng, ...}
 
-      // Helper to safely extract double value
-      double toDouble(dynamic value) {
-        if (value == null) return 0.0;
-        if (value is double) return value;
-        if (value is int) return value.toDouble();
-        if (value is String) return double.tryParse(value) ?? 0.0;
-        return 0.0;
-      }
+      // We need to map the raw socket data to our models.
+      // This might require a helper or constructing the model here.
+      // For now, let's update the MapBloc and CurrentLocation if possible.
 
-      // Extract lat/lng from various possible field names
-      final lat = toDouble(data['lat'] ?? data['latitude'] ?? data['Lat'] ?? data['Latitude']);
-      final lng = toDouble(data['lng'] ?? data['longitude'] ?? data['Lng'] ?? data['Longitude'] ?? data['lon'] ?? data['Lon']);
+      double lat = (data['lat'] ?? data['latitude'] as num).toDouble();
+      double lng = (data['lng'] ?? data['longitude'] as num).toDouble();
 
-      if (lat == 0.0 && lng == 0.0) {
-        AppLogger.warning('[HomepageBloc] Invalid location data: lat=$lat, lng=$lng');
-        return;
-      }
-
-      AppLogger.info('[HomepageBloc] Extracted location: lat=$lat, lng=$lng');
-
-      // Update MapBloc
       _mapBloc.add(UpdateChildLocation(LatLng(lat, lng)));
 
       // Update state.currentLocation
-      LocationInfo updatedLocation;
-      if (currentState.currentLocation != null) {
-        // Update existing location
-        updatedLocation = currentState.currentLocation!.copyWith(
-          lat: lat,
-          lng: lng,
-          address: data['address'] ?? data['Address'] ?? currentState.currentLocation!.address,
-          placeName: data['place_name'] ?? data['placeName'] ?? data['PlaceName'] ?? currentState.currentLocation!.placeName,
-          since: data['timestamp'] ?? data['since'] ?? data['Since'] ?? DateTime.now().toIso8601String(),
-          durationMinutes: data['duration_minutes'] ?? data['durationMinutes'] ?? currentState.currentLocation!.durationMinutes,
-        );
-      } else {
-        // Create new location if it doesn't exist
-        updatedLocation = LocationInfo(
-          lat: lat,
-          lng: lng,
-          address: data['address'] ?? data['Address'] ?? 'Unknown-3',
-          placeName: data['place_name'] ?? data['placeName'] ?? data['PlaceName'] ?? 'Unknown-4',
-          since: data['timestamp'] ?? data['since'] ?? data['Since'] ?? DateTime.now().toIso8601String(),
-          durationMinutes: data['duration_minutes'] ?? data['durationMinutes'] ?? 0,
-        );
-      }
+      // Note: Data structure from socket might differ from REST response.
+      // We should ideally have a common parser.
+      // Assuming we can patch minimal info:
 
-      AppLogger.info('[HomepageBloc] Emitting updated location state');
-      emit(currentState.copyWith(currentLocation: updatedLocation));
-    } catch (e, stackTrace) {
+      final updatedLocation = currentState.currentLocation?.copyWith(
+        lat: lat,
+        lng: lng,
+        // Update other fields if available
+      );
+
+      if (updatedLocation != null) {
+        emit(currentState.copyWith(currentLocation: updatedLocation));
+      }
+    } catch (e) {
       AppLogger.error('Error handling socket location update: $e');
-      AppLogger.error('Stack trace: $stackTrace');
     }
   }
 
