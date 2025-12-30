@@ -24,10 +24,7 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
   final MapBloc _mapBloc;
   final SharedPrefsService _sharedPrefsService;
   final SocketService _socketService = SocketService();
-  StreamSubscription? _locationSubscription;
-  StreamSubscription? _tripSubscription;
   StreamSubscription? _connectionStatusSubscription;
-  Timer? _pollingTimer;
   String? _currentChildId;
 
   // Sample data fallback for yesterday trips
@@ -110,87 +107,14 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
     on<UpdateSocketTrip>(_onUpdateSocketTrip);
   }
 
-  void _initSocketListeners(String childId) {
-    AppLogger.info('[HomepageBloc] _initSocketListeners called with childId: $childId');
-    _currentChildId = childId;
-    
-    // Cancel existing subscriptions
-    _locationSubscription?.cancel();
-    _tripSubscription?.cancel();
-    _connectionStatusSubscription?.cancel();
 
-    // Set up location stream listener
-    AppLogger.info('[HomepageBloc] Setting up location stream listener...');
-    AppLogger.info('[HomepageBloc] 🔍 Subscribing to locationStream...');
-    _locationSubscription = _socketService.locationStream.listen((data) {
-      AppLogger.info('[HomepageBloc] ✅✅✅ Received location_update from socket stream');
-      AppLogger.info('[HomepageBloc] Location data: $data');
-      AppLogger.info('[HomepageBloc] Location data type: ${data.runtimeType}');
-      add(UpdateSocketLocation(data));
-    }, onError: (error) {
-      AppLogger.error('[HomepageBloc] ❌ Error in location stream: $error');
-    }, onDone: () {
-      AppLogger.warning('[HomepageBloc] ⚠️ Location stream closed');
-    });
-    AppLogger.info('[HomepageBloc] ✅ Location stream subscription active');
 
-    // Set up trip stream listener
-    AppLogger.info('[HomepageBloc] Setting up trip stream listener...');
-    _tripSubscription = _socketService.tripStream.listen((data) {
-      AppLogger.info('[HomepageBloc] ✅ Received trip_update from socket stream');
-      AppLogger.info('[HomepageBloc] Trip data: $data');
-      add(UpdateSocketTrip(data));
-    }, onError: (error) {
-      AppLogger.error('[HomepageBloc] ❌ Error in trip stream: $error');
-    }, onDone: () {
-      AppLogger.warning('[HomepageBloc] ⚠️ Trip stream closed');
-    });
 
-    // Check if socket is already connected
-    final isConnected = _socketService.isConnected;
-    AppLogger.info('[HomepageBloc] Socket connection status: $isConnected');
-    
-    if (isConnected) {
-      AppLogger.info('[HomepageBloc] Socket already connected, joining room immediately with childId: $childId');
-      _socketService.joinRoom(childId);
-    } else {
-      AppLogger.info('[HomepageBloc] Socket not connected, initializing...');
-      // Initialize socket if not already connected
-      _socketService.initSocket();
-      
-      // Listen to connection status and join room when connected
-      AppLogger.info('[HomepageBloc] Setting up connection status listener...');
-      _connectionStatusSubscription = _socketService.connectionStatusStream.listen((isConnected) {
-        AppLogger.info('[HomepageBloc] Connection status changed: $isConnected');
-        if (isConnected && _currentChildId != null) {
-          AppLogger.info('[HomepageBloc] ✅ Socket connected, joining room with childId: $_currentChildId');
-          _socketService.joinRoom(_currentChildId!);
-        } else if (!isConnected) {
-          AppLogger.warning('[HomepageBloc] ⚠️ Socket disconnected');
-        }
-      }, onError: (error) {
-        AppLogger.error('[HomepageBloc] ❌ Error in connection status stream: $error');
-      });
-    }
-  }
 
-  void _startPolling(String? childId) {
-    _pollingTimer?.cancel();
-    _pollingTimer = Timer.periodic(const Duration(seconds: 60), (_) {
-      add(GetHomepageData());
-    });
-  }
 
-  void _stopPolling() {
-    _pollingTimer?.cancel();
-    _pollingTimer = null;
-  }
 
   @override
   Future<void> close() {
-    _stopPolling();
-    _locationSubscription?.cancel();
-    _tripSubscription?.cancel();
     _connectionStatusSubscription?.cancel();
     // Don't disconnect socket here as child app might still be using it
     // Only disconnect if this is the only app using it
@@ -227,14 +151,7 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
     //   }
     // }
 
-    // Start polling on first call
-    if (_pollingTimer == null || !_pollingTimer!.isActive) {
-      _startPolling(childId);
-      // Initialize socket listeners
-      if (childId != null) {
-        _initSocketListeners(childId);
-      }
-    }
+
 
     emit(currentState.copyWith(isLoading: true));
     try {
@@ -410,7 +327,7 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
           lng: lng,
           address: data['address'] ?? data['Address'] ?? currentState.currentLocation!.address,
           placeName: data['place_name'] ?? data['placeName'] ?? data['PlaceName'] ?? currentState.currentLocation!.placeName,
-          since: data['since'] ?? data['Since'] ?? DateTime.now().toIso8601String(),
+          since: data['timestamp'] ?? data['since'] ?? data['Since'] ?? DateTime.now().toIso8601String(),
           durationMinutes: data['duration_minutes'] ?? data['durationMinutes'] ?? currentState.currentLocation!.durationMinutes,
         );
       } else {
@@ -420,7 +337,7 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
           lng: lng,
           address: data['address'] ?? data['Address'] ?? 'Unknown-3',
           placeName: data['place_name'] ?? data['placeName'] ?? data['PlaceName'] ?? 'Unknown-4',
-          since: data['since'] ?? data['Since'] ?? DateTime.now().toIso8601String(),
+          since: data['timestamp'] ?? data['since'] ?? data['Since'] ?? DateTime.now().toIso8601String(),
           durationMinutes: data['duration_minutes'] ?? data['durationMinutes'] ?? 0,
         );
       }

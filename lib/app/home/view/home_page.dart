@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:child_track/core/navigation/app_router.dart';
@@ -6,6 +7,8 @@ import 'package:flutter/services.dart';
 import 'package:child_track/app/home/view_model/bloc/homepage_bloc.dart';
 import 'package:child_track/app/map/view/map_view.dart';
 import 'package:child_track/core/di/injector.dart';
+import 'package:child_track/core/services/shared_prefs_service.dart';
+import 'package:child_track/core/services/socket_service.dart';
 import 'package:flutter/material.dart';
 import 'package:child_track/core/constants/app_colors.dart';
 import 'package:child_track/core/constants/app_sizes.dart';
@@ -29,11 +32,47 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final ScrollController _bottomSheetScrollController = ScrollController();
   bool _hasNavigated = false;
+  final SocketService _socketService = SocketService();
+  final SharedPrefsService _sharedPrefsService = injector<SharedPrefsService>();
+  StreamSubscription? _locationSubscription;
+  StreamSubscription? _tripSubscription;
 
   @override
   void initState() {
     super.initState();
     _bottomSheetScrollController.addListener(_onScroll);
+    _initSocket();
+  }
+
+  void _initSocket() {
+    final childId = _sharedPrefsService.getString('child_id');
+    if (childId != null) {
+      if (!_socketService.isConnected) {
+        _socketService.initSocket();
+      }
+      _socketService.joinRoom(childId);
+
+      _locationSubscription = _socketService.locationStream.listen((data) {
+        if (mounted) {
+          context.read<HomepageBloc>().add(UpdateSocketLocation(data));
+        }
+      });
+
+      _tripSubscription = _socketService.tripStream.listen((data) {
+        if (mounted) {
+          context.read<HomepageBloc>().add(UpdateSocketTrip(data));
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _locationSubscription?.cancel();
+    _tripSubscription?.cancel();
+    _bottomSheetScrollController.removeListener(_onScroll);
+    _bottomSheetScrollController.dispose();
+    super.dispose();
   }
 
   /// Resize image from asset to specified width while maintaining aspect ratio
@@ -224,12 +263,7 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  @override
-  void dispose() {
-    _bottomSheetScrollController.removeListener(_onScroll);
-    _bottomSheetScrollController.dispose();
-    super.dispose();
-  }
+
 
   void _onScroll() {
     // Navigate when scroll reaches the end

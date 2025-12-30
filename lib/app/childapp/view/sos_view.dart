@@ -13,16 +13,27 @@ import 'package:child_track/core/services/socket_service.dart';
 import 'package:child_track/core/services/background_location_service.dart';
 import 'package:child_track/core/navigation/route_names.dart';
 
-class SosView extends StatelessWidget {
+class SosView extends StatefulWidget {
   const SosView({super.key});
 
   @override
+  State<SosView> createState() => _SosViewState();
+}
+
+class _SosViewState extends State<SosView> {
+  late final ChildBloc _childBloc;
+
+  @override
+  void initState() {
+    super.initState();
+    _childBloc = injector<ChildBloc>();
+    _childBloc.onInitialize();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final childBloc = injector<ChildBloc>();
-    childBloc.onInitialize();
-    
     return BlocProvider.value(
-      value: childBloc,
+      value: _childBloc,
       child: const _SosViewContent(),
     );
   }
