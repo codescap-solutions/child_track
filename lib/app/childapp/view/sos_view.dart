@@ -12,6 +12,7 @@ import 'package:child_track/core/services/shared_prefs_service.dart';
 import 'package:child_track/core/services/socket_service.dart';
 import 'package:child_track/core/services/background_location_service.dart';
 import 'package:child_track/core/navigation/route_names.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class SosView extends StatefulWidget {
   const SosView({super.key});
@@ -226,6 +227,8 @@ class _SosViewContent extends StatelessWidget {
           final childName =
               sharedPrefsService.getString('child_name') ?? 'Child';
           final childCode = sharedPrefsService.getString('child_code') ?? '';
+          final parentPhone =
+              sharedPrefsService.getString('parent_phone') ?? 'N/A';
 
           return Scaffold(
             backgroundColor: AppColors.surfaceColor,
@@ -294,18 +297,38 @@ class _SosViewContent extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(height: 4),
-                            Text(
-                              '+91 889656 2587',
-                              style: AppTextStyles.button.copyWith(
-                                color: AppColors.surfaceColor,
-                              ),
-                            ),
                           ],
                         ),
                       ),
                     ),
                     const Spacer(),
-
+                    Text(
+                      'Parent Number',
+                      style: AppTextStyles.button.copyWith(color: Colors.black),
+                    ),
+                    GestureDetector(
+                      onTap: () async {
+                        if (parentPhone != 'N/A') {
+                          final Uri launchUri = Uri(
+                            scheme: 'tel',
+                            path: parentPhone,
+                          );
+                          try {
+                            if (!await launchUrl(launchUri)) {
+                              AppLogger.error('Could not launch dialer');
+                            }
+                          } catch (e) {
+                            AppLogger.error('Error launching dialer: $e');
+                          }
+                        }
+                      },
+                      child: Text(
+                        parentPhone,
+                        style: AppTextStyles.button.copyWith(
+                          color: AppColors.primaryColor,
+                        ),
+                      ),
+                    ),
                     const SizedBox(
                       height: AppSizes.spacingXL,
                       width: double.infinity,

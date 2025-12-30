@@ -64,7 +64,7 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
     Emitter<HomepageState> emit,
   ) async {
     final currentState = state;
-    if (currentState is! HomepageSuccess) return;
+    // if (currentState is! HomepageSuccess) return;
 
     final childId = _sharedPrefsService.getString('child_id');
 
@@ -72,7 +72,11 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
       _initSocketListeners(childId);
     }
 
-    emit(currentState.copyWith(isLoading: true));
+    final HomepageSuccess startingState = currentState is HomepageSuccess
+        ? currentState
+        : const HomepageSuccess.initial();
+
+    emit(startingState.copyWith(isLoading: true));
     try {
       final response = await _homeRepository.getHomeData(childId: childId);
       if (response.isSuccess && response.data != null) {
@@ -107,7 +111,7 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
         // Check if error is due to no child connected
         if (response.message.toLowerCase().contains('child') ||
             response.message.toLowerCase().contains('not found')) {
-          emit(currentState.copyWith(isLoading: false, hasNoChild: true));
+          emit(startingState.copyWith(isLoading: false, hasNoChild: true));
         } else {
           emit(HomepageError(message: response.message));
         }

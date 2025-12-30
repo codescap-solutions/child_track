@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:child_track/core/navigation/app_router.dart';
 import 'package:child_track/core/navigation/route_names.dart';
@@ -14,6 +13,7 @@ import 'package:child_track/core/constants/app_colors.dart';
 import 'package:child_track/core/constants/app_sizes.dart';
 import 'package:child_track/core/constants/app_text_styles.dart';
 import 'package:child_track/core/widgets/common_button.dart';
+import 'package:child_track/core/utils/app_logger.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -201,10 +201,10 @@ class _HomePageState extends State<HomePage> {
                   backgroundColor: AppColors.surfaceColor,
                   foregroundColor: AppColors.textPrimary,
                   elevation: 0,
-                  leading: IconButton(
-                    icon: const Icon(Icons.arrow_back_ios_new, size: 18),
-                    onPressed: () => Navigator.of(context).maybePop(),
-                  ),
+                  //   leading: IconButton(
+                  //  //   icon: const Icon(Icons.arrow_back_ios_new, size: 18),
+                  //     onPressed: () => Navigator.of(context).maybePop(),
+                  //   ),
                   actions: [
                     IconButton(
                       icon: CircleAvatar(
@@ -782,8 +782,7 @@ class _HomeMapBackgroundState extends State<_HomeMapBackground> {
   void _animateTo(LatLng target) {
     if (_mapController == null) return;
 
-    // Check if this is a significantly different location (at least 10 meters)
-    // This prevents unnecessary animations for minor GPS fluctuations
+    /*
     if (_lastAnimatedLocation != null) {
       final distance = _calculateDistance(
         _lastAnimatedLocation!.latitude,
@@ -797,11 +796,14 @@ class _HomeMapBackgroundState extends State<_HomeMapBackground> {
         return;
       }
     }
+    */
 
     _lastAnimatedLocation = target;
+    AppLogger.info("Moving camera to $target");
     _mapController!.animateCamera(CameraUpdate.newLatLngZoom(target, 15.0));
   }
 
+  /*
   double _calculateDistance(
     double lat1,
     double lon1,
@@ -821,6 +823,7 @@ class _HomeMapBackgroundState extends State<_HomeMapBackground> {
     final double c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
     return earthRadius * c;
   }
+  */
 
   @override
   Widget build(BuildContext context) {

@@ -44,6 +44,16 @@ class ChildRepo extends BaseService {
           await _sharedPrefsService.setString('child_code', childCode);
           AppLogger.info('Child login: Child ID saved: $childId');
 
+          final name = data['child']?['name'] as String?;
+          if (name != null) {
+            await _sharedPrefsService.setString('child_name', name);
+          }
+
+          final parentPhone = data['child']?['parent_phone']?.toString();
+          if (parentPhone != null) {
+            await _sharedPrefsService.setString('parent_phone', parentPhone);
+          }
+
           // Verify it was saved correctly
           final savedChildId = _sharedPrefsService.getString('child_id');
           AppLogger.info('Child login: Verified saved child_id: $savedChildId');
