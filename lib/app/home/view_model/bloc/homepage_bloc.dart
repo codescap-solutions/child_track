@@ -121,15 +121,18 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
 
     // Set up location stream listener
     AppLogger.info('[HomepageBloc] Setting up location stream listener...');
+    AppLogger.info('[HomepageBloc] 🔍 Subscribing to locationStream...');
     _locationSubscription = _socketService.locationStream.listen((data) {
-      AppLogger.info('[HomepageBloc] ✅ Received location_update from socket stream');
+      AppLogger.info('[HomepageBloc] ✅✅✅ Received location_update from socket stream');
       AppLogger.info('[HomepageBloc] Location data: $data');
+      AppLogger.info('[HomepageBloc] Location data type: ${data.runtimeType}');
       add(UpdateSocketLocation(data));
     }, onError: (error) {
       AppLogger.error('[HomepageBloc] ❌ Error in location stream: $error');
     }, onDone: () {
       AppLogger.warning('[HomepageBloc] ⚠️ Location stream closed');
     });
+    AppLogger.info('[HomepageBloc] ✅ Location stream subscription active');
 
     // Set up trip stream listener
     AppLogger.info('[HomepageBloc] Setting up trip stream listener...');

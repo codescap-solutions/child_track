@@ -142,6 +142,7 @@ class SocketService {
       log('[SocketService] Socket ID: ${_socket!.id}');
       log('[SocketService] Socket transport: ${_socket!.io.engine?.transport?.name ?? "unknown"}');
       log('[SocketService] Socket URL: ${_socket!.io.uri}');
+      log('[SocketService] 🔍 Connection verified - all listeners should be active');
       _connectionStatusController.add(true);
       
       // If there's a pending childId to join, join the room now
@@ -217,27 +218,53 @@ class SocketService {
     });
 
     // Listen for server events
+    log('[SocketService] 🔧 Registering location_update listener...');
     _socket!.on('location_update', (data) {
-      log('[SocketService] 📍 Received location_update event');
+      log('[SocketService] 📍📍📍 Received location_update event');
       log('[SocketService] 📍 Event data: $data');
+      log('[SocketService] 📍 Event data type: ${data.runtimeType}');
       if (data != null && data is Map<String, dynamic>) {
         AppLogger.debug(" location_update: $data");
+        log('[SocketService] 📍 Adding to location stream controller...');
         _locationController.add(data);
         log('[SocketService] ✅ Location data added to stream');
       } else {
         log('[SocketService] ⚠️ location_update data is null or invalid type: ${data.runtimeType}');
+        if (data != null) {
+          log('[SocketService] ⚠️ Attempting to convert data to Map...');
+          try {
+            final mapData = Map<String, dynamic>.from(data as Map);
+            _locationController.add(mapData);
+            log('[SocketService] ✅ Converted and added to stream');
+          } catch (e) {
+            log('[SocketService] ❌ Failed to convert: $e');
+          }
+        }
       }
     });
+    log('[SocketService] ✅ location_update listener registered');
 
     // Also listen to the raw event name in case server uses different naming
+    log('[SocketService] 🔧 Registering Websocket send_location listener...');
     _socket!.on('Websocket send_location', (data) {
-      log('[SocketService] 📍 Received Websocket send_location event (raw)');
+      log('[SocketService] 📍📍📍 Received Websocket send_location event (raw)');
       log('[SocketService] 📍 Raw event data: $data');
+      log('[SocketService] 📍 Raw event data type: ${data.runtimeType}');
       if (data != null && data is Map<String, dynamic>) {
         _locationController.add(data);
         log('[SocketService] ✅ Raw location data added to stream');
+      } else if (data != null) {
+        log('[SocketService] ⚠️ Attempting to convert raw data to Map...');
+        try {
+          final mapData = Map<String, dynamic>.from(data as Map);
+          _locationController.add(mapData);
+          log('[SocketService] ✅ Converted and added to stream');
+        } catch (e) {
+          log('[SocketService] ❌ Failed to convert raw data: $e');
+        }
       }
     });
+    log('[SocketService] ✅ Websocket send_location listener registered');
 
     _socket!.on('status_update', (data) {
       log('[SocketService] 📊 Received status_update event');
@@ -291,23 +318,30 @@ class SocketService {
     });
 
     // Listen to all events for debugging - MUST BE SET UP FIRST to catch everything
+    log('[SocketService] 🔧 Registering onAny listener to catch ALL events...');
     _socket!.onAny((event, data) {
       log('[SocketService] 🔔🔔🔔 Received ANY event: $event');
       log('[SocketService] 🔔 Event data type: ${data.runtimeType}');
       log('[SocketService] 🔔 Event data: $data');
       
       // Log specific known events with more detail
-      if (event.toString().toLowerCase().contains('location')) {
+      final eventLower = event.toString().toLowerCase();
+      if (eventLower.contains('location')) {
         log('[SocketService] 🔔🔔🔔 LOCATION EVENT DETECTED: $event');
         log('[SocketService] 🔔🔔🔔 LOCATION DATA: $data');
+        log('[SocketService] 🔔🔔🔔 LOCATION DATA TYPE: ${data.runtimeType}');
       }
-      if (event.toString().toLowerCase().contains('trip')) {
+      if (eventLower.contains('trip')) {
         log('[SocketService] 🔔🔔🔔 TRIP EVENT DETECTED: $event');
         log('[SocketService] 🔔🔔🔔 TRIP DATA: $data');
       }
-      if (event.toString().toLowerCase().contains('status')) {
+      if (eventLower.contains('status')) {
         log('[SocketService] 🔔🔔🔔 STATUS EVENT DETECTED: $event');
         log('[SocketService] 🔔🔔🔔 STATUS DATA: $data');
+      }
+      if (eventLower.contains('room') || eventLower.contains('join')) {
+        log('[SocketService] 🔔🔔🔔 ROOM/JOIN EVENT DETECTED: $event');
+        log('[SocketService] 🔔🔔🔔 ROOM/JOIN DATA: $data');
       }
     });
     
@@ -336,27 +370,36 @@ class SocketService {
     log('[SocketService] ✅ Socket ID: ${_socket!.id}');
     log('[SocketService] ✅ Emitting join_room event with child_id: $childId');
     
-    final joinData = {'child_id': childId};
+    final joinData = {'childId': childId};
     log('[SocketService] Join room data: $joinData');
-    _socket!.emit('join_room', joinData);
+    _socket!.emit('join_child_room', joinData);
     log('[SocketService] ✅ join_room event emitted');
+    
+    // Add a verification log after a delay to check if room join was successful
+    Future.delayed(const Duration(seconds: 2), () {
+      log('[SocketService] 🔍 Post-join verification: Socket connected=${_socket?.connected}, Socket ID=${_socket?.id}');
+      log('[SocketService] 🔍 Waiting for location_update events for childId: $childId');
+    });
     
     _pendingChildIdForRoom = null; // Clear pending since we joined successfully
     
     // Listen for confirmation that room was joined (using on instead of once to catch all)
     _socket!.on('room_joined', (data) {
-      log('[SocketService] ✅ Server confirmed: room_joined');
+      log('[SocketService] ✅✅✅ Server confirmed: room_joined');
       log('[SocketService] Room joined data: $data');
+      log('[SocketService] ✅ Room join successful - should now receive location_update events');
     });
     
     _socket!.on('joined_room', (data) {
-      log('[SocketService] ✅ Server confirmed: joined_room');
+      log('[SocketService] ✅✅✅ Server confirmed: joined_room');
       log('[SocketService] Joined room data: $data');
+      log('[SocketService] ✅ Room join successful - should now receive location_update events');
     });
     
     _socket!.on('room_join_success', (data) {
-      log('[SocketService] ✅ Server confirmed: room_join_success');
+      log('[SocketService] ✅✅✅ Server confirmed: room_join_success');
       log('[SocketService] Room join success data: $data');
+      log('[SocketService] ✅ Room join successful - should now receive location_update events');
     });
     
     // Also listen for any error responses
@@ -382,7 +425,7 @@ class SocketService {
       return;
     }
     log('[SocketService] ✅ Emitting leave_room event with child_id: $childId');
-    _socket!.emit('leave_room', {'child_id': childId});
+    _socket!.emit('leave_child_room', {'childId': childId});
   }
 
   // Emitters
