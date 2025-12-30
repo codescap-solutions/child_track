@@ -17,14 +17,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     apiKey: AppStrings.googleMapsApiKey,
   );
 
-  MapBloc()
-    : super(
-        const MapLoaded(
-          markers: [],
-          polylines: {},
-          currentPosition: LatLng(38.437532, 27.149606),
-        ),
-      ) {
+  MapBloc() : super(const MapInitial()) {
     on<MapCreated>(_onMapCreated);
     on<MarkerAdded>(_onMarkerAdded);
     on<MarkerTapped>(_onMarkerTapped);
@@ -180,11 +173,15 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     Emitter<MapState> emit,
   ) async {
     final currentState = state;
-    if (currentState is! MapLoaded) return;
+
+    List<Marker> currentMarkers = [];
+    if (currentState is MapLoaded) {
+      currentMarkers = currentState.markers;
+    }
 
     // Replace the existing child location marker instead of adding a new one
     const childMarkerId = MarkerId('child_location');
-    final existingMarkers = currentState.markers
+    final existingMarkers = currentMarkers
         .where((marker) => marker.markerId != childMarkerId)
         .toList();
 
@@ -203,13 +200,24 @@ class MapBloc extends Bloc<MapEvent, MapState> {
       );
     }
 
-    emit(
-      currentState.copyWith(
-        markers: updatedMarkers,
-        isLoading: false,
-        currentPosition: event.currentLocation,
-      ),
-    );
+    if (currentState is MapLoaded) {
+      emit(
+        currentState.copyWith(
+          markers: updatedMarkers,
+          isLoading: false,
+          currentPosition: event.currentLocation,
+        ),
+      );
+    } else {
+      emit(
+        MapLoaded(
+          markers: updatedMarkers,
+          polylines: const {},
+          isLoading: false,
+          currentPosition: event.currentLocation,
+        ),
+      );
+    }
   }
 
   @override
