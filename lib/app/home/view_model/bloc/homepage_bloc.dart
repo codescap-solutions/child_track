@@ -26,7 +26,6 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
   final SocketService _socketService = SocketService();
   StreamSubscription? _locationSubscription;
   StreamSubscription? _tripSubscription;
-  Timer? _pollingTimer;
 
   HomepageBloc({
     required HomeRepository homeRepository,
@@ -59,21 +58,8 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
     });
   }
 
-  void _startPolling(String? childId) {
-    _pollingTimer?.cancel();
-    _pollingTimer = Timer.periodic(const Duration(seconds: 60), (_) {
-      add(GetHomepageData());
-    });
-  }
-
-  void _stopPolling() {
-    _pollingTimer?.cancel();
-    _pollingTimer = null;
-  }
-
   @override
   Future<void> close() {
-    _stopPolling();
     _locationSubscription?.cancel();
     _tripSubscription?.cancel();
     _socketService.disconnect();
@@ -87,29 +73,10 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
     final currentState = state;
     if (currentState is! HomepageSuccess) return;
 
-    // Get child_id from event or SharedPreferences
     final childId = _sharedPrefsService.getString('child_id');
-    //event.childId ?? _sharedPrefsService.getString('child_id');
 
-    // If no child_id, check if parent has children
-    // if (childId == null) {
-    //   final childrenCount = _sharedPrefsService.getInt('children_count') ?? 0;
-    //   if (childrenCount == 0) {
-    //     emit(currentState.copyWith(
-    //       isLoading: false,
-    //       hasNoChild: true,
-    //     ));
-    //     return;
-    //   }
-    // }
-
-    // Start polling on first call
-    if (_pollingTimer == null || !_pollingTimer!.isActive) {
-      _startPolling(childId);
-      // Initialize socket listeners
-      if (childId != null) {
-        _initSocketListeners(childId);
-      }
+    if (childId != null) {
+      _initSocketListeners(childId);
     }
 
     emit(currentState.copyWith(isLoading: true));
@@ -117,13 +84,11 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
       final response = await _homeRepository.getHomeData(childId: childId);
       if (response.isSuccess && response.data != null) {
         final homeData = response.data!;
-        // Use sample data if yesterdayTrips is null or empty
         final tripsToUse = homeData.yesterdayTrips;
 
         emit(
           HomepageSuccess(
             deviceInfo: homeData.deviceInfo,
-            // currentLocation: homeData.currentLocation,
             yesterdayTrips: tripsToUse,
             yesterdayTripSummary: homeData.yesterdayTripSummary,
             cards: homeData.cards,
@@ -250,34 +215,73 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
 
     try {
       final data = event.locationData;
-      // Parse data to LocationInfoModel or just extract fields
-      // Assuming data matches structure: {lat, lng, ...}
+      AppLogger.info('[HomepageBloc] Processing socket location update: $data');
 
-      // We need to map the raw socket data to our models.
-      // This might require a helper or constructing the model here.
-      // For now, let's update the MapBloc and CurrentLocation if possible.
+      // Helper to safely extract double value
+      double toDouble(dynamic value) {
+        if (value == null) return 0.0;
+        if (value is double) return value;
+        if (value is int) return value.toDouble();
+        if (value is String) return double.tryParse(value) ?? 0.0;
+        return 0.0;
+      }
 
-      double lat = (data['lat'] ?? data['latitude'] as num).toDouble();
-      double lng = (data['lng'] ?? data['longitude'] as num).toDouble();
+      // Extract lat/lng
+      final lat = toDouble(data['lat'] ?? data['latitude']);
+      final lng = toDouble(data['lng'] ?? data['longitude']);
 
+      if (lat == 0.0 && lng == 0.0) {
+        AppLogger.warning(
+          '[HomepageBloc] Invalid location data: lat=$lat, lng=$lng',
+        );
+        return;
+      }
+
+      // Update MapBloc
       _mapBloc.add(UpdateChildLocation(LatLng(lat, lng)));
 
+      // Extract other fields using the payload keys provided
+      final address = data['address'] as String? ?? 'Unknown Location';
+      // Map 'timestamp' from socket (or 'since') to the 'since' field in model
+      final since =
+          data['timestamp'] ??
+          data['since'] ??
+          DateTime.now().toIso8601String();
+      final placeName =
+          data['current_place'] ??
+          data['place_name'] ??
+          data['placeName'] ??
+          'Unknown Place';
+
       // Update state.currentLocation
-      // Note: Data structure from socket might differ from REST response.
-      // We should ideally have a common parser.
-      // Assuming we can patch minimal info:
-
-      final updatedLocation = currentState.currentLocation?.copyWith(
-        lat: lat,
-        lng: lng,
-        // Update other fields if available
-      );
-
-      if (updatedLocation != null) {
-        emit(currentState.copyWith(currentLocation: updatedLocation));
+      LocationInfo updatedLocation;
+      if (currentState.currentLocation != null) {
+        // Update existing location
+        updatedLocation = currentState.currentLocation!.copyWith(
+          lat: lat,
+          lng: lng,
+          address: address,
+          placeName: placeName,
+          since: since,
+          // Preserving durationMinutes as it's not in the new payload, or default to 0
+          durationMinutes: currentState.currentLocation!.durationMinutes,
+        );
+      } else {
+        // Create new location if it doesn't exist
+        updatedLocation = LocationInfo(
+          lat: lat,
+          lng: lng,
+          address: address,
+          placeName: placeName,
+          since: since,
+          durationMinutes: 0,
+        );
       }
-    } catch (e) {
+
+      emit(currentState.copyWith(currentLocation: updatedLocation));
+    } catch (e, stackTrace) {
       AppLogger.error('Error handling socket location update: $e');
+      AppLogger.error('Stack trace: $stackTrace');
     }
   }
 

@@ -54,13 +54,13 @@ class _HomePageState extends State<HomePage> {
 
       _locationSubscription = _socketService.locationStream.listen((data) {
         if (mounted) {
-          context.read<HomepageBloc>().add(UpdateSocketLocation(data));
+          injector<HomepageBloc>().add(UpdateSocketLocation(data));
         }
       });
 
       _tripSubscription = _socketService.tripStream.listen((data) {
         if (mounted) {
-          context.read<HomepageBloc>().add(UpdateSocketTrip(data));
+          injector<HomepageBloc>().add(UpdateSocketTrip(data));
         }
       });
     }
@@ -88,149 +88,6 @@ class _HomePageState extends State<HomePage> {
     ))!.buffer.asUint8List();
   }
 
-  /// Create battery icon as image bytes using CustomPainter
-  Future<Uint8List> _createBatteryIconBytes(
-    double size,
-    int batteryPercentage,
-  ) async {
-    final ui.PictureRecorder recorder = ui.PictureRecorder();
-    final Canvas canvas = Canvas(recorder);
-
-    // Responsive battery size
-    final double width = size * 1; 
-    final double height = size * 0.5;
-    final double cornerRadius = size * 0.1;
-    final double terminalWidth = size * 0.12;
-    final double terminalHeight = size * 0.25;
-
-    // Battery body
-    final RRect batteryRect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(0, (size - height) / 2, width - terminalWidth, height),
-      Radius.circular(cornerRadius),
-    );
-
-    // Battery terminal
-    final RRect terminalRect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(
-        width - terminalWidth,
-        (size - terminalHeight) / 2,
-        terminalWidth,
-        terminalHeight,
-      ),
-      Radius.circular(cornerRadius * 0.5),
-    );
-
-    // Colors
-    final Color batteryColor = batteryPercentage > 20
-        ? AppColors.success
-        : AppColors.error;
-
-    // Outline
-    final Paint batteryPaint = Paint()
-      ..color = batteryColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = size * 0.06;
-
-    canvas.drawRRect(batteryRect, batteryPaint);
-    canvas.drawRRect(terminalRect, batteryPaint);
-
-    // Battery fill
-    final Paint fillPaint = Paint()
-      ..color = batteryColor
-      ..style = PaintingStyle.fill;
-
-    final double clampedPercentage = batteryPercentage.clamp(0, 100) / 100;
-
-    final double fillWidth = (width - terminalWidth) * clampedPercentage;
-
-    final RRect fillRect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(0, (size - height) / 2, fillWidth, height),
-      Radius.circular(cornerRadius),
-    );
-
-    canvas.drawRRect(fillRect, fillPaint);
-
-    // Convert to image — keep a proper aspect
-    final ui.Picture picture = recorder.endRecording();
-    final ui.Image image = await picture.toImage(width.toInt(), size.toInt());
-
-    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-
-    picture.dispose();
-    image.dispose();
-
-    return byteData!.buffer.asUint8List();
-  }
-
-  /// Composite marker image with battery icon
-  Future<Uint8List> _compositeMarkerWithBattery(
-    Uint8List markerBytes,
-    Uint8List batteryBytes,
-  ) async {
-    // Decode marker image
-    final ui.Codec markerCodec = await ui.instantiateImageCodec(markerBytes);
-    final ui.FrameInfo markerFrame = await markerCodec.getNextFrame();
-    final ui.Image markerImage = markerFrame.image;
-
-    // Decode battery icon
-    final ui.Codec batteryCodec = await ui.instantiateImageCodec(batteryBytes);
-    final ui.FrameInfo batteryFrame = await batteryCodec.getNextFrame();
-    final ui.Image batteryImage = batteryFrame.image;
-
-    // Create a canvas to composite the images
-    final int markerWidth = markerImage.width;
-    final int markerHeight = markerImage.height;
-    final int batterySize = (markerWidth * 0.3)
-        .round(); // Battery icon is 30% of marker size
-
-    // Create a recorder and canvas
-    final ui.PictureRecorder recorder = ui.PictureRecorder();
-    final Canvas canvas = Canvas(recorder);
-
-    // Draw the main marker image
-    canvas.drawImage(markerImage, Offset.zero, Paint());
-
-    // Draw the battery icon in the top-right corner
-    // Position it with some padding from the edges
-    final double batteryX = markerWidth - batterySize - (markerWidth * 0.05);
-    final double batteryY = markerWidth * 0.05;
-
-    // Resize battery image if needed
-    ui.Image resizedBattery = batteryImage;
-    if (batteryImage.width != batterySize) {
-      final ui.Codec resizedCodec = await ui.instantiateImageCodec(
-        batteryBytes,
-        targetWidth: batterySize,
-      );
-      final ui.FrameInfo resizedFrame = await resizedCodec.getNextFrame();
-      resizedBattery = resizedFrame.image;
-    }
-
-    canvas.drawImage(resizedBattery, Offset(batteryX, batteryY), Paint());
-
-    // Convert canvas to image
-    final ui.Picture picture = recorder.endRecording();
-    final ui.Image compositeImage = await picture.toImage(
-      markerWidth,
-      markerHeight,
-    );
-
-    // Convert to bytes
-    final ByteData? byteData = await compositeImage.toByteData(
-      format: ui.ImageByteFormat.png,
-    );
-
-    // Dispose images to free memory
-    markerImage.dispose();
-    batteryImage.dispose();
-    if (resizedBattery != batteryImage) {
-      resizedBattery.dispose();
-    }
-    compositeImage.dispose();
-
-    return byteData!.buffer.asUint8List();
-  }
-
   Future<BitmapDescriptor?> _loadCustomMarker(int batteryPercentage) async {
     try {
       // Load main marker image
@@ -239,31 +96,11 @@ class _HomePageState extends State<HomePage> {
         250,
       );
 
-      // // Create battery icon with dynamic battery percentage
-      // Uint8List batteryIconBytes;
-      // try {
-      //   batteryIconBytes = await _createBatteryIconBytes(
-      //     300,
-      //     batteryPercentage,
-      //   );
-      // } catch (e) {
-      //   // Fallback: use marker without battery
-      //   return BitmapDescriptor.bytes(markerIconBytes);
-      // }
-
-      // // Composite the images
-      // final Uint8List compositeBytes = await _compositeMarkerWithBattery(
-      //   markerIconBytes,
-      //   batteryIconBytes,
-      // );
-
       return BitmapDescriptor.bytes(markerIconBytes);
     } catch (e) {
       return null;
     }
   }
-
-
 
   void _onScroll() {
     // Navigate when scroll reaches the end
@@ -357,9 +194,7 @@ class _HomePageState extends State<HomePage> {
     final bottomSheetHeight = screenHeight * 0.4;
     return BlocProvider.value(
       value: injector<HomepageBloc>()
-        ..add(
-          GetHomepageData(),
-        ), // Will get from SharedPreferences
+        ..add(GetHomepageData()), // Will get from SharedPreferences
       child: Scaffold(
         backgroundColor: AppColors.backgroundColor,
         body: Stack(
@@ -392,7 +227,6 @@ class _HomePageState extends State<HomePage> {
                   ],
                   flexibleSpace: FlexibleSpaceBar(
                     background: _HomeMapBackground(
-                      defaultLocation: const LatLng(13.082680, 80.270721),
                       loadCustomMarker: _loadCustomMarker,
                     ),
                   ),
@@ -469,9 +303,7 @@ class _HomePageState extends State<HomePage> {
                 CommonButton(
                   text: 'Retry',
                   onPressed: () {
-                    context.read<HomepageBloc>().add(
-                      GetHomepageData(),
-                    );
+                    injector<HomepageBloc>().add(GetHomepageData());
                   },
                 ),
               ],
@@ -512,8 +344,8 @@ class _HomePageState extends State<HomePage> {
                         const SizedBox(height: AppSizes.spacingXS),
                         Text(
                           //this time i get timestamp: 2025-12-10T17:43:35.926 need to convert this into minutes ago
-                         // '${DateTime.parse(state.currentLocation?.since ?? '').difference(DateTime.now()).inMinutes} minute ago',
-                         _formatTimeAgo(state.currentLocation?.since),
+                          // '${DateTime.parse(state.currentLocation?.since ?? '').difference(DateTime.now()).inMinutes} minute ago',
+                          _formatTimeAgo(state.currentLocation?.since),
 
                           style: AppTextStyles.caption.copyWith(
                             color: AppColors.textSecondary,
@@ -817,12 +649,11 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
     );
-    
   }
 
   String _formatTimeAgo(String? timestamp) {
     if (timestamp == null || timestamp.isEmpty) {
-      return 'Unknown time';
+      return 'Unknown times';
     }
 
     try {
@@ -850,10 +681,11 @@ class _HomePageState extends State<HomePage> {
   Widget _buildNoChildConnectedUI(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
     final bottomSheetHeight = screenHeight * 0.4;
-    
+
     return ConstrainedBox(
       constraints: BoxConstraints(
-        minHeight: bottomSheetHeight - 100, // Account for padding and drag handle
+        minHeight:
+            bottomSheetHeight - 100, // Account for padding and drag handle
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(
@@ -889,7 +721,9 @@ class _HomePageState extends State<HomePage> {
             ),
             const SizedBox(height: AppSizes.spacingM),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingS),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSizes.paddingS,
+              ),
               child: Text(
                 'Please connect and add a matched child to view tracking information.',
                 style: AppTextStyles.body1.copyWith(
@@ -900,7 +734,9 @@ class _HomePageState extends State<HomePage> {
             ),
             const SizedBox(height: AppSizes.spacingXL),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingM),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSizes.paddingM,
+              ),
               child: CommonButton(
                 text: 'Add Child',
                 onPressed: () {
@@ -918,15 +754,10 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-/// Dedicated map background that avoids full-page rebuilds and flicker.
 class _HomeMapBackground extends StatefulWidget {
-  final LatLng defaultLocation;
   final Future<BitmapDescriptor?> Function(int) loadCustomMarker;
 
-  const _HomeMapBackground({
-    required this.defaultLocation,
-    required this.loadCustomMarker,
-  });
+  const _HomeMapBackground({required this.loadCustomMarker});
 
   @override
   State<_HomeMapBackground> createState() => _HomeMapBackgroundState();
@@ -958,7 +789,7 @@ class _HomeMapBackgroundState extends State<_HomeMapBackground> {
 
   void _animateTo(LatLng target) {
     if (_mapController == null) return;
-    
+
     // Check if this is a significantly different location (at least 10 meters)
     // This prevents unnecessary animations for minor GPS fluctuations
     if (_lastAnimatedLocation != null) {
@@ -969,24 +800,32 @@ class _HomeMapBackgroundState extends State<_HomeMapBackground> {
         target.longitude,
       );
       // Only animate if moved more than 10 meters
-      if (distance < 10.0) { // 10 meters
+      if (distance < 10.0) {
+        // 10 meters
         return;
       }
     }
-    
+
     _lastAnimatedLocation = target;
     _mapController!.animateCamera(CameraUpdate.newLatLngZoom(target, 15.0));
   }
 
-  double _calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+  double _calculateDistance(
+    double lat1,
+    double lon1,
+    double lat2,
+    double lon2,
+  ) {
     // Haversine formula to calculate distance between two points in meters
     const double earthRadius = 6371000; // meters
     final double dLat = (lat2 - lat1) * (math.pi / 180);
     final double dLon = (lon2 - lon1) * (math.pi / 180);
-    final double a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+    final double a =
+        math.sin(dLat / 2) * math.sin(dLat / 2) +
         math.cos(lat1 * (math.pi / 180)) *
             math.cos(lat2 * (math.pi / 180)) *
-            math.sin(dLon / 2) * math.sin(dLon / 2);
+            math.sin(dLon / 2) *
+            math.sin(dLon / 2);
     final double c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
     return earthRadius * c;
   }
@@ -1008,12 +847,15 @@ class _HomeMapBackgroundState extends State<_HomeMapBackground> {
       },
       listener: (context, state) {
         if (state is HomepageSuccess && state.currentLocation != null) {
-          final loc = LatLng(state.currentLocation!.lat, state.currentLocation!.lng);
-          
+          final loc = LatLng(
+            state.currentLocation!.lat,
+            state.currentLocation!.lng,
+          );
+
           // Load marker icon first
           final battery = state.deviceInfo?.batteryPercentage ?? 0;
           _loadMarkerIcon(battery);
-          
+
           // Animate to location - always try to animate when location updates
           if (_mapController != null) {
             // Use a small delay to ensure map is ready
@@ -1034,7 +876,7 @@ class _HomeMapBackgroundState extends State<_HomeMapBackground> {
           if (prev.runtimeType != curr.runtimeType) {
             return true;
           }
-          
+
           // For HomepageSuccess states, rebuild if location or battery changed
           if (prev is HomepageSuccess && curr is HomepageSuccess) {
             final locChanged =
@@ -1045,7 +887,7 @@ class _HomeMapBackgroundState extends State<_HomeMapBackground> {
                 curr.deviceInfo?.batteryPercentage;
             return locChanged || batteryChanged;
           }
-          
+
           return false;
         },
         builder: (context, state) {
@@ -1055,23 +897,25 @@ class _HomeMapBackgroundState extends State<_HomeMapBackground> {
           final location =
               state is HomepageSuccess && state.currentLocation != null
               ? LatLng(state.currentLocation!.lat, state.currentLocation!.lng)
-              : widget.defaultLocation;
+              : null;
           // Fire-and-forget load; widget will update when ready
           _loadMarkerIcon(battery);
 
           final markers = <Marker>{
-            if (_cachedMarkerIcon != null)
-              Marker(
-                markerId: const MarkerId('child_location'),
-                position: location,
-                icon: _cachedMarkerIcon!,
-                anchor: const Offset(0.5, 1.0),
-              )
-            else
-              Marker(
-                markerId: const MarkerId('child_location'),
-                position: location,
-              ),
+            if (location != null) ...{
+              if (_cachedMarkerIcon != null)
+                Marker(
+                  markerId: const MarkerId('child_location'),
+                  position: location,
+                  icon: _cachedMarkerIcon!,
+                  anchor: const Offset(0.5, 1.0),
+                )
+              else
+                Marker(
+                  markerId: const MarkerId('child_location'),
+                  position: location,
+                ),
+            },
           };
 
           return MapViewWidget(
@@ -1086,14 +930,16 @@ class _HomeMapBackgroundState extends State<_HomeMapBackground> {
             onMapCreated: (controller) {
               _mapController = controller;
               // Animate to current location when map is created
-              // Use a small delay to ensure map is fully initialized
-              Future.delayed(const Duration(milliseconds: 300), () {
-                if (mounted && _mapController != null) {
-                  // Reset last animated location to force animation
-                  _lastAnimatedLocation = null;
-                  _animateTo(location);
-                }
-              });
+              if (location != null) {
+                // Use a small delay to ensure map is fully initialized
+                Future.delayed(const Duration(milliseconds: 300), () {
+                  if (mounted && _mapController != null) {
+                    // Reset last animated location to force animation
+                    _lastAnimatedLocation = null;
+                    _animateTo(location);
+                  }
+                });
+              }
             },
           );
         },

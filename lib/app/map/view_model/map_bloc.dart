@@ -181,19 +181,19 @@ class MapBloc extends Bloc<MapEvent, MapState> {
   ) async {
     final currentState = state;
     if (currentState is! MapLoaded) return;
-    
+
     // Replace the existing child location marker instead of adding a new one
     const childMarkerId = MarkerId('child_location');
     final existingMarkers = currentState.markers
         .where((marker) => marker.markerId != childMarkerId)
         .toList();
-    
+
     final newMarker = Marker(
       consumeTapEvents: false,
       markerId: childMarkerId,
       position: event.currentLocation,
     );
-    
+
     final updatedMarkers = [...existingMarkers, newMarker];
 
     // Animate camera to new location
