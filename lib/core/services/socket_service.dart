@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:child_track/core/utils/app_logger.dart';
 import 'package:child_track/core/services/shared_prefs_service.dart';
-import 'package:socket_io_client/socket_io_client.dart' as IO;
+import 'package:socket_io_client/socket_io_client.dart' as io;
 
 class SocketService {
   static final SocketService _instance = SocketService._internal();
@@ -13,7 +13,7 @@ class SocketService {
 
   SocketService._internal();
 
-  IO.Socket? _socket;
+  io.Socket? _socket;
   final String _serverUrl = "wss://naviq-server.codescap.com";
   final SharedPrefsService _sharedPrefsService = SharedPrefsService();
   String? _pendingChildIdForRoom;
@@ -53,9 +53,9 @@ class SocketService {
       extraHeaders['Authorization'] = 'Bearer $token';
     }
 
-    _socket = IO.io(
+    _socket = io.io(
       url,
-      IO.OptionBuilder()
+      io.OptionBuilder()
           .setTransports(['websocket', 'polling'])
           .disableAutoConnect()
           .setReconnectionAttempts(double.infinity)

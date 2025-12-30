@@ -759,7 +759,6 @@ class _HomeMapBackgroundState extends State<_HomeMapBackground> {
   BitmapDescriptor? _cachedMarkerIcon;
   int? _cachedBatteryPercentage;
   GoogleMapController? _mapController;
-  LatLng? _lastAnimatedLocation;
 
   @override
   void initState() {
@@ -798,32 +797,9 @@ class _HomeMapBackgroundState extends State<_HomeMapBackground> {
     }
     */
 
-    _lastAnimatedLocation = target;
     AppLogger.info("Moving camera to $target");
     _mapController!.animateCamera(CameraUpdate.newLatLngZoom(target, 15.0));
   }
-
-  /*
-  double _calculateDistance(
-    double lat1,
-    double lon1,
-    double lat2,
-    double lon2,
-  ) {
-    // Haversine formula to calculate distance between two points in meters
-    const double earthRadius = 6371000; // meters
-    final double dLat = (lat2 - lat1) * (math.pi / 180);
-    final double dLon = (lon2 - lon1) * (math.pi / 180);
-    final double a =
-        math.sin(dLat / 2) * math.sin(dLat / 2) +
-        math.cos(lat1 * (math.pi / 180)) *
-            math.cos(lat2 * (math.pi / 180)) *
-            math.sin(dLon / 2) *
-            math.sin(dLon / 2);
-    final double c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
-    return earthRadius * c;
-  }
-  */
 
   @override
   Widget build(BuildContext context) {
@@ -859,9 +835,6 @@ class _HomeMapBackgroundState extends State<_HomeMapBackground> {
                 _animateTo(loc);
               }
             });
-          } else {
-            // If controller not ready yet, reset last location so it will animate when controller is ready
-            _lastAnimatedLocation = null;
           }
         }
       },
@@ -930,8 +903,6 @@ class _HomeMapBackgroundState extends State<_HomeMapBackground> {
                 // Use a small delay to ensure map is fully initialized
                 Future.delayed(const Duration(milliseconds: 300), () {
                   if (mounted && _mapController != null) {
-                    // Reset last animated location to force animation
-                    _lastAnimatedLocation = null;
                     _animateTo(location);
                   }
                 });

@@ -36,7 +36,6 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
        _socketService = socketService,
        super(HomepageSuccess.initial()) {
     on<GetHomepageData>(_onGetHomepageData);
-    // on<FetchChildCurrentDetails>(_onFetchChildCurrentDetails);
     on<GetTrips>(_onGetTrips);
     on<GetTripDetail>(_onGetTripDetail);
     on<UpdateSocketLocation>(_onUpdateSocketLocation);
@@ -64,7 +63,6 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
     Emitter<HomepageState> emit,
   ) async {
     final currentState = state;
-    // if (currentState is! HomepageSuccess) return;
 
     final childId = _sharedPrefsService.getString('child_id');
 
@@ -126,40 +124,6 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
       emit(HomepageError(message: 'Failed to load home data: ${e.toString()}'));
     }
   }
-  /*
-  Future<void> _onFetchChildCurrentDetails(
-    FetchChildCurrentDetails event,
-    Emitter<HomepageState> emit,
-  ) async {
-    final currentState = state;
-    if (currentState is! HomepageSuccess) return;
-    try {
-      emit(currentState.copyWith(isLoading: true));
-      final response = await _homeRepository.getCurrentLocationDetails();
-      if (response.isSuccess) {
-        final homeData = HomeResponse.fromJson(response.data);
-
-        emit(
-          currentState.copyWith(
-            currentLocation: homeData.currentLocation,
-            deviceInfo: homeData.deviceInfo,
-          ),
-        );
-        _mapBloc.add(
-          UpdateChildLocation(
-            LatLng(homeData.currentLocation.lat, homeData.currentLocation.lng),
-          ),
-        );
-      } else {
-        emit(currentState.copyWith(isLoading: false));
-      }
-    } catch (e) {
-      AppLogger.error(e.toString());
-    } finally {
-      emit(currentState.copyWith(isLoading: false));
-    }
-  }
-*/
 
   Future<void> _onGetTrips(GetTrips event, Emitter<HomepageState> emit) async {
     final currentState = state;

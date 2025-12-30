@@ -14,7 +14,7 @@ final class HomepageSuccess extends HomepageState {
   final YesterdayTripSummary? yesterdayTripSummary;
   final Cards? cards;
   final bool isLoading;
-  final bool hasNoChild; // Flag to indicate no child is connected
+  final bool hasNoChild;
   // Trips data
   final List<Trip> trips;
   final int? tripsPage;
@@ -28,7 +28,7 @@ final class HomepageSuccess extends HomepageState {
 
   const HomepageSuccess({
     required this.deviceInfo,
-     this.currentLocation,
+    this.currentLocation,
     this.yesterdayTrips = const [],
     this.yesterdayTripSummary,
     this.cards,
@@ -45,41 +45,41 @@ final class HomepageSuccess extends HomepageState {
   });
   //inital
   const HomepageSuccess.initial()
-      : this(
-          deviceInfo: null,
-          currentLocation: null,
-          yesterdayTrips: const [],
-          yesterdayTripSummary: null,
-          cards: null,
-          isLoading: false,
-          hasNoChild: false,
-          trips: const [],
-          tripsPage: null,
-          tripsPageSize: null,
-          tripsTotalItems: null,
-          isLoadingTrips: false,
-          selectedTripDetail: null,
-          isLoadingTripDetail: false,
-          selectedTripId: null,
-        );
+    : this(
+        deviceInfo: null,
+        currentLocation: null,
+        yesterdayTrips: const [],
+        yesterdayTripSummary: null,
+        cards: null,
+        isLoading: false,
+        hasNoChild: false,
+        trips: const [],
+        tripsPage: null,
+        tripsPageSize: null,
+        tripsTotalItems: null,
+        isLoadingTrips: false,
+        selectedTripDetail: null,
+        isLoadingTripDetail: false,
+        selectedTripId: null,
+      );
   @override
   List<Object> get props => [
-        if (deviceInfo != null) deviceInfo!,
-        if (currentLocation != null) currentLocation!,
-        yesterdayTrips,
-        if (yesterdayTripSummary != null) yesterdayTripSummary!,
-        if (cards != null) cards!,
-        isLoading,
-        hasNoChild,
-        trips,
-        if (tripsPage != null) tripsPage!,
-        if (tripsPageSize != null) tripsPageSize!,
-        if (tripsTotalItems != null) tripsTotalItems!,
-        isLoadingTrips,
-        if (selectedTripDetail != null) selectedTripDetail!,
-        isLoadingTripDetail,
-        if (selectedTripId != null) selectedTripId!,
-      ];
+    if (deviceInfo != null) deviceInfo!,
+    if (currentLocation != null) currentLocation!,
+    yesterdayTrips,
+    if (yesterdayTripSummary != null) yesterdayTripSummary!,
+    if (cards != null) cards!,
+    isLoading,
+    hasNoChild,
+    trips,
+    if (tripsPage != null) tripsPage!,
+    if (tripsPageSize != null) tripsPageSize!,
+    if (tripsTotalItems != null) tripsTotalItems!,
+    isLoadingTrips,
+    if (selectedTripDetail != null) selectedTripDetail!,
+    isLoadingTripDetail,
+    if (selectedTripId != null) selectedTripId!,
+  ];
   HomepageSuccess copyWith({
     DeviceInfo? deviceInfo,
     LocationInfo? currentLocation,
