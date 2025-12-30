@@ -14,7 +14,6 @@ import 'package:child_track/core/utils/app_logger.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:child_track/core/services/socket_service.dart';
 
 part 'homepage_event.dart';
 part 'homepage_state.dart';
@@ -23,73 +22,7 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
   final HomeRepository _homeRepository;
   final MapBloc _mapBloc;
   final SharedPrefsService _sharedPrefsService;
-  final SocketService _socketService = SocketService();
   StreamSubscription? _connectionStatusSubscription;
-  String? _currentChildId;
-
-  // Sample data fallback for yesterday trips
-  static const List<Map<String, dynamic>> _sampleYesterdayTrips = [
-    {
-      "segment_id": "S1",
-      "type": "ride",
-      "start_latitude": 11.2488,
-      "start_longitude": 75.7839,
-      "end_latitude": 11.354909,
-      "end_longitude": 75.790219,
-      "start_time": "10:00am",
-      "end_time": "12:00pm",
-      "start_point": {"name": "Home"},
-      "end_point": {"name": "Mall"},
-      "distance_km": 6.0,
-      "duration_minutes": 120,
-      "max_speed_kmph": 40,
-      "polyline_points": [
-        {"latitude": 11.2488, "longitude": 75.7839},
-        {"latitude": 11.354909, "longitude": 75.790219},
-      ],
-      "progress": 30,
-    },
-    {
-      "segment_id": "S2",
-      "type": "ride",
-      "start_time": "11:00pm",
-      "end_time": "11:30pm",
-      "start_point": {"name": "Mall"},
-      "end_point": {"name": "Park"},
-      "distance_km": 10.5,
-      "duration_minutes": 180,
-      "max_speed_kmph": 55,
-      "start_latitude": 11.433278,
-      "start_longitude": 75.785960,
-      "end_latitude": 11.390055,
-      "end_longitude": 75.774120,
-      "polyline_points": [
-        {"latitude": 11.433278, "longitude": 75.785960},
-        {"latitude": 11.390055, "longitude": 75.774120},
-      ],
-      "progress": 60,
-    },
-    {
-      "segment_id": "S3",
-      "type": "walk",
-      "start_time": "10:30pm",
-      "end_time": "12:00am",
-      "start_latitude": 11.390055,
-      "start_longitude": 75.774120,
-      "end_latitude": 11.354909,
-      "end_longitude": 75.790219,
-      "start_point": {"name": "Park"},
-      "end_point": {"name": "Ice Cream Shop"},
-      "distance_km": 1.2,
-      "duration_minutes": 30,
-      "max_speed_kmph": 6,
-      "polyline_points": [
-        {"latitude": 11.390055, "longitude": 75.774120},
-        {"latitude": 11.354909, "longitude": 75.790219},
-      ],
-      "progress": 100,
-    },
-  ];
 
   HomepageBloc({
     required HomeRepository homeRepository,
@@ -107,25 +40,12 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
     on<UpdateSocketTrip>(_onUpdateSocketTrip);
   }
 
-
-
-
-
-
-
   @override
   Future<void> close() {
     _connectionStatusSubscription?.cancel();
     // Don't disconnect socket here as child app might still be using it
     // Only disconnect if this is the only app using it
     return super.close();
-  }
-
-  /// Convert sample data to TripSegment objects
-  List<TripSegment> _getSampleTripSegments() {
-    return _sampleYesterdayTrips
-        .map((json) => TripSegment.fromJson(json))
-        .toList();
   }
 
   Future<void> _onGetHomepageData(
@@ -151,17 +71,13 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
     //   }
     // }
 
-
-
     emit(currentState.copyWith(isLoading: true));
     try {
       final response = await _homeRepository.getHomeData(childId: childId);
       if (response.isSuccess && response.data != null) {
         final homeData = response.data!;
         // Use sample data if yesterdayTrips is null or empty
-        final tripsToUse = homeData.yesterdayTrips.isEmpty
-            ? _getSampleTripSegments()
-            : homeData.yesterdayTrips;
+        final tripsToUse = homeData.yesterdayTrips;
 
         emit(
           HomepageSuccess(
@@ -305,11 +221,22 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
       }
 
       // Extract lat/lng from various possible field names
-      final lat = toDouble(data['lat'] ?? data['latitude'] ?? data['Lat'] ?? data['Latitude']);
-      final lng = toDouble(data['lng'] ?? data['longitude'] ?? data['Lng'] ?? data['Longitude'] ?? data['lon'] ?? data['Lon']);
+      final lat = toDouble(
+        data['lat'] ?? data['latitude'] ?? data['Lat'] ?? data['Latitude'],
+      );
+      final lng = toDouble(
+        data['lng'] ??
+            data['longitude'] ??
+            data['Lng'] ??
+            data['Longitude'] ??
+            data['lon'] ??
+            data['Lon'],
+      );
 
       if (lat == 0.0 && lng == 0.0) {
-        AppLogger.warning('[HomepageBloc] Invalid location data: lat=$lat, lng=$lng');
+        AppLogger.warning(
+          '[HomepageBloc] Invalid location data: lat=$lat, lng=$lng',
+        );
         return;
       }
 
@@ -325,10 +252,24 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
         updatedLocation = currentState.currentLocation!.copyWith(
           lat: lat,
           lng: lng,
-          address: data['address'] ?? data['Address'] ?? currentState.currentLocation!.address,
-          placeName: data['place_name'] ?? data['placeName'] ?? data['PlaceName'] ?? currentState.currentLocation!.placeName,
-          since: data['timestamp'] ?? data['since'] ?? data['Since'] ?? DateTime.now().toIso8601String(),
-          durationMinutes: data['duration_minutes'] ?? data['durationMinutes'] ?? currentState.currentLocation!.durationMinutes,
+          address:
+              data['address'] ??
+              data['Address'] ??
+              currentState.currentLocation!.address,
+          placeName:
+              data['place_name'] ??
+              data['placeName'] ??
+              data['PlaceName'] ??
+              currentState.currentLocation!.placeName,
+          since:
+              data['timestamp'] ??
+              data['since'] ??
+              data['Since'] ??
+              DateTime.now().toIso8601String(),
+          durationMinutes:
+              data['duration_minutes'] ??
+              data['durationMinutes'] ??
+              currentState.currentLocation!.durationMinutes,
         );
       } else {
         // Create new location if it doesn't exist
@@ -336,9 +277,18 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
           lat: lat,
           lng: lng,
           address: data['address'] ?? data['Address'] ?? 'Unknown-3',
-          placeName: data['place_name'] ?? data['placeName'] ?? data['PlaceName'] ?? 'Unknown-4',
-          since: data['timestamp'] ?? data['since'] ?? data['Since'] ?? DateTime.now().toIso8601String(),
-          durationMinutes: data['duration_minutes'] ?? data['durationMinutes'] ?? 0,
+          placeName:
+              data['place_name'] ??
+              data['placeName'] ??
+              data['PlaceName'] ??
+              'Unknown-4',
+          since:
+              data['timestamp'] ??
+              data['since'] ??
+              data['Since'] ??
+              DateTime.now().toIso8601String(),
+          durationMinutes:
+              data['duration_minutes'] ?? data['durationMinutes'] ?? 0,
         );
       }
 
