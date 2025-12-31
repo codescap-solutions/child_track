@@ -46,15 +46,19 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
   void onInitialize() {
     final childId = _sharedPrefsService.getString('child_id');
     final parentId = _sharedPrefsService.getString('parent_id');
-    
+
     // Only initialize if user is logged in as child (has child_id) and NOT as parent
-    if (childId != null && childId.isNotEmpty && (parentId == null || parentId.isEmpty)) {
+    if (childId != null &&
+        childId.isNotEmpty &&
+        (parentId == null || parentId.isEmpty)) {
       AppLogger.info('ChildBloc: Initializing for child_id: $childId');
       add(LoadDeviceInfo());
       add(GetScreenTime());
       add(GetChildLocation());
     } else {
-      AppLogger.info('ChildBloc: Skipping initialization - not logged in as child');
+      AppLogger.info(
+        'ChildBloc: Skipping initialization - not logged in as child',
+      );
       // Stop any running timers
       _stopAllTimers();
     }
@@ -78,7 +82,9 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
   bool _isChildLoggedIn() {
     final childId = _sharedPrefsService.getString('child_id');
     final parentId = _sharedPrefsService.getString('parent_id');
-    return childId != null && childId.isNotEmpty && (parentId == null || parentId.isEmpty);
+    return childId != null &&
+        childId.isNotEmpty &&
+        (parentId == null || parentId.isEmpty);
   }
 
   Future<void> _onLoadDeviceInfo(
@@ -100,7 +106,9 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
   ) async {
     // Check if user is still logged in as child
     if (!_isChildLoggedIn()) {
-      AppLogger.warning('ChildBloc: Skipping postDeviceInfo - not logged in as child');
+      AppLogger.warning(
+        'ChildBloc: Skipping postDeviceInfo - not logged in as child',
+      );
       _stopDeviceInfoTimer();
       return;
     }
@@ -108,7 +116,9 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
     try {
       final childId = _sharedPrefsService.getString('child_id');
       if (childId == null || childId.isEmpty) {
-        AppLogger.warning('ChildBloc: child_id is null, stopping device info timer');
+        AppLogger.warning(
+          'ChildBloc: child_id is null, stopping device info timer',
+        );
         _stopDeviceInfoTimer();
         return;
       }
@@ -140,9 +150,54 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
     final currentState = state;
     if (currentState is! ChildDeviceInfoLoaded) return;
     try {
-      final screenTime = await _deviceInfoService.getScreenTime();
-      emit(currentState.copyWith(screenTime: screenTime));
-      add(PostScreenTime(appScreenTimes: screenTime));
+      final installedApps = await _deviceInfoService.getInstalledApps();
+      final screenTimeUsage = await _deviceInfoService.getScreenTime();
+
+      // Create a map of usage data for quick lookup
+      final usageMap = {
+        for (var app in screenTimeUsage) app.package: app.seconds,
+      };
+
+      // Merge installed apps with usage data
+      final List<AppScreenTimeModel> mergedScreenTime = [];
+
+      for (var app in installedApps) {
+        final seconds = usageMap[app.packageName] ?? 0;
+        mergedScreenTime.add(
+          AppScreenTimeModel(
+            package: app.packageName,
+            appName: app.appName,
+            isSystemApp: app.isSystemApp,
+            seconds: seconds,
+          ),
+        );
+
+        // Remove from usageMap to identify apps with usage but not in installed list
+        usageMap.remove(app.packageName);
+      }
+
+      // Add remaining apps from usageMap (apps with usage but somehow not in installed list)
+      usageMap.forEach((package, seconds) {
+        // Find if we have partial info in screenTimeUsage list
+        final originalUsage = screenTimeUsage.firstWhere(
+          (element) => element.package == package,
+          orElse: () => AppScreenTimeModel(package: package, seconds: seconds),
+        );
+
+        mergedScreenTime.add(
+          AppScreenTimeModel(
+            package: package,
+            appName: originalUsage.appName.isNotEmpty
+                ? originalUsage.appName
+                : package, // Fallback to package name
+            isSystemApp: originalUsage.isSystemApp,
+            seconds: seconds,
+          ),
+        );
+      });
+
+      emit(currentState.copyWith(screenTime: mergedScreenTime));
+      add(PostScreenTime(appScreenTimes: mergedScreenTime));
     } catch (e) {
       AppLogger.error('Failed to get screen time: ${e.toString()}');
     }
@@ -154,7 +209,9 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
   ) async {
     // Check if user is still logged in as child
     if (!_isChildLoggedIn()) {
-      AppLogger.warning('ChildBloc: Skipping postScreenTime - not logged in as child');
+      AppLogger.warning(
+        'ChildBloc: Skipping postScreenTime - not logged in as child',
+      );
       _stopScreenTimeTimer();
       return;
     }
@@ -162,7 +219,9 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
     try {
       final childId = _sharedPrefsService.getString('child_id');
       if (childId == null || childId.isEmpty) {
-        AppLogger.warning('ChildBloc: child_id is null, stopping screen time timer');
+        AppLogger.warning(
+          'ChildBloc: child_id is null, stopping screen time timer',
+        );
         _stopScreenTimeTimer();
         return;
       }
@@ -226,7 +285,9 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
   ) async {
     // Check if user is still logged in as child
     if (!_isChildLoggedIn()) {
-      AppLogger.warning('ChildBloc: Skipping postChildLocation - not logged in as child');
+      AppLogger.warning(
+        'ChildBloc: Skipping postChildLocation - not logged in as child',
+      );
       _stopChildLocationTimer();
       return;
     }
@@ -234,7 +295,9 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
     try {
       final childId = _sharedPrefsService.getString('child_id');
       if (childId == null || childId.isEmpty) {
-        AppLogger.warning('ChildBloc: child_id is null, stopping location timer');
+        AppLogger.warning(
+          'ChildBloc: child_id is null, stopping location timer',
+        );
         _stopChildLocationTimer();
         return;
       }
@@ -383,7 +446,9 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
   ) async {
     // Check if user is still logged in as child
     if (!_isChildLoggedIn()) {
-      AppLogger.warning('ChildBloc: Skipping updateTripLocation - not logged in as child');
+      AppLogger.warning(
+        'ChildBloc: Skipping updateTripLocation - not logged in as child',
+      );
       _stopTripLocationTimer();
       return;
     }
@@ -397,7 +462,9 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
     try {
       final childId = _sharedPrefsService.getString('child_id');
       if (childId == null || childId.isEmpty) {
-        AppLogger.warning('ChildBloc: child_id is null, stopping trip tracking');
+        AppLogger.warning(
+          'ChildBloc: child_id is null, stopping trip tracking',
+        );
         _stopTripLocationTimer();
         return;
       }
@@ -490,14 +557,18 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
   ) async {
     // Check if user is still logged in as child
     if (!_isChildLoggedIn()) {
-      AppLogger.warning('ChildBloc: Skipping postTripEvent - not logged in as child');
+      AppLogger.warning(
+        'ChildBloc: Skipping postTripEvent - not logged in as child',
+      );
       return;
     }
 
     try {
       final childId = _sharedPrefsService.getString('child_id');
       if (childId == null || childId.isEmpty) {
-        AppLogger.warning('ChildBloc: child_id is null, cannot post trip event');
+        AppLogger.warning(
+          'ChildBloc: child_id is null, cannot post trip event',
+        );
         return;
       }
 

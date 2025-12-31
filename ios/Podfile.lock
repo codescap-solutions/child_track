@@ -95,6 +95,8 @@ PODS:
   - shared_preferences_foundation (0.0.1):
     - Flutter
     - FlutterMacOS
+  - url_launcher_ios (0.0.1):
+    - Flutter
 
 DEPENDENCIES:
   - battery_plus (from `.symlinks/plugins/battery_plus/ios`)
@@ -109,6 +111,7 @@ DEPENDENCIES:
   - path_provider_foundation (from `.symlinks/plugins/path_provider_foundation/darwin`)
   - permission_handler_apple (from `.symlinks/plugins/permission_handler_apple/ios`)
   - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
+  - url_launcher_ios (from `.symlinks/plugins/url_launcher_ios/ios`)
 
 SPEC REPOS:
   trunk:
@@ -149,6 +152,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/permission_handler_apple/ios"
   shared_preferences_foundation:
     :path: ".symlinks/plugins/shared_preferences_foundation/darwin"
+  url_launcher_ios:
+    :path: ".symlinks/plugins/url_launcher_ios/ios"
 
 SPEC CHECKSUMS:
   battery_plus: 3b68b6e7710fe49c022999753d22760e6dbbc471
@@ -174,6 +179,7 @@ SPEC CHECKSUMS:
   permission_handler_apple: 9878588469a2b0d0fc1e048d9f43605f92e6cec2
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
   shared_preferences_foundation: 5086985c1d43c5ba4d5e69a4e8083a389e2909e6
+  url_launcher_ios: bb13df5870e8c4234ca12609d04010a21be43dfa
 
 PODFILE CHECKSUM: 8ba722d6402551062f5e80183c78c9288d08d09b
 
