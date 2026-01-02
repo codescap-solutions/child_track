@@ -15,6 +15,7 @@ import '../../app/auth/view_model/bloc/auth_bloc.dart';
 import '../../app/home/view_model/bloc/homepage_bloc.dart';
 import '../../app/map/view_model/map_bloc.dart';
 import '../../app/childapp/view_model/bloc/child_bloc.dart';
+import '../../app/addplace/service/saved_places_service.dart';
 
 final GetIt injector = GetIt.instance;
 
@@ -63,6 +64,10 @@ Future<void> initializeDependencies() async {
 
   injector.registerLazySingleton<ChildGoogleMapsRepo>(
     () => ChildGoogleMapsRepo(),
+  );
+
+  injector.registerLazySingleton<SavedPlacesService>(
+    () => SavedPlacesService(),
   );
 
   injector.registerLazySingleton<SocketService>(() => SocketService());

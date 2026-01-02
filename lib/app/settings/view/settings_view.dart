@@ -9,6 +9,7 @@ import 'package:child_track/core/constants/app_text_styles.dart';
 import 'widgets/section_card.dart';
 import 'widgets/setting_tile.dart';
 import 'notification_settings_view.dart';
+import '../../addplace/add_and_saveplace.dart';
 
 class SettingsView extends StatefulWidget {
   const SettingsView({super.key});
@@ -263,6 +264,33 @@ class _SettingsViewState extends State<SettingsView> {
               SectionCard(
                 child: Column(
                   children: [
+                    SettingTile(
+                      subtitle: 'Manage your saved locations',
+                      leading: const Icon(
+                        Icons.bookmark_border,
+                        color: AppColors.textSecondary,
+                      ),
+                      title: 'Saved Places',
+                      trailing: const Icon(
+                        Icons.arrow_forward_ios,
+                        size: 16,
+                        color: AppColors.textSecondary,
+                      ),
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const AddandSavePlace(),
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: const Divider(
+                        height: 1,
+                        endIndent: 20,
+                        indent: 20,
+                      ),
+                    ),
                     SettingTile(
                       subtitle: 'Your account details',
                       leading: const Icon(

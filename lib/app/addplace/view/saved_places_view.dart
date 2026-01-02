@@ -31,7 +31,7 @@ class _SavedPlacesViewState extends State<SavedPlacesView> {
     });
 
     final places = await _savedPlacesService.getSavedPlaces();
-    
+
     setState(() {
       _savedPlaces = places;
       _isLoading = false;
@@ -51,9 +51,7 @@ class _SavedPlacesViewState extends State<SavedPlacesView> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(
-              foregroundColor: AppColors.error,
-            ),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
             child: const Text('Delete'),
           ),
         ],
@@ -61,7 +59,7 @@ class _SavedPlacesViewState extends State<SavedPlacesView> {
     );
 
     if (confirm == true) {
-      final success = await _savedPlacesService.deletePlace(place.id);
+      final success = await _savedPlacesService.deletePlace(place.id ?? "");
       if (success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -82,10 +80,7 @@ class _SavedPlacesViewState extends State<SavedPlacesView> {
         backgroundColor: AppColors.surfaceColor,
         foregroundColor: AppColors.textPrimary,
         elevation: 0,
-        title: Text(
-          'Saved Places',
-          style: AppTextStyles.headline5,
-        ),
+        title: Text('Saved Places', style: AppTextStyles.headline5),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, size: 18),
           onPressed: () => Navigator.of(context).pop(),
@@ -96,9 +91,7 @@ class _SavedPlacesViewState extends State<SavedPlacesView> {
             onPressed: () async {
               final result = await Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (_) => const AddandSavePlace(),
-                ),
+                MaterialPageRoute(builder: (_) => const AddandSavePlace()),
               );
               if (result == true) {
                 _loadSavedPlaces();
@@ -110,43 +103,43 @@ class _SavedPlacesViewState extends State<SavedPlacesView> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _savedPlaces.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.bookmark_border,
-                        size: 64,
-                        color: AppColors.textSecondary,
-                      ),
-                      const SizedBox(height: AppSizes.spacingM),
-                      Text(
-                        'No saved places yet',
-                        style: AppTextStyles.headline6.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                      const SizedBox(height: AppSizes.spacingS),
-                      Text(
-                        'Tap the + button to add a place',
-                        style: AppTextStyles.body2.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ],
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.bookmark_border,
+                    size: 64,
+                    color: AppColors.textSecondary,
                   ),
-                )
-              : RefreshIndicator(
-                  onRefresh: _loadSavedPlaces,
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(AppSizes.paddingM),
-                    itemCount: _savedPlaces.length,
-                    itemBuilder: (context, index) {
-                      final place = _savedPlaces[index];
-                      return _buildPlaceCard(place);
-                    },
+                  const SizedBox(height: AppSizes.spacingM),
+                  Text(
+                    'No saved places yet',
+                    style: AppTextStyles.headline6.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
                   ),
-                ),
+                  const SizedBox(height: AppSizes.spacingS),
+                  Text(
+                    'Tap the + button to add a place',
+                    style: AppTextStyles.body2.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          : RefreshIndicator(
+              onRefresh: _loadSavedPlaces,
+              child: ListView.builder(
+                padding: const EdgeInsets.all(AppSizes.paddingM),
+                itemCount: _savedPlaces.length,
+                itemBuilder: (context, index) {
+                  final place = _savedPlaces[index];
+                  return _buildPlaceCard(place);
+                },
+              ),
+            ),
     );
   }
 
@@ -202,7 +195,7 @@ class _SavedPlacesViewState extends State<SavedPlacesView> {
                     ),
                     const SizedBox(height: AppSizes.spacingXS),
                     Text(
-                      'Saved on ${DateFormat('MMM dd, yyyy').format(place.savedAt)}',
+                      'Saved on ${DateFormat('MMM dd, yyyy').format(place.savedAt ?? DateTime.now())}',
                       style: AppTextStyles.overline.copyWith(
                         color: AppColors.textHint,
                       ),
@@ -211,10 +204,7 @@ class _SavedPlacesViewState extends State<SavedPlacesView> {
                 ),
               ),
               IconButton(
-                icon: const Icon(
-                  Icons.delete_outline,
-                  color: AppColors.error,
-                ),
+                icon: const Icon(Icons.delete_outline, color: AppColors.error),
                 onPressed: () => _deletePlace(place),
               ),
             ],
@@ -224,4 +214,3 @@ class _SavedPlacesViewState extends State<SavedPlacesView> {
     );
   }
 }
-

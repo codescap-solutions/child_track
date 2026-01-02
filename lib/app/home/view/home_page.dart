@@ -19,7 +19,9 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../settings/view/settings_view.dart';
 import '../../social_apps/view/social_apps_view.dart';
-import '../../addplace/add_and_saveplace.dart';
+
+import '../../addplace/model/saved_place_model.dart';
+import '../../addplace/service/saved_places_service.dart';
 import 'child_location_detail_view.dart';
 
 class HomePage extends StatefulWidget {
@@ -349,16 +351,13 @@ class _HomePageState extends State<HomePage> {
                   // Save Place button
                   OutlinedButton.icon(
                     onPressed: () {
-                      Navigator.push(
+                      _showSavePlaceDialog(
                         context,
-                        MaterialPageRoute(
-                          builder: (_) => AddandSavePlace(
-                            initialLocation: LatLng(
-                              state.currentLocation?.lat ?? 0,
-                              state.currentLocation?.lng ?? 0,
-                            ),
-                          ),
+                        LatLng(
+                          state.currentLocation?.lat ?? 0,
+                          state.currentLocation?.lng ?? 0,
                         ),
+                        state.currentLocation?.address ?? '',
                       );
                     },
                     icon: const Icon(
@@ -740,6 +739,232 @@ class _HomePageState extends State<HomePage> {
             ),
             const SizedBox(height: AppSizes.spacingL),
           ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showSavePlaceDialog(
+    BuildContext context,
+    LatLng location,
+    String address,
+  ) async {
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => _SavePlaceOptionsDialog(),
+    );
+
+    if (result != null && mounted) {
+      if (result == 'Custom Name') {
+        _showCustomNameDialog(context, location, address);
+      } else {
+        _savePlace(context, result, location, address);
+      }
+    }
+  }
+
+  Future<void> _showCustomNameDialog(
+    BuildContext context,
+    LatLng location,
+    String address,
+  ) async {
+    final nameController = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Enter Custom Name'),
+        content: TextField(
+          controller: nameController,
+          decoration: const InputDecoration(hintText: 'e.g., Grandma\'s House'),
+          textCapitalization: TextCapitalization.sentences,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              if (nameController.text.trim().isNotEmpty) {
+                Navigator.pop(context, nameController.text.trim());
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (result != null && mounted) {
+      _savePlace(context, result, location, address);
+    }
+  }
+
+  Future<void> _savePlace(
+    BuildContext context,
+    String name,
+    LatLng location,
+    String address,
+  ) async {
+    // Show loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    final place = SavedPlace(
+      name: name,
+      latitude: location.latitude,
+      longitude: location.longitude,
+      address: address,
+      children: [], // Defaults to all children
+    );
+
+    try {
+      final success = await injector<SavedPlacesService>().savePlace(place);
+      if (mounted) {
+        Navigator.pop(context); // Dismiss loading
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('$name saved successfully'),
+              backgroundColor: AppColors.success,
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to save place'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // Dismiss loading
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+}
+
+class _SavePlaceOptionsDialog extends StatelessWidget {
+  final List<String> options = ['Home', 'School', 'Tuition', 'Custom Name'];
+
+  IconData _getOptionIcon(String option) {
+    switch (option) {
+      case 'Home':
+        return Icons.home;
+      case 'School':
+        return Icons.school;
+      case 'Tuition':
+        return Icons.menu_book;
+      case 'Custom Name':
+        return Icons.edit_location_alt;
+      default:
+        return Icons.place;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.all(AppSizes.paddingM),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppSizes.radiusL),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppSizes.radiusL),
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppColors.surfaceColor.withValues(alpha: 0.7),
+              borderRadius: BorderRadius.circular(AppSizes.radiusL),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: 10,
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(AppSizes.paddingM),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Save Place As',
+                    style: AppTextStyles.headline6.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: AppSizes.spacingM),
+                  ...options.map(
+                    (option) => Padding(
+                      padding: const EdgeInsets.only(bottom: AppSizes.spacingS),
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context, option),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: AppSizes.paddingM,
+                            horizontal: AppSizes.paddingM,
+                          ),
+                          backgroundColor: AppColors.surfaceColor.withValues(
+                            alpha: 0.5,
+                          ),
+                          side: BorderSide(
+                            color: AppColors.borderColor.withValues(alpha: 0.5),
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(
+                              AppSizes.radiusM,
+                            ),
+                          ),
+                          alignment: Alignment.centerLeft,
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              _getOptionIcon(option),
+                              color: AppColors.primaryColor,
+                              size: 20,
+                            ),
+                            const SizedBox(width: AppSizes.spacingM),
+                            Text(
+                              option,
+                              style: AppTextStyles.button.copyWith(
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            const Spacer(),
+                            Icon(
+                              Icons.arrow_forward_ios,
+                              size: 14,
+                              color: AppColors.textSecondary.withValues(
+                                alpha: 0.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );

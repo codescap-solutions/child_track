@@ -153,8 +153,8 @@ class _MapViewWidgetState extends State<MapViewWidget> {
     return SizedBox(
       width: widget.width,
       height: widget.height,
-      child: BlocProvider(
-        create: (context) => injector<MapBloc>(),
+      child: BlocProvider.value(
+        value: injector<MapBloc>(),
         child: BlocBuilder<MapBloc, MapState>(
           builder: (context, state) {
             if (state is MapLoaded) {
