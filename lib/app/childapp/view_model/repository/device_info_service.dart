@@ -180,7 +180,10 @@ class ChildInfoService {
         'getScreenTime',
       );
       if (result != null) {
-        return result.map((e) => AppScreenTimeModel.fromJson(e)).toList();
+        return result.map((e) {
+          final map = Map<String, dynamic>.from(e as Map);
+          return AppScreenTimeModel.fromJson(map);
+        }).toList();
       }
       return [];
     } catch (e) {

@@ -32,7 +32,7 @@ class SavedPlacesService {
       final response = await _dioClient.get(ApiEndpoints.places);
 
       if (response.statusCode == 200 && response.data != null) {
-        final List<dynamic> data = response.data['data'] ?? [];
+        final List<dynamic> data = response.data['data']['places'] ?? [];
         return data.map((json) => SavedPlace.fromJson(json)).toList();
       }
       return [];

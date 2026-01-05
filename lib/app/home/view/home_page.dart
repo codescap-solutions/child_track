@@ -38,11 +38,42 @@ class _HomePageState extends State<HomePage> {
   final SharedPrefsService _sharedPrefsService = injector<SharedPrefsService>();
   StreamSubscription? _locationSubscription;
 
+  late final SavedPlacesService _savedPlacesService;
+  List<SavedPlace> _savedPlaces = [];
+
   @override
   void initState() {
     super.initState();
+    _savedPlacesService = injector<SavedPlacesService>();
+    _loadSavedPlaces();
     _bottomSheetScrollController.addListener(_onScroll);
     _initSocket();
+  }
+
+  Future<void> _loadSavedPlaces() async {
+    final places = await _savedPlacesService.getSavedPlaces();
+    if (mounted) {
+      setState(() {
+        _savedPlaces = places;
+      });
+    }
+  }
+
+  // ... (existing methods)
+
+  SavedPlace? _findMatchingPlace(double? lat, double? lng) {
+    if (lat == null || lng == null) return null;
+    // Tolerance for float comparison (approx 11 meters)
+    const double tolerance = 0.0001;
+
+    try {
+      return _savedPlaces.firstWhere((place) {
+        return (place.latitude - lat).abs() < tolerance &&
+            (place.longitude - lng).abs() < tolerance;
+      });
+    } catch (e) {
+      return null;
+    }
   }
 
   void _initSocket() {
@@ -329,18 +360,28 @@ class _HomePageState extends State<HomePage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          _formatAddress(state.currentLocation?.address),
-                          style: AppTextStyles.headline3.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                        Builder(
+                          builder: (context) {
+                            final matchingPlace = _findMatchingPlace(
+                              state.currentLocation?.lat,
+                              state.currentLocation?.lng,
+                            );
+
+                            return Text(
+                              matchingPlace != null
+                                  ? matchingPlace.name
+                                  : _formatAddress(
+                                      state.currentLocation?.address,
+                                    ),
+                              style: AppTextStyles.headline3.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            );
+                          },
                         ),
                         const SizedBox(height: AppSizes.spacingXS),
                         Text(
-                          //this time i get timestamp: 2025-12-10T17:43:35.926 need to convert this into minutes ago
-                          // '${DateTime.parse(state.currentLocation?.since ?? '').difference(DateTime.now()).inMinutes} minute ago',
                           _formatTimeAgo(state.currentLocation?.since),
-
                           style: AppTextStyles.caption.copyWith(
                             color: AppColors.textSecondary,
                           ),
@@ -348,38 +389,43 @@ class _HomePageState extends State<HomePage> {
                       ],
                     ),
                   ),
-                  // Save Place button
-                  OutlinedButton.icon(
-                    onPressed: () {
-                      _showSavePlaceDialog(
-                        context,
-                        LatLng(
-                          state.currentLocation?.lat ?? 0,
-                          state.currentLocation?.lng ?? 0,
-                        ),
-                        state.currentLocation?.address ?? '',
-                      );
-                    },
-                    icon: const Icon(
-                      Icons.bookmark,
-                      size: 16,
-                      color: AppColors.textSecondary,
-                    ),
-                    label: Text('save place', style: AppTextStyles.caption),
-                    style: OutlinedButton.styleFrom(
-                      side: BorderSide(color: Colors.transparent),
-                      backgroundColor: AppColors.containerBackground,
-
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSizes.paddingM,
-                        vertical: AppSizes.paddingS,
+                  // Save Place button (only show if NO matching place)
+                  if (_findMatchingPlace(
+                        state.currentLocation?.lat,
+                        state.currentLocation?.lng,
+                      ) ==
+                      null)
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        _showSavePlaceDialog(
+                          context,
+                          LatLng(
+                            state.currentLocation?.lat ?? 0,
+                            state.currentLocation?.lng ?? 0,
+                          ),
+                          state.currentLocation?.address ?? '',
+                        ).then((_) => _loadSavedPlaces());
+                      },
+                      icon: const Icon(
+                        Icons.bookmark,
+                        size: 16,
+                        color: AppColors.textSecondary,
                       ),
-                      shape: RoundedRectangleBorder(
+                      label: Text('save place', style: AppTextStyles.caption),
+                      style: OutlinedButton.styleFrom(
                         side: BorderSide(color: Colors.transparent),
-                        borderRadius: BorderRadius.circular(AppSizes.radiusM),
+                        backgroundColor: AppColors.containerBackground,
+
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSizes.paddingM,
+                          vertical: AppSizes.paddingS,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          side: BorderSide(color: Colors.transparent),
+                          borderRadius: BorderRadius.circular(AppSizes.radiusM),
+                        ),
                       ),
                     ),
-                  ),
                 ],
               ),
 
@@ -445,32 +491,61 @@ class _HomePageState extends State<HomePage> {
                   ),
                   const SizedBox(width: AppSizes.spacingS),
                   // Sound
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSizes.paddingS,
-                      vertical: AppSizes.paddingXS,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.warning.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(AppSizes.radiusS),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.volume_up,
-                          color: AppColors.warning,
-                          size: 16,
+                  Builder(
+                    builder: (context) {
+                      final soundProfile =
+                          state.deviceInfo?.soundProfile.toLowerCase() ?? '';
+
+                      Color getColor() {
+                        switch (soundProfile) {
+                          case 'silent':
+                            return AppColors.error;
+                          case 'vibrate':
+                            return AppColors.warning;
+                          default:
+                            return AppColors.success;
+                        }
+                      }
+
+                      IconData getIcon() {
+                        switch (soundProfile) {
+                          case 'silent':
+                            return Icons.volume_off;
+                          case 'vibrate':
+                            return Icons.vibration;
+                          default:
+                            return Icons.volume_up;
+                        }
+                      }
+
+                      final color = getColor();
+                      final icon = getIcon();
+
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSizes.paddingS,
+                          vertical: AppSizes.paddingXS,
                         ),
-                        const SizedBox(width: AppSizes.spacingXS),
-                        Text(
-                          state.deviceInfo?.soundProfile.toUpperCase() ?? '',
-                          style: AppTextStyles.overline.copyWith(
-                            color: AppColors.warning,
-                            fontWeight: FontWeight.w600,
-                          ),
+                        decoration: BoxDecoration(
+                          color: color.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(AppSizes.radiusS),
                         ),
-                      ],
-                    ),
+                        child: Row(
+                          children: [
+                            Icon(icon, color: color, size: 16),
+                            const SizedBox(width: AppSizes.spacingXS),
+                            Text(
+                              state.deviceInfo?.soundProfile.toUpperCase() ??
+                                  '',
+                              style: AppTextStyles.overline.copyWith(
+                                color: color,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
                   Spacer(),
                   // Action icons

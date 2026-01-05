@@ -13,6 +13,10 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
 import java.io.FileOutputStream
+import android.app.AppOpsManager
+import android.app.usage.UsageStatsManager
+import android.os.Process
+import java.util.Calendar
 
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "com.example.child_track/device_info"
@@ -31,6 +35,14 @@ class MainActivity : FlutterActivity() {
                         result.success(apps)
                     } catch (e: Exception) {
                         result.error("ERROR", "Failed to get installed apps: ${e.message}", null)
+                    }
+                }
+                "getScreenTime" -> {
+                    try {
+                        val screenTime = getScreenTime()
+                        result.success(screenTime)
+                    } catch (e: Exception) {
+                        result.error("ERROR", "Failed to get screen time: ${e.message}", null)
                     }
                 }
                 else -> result.notImplemented()
@@ -160,5 +172,38 @@ class MainActivity : FlutterActivity() {
         } catch (e: Exception) {
             null
         }
+    }
+    private fun getScreenTime(): List<Map<String, Any>> {
+        if (!hasUsageStatsPermission()) {
+            return emptyList()
+        }
+
+        val usageStatsManager = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+        val calendar = Calendar.getInstance()
+        calendar.set(Calendar.HOUR_OF_DAY, 0)
+        calendar.set(Calendar.MINUTE, 0)
+        calendar.set(Calendar.SECOND, 0)
+        calendar.set(Calendar.MILLISECOND, 0)
+        val start = calendar.timeInMillis
+        val end = System.currentTimeMillis()
+
+        val stats = usageStatsManager.queryAndAggregateUsageStats(start, end)
+        
+        return stats.values.map {
+            mapOf(
+                "package" to it.packageName,
+                "seconds" to (it.totalTimeInForeground / 1000).toInt()
+            )
+        }.filter { (it["seconds"] as Int) > 0 }
+    }
+
+    private fun hasUsageStatsPermission(): Boolean {
+        val appOps = getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
+        val mode = appOps.checkOpNoThrow(
+            AppOpsManager.OPSTR_GET_USAGE_STATS,
+            Process.myUid(),
+            packageName
+        )
+        return mode == AppOpsManager.MODE_ALLOWED
     }
 }

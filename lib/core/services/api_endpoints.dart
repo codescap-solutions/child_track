@@ -20,6 +20,8 @@ class ApiEndpoints {
 
   //parent Endpoints
   static const String getHome = 'parent/home';
+  static const String getDeviceStatus = 'parent/device-status';
+  static const String getScreenTime = 'parent/screentime';
   static const String getTrips = 'parent/trips';
   static const String linkChild = 'parent/link-child';
   static String getTripDetail(String tripId) => 'parent/trip/$tripId';
