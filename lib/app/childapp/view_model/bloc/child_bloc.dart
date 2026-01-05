@@ -372,7 +372,7 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
 
   void _startChildLocationTimer() {
     _stopChildLocationTimer();
-    _childLocationTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+    _childLocationTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
       if (isClosed || !_isChildLoggedIn()) {
         timer.cancel();
         return;
@@ -542,7 +542,9 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
           .getChildLocation()
           .then((location) {
             if (location != null && !isClosed && _isChildLoggedIn()) {
-              AppLogger.info('Tripping... Updating trip location Timer $location');
+              AppLogger.info(
+                'Tripping... Updating trip location Timer $location',
+              );
               add(UpdateTripLocation(location: location));
             }
           })
@@ -632,6 +634,9 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
         "start_time": state.tripStartTime!.toIso8601String(),
         "end_time": endTime.toIso8601String(),
       };
+      AppLogger.info(
+        'Tripping... Posting trip event request body: $requestBody',
+      );
 
       await _childRepo.postTripEvent(requestBody);
       AppLogger.info('Trip event posted successfully');
