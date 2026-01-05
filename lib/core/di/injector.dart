@@ -16,6 +16,8 @@ import '../../app/home/view_model/bloc/homepage_bloc.dart';
 import '../../app/map/view_model/map_bloc.dart';
 import '../../app/childapp/view_model/bloc/child_bloc.dart';
 import '../../app/addplace/service/saved_places_service.dart';
+import '../../app/social_apps/view_model/social_apps_repo.dart';
+import '../../app/social_apps/view_model/bloc/social_apps_bloc.dart';
 
 final GetIt injector = GetIt.instance;
 
@@ -72,6 +74,10 @@ Future<void> initializeDependencies() async {
 
   injector.registerLazySingleton<SocketService>(() => SocketService());
 
+  injector.registerLazySingleton<SocialAppsRepository>(
+    () => SocialAppsRepository(dioClient: injector<DioClient>()),
+  );
+
   // Register blocs
   injector.registerLazySingleton<AuthBloc>(
     () => AuthBloc(
@@ -94,6 +100,13 @@ Future<void> initializeDependencies() async {
       deviceInfoService: injector<ChildInfoService>(),
       childRepo: injector<ChildRepo>(),
       childLocationRepo: injector<ChildGoogleMapsRepo>(),
+    ),
+  );
+
+  injector.registerFactory<SocialAppsBloc>(
+    () => SocialAppsBloc(
+      repository: injector<SocialAppsRepository>(),
+      sharedPrefsService: injector<SharedPrefsService>(),
     ),
   );
 

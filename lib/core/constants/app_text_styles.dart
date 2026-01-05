@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'app_colors.dart';
 
 class AppTextStyles {
-    static TextStyle get headlineXL => GoogleFonts.poppins(
+  static TextStyle get headlineXL => GoogleFonts.poppins(
     fontSize: 44,
     fontWeight: FontWeight.bold,
     color: AppColors.textPrimary,
@@ -74,6 +74,12 @@ class AppTextStyles {
   // Caption Styles
   static TextStyle get caption => GoogleFonts.poppins(
     fontSize: 12,
+    fontWeight: FontWeight.normal,
+    color: AppColors.textSecondary,
+  );
+
+  static TextStyle get textSecondary => GoogleFonts.poppins(
+    fontSize: 14,
     fontWeight: FontWeight.normal,
     color: AppColors.textSecondary,
   );

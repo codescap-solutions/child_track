@@ -46,6 +46,18 @@ class MainActivity : FlutterActivity() {
                         result.error("ERROR", "Failed to get screen time: ${e.message}", null)
                     }
                 }
+                "checkUsagePermission" -> {
+                    result.success(hasUsageStatsPermission())
+                }
+                "openUsageSettings" -> {
+                    try {
+                        val intent = android.content.Intent(android.provider.Settings.ACTION_USAGE_ACCESS_SETTINGS)
+                        startActivity(intent)
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.error("ERROR", "Failed to open settings: ${e.message}", null)
+                    }
+                }
                 else -> result.notImplemented()
             }
         }
@@ -174,7 +186,7 @@ class MainActivity : FlutterActivity() {
             val canvas = Canvas(bitmap)
             drawable.setBounds(0, 0, width, height)
             drawable.draw(canvas)
-            bitmap
+            return bitmap
         } catch (e: Exception) {
             null
         }
@@ -185,22 +197,47 @@ class MainActivity : FlutterActivity() {
         }
 
         val usageStatsManager = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+        val start = System.currentTimeMillis() - 1000 * 60 * 60 * 24 // 24 hours just in case, or from midnight
+        // Use midnight today for daily view
         val calendar = Calendar.getInstance()
         calendar.set(Calendar.HOUR_OF_DAY, 0)
         calendar.set(Calendar.MINUTE, 0)
         calendar.set(Calendar.SECOND, 0)
         calendar.set(Calendar.MILLISECOND, 0)
-        val start = calendar.timeInMillis
-        val end = System.currentTimeMillis()
+        val startTime = calendar.timeInMillis
+        val endTime = System.currentTimeMillis()
 
-        val stats = usageStatsManager.queryAndAggregateUsageStats(start, end)
+        val stats = usageStatsManager.queryAndAggregateUsageStats(startTime, endTime)
+        val packageManager = packageManager
         
-        return stats.values.map {
-            mapOf(
-                "package" to it.packageName,
-                "seconds" to (it.totalTimeInForeground / 1000).toInt()
-            )
-        }.filter { (it["seconds"] as Int) > 0 }
+        return stats.values.mapNotNull { usageStats ->
+            try {
+                if (usageStats.totalTimeInForeground == 0L) return@mapNotNull null
+
+                val packageName = usageStats.packageName
+                // Filter basic system packages
+                if (packageName.startsWith("com.android.") && !packageName.contains("contacts") && !packageName.contains("dialer") && !packageName.contains("settings") && !packageName.contains("vending")) {
+                   // Keep play store, settings, contacts, dialer if they have usage
+                   // Actually, safer to check isSystemApp
+                   val appInfo = packageManager.getApplicationInfo(packageName, 0)
+                   if ((appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0 && (appInfo.flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) == 0) {
+                       // It's a system app and not an updated one.
+                       // Maybe checking launch intent is better to determine "user-facing" apps
+                       if (packageManager.getLaunchIntentForPackage(packageName) == null) {
+                           return@mapNotNull null
+                       }
+                   }
+                }
+                
+                mapOf(
+                    "package" to packageName,
+                    "seconds" to (usageStats.totalTimeInForeground / 1000).toInt(),
+                    "lastTimeUsed" to usageStats.lastTimeUsed
+                )
+            } catch (e: Exception) {
+                null
+            }
+        }.sortedByDescending { it["seconds"] as Int }
     }
 
     private fun hasUsageStatsPermission(): Boolean {

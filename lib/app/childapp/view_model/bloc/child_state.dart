@@ -15,6 +15,8 @@ final class ChildDeviceInfoLoaded extends ChildState {
   final List<Position> tripLocations;
   final DateTime? tripStartTime;
   final Position? lastTrackedLocation;
+  final bool hasUsagePermission;
+
   const ChildDeviceInfoLoaded({
     required this.deviceInfo,
     this.screenTime = const [],
@@ -23,18 +25,20 @@ final class ChildDeviceInfoLoaded extends ChildState {
     this.tripLocations = const [],
     this.tripStartTime,
     this.lastTrackedLocation,
+    this.hasUsagePermission = false,
   });
 
   @override
   List<Object> get props => [
-        deviceInfo,
-        screenTime,
-        isTripTracking,
-        tripLocations,
-        if (childLocation != null) childLocation!,
-        if (tripStartTime != null) tripStartTime!,
-        if (lastTrackedLocation != null) lastTrackedLocation!,
-      ];
+    deviceInfo,
+    screenTime,
+    isTripTracking,
+    tripLocations,
+    if (childLocation != null) childLocation!,
+    if (tripStartTime != null) tripStartTime!,
+    if (lastTrackedLocation != null) lastTrackedLocation!,
+    hasUsagePermission,
+  ];
 
   ChildDeviceInfoLoaded copyWith({
     DeviceInfo? deviceInfo,
@@ -44,6 +48,7 @@ final class ChildDeviceInfoLoaded extends ChildState {
     List<Position>? tripLocations,
     DateTime? tripStartTime,
     Position? lastTrackedLocation,
+    bool? hasUsagePermission,
   }) {
     return ChildDeviceInfoLoaded(
       deviceInfo: deviceInfo ?? this.deviceInfo,
@@ -53,6 +58,7 @@ final class ChildDeviceInfoLoaded extends ChildState {
       tripLocations: tripLocations ?? this.tripLocations,
       tripStartTime: tripStartTime ?? this.tripStartTime,
       lastTrackedLocation: lastTrackedLocation ?? this.lastTrackedLocation,
+      hasUsagePermission: hasUsagePermission ?? this.hasUsagePermission,
     );
   }
 
@@ -67,6 +73,7 @@ final class ChildDeviceInfoLoaded extends ChildState {
         onlineSince: '',
       ),
       screenTime: [],
+      hasUsagePermission: false,
     );
   }
 }

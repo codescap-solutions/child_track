@@ -21,16 +21,47 @@ class SosView extends StatefulWidget {
   State<SosView> createState() => _SosViewState();
 }
 
-class _SosViewState extends State<SosView> {
+class _SosViewState extends State<SosView> with WidgetsBindingObserver {
   late final ChildBloc _childBloc;
 
   @override
   void initState() {
     super.initState();
     _childBloc = injector<ChildBloc>();
-    _childBloc.onInitialize();
-    // Start background location service
-    BackgroundLocationService().start();
+    WidgetsBinding.instance.addObserver(this);
+
+    // Defer heavy initialization until after the first frame to ensure smooth navigation
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _childBloc.onInitialize();
+      // Start background location service
+      BackgroundLocationService().start();
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    AppLogger.info('SosView: Lifecycle state changed to $state');
+    if (state == AppLifecycleState.resumed) {
+      AppLogger.info(
+        'SosView: App resumed, checking usage permission in 500ms...',
+      );
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) _childBloc.add(CheckUsagePermission());
+      });
+      // Retry again after a longer delay just in case
+      Future.delayed(const Duration(seconds: 2), () {
+        AppLogger.info(
+          'SosView: Checking usage permission again (2s delay)...',
+        );
+        if (mounted) _childBloc.add(CheckUsagePermission());
+      });
+    }
   }
 
   @override
@@ -253,6 +284,62 @@ class _SosViewContent extends StatelessWidget {
                         color: AppColors.textSecondary,
                       ),
                     ),
+                    if (state is ChildDeviceInfoLoaded &&
+                        !state.hasUsagePermission)
+                      Container(
+                        margin: const EdgeInsets.only(top: AppSizes.spacingM),
+                        padding: const EdgeInsets.all(AppSizes.paddingM),
+                        decoration: BoxDecoration(
+                          color: AppColors.warning.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(AppSizes.radiusM),
+                          border: Border.all(color: AppColors.warning),
+                        ),
+                        child: Column(
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.warning_amber_rounded,
+                                  color: AppColors.warning,
+                                ),
+                                const SizedBox(width: AppSizes.spacingS),
+                                Expanded(
+                                  child: Text(
+                                    'Usage Access Required',
+                                    style: AppTextStyles.body2.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.warning,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: AppSizes.spacingS),
+                            Text(
+                              'To track screen time, please enable usage access for this app.',
+                              style: AppTextStyles.caption.copyWith(
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                            const SizedBox(height: AppSizes.spacingS),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.warning,
+                                  foregroundColor: Colors.white,
+                                ),
+                                onPressed: () {
+                                  context.read<ChildBloc>().add(
+                                    OpenUsageSettings(),
+                                  );
+                                },
+                                child: const Text('Enable Usage Access'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     const Spacer(),
                     Container(
                       width: 220,

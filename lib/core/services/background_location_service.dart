@@ -12,8 +12,6 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:io';
 
-
-
 class BackgroundLocationService {
   static final BackgroundLocationService _instance =
       BackgroundLocationService._internal();
@@ -415,7 +413,7 @@ void onStart(ServiceInstance service) async {
     }
 
     // Start location tracking timer (every 30 seconds)
-    locationTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+    locationTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       postLocation();
     });
 

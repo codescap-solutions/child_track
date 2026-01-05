@@ -26,4 +26,5 @@ class ApiEndpoints {
   static const String linkChild = 'parent/link-child';
   static String getTripDetail(String tripId) => 'parent/trip/$tripId';
   static const String places = 'places';
+  static const String getAppUsage = 'app-usage';
 }

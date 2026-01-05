@@ -1,11 +1,11 @@
-import 'dart:io';
+import 'package:child_track/app/social_apps/view_model/bloc/social_apps_bloc.dart';
+import 'package:child_track/core/di/injector.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:child_track/core/constants/app_colors.dart';
 import 'package:child_track/core/constants/app_sizes.dart';
 import 'package:child_track/core/constants/app_text_styles.dart';
 import 'package:child_track/core/widgets/common_button.dart';
-import 'package:child_track/app/childapp/view_model/repository/device_info_service.dart';
-import 'package:child_track/app/social_apps/model/installed_app_model.dart';
 import '../../settings/view/settings_view.dart';
 import 'widgets/social_app_item.dart';
 
@@ -17,344 +17,167 @@ class SocialAppsView extends StatefulWidget {
 }
 
 class _SocialAppsViewState extends State<SocialAppsView> {
-  final ChildInfoService _deviceInfoService = ChildInfoService();
-  List<InstalledApp> _apps = [];
-  bool _isLoading = true;
-  String? _error;
-  int _totalApps = 0;
-  int _loadedApps = 0;
-  String _loadingMessage = 'Initializing...';
+  late SocialAppsBloc _bloc;
+  int _selectedTabIndex = 1; // Default to Today (index 1)
 
   @override
   void initState() {
     super.initState();
-    // Use WidgetsBinding to ensure the first frame is rendered before starting the async operation
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadApps();
-    });
+    _bloc = injector<SocialAppsBloc>();
+    _fetchDataForIndex(_selectedTabIndex);
   }
 
-  Future<void> _loadApps() async {
-    debugPrint('_loadApps called - setting loading to true');
-
-    // Ensure loading state is set immediately
-    if (mounted) {
-      setState(() {
-        _isLoading = true;
-        _error = null;
-        _loadedApps = 0;
-        _totalApps = 0;
-        _loadingMessage = 'Initializing...';
-      });
+  void _fetchDataForIndex(int index) {
+    DateTime date;
+    if (index == 0) {
+      date = DateTime.now().subtract(const Duration(days: 1)); // Yesterday
+    } else if (index == 1) {
+      date = DateTime.now(); // Today
+    } else {
+      // Week - API doesn't seem to support range yet based on single date param, defaulting to today for now
+      // Or maybe the user wants 7 days data? The API response example shows "2026-01-05": [...]
+      // Let's assume Today for Week tab for now or handle it later.
+      date = DateTime.now();
     }
 
-    // Add a small delay to ensure the loader is visible
-    await Future.delayed(const Duration(milliseconds: 100));
+    final dateStr = date.toIso8601String().split('T')[0];
+    _bloc.add(FetchAppUsage(date: dateStr));
+  }
 
-    try {
-      debugPrint('Starting to fetch apps...');
-
-      if (mounted) {
-        setState(() {
-          _loadingMessage = 'Fetching installed apps...';
-        });
-      }
-
-      final apps = await _deviceInfoService.getInstalledApps();
-      debugPrint('Apps fetched: ${apps.length}');
-
-      if (mounted) {
-        setState(() {
-          _totalApps = apps.length;
-          _loadingMessage = 'Processing apps...';
-        });
-      }
-
-      // Process apps in batches to show progress
-      if (apps.isNotEmpty) {
-        const batchSize = 10;
-        final processedApps = <InstalledApp>[];
-
-        for (int i = 0; i < apps.length; i += batchSize) {
-          final end = (i + batchSize < apps.length)
-              ? i + batchSize
-              : apps.length;
-          final batch = apps.sublist(i, end);
-          processedApps.addAll(batch);
-
-          if (mounted) {
-            setState(() {
-              _loadedApps = processedApps.length;
-              _loadingMessage = 'Loading apps...';
-            });
-          }
-
-          // Small delay to show progress animation
-          await Future.delayed(const Duration(milliseconds: 50));
-        }
-
-        if (mounted) {
-          setState(() {
-            _apps = processedApps;
-            _isLoading = false;
-          });
-        }
-      } else {
-        if (mounted) {
-          setState(() {
-            _apps = [];
-            _isLoading = false;
-          });
-        }
-      }
-
-      debugPrint('Loading set to false');
-    } catch (e) {
-      debugPrint('Error loading apps: $e');
-      if (mounted) {
-        setState(() {
-          _error = e.toString();
-          _isLoading = false;
-        });
-      }
-    }
+  @override
+  void dispose() {
+    _bloc.close();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    // Debug: Print loading state
-    debugPrint(
-      'SocialAppsView build - isLoading: $_isLoading, apps count: ${_apps.length}',
-    );
-
-    return Scaffold(
-      backgroundColor: AppColors.backgroundColor,
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 18),
-          onPressed: () => Navigator.of(context).maybePop(),
+    return BlocProvider(
+      create: (_) => _bloc,
+      child: Scaffold(
+        backgroundColor: AppColors.backgroundColor,
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new, size: 18),
+            onPressed: () => Navigator.of(context).maybePop(),
+          ),
+          title: Text('Scroll', style: AppTextStyles.headline3),
+          backgroundColor: AppColors.surfaceColor,
+          elevation: 0,
+          foregroundColor: AppColors.textPrimary,
+          centerTitle: true,
         ),
-        title: Text('Scroll', style: AppTextStyles.headline3),
-        backgroundColor: AppColors.surfaceColor,
-        elevation: 0,
-        foregroundColor: AppColors.textPrimary,
-        centerTitle: true,
-      ),
-      body: SafeArea(
-        child: _isLoading
-            ? _buildLoadingView()
-            : Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSizes.paddingM,
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingM),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: AppSizes.spacingM),
+                AdvancedSegmentedTab(
+                  onTabChanged: (index) {
+                    setState(() {
+                      _selectedTabIndex = index;
+                    });
+                    _fetchDataForIndex(index);
+                  },
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const SizedBox(height: AppSizes.spacingM),
-                    AdvancedSegmentedTab(),
-                    //onst _PeriodTabs(),
-                    const SizedBox(height: AppSizes.spacingM),
-                    const _ScreenTimeHeader(),
-                    const SizedBox(height: AppSizes.spacingM),
-                    const FilterTabs(),
-                    const SizedBox(height: AppSizes.spacingS),
-                    Expanded(child: _buildAppsList()),
-                  ],
+                const SizedBox(height: AppSizes.spacingM),
+                BlocBuilder<SocialAppsBloc, SocialAppsState>(
+                  builder: (context, state) {
+                    if (state is SocialAppsLoaded) {
+                      return _ScreenTimeHeader(
+                        totalTime: state.data.totalUsageTimeFormatted,
+                      );
+                    }
+                    return const _ScreenTimeHeader(totalTime: '--');
+                  },
                 ),
-              ),
-      ),
-    );
-  }
-
-  Widget _buildLoadingView() {
-    final progress = _totalApps > 0 ? (_loadedApps / _totalApps) : 0.0;
-
-    return Container(
-      width: double.infinity,
-      height: double.infinity,
-      color: AppColors.backgroundColor,
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(
-              width: 50,
-              height: 50,
-              child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  AppColors.primaryColor,
-                ),
-                strokeWidth: 4,
-              ),
+                const SizedBox(height: AppSizes.spacingM),
+                const FilterTabs(),
+                const SizedBox(height: AppSizes.spacingS),
+                Expanded(child: _buildAppsList()),
+              ],
             ),
-            const SizedBox(height: AppSizes.spacingL),
-            Text(
-              _loadingMessage,
-              style: AppTextStyles.headline6.copyWith(
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: AppSizes.spacingM),
-            // Progress bar
-            if (_totalApps > 0) ...[
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSizes.paddingXL,
-                ),
-                child: Column(
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(3),
-                      child: LinearProgressIndicator(
-                        value: progress,
-                        backgroundColor: AppColors.borderColor,
-                        valueColor: const AlwaysStoppedAnimation<Color>(
-                          AppColors.primaryColor,
-                        ),
-                        minHeight: 6,
-                      ),
-                    ),
-                    const SizedBox(height: AppSizes.spacingS),
-                    Text(
-                      '$_loadedApps / $_totalApps apps loaded',
-                      style: AppTextStyles.caption.copyWith(
-                        color: AppColors.textSecondary,
-                        fontSize: 12,
-                      ),
-                    ),
-                    const SizedBox(height: AppSizes.spacingXS),
-                    Text(
-                      '${(progress * 100).toStringAsFixed(0)}%',
-                      style: AppTextStyles.subtitle2.copyWith(
-                        color: AppColors.primaryColor,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ] else ...[
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSizes.paddingL,
-                ),
-                child: Text(
-                  'Fetching installed apps from your device',
-                  style: AppTextStyles.caption.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-              const SizedBox(height: AppSizes.spacingM),
-              Text(
-                'This may take a few moments',
-                style: AppTextStyles.caption.copyWith(
-                  color: AppColors.textSecondary,
-                  fontSize: 12,
-                ),
-              ),
-            ],
-          ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildAppsList() {
-    if (_error != null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              'Error loading apps',
-              style: AppTextStyles.subtitle2.copyWith(
-                color: AppColors.textSecondary,
-              ),
+    return BlocBuilder<SocialAppsBloc, SocialAppsState>(
+      builder: (context, state) {
+        if (state is SocialAppsLoading) {
+          return const Center(child: CircularProgressIndicator());
+        } else if (state is SocialAppsError) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(state.message, style: AppTextStyles.body1),
+                const SizedBox(height: AppSizes.spacingS),
+                CommonButton(
+                  text: 'Retry',
+                  onPressed: () => _fetchDataForIndex(_selectedTabIndex),
+                ),
+              ],
             ),
-            const SizedBox(height: AppSizes.spacingS),
-            Text(
-              _error!,
-              style: AppTextStyles.caption.copyWith(
-                color: AppColors.textSecondary,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: AppSizes.spacingM),
-            CommonButton(text: 'Retry', onPressed: _loadApps),
-          ],
-        ),
-      );
-    }
+          );
+        } else if (state is SocialAppsLoaded) {
+          final dailyData = state.data.dailyUsage[state.selectedDate] ?? [];
 
-    if (_apps.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              'No apps found',
-              style: AppTextStyles.subtitle2.copyWith(
-                color: AppColors.textSecondary,
+          if (dailyData.isEmpty) {
+            return Center(
+              child: Text(
+                'No usage data for this date',
+                style: AppTextStyles.textSecondary,
               ),
-            ),
-            const SizedBox(height: AppSizes.spacingS),
-            CommonButton(text: 'Refresh', onPressed: _loadApps),
-          ],
-        ),
-      );
-    }
-
-    return ListView(
-      children: [
-        ..._apps.map((app) {
-          // Determine icon
-          ImageProvider? iconProvider;
-          if (app.iconPath != null && File(app.iconPath!).existsSync()) {
-            iconProvider = FileImage(File(app.iconPath!));
-          } else {
-            // Use default icon
-            iconProvider = const AssetImage('assets/images/device.png');
+            );
           }
 
-          return SocialAppItem(
-            icon: iconProvider,
-            name: app.appName,
-            usage:
-                _getRandomUsage(), // Placeholder - you can implement real usage tracking later
-            isLocked:
-                false, // Placeholder - you can implement lock state management
-          );
-        }),
-        const SizedBox(height: AppSizes.spacingL),
-        CommonButton(
-          text: 'Next',
-          onPressed: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const SettingsView()),
-          ),
-        ),
-      ],
-    );
-  }
+          return ListView.builder(
+            itemCount: dailyData.length + 1, // +1 for Next button
+            itemBuilder: (context, index) {
+              if (index == dailyData.length) {
+                return Column(
+                  children: [
+                    const SizedBox(height: AppSizes.spacingL),
+                    CommonButton(
+                      text: 'Next',
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const SettingsView()),
+                      ),
+                    ),
+                    const SizedBox(height: AppSizes.spacingL),
+                  ],
+                );
+              }
 
-  String _getRandomUsage() {
-    // Placeholder - replace with actual usage data when available
-    final minutes = (DateTime.now().millisecond % 120) + 5;
-    if (minutes >= 60) {
-      final hours = minutes ~/ 60;
-      final mins = minutes % 60;
-      return mins > 0 ? '$hours hr $mins min' : '$hours hr';
-    }
-    return '$minutes min';
+              final app = dailyData[index];
+              return SocialAppItem(
+                // We don't have icon path from API, native side sends it, but here we are fetching from server.
+                // The server API doesn't seem to return iconUrl.
+                // We might need to use a default icon or if we stored icons locally?
+                // For now, use default.
+                icon: const AssetImage('assets/images/device.png'),
+                name: app.appName.isNotEmpty ? app.appName : app.packageName,
+                usage: app.usageTimeFormatted,
+                isLocked: false,
+              );
+            },
+          );
+        }
+        return const SizedBox.shrink();
+      },
+    );
   }
 }
 
 class _ScreenTimeHeader extends StatelessWidget {
-  const _ScreenTimeHeader();
+  final String totalTime;
+  const _ScreenTimeHeader({required this.totalTime});
 
   @override
   Widget build(BuildContext context) {
@@ -384,7 +207,7 @@ class _ScreenTimeHeader extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    Text('02 hrs', style: AppTextStyles.headline5),
+                    Text(totalTime, style: AppTextStyles.headline5),
                   ],
                 ),
                 const SizedBox(width: AppSizes.spacingM),
@@ -459,7 +282,8 @@ class _FilterTabsState extends State<FilterTabs> {
 }
 
 class AdvancedSegmentedTab extends StatefulWidget {
-  const AdvancedSegmentedTab({super.key});
+  final ValueChanged<int>? onTabChanged;
+  const AdvancedSegmentedTab({super.key, this.onTabChanged});
 
   @override
   State<AdvancedSegmentedTab> createState() => _AdvancedSegmentedTabState();
@@ -473,8 +297,17 @@ class _AdvancedSegmentedTabState extends State<AdvancedSegmentedTab>
   @override
   void initState() {
     super.initState();
-    _controller = TabController(length: tabs.length, vsync: this);
-    _controller.addListener(() => setState(() {}));
+    _controller = TabController(
+      initialIndex: 1,
+      length: tabs.length,
+      vsync: this,
+    );
+    _controller.addListener(() {
+      if (!_controller.indexIsChanging) {
+        widget.onTabChanged?.call(_controller.index);
+        setState(() {});
+      }
+    });
   }
 
   @override
@@ -524,6 +357,9 @@ class _AdvancedSegmentedTabState extends State<AdvancedSegmentedTab>
               fontWeight: FontWeight.w500,
             ),
             tabs: tabs.map((e) => Tab(text: e)).toList(),
+            onTap: (index) {
+              // Handled by listener
+            },
           ),
         ],
       ),

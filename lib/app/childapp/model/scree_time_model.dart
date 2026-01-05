@@ -3,12 +3,14 @@ class AppScreenTimeModel {
   final String appName;
   final bool isSystemApp;
   final int seconds;
+  final int lastTimeUsed;
 
   AppScreenTimeModel({
     required this.package,
     this.appName = '',
     this.isSystemApp = false,
     required this.seconds,
+    this.lastTimeUsed = 0,
   });
 
   factory AppScreenTimeModel.fromJson(Map<String, dynamic> json) {
@@ -17,6 +19,7 @@ class AppScreenTimeModel {
       appName: json['appName'] ?? '',
       isSystemApp: json['isSystemApp'] ?? false,
       seconds: json['seconds'] ?? 0,
+      lastTimeUsed: json['lastTimeUsed'] ?? 0,
     );
   }
   Map<String, dynamic> toJson() {
@@ -25,6 +28,7 @@ class AppScreenTimeModel {
       'appName': appName,
       'isSystemApp': isSystemApp,
       'seconds': seconds,
+      'lastTimeUsed': lastTimeUsed,
     };
   }
 
@@ -33,12 +37,14 @@ class AppScreenTimeModel {
     String? appName,
     bool? isSystemApp,
     int? seconds,
+    int? lastTimeUsed,
   }) {
     return AppScreenTimeModel(
       package: package ?? this.package,
       appName: appName ?? this.appName,
       isSystemApp: isSystemApp ?? this.isSystemApp,
       seconds: seconds ?? this.seconds,
+      lastTimeUsed: lastTimeUsed ?? this.lastTimeUsed,
     );
   }
 }

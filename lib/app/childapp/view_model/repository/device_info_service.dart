@@ -191,4 +191,34 @@ class ChildInfoService {
       return [];
     }
   }
+
+  /// Check if usage stats permission is granted
+  Future<bool> checkUsagePermission() async {
+    try {
+      if (Platform.isAndroid) {
+        final result = await _channel.invokeMethod<bool>(
+          'checkUsagePermission',
+        );
+        return result ?? false;
+      }
+      return true; // iOS handles this differently or assumed true for Logic flow until implemented
+    } catch (e) {
+      AppLogger.error('Error checking usage permission: $e');
+      return false;
+    }
+  }
+
+  /// Open usage settings
+  Future<bool> openUsageSettings() async {
+    try {
+      if (Platform.isAndroid) {
+        await _channel.invokeMethod<bool>('openUsageSettings');
+        return true;
+      }
+      return false;
+    } catch (e) {
+      AppLogger.error('Error opening usage settings: $e');
+      return false;
+    }
+  }
 }

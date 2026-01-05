@@ -3,6 +3,7 @@ import 'package:child_track/app/home/view/trips_view.dart';
 import 'package:child_track/app/home/view_model/bloc/homepage_bloc.dart';
 import 'package:child_track/app/map/view/map_view.dart';
 import 'package:child_track/core/di/injector.dart';
+import 'package:child_track/app/home/model/cards_model.dart';
 import 'package:flutter/material.dart';
 import 'package:child_track/core/constants/app_colors.dart';
 import 'package:child_track/core/constants/app_sizes.dart';
@@ -127,7 +128,7 @@ class ChildLocationDetailView extends StatelessWidget {
                         ],
                       ),
                     ),
-                    _buildChildLocationCardContent(context, trip),
+                    _buildChildLocationCardContent(context, trip, state.cards),
                   ],
                 );
               }
@@ -233,6 +234,7 @@ class ChildLocationDetailView extends StatelessWidget {
   Widget _buildChildLocationCardContent(
     BuildContext context,
     TripSegment trip,
+    Cards? cards,
   ) {
     return Padding(
       padding: const EdgeInsets.all(AppSizes.paddingM),
@@ -249,8 +251,9 @@ class ChildLocationDetailView extends StatelessWidget {
               _buildActivityTodayCard(context, trip),
               const SizedBox(height: AppSizes.spacingM),
 
-              // Screentime Card
-              _buildScreentimeCard(context),
+              // ScreentimeCard
+              if (cards?.screentimeYesterday != null)
+                _buildScreentimeCard(context, cards!.screentimeYesterday),
               const SizedBox(height: AppSizes.spacingM),
 
               // Infinite Real-Time Tracking Card
@@ -438,7 +441,12 @@ class ChildLocationDetailView extends StatelessWidget {
   }
 
   // Screentime Card
-  Widget _buildScreentimeCard(BuildContext context) {
+  Widget _buildScreentimeCard(BuildContext context, ScreenTimeCard card) {
+    final double hours = card.totalSeconds / 3600;
+    final String timeText = hours >= 1
+        ? '${hours.toStringAsFixed(1)}hrs'
+        : '${(card.totalSeconds / 60).toStringAsFixed(0)}min';
+
     return Container(
       // margin: const EdgeInsets.symmetric(horizontal: AppSizes.paddingL),
       padding: const EdgeInsets.all(AppSizes.paddingM),
@@ -467,7 +475,7 @@ class ChildLocationDetailView extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '2.3hrs of screentime',
+                  '$timeText of screentime',
                   style: AppTextStyles.subtitle1.copyWith(
                     fontWeight: FontWeight.bold,
                   ),

@@ -42,6 +42,8 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
     on<StartTripTracking>(_onStartTripTracking);
     on<StopTripTracking>(_onStopTripTracking);
     on<UpdateTripLocation>(_onUpdateTripLocation);
+    on<CheckUsagePermission>(_onCheckUsagePermission);
+    on<OpenUsageSettings>(_onOpenUsageSettings);
   }
   void onInitialize() {
     final childId = _sharedPrefsService.getString('child_id');
@@ -53,7 +55,7 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
         (parentId == null || parentId.isEmpty)) {
       AppLogger.info('ChildBloc: Initializing for child_id: $childId');
       add(LoadDeviceInfo());
-      add(GetScreenTime());
+      add(CheckUsagePermission());
       add(GetChildLocation());
     } else {
       AppLogger.info(
@@ -143,58 +145,112 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
     }
   }
 
+  Future<void> _onCheckUsagePermission(
+    CheckUsagePermission event,
+    Emitter<ChildState> emit,
+  ) async {
+    final currentState = state;
+    if (currentState is! ChildDeviceInfoLoaded) {
+      AppLogger.warning(
+        'ChildBloc: Ignore check permission, state is $currentState',
+      );
+      return;
+    }
+    AppLogger.info('ChildBloc: Checking usage permission...');
+    final hasPermission = await _deviceInfoService.checkUsagePermission();
+    AppLogger.info('ChildBloc: Usage permission result: $hasPermission');
+    emit(currentState.copyWith(hasUsagePermission: hasPermission));
+    if (hasPermission) {
+      add(GetScreenTime());
+    }
+  }
+
+  Future<void> _onOpenUsageSettings(
+    OpenUsageSettings event,
+    Emitter<ChildState> emit,
+  ) async {
+    await _deviceInfoService.openUsageSettings();
+  }
+
   Future<void> _onGetScreenTime(
     GetScreenTime event,
     Emitter<ChildState> emit,
   ) async {
     final currentState = state;
     if (currentState is! ChildDeviceInfoLoaded) return;
+
+    // Check permission first
+    if (!currentState.hasUsagePermission) {
+      final hasPermission = await _deviceInfoService.checkUsagePermission();
+      if (!hasPermission) {
+        emit(currentState.copyWith(hasUsagePermission: false, screenTime: []));
+        return;
+      } else {
+        emit(currentState.copyWith(hasUsagePermission: true));
+      }
+    }
+
     try {
       final installedApps = await _deviceInfoService.getInstalledApps();
       final screenTimeUsage = await _deviceInfoService.getScreenTime();
 
-      // Create a map of usage data for quick lookup
-      final usageMap = {
-        for (var app in screenTimeUsage) app.package: app.seconds,
+      // Popular apps allowlist (package names)
+      final allowList = {
+        'com.google.android.youtube', // YouTube
+        'com.facebook.katana', // Facebook
+        'com.instagram.android', // Instagram
+        'com.whatsapp', // WhatsApp
+        'com.snapchat.android', // Snapchat
+        'com.zhiliaoapp.musically', // TikTok
+        'org.telegram.messenger', // Telegram
+        'com.twitter.android', // Twitter/X
+        'com.google.android.apps.maps', // Maps
+        'com.spotify.music', // Spotify
+        'com.netflix.mediaclient', // Netflix
       };
+
+      // Create a map of usage data for quick lookup
+      final usageMap = {for (var app in screenTimeUsage) app.package: app};
 
       // Merge installed apps with usage data
       final List<AppScreenTimeModel> mergedScreenTime = [];
 
       for (var app in installedApps) {
-        final seconds = usageMap[app.packageName] ?? 0;
-        mergedScreenTime.add(
-          AppScreenTimeModel(
-            package: app.packageName,
-            appName: app.appName,
-            isSystemApp: app.isSystemApp,
-            seconds: seconds,
-          ),
-        );
+        bool shouldInclude =
+            !app.isSystemApp || allowList.contains(app.packageName);
 
-        // Remove from usageMap to identify apps with usage but not in installed list
+        if (shouldInclude) {
+          final usageModel = usageMap[app.packageName];
+          final seconds = usageModel?.seconds ?? 0;
+          final lastTimeUsed = usageModel?.lastTimeUsed ?? 0;
+
+          mergedScreenTime.add(
+            AppScreenTimeModel(
+              package: app.packageName,
+              appName: app.appName,
+              isSystemApp: app.isSystemApp,
+              seconds: seconds,
+              lastTimeUsed: lastTimeUsed,
+            ),
+          );
+        }
+
         usageMap.remove(app.packageName);
       }
 
-      // Add remaining apps from usageMap (apps with usage but somehow not in installed list)
-      usageMap.forEach((package, seconds) {
-        // Find if we have partial info in screenTimeUsage list
-        final originalUsage = screenTimeUsage.firstWhere(
-          (element) => element.package == package,
-          orElse: () => AppScreenTimeModel(package: package, seconds: seconds),
-        );
-
+      // Add remaining apps from usageMap
+      usageMap.forEach((package, usageModel) {
         mergedScreenTime.add(
-          AppScreenTimeModel(
-            package: package,
-            appName: originalUsage.appName.isNotEmpty
-                ? originalUsage.appName
-                : package, // Fallback to package name
-            isSystemApp: originalUsage.isSystemApp,
-            seconds: seconds,
+          usageModel.copyWith(
+            appName: usageModel.appName.isNotEmpty
+                ? usageModel.appName
+                : package,
           ),
         );
       });
+
+      // Sort by seconds
+      mergedScreenTime.sort((a, b) => b.seconds.compareTo(a.seconds));
 
       emit(currentState.copyWith(screenTime: mergedScreenTime));
       add(PostScreenTime(appScreenTimes: mergedScreenTime));

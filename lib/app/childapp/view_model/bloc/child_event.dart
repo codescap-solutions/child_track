@@ -18,6 +18,10 @@ final class PostDeviceInfo extends ChildEvent {
   List<Object> get props => [deviceInfo];
 }
 
+final class CheckUsagePermission extends ChildEvent {}
+
+final class OpenUsageSettings extends ChildEvent {}
+
 final class GetScreenTime extends ChildEvent {}
 
 final class PostScreenTime extends ChildEvent {
