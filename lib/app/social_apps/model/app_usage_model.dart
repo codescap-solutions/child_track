@@ -45,6 +45,7 @@ class AppUsageItem {
   final String usageTimeFormatted;
   final String platform;
   final int openCount;
+  final String? iconBase64;
 
   AppUsageItem({
     required this.date,
@@ -54,6 +55,7 @@ class AppUsageItem {
     required this.usageTimeFormatted,
     required this.platform,
     required this.openCount,
+    this.iconBase64,
   });
 
   factory AppUsageItem.fromJson(Map<String, dynamic> json) {

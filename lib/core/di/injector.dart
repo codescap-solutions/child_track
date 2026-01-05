@@ -107,6 +107,7 @@ Future<void> initializeDependencies() async {
     () => SocialAppsBloc(
       repository: injector<SocialAppsRepository>(),
       sharedPrefsService: injector<SharedPrefsService>(),
+      childInfoService: injector<ChildInfoService>(),
     ),
   );
 

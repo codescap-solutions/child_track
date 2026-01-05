@@ -231,6 +231,7 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
               isSystemApp: app.isSystemApp,
               seconds: seconds,
               lastTimeUsed: lastTimeUsed,
+              iconBase64: usageModel?.iconBase64,
             ),
           );
         }

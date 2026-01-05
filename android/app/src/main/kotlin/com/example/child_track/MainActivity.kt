@@ -16,6 +16,8 @@ import java.io.FileOutputStream
 import android.app.AppOpsManager
 import android.app.usage.UsageStatsManager
 import android.os.Process
+import android.util.Base64
+import java.io.ByteArrayOutputStream
 import java.util.Calendar
 
 class MainActivity : FlutterActivity() {
@@ -39,12 +41,18 @@ class MainActivity : FlutterActivity() {
                     }
                 }
                 "getScreenTime" -> {
-                    try {
-                        val screenTime = getScreenTime()
-                        result.success(screenTime)
-                    } catch (e: Exception) {
-                        result.error("ERROR", "Failed to get screen time: ${e.message}", null)
-                    }
+                    Thread {
+                        try {
+                            val screenTime = getScreenTime()
+                            runOnUiThread {
+                                result.success(screenTime)
+                            }
+                        } catch (e: Exception) {
+                            runOnUiThread {
+                                result.error("ERROR", "Failed to get screen time: ${e.message}", null)
+                            }
+                        }
+                    }.start()
                 }
                 "checkUsagePermission" -> {
                     result.success(hasUsageStatsPermission())
@@ -191,7 +199,7 @@ class MainActivity : FlutterActivity() {
             null
         }
     }
-    private fun getScreenTime(): List<Map<String, Any>> {
+    private fun getScreenTime(): List<Map<String, Any?>> {
         if (!hasUsageStatsPermission()) {
             return emptyList()
         }
@@ -229,15 +237,49 @@ class MainActivity : FlutterActivity() {
                    }
                 }
                 
+                // Get app name
+                val appName = try {
+                    val appInfo = packageManager.getApplicationInfo(packageName, 0)
+                    packageManager.getApplicationLabel(appInfo).toString()
+                } catch (e: Exception) {
+                    packageName
+                }
+
                 mapOf(
                     "package" to packageName,
+                    "appName" to appName,
                     "seconds" to (usageStats.totalTimeInForeground / 1000).toInt(),
-                    "lastTimeUsed" to usageStats.lastTimeUsed
+                    "lastTimeUsed" to usageStats.lastTimeUsed,
+                    "icon" to getAppIconBase64(packageName)
                 )
             } catch (e: Exception) {
                 null
             }
         }.sortedByDescending { it["seconds"] as Int }
+    }
+
+    private fun getAppIconBase64(packageName: String): String? {
+        return try {
+            val packageManager = packageManager
+            val appInfo = packageManager.getApplicationInfo(packageName, 0)
+            val iconDrawable = appInfo.loadIcon(packageManager)
+            
+            // Convert to bitmap
+            val originalBitmap = drawableToBitmap(iconDrawable) ?: return null
+            
+            // Resize to 64x64
+            val scaledBitmap = Bitmap.createScaledBitmap(originalBitmap, 64, 64, true)
+            
+            // Compress to PNG
+            val byteArrayOutputStream = ByteArrayOutputStream()
+            scaledBitmap.compress(Bitmap.CompressFormat.PNG, 100, byteArrayOutputStream)
+            val byteArray = byteArrayOutputStream.toByteArray()
+            
+            // Encode to Base64
+            Base64.encodeToString(byteArray, Base64.NO_WRAP)
+        } catch (e: Exception) {
+            null
+        }
     }
 
     private fun hasUsageStatsPermission(): Boolean {

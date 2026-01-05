@@ -1,5 +1,6 @@
 import 'package:child_track/app/social_apps/view_model/bloc/social_apps_bloc.dart';
 import 'package:child_track/core/di/injector.dart';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:child_track/core/constants/app_colors.dart';
@@ -156,12 +157,24 @@ class _SocialAppsViewState extends State<SocialAppsView> {
               }
 
               final app = dailyData[index];
+
+              ImageProvider iconProvider;
+              if (app.iconBase64 != null && app.iconBase64!.isNotEmpty) {
+                try {
+                  iconProvider = MemoryImage(base64Decode(app.iconBase64!));
+                } catch (e) {
+                  iconProvider = const AssetImage('assets/images/device.png');
+                }
+              } else {
+                iconProvider = const AssetImage('assets/images/device.png');
+              }
+
               return SocialAppItem(
                 // We don't have icon path from API, native side sends it, but here we are fetching from server.
                 // The server API doesn't seem to return iconUrl.
                 // We might need to use a default icon or if we stored icons locally?
                 // For now, use default.
-                icon: const AssetImage('assets/images/device.png'),
+                icon: iconProvider,
                 name: app.appName.isNotEmpty ? app.appName : app.packageName,
                 usage: app.usageTimeFormatted,
                 isLocked: false,
