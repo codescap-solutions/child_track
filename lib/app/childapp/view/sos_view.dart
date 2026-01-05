@@ -49,18 +49,19 @@ class _SosViewState extends State<SosView> with WidgetsBindingObserver {
     AppLogger.info('SosView: Lifecycle state changed to $state');
     if (state == AppLifecycleState.resumed) {
       AppLogger.info(
-        'SosView: App resumed, checking usage permission in 500ms...',
+        'SosView: App resumed, starting permission check polling...',
       );
-      Future.delayed(const Duration(milliseconds: 500), () {
-        if (mounted) _childBloc.add(CheckUsagePermission());
-      });
-      // Retry again after a longer delay just in case
-      Future.delayed(const Duration(seconds: 2), () {
-        AppLogger.info(
-          'SosView: Checking usage permission again (2s delay)...',
-        );
-        if (mounted) _childBloc.add(CheckUsagePermission());
-      });
+      // Poll for permission status: Check 5 times with 1-second intervals
+      for (int i = 0; i < 5; i++) {
+        Future.delayed(Duration(seconds: i), () {
+          if (mounted) {
+            AppLogger.info(
+              'SosView: Check usage permission (attempt ${i + 1})',
+            );
+            _childBloc.add(CheckUsagePermission());
+          }
+        });
+      }
     }
   }
 
@@ -335,6 +336,19 @@ class _SosViewContent extends StatelessWidget {
                                   );
                                 },
                                 child: const Text('Enable Usage Access'),
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                context.read<ChildBloc>().add(
+                                  CheckUsagePermission(),
+                                );
+                              },
+                              child: Text(
+                                'Check Again',
+                                style: AppTextStyles.button.copyWith(
+                                  color: AppColors.warning,
+                                ),
                               ),
                             ),
                           ],
