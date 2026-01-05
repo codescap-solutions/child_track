@@ -1,7 +1,8 @@
 import 'dart:io';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:permission_handler/permission_handler.dart' as permission_handler;
+import 'package:permission_handler/permission_handler.dart'
+    as permission_handler;
 import '../utils/app_logger.dart';
 import '../../app/addplace/service/geocoding_service.dart';
 
@@ -60,20 +61,30 @@ class LocationService {
         try {
           // Check if we have "always" permission, if not, request background permission
           if (permission == LocationPermission.whileInUse) {
-            AppLogger.info('Requesting background location permission for Android 10+');
-            final backgroundStatus = await permission_handler.Permission.locationAlways.status;
-            
+            AppLogger.info(
+              'Requesting background location permission for Android 10+',
+            );
+            final backgroundStatus =
+                await permission_handler.Permission.locationAlways.status;
+
             if (!backgroundStatus.isGranted) {
-              final backgroundPermission = await permission_handler.Permission.locationAlways.request();
-              
+              final backgroundPermission = await permission_handler
+                  .Permission
+                  .locationAlways
+                  .request();
+
               if (backgroundPermission.isGranted) {
                 AppLogger.info('Background location permission granted');
                 permission = LocationPermission.always;
               } else if (backgroundPermission.isPermanentlyDenied) {
-                AppLogger.warning('Background location permission permanently denied');
+                AppLogger.warning(
+                  'Background location permission permanently denied',
+                );
                 // User needs to enable it manually in settings
               } else {
-                AppLogger.warning('Background location permission denied, but foreground permission granted');
+                AppLogger.warning(
+                  'Background location permission denied, but foreground permission granted',
+                );
               }
             } else {
               AppLogger.info('Background location permission already granted');
@@ -81,7 +92,9 @@ class LocationService {
             }
           }
         } catch (e) {
-          AppLogger.error('Error requesting background location permission: $e');
+          AppLogger.error(
+            'Error requesting background location permission: $e',
+          );
           // Continue with foreground permission if background request fails
         }
       }
@@ -108,7 +121,7 @@ class LocationService {
 
       // Step 1: Request foreground location permission first
       LocationPermission permission = await checkPermission();
-      
+
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
@@ -136,24 +149,34 @@ class LocationService {
       // Step 3: For Android 10+ (API 29+), request background location permission separately
       if (Platform.isAndroid) {
         if (permission == LocationPermission.whileInUse) {
-          AppLogger.info('Requesting background location permission for Android 10+');
-          final backgroundStatus = await permission_handler.Permission.locationAlways.status;
-          
+          AppLogger.info(
+            'Requesting background location permission for Android 10+',
+          );
+          final backgroundStatus =
+              await permission_handler.Permission.locationAlways.status;
+
           if (!backgroundStatus.isGranted) {
             // Request background permission - this will show system dialog
             // On Android 10+, this may show a dialog that guides user to Settings
-            final backgroundPermission = await permission_handler.Permission.locationAlways.request();
-            
+            final backgroundPermission = await permission_handler
+                .Permission
+                .locationAlways
+                .request();
+
             if (backgroundPermission.isGranted) {
               AppLogger.info('Background location permission granted');
               permission = LocationPermission.always;
             } else if (backgroundPermission.isPermanentlyDenied) {
-              AppLogger.warning('Background location permission permanently denied');
+              AppLogger.warning(
+                'Background location permission permanently denied',
+              );
               return {'granted': false, 'needsSettings': true};
             } else {
               // On Android 10+, if not granted, user typically needs to go to Settings
               // The system dialog usually guides them there
-              AppLogger.warning('Background location permission denied - user needs to enable in Settings');
+              AppLogger.warning(
+                'Background location permission denied - user needs to enable in Settings',
+              );
               return {'granted': false, 'needsSettings': true};
             }
           } else {
@@ -166,9 +189,15 @@ class LocationService {
       // Final check: ensure we have "always" permission
       final finalPermission = await checkPermission();
       final hasAlwaysPermission = finalPermission == LocationPermission.always;
-      
-      AppLogger.info('Final location permission: $finalPermission, hasAlwaysPermission: $hasAlwaysPermission');
-      return {'granted': hasAlwaysPermission, 'needsSettings': !hasAlwaysPermission && permission == LocationPermission.whileInUse};
+
+      AppLogger.info(
+        'Final location permission: $finalPermission, hasAlwaysPermission: $hasAlwaysPermission',
+      );
+      return {
+        'granted': hasAlwaysPermission,
+        'needsSettings':
+            !hasAlwaysPermission && permission == LocationPermission.whileInUse,
+      };
     } catch (e) {
       AppLogger.error('Error requesting always allow permission: $e');
       return {'granted': false, 'needsSettings': false};
@@ -184,6 +213,16 @@ class LocationService {
       return await permission_handler.openAppSettings();
     } catch (e) {
       AppLogger.error('Error opening location settings: $e');
+      return false;
+    }
+  }
+
+  /// Open system location settings (GPS toggle)
+  Future<bool> openSystemLocationSettings() async {
+    try {
+      return await Geolocator.openLocationSettings();
+    } catch (e) {
+      AppLogger.error('Error opening system location settings: $e');
       return false;
     }
   }

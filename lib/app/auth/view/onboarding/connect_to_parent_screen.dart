@@ -270,6 +270,30 @@ class _ConnectToParentScreenState extends State<ConnectToParentScreen> {
     while (attempts < maxAttempts) {
       attempts++;
 
+      // 1. Check if location services (GPS) are enabled system-wide
+      bool isServiceEnabled = await locationService.isLocationServiceEnabled();
+      if (!isServiceEnabled) {
+        if (!mounted) return false;
+
+        // Show dialog to enable location services
+        final shouldRetry = await _showEnableLocationServicesDialog(
+          context,
+          locationService,
+        );
+
+        if (!shouldRetry) {
+          // User cancelled
+          return false;
+        }
+
+        // Check again if enabled
+        isServiceEnabled = await locationService.isLocationServiceEnabled();
+        if (!isServiceEnabled) {
+          // Still disabled, try next attempt loop or just continue to let loop handle it
+          continue;
+        }
+      }
+
       // Request "always allow" permission
       final result = await locationService.requestAlwaysAllowPermission();
       final hasAlwaysPermission = result['granted'] as bool;
@@ -287,9 +311,15 @@ class _ConnectToParentScreenState extends State<ConnectToParentScreen> {
 
       // Show dialog explaining why "always allow" is needed
       // If needsSettings is true, it means user needs to go to Settings to enable "Always allow"
+      // INFO: If we've already tried once (attempts > 1) and failed, force "Open Settings"
+      // because the system permission dialog probably won't show up again.
+      final forceSettings = attempts > 1;
+
       final shouldRetry = await _showLocationPermissionDialog(
         context,
-        needsSettings || currentPermission == LocationPermission.deniedForever,
+        needsSettings ||
+            currentPermission == LocationPermission.deniedForever ||
+            forceSettings,
         currentPermission == LocationPermission.whileInUse,
       );
 
@@ -298,9 +328,10 @@ class _ConnectToParentScreenState extends State<ConnectToParentScreen> {
         return false;
       }
 
-      // If needs settings or permanently denied, try to open settings
+      // If needs settings or permanently denied (or forced), try to open settings
       if (needsSettings ||
-          currentPermission == LocationPermission.deniedForever) {
+          currentPermission == LocationPermission.deniedForever ||
+          forceSettings) {
         final openedSettings = await locationService.openLocationSettings();
         if (openedSettings) {
           // Wait longer for user to change settings and return to app
@@ -408,6 +439,75 @@ class _ConnectToParentScreenState extends State<ConnectToParentScreen> {
                   needsSettings ? 'Open Settings' : 'Grant Permission',
                   style: AppTextStyles.body2.copyWith(
                     color: AppColors.primaryColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
+  /// Show dialog to enable Location Services (GPS)
+  Future<bool> _showEnableLocationServicesDialog(
+    BuildContext context,
+    LocationService locationService,
+  ) async {
+    return await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogContext) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppSizes.radiusL),
+            ),
+            title: Text(
+              'Enable Location Services',
+              style: AppTextStyles.headline6.copyWith(
+                fontWeight: FontWeight.bold,
+                color: AppColors.primaryColor,
+              ),
+            ),
+            content: Text(
+              'Location services are disabled. Please enable them to continue using the app.',
+              style: AppTextStyles.body2,
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: Text(
+                  'Cancel',
+                  style: AppTextStyles.body2.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: () async {
+                  // Open system location settings
+                  await locationService.openSystemLocationSettings();
+                  // Do not pop, let user return and click Done
+                },
+                child: Text(
+                  'Open Settings',
+                  style: AppTextStyles.body2.copyWith(
+                    color: AppColors.primaryColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.primaryColor,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppSizes.radiusM),
+                  ),
+                ),
+                child: Text(
+                  'Done', // Or "Retry"
+                  style: AppTextStyles.body2.copyWith(
+                    color: Colors.white,
                     fontWeight: FontWeight.w600,
                   ),
                 ),

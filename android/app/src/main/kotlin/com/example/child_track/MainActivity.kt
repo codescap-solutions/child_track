@@ -31,7 +31,8 @@ class MainActivity : FlutterActivity() {
                 }
                 "getInstalledApps" -> {
                     try {
-                        val apps = getInstalledApps()
+                        val includeSystemApps = call.argument<Boolean>("includeSystemApps") ?: true
+                        val apps = getInstalledApps(includeSystemApps)
                         result.success(apps)
                     } catch (e: Exception) {
                         result.error("ERROR", "Failed to get installed apps: ${e.message}", null)
@@ -60,7 +61,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun getInstalledApps(): List<Map<String, Any?>> {
+    private fun getInstalledApps(includeSystemApps: Boolean): List<Map<String, Any?>> {
         val apps = mutableListOf<Map<String, Any?>>()
         
         try {
@@ -80,6 +81,11 @@ class MainActivity : FlutterActivity() {
                     }
                     
                     val isSystemApp = (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
+
+                    if (!includeSystemApps && isSystemApp) {
+                        continue
+                    }
+
                     val versionName = packageInfo.versionName
                     val versionCode = try {
                         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
