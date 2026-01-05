@@ -387,6 +387,7 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
   ) async {
     final currentState = state;
     if (currentState is! ChildDeviceInfoLoaded) return;
+    AppLogger.info('Tripping... Starting trip tracking');
 
     // Get initial location
     try {
@@ -405,6 +406,7 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
 
         // Start trip location tracking timer (every 5 seconds)
         _startTripLocationTimer();
+        AppLogger.info('Tripping... Started trip tracking Timer');
       }
     } catch (e) {
       AppLogger.error('Failed to start trip tracking: ${e.toString()}');
@@ -420,15 +422,15 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
         !currentState.isTripTracking) {
       return;
     }
-
+    AppLogger.info('Tripping... Stopping trip tracking Timer');
     _stopTripLocationTimer();
-
+    AppLogger.info('Tripping... Stopped trip tracking Timer');
     // Post trip event if we have trip data
     if (currentState.tripLocations.isNotEmpty &&
         currentState.tripStartTime != null) {
       await _postTripEvent(currentState, emit);
     }
-
+    AppLogger.info('Tripping... Posted trip event');
     // Reset trip tracking state
     emit(
       currentState.copyWith(
@@ -446,13 +448,16 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
   ) async {
     // Check if user is still logged in as child
     if (!_isChildLoggedIn()) {
+      AppLogger.info(
+        'Tripping... Skipping updateTripLocation - not logged in as child',
+      );
       AppLogger.warning(
         'ChildBloc: Skipping updateTripLocation - not logged in as child',
       );
       _stopTripLocationTimer();
       return;
     }
-
+    AppLogger.info('Tripping... Updating trip location');
     final currentState = state;
     if (currentState is! ChildDeviceInfoLoaded ||
         !currentState.isTripTracking) {
@@ -537,6 +542,7 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
           .getChildLocation()
           .then((location) {
             if (location != null && !isClosed && _isChildLoggedIn()) {
+              AppLogger.info('Tripping... Updating trip location Timer $location');
               add(UpdateTripLocation(location: location));
             }
           })
