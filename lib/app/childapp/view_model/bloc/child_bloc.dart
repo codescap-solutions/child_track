@@ -576,6 +576,7 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
         await _childRepo.postChildLocation(requestBody);
       } else {
         // Stop trip tracking if distance is less than 10m
+        AppLogger.info('Tripping... Stopping trip tracking Timer');
         add(StopTripTracking());
       }
     } catch (e) {
