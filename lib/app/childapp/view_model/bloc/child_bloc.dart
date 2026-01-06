@@ -695,8 +695,14 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
         'Tripping... Posting trip event request body: $requestBody',
       );
 
-      await _childRepo.postTripEvent(requestBody);
-      AppLogger.info('Trip event posted successfully');
+      final response = await _childRepo.postTripEvent(requestBody);
+      if (response.isSuccess) {
+        AppLogger.info('Tripping... Trip event posted successfully');
+      } else {
+        AppLogger.error(
+          'Tripping... Failed to post trip event: ${response.message}',
+        );
+      }
     } catch (e) {
       AppLogger.error('Failed to post trip event: ${e.toString()}');
     }

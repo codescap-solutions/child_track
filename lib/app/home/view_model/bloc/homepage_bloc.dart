@@ -242,7 +242,7 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
           lat: lat,
           lng: lng,
           address: address,
-          placeName: placeName,
+          placeName: placeName?[placeName],
           since: since,
           // Preserving durationMinutes as it's not in the new payload, or default to 0
           durationMinutes: currentState.currentLocation!.durationMinutes,
