@@ -228,11 +228,17 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
           data['timestamp'] ??
           data['since'] ??
           DateTime.now().toIso8601String();
-      final placeName =
-          data['current_place'] ??
-          data['place_name'] ??
-          data['placeName'] ??
-          'Unknown Place';
+      // Extract place name logic
+      String finalPlaceName = 'Unknown Place';
+      final rawPlace =
+          data['current_place'] ?? data['place_name'] ?? data['placeName'];
+
+      if (rawPlace is Map) {
+        finalPlaceName =
+            rawPlace['placeName'] ?? rawPlace['place_name'] ?? 'Unknown Place';
+      } else if (rawPlace is String) {
+        finalPlaceName = rawPlace;
+      }
 
       // Update state.currentLocation
       LocationInfo updatedLocation;
@@ -242,7 +248,7 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
           lat: lat,
           lng: lng,
           address: address,
-          placeName: placeName?[placeName],
+          placeName: finalPlaceName,
           since: since,
           // Preserving durationMinutes as it's not in the new payload, or default to 0
           durationMinutes: currentState.currentLocation!.durationMinutes,
@@ -253,7 +259,7 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
           lat: lat,
           lng: lng,
           address: address,
-          placeName: placeName,
+          placeName: finalPlaceName,
           since: since,
           durationMinutes: 0,
         );
