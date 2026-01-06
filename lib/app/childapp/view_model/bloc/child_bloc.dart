@@ -574,6 +574,9 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
           "timestamp": DateTime.now().toIso8601String(),
         };
         await _childRepo.postChildLocation(requestBody);
+      } else {
+        // Stop trip tracking if distance is less than 10m
+        add(StopTripTracking());
       }
     } catch (e) {
       AppLogger.error('Failed to update trip location: ${e.toString()}');
