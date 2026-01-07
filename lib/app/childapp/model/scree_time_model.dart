@@ -32,7 +32,7 @@ class AppScreenTimeModel {
       'isSystemApp': isSystemApp,
       'seconds': seconds,
       'lastTimeUsed': lastTimeUsed,
-      'icon': iconBase64,
+      // 'icon': iconBase64,
     };
   }
 

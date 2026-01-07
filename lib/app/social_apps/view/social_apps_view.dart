@@ -144,13 +144,13 @@ class _SocialAppsViewState extends State<SocialAppsView> {
                 return Column(
                   children: [
                     const SizedBox(height: AppSizes.spacingL),
-                    CommonButton(
-                      text: 'Next',
-                      onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const SettingsView()),
-                      ),
-                    ),
+                    // CommonButton(
+                    //   text: 'Next',
+                    //   onPressed: () => Navigator.push(
+                    //     context,
+                    //     MaterialPageRoute(builder: (_) => const SettingsView()),
+                    //   ),
+                    // ),
                     const SizedBox(height: AppSizes.spacingL),
                   ],
                 );
@@ -163,10 +163,14 @@ class _SocialAppsViewState extends State<SocialAppsView> {
                 try {
                   iconProvider = MemoryImage(base64Decode(app.iconBase64!));
                 } catch (e) {
-                  iconProvider = const AssetImage('assets/images/device.png');
+                  iconProvider = const AssetImage(
+                    'assets/images/APK_format_icon_(2014-2019).png',
+                  );
                 }
               } else {
-                iconProvider = const AssetImage('assets/images/device.png');
+                iconProvider = const AssetImage(
+                  'assets/images/APK_format_icon_(2014-2019).png',
+                );
               }
 
               return SocialAppItem(
