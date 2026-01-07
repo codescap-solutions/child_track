@@ -134,6 +134,7 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
         childId: _sharedPrefsService.getString('child_id'),
         page: event.page,
         pageSize: event.pageSize,
+        includePoints: true,
       );
       if (response.isSuccess && response.data != null) {
         final tripsData = response.data!;
