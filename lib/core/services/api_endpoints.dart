@@ -16,7 +16,6 @@ class ApiEndpoints {
   static const String postLocation = 'child/location';
   static const String postActivity = 'child/activity';
   static const String postScreenTime = 'child/screentime';
-  static const String postTripEvent = 'child/trip-event';
 
   //parent Endpoints
   static const String getHome = 'parent/home';
@@ -25,6 +24,8 @@ class ApiEndpoints {
   static const String getTrips = 'parent/trips';
   static const String linkChild = 'parent/link-child';
   static String getTripDetail(String tripId) => 'parent/trip/$tripId';
+  static String postTripLocation(String childId) =>
+      'trip-tracking/$childId/locations';
   static const String places = 'places';
   static const String getAppUsage = 'app-usage';
 }

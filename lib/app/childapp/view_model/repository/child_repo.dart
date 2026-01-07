@@ -105,26 +105,16 @@ class ChildRepo extends BaseService {
     return response;
   }
 
-  Future<BaseResponse> postTripEvent(Map<String, dynamic> data) async {
-    // For critical trip events, we might want to send via both or prefer REST for reliability,
-    // but the requirement is to use Socket. Let's use Socket if connected, else REST.
-    // if (_socketService.isConnected) {
-    //   // Determine event name based on data or context.
-    //   // Assuming 'status' field exists or we infer it.
-    //   // The requirement says events: trip_started, trip_updated, trip_ended.
-    //   // We'll pass the whole data payload to a generic trip event or specific ones.
-    //   // For now, let's assume 'trip_update' as a generic container or check payload.
-    //   String eventName = 'trip_update';
-    //   if (data['status'] == 'started') eventName = 'trip_started';
-    //   if (data['status'] == 'ended') eventName = 'trip_ended';
-
-    //   _socketService.emitTripEvent(eventName, data);
-    //   return BaseResponse.success(
-    //     data: null,
-    //     message: "Trip event sent via Socket",
-    //   );
-    // }
-    final response = await post(ApiEndpoints.postTripEvent, data: data);
+  Future<BaseResponse> postTripLocation({
+    required String childId,
+    required Map<String, dynamic> data,
+  }) async {
+    final response = await post(
+      ApiEndpoints.postTripLocation(childId),
+      data: data,
+    );
     return response;
   }
+
+  
 }

@@ -93,7 +93,7 @@ class SocialAppsBloc extends Bloc<SocialAppsEvent, SocialAppsState> {
           ),
         );
       } else {
-        emit(SocialAppsError(response.message ?? 'Failed to fetch app usage'));
+        emit(SocialAppsError(response.message ));
       }
     } catch (e) {
       emit(SocialAppsError(e.toString()));

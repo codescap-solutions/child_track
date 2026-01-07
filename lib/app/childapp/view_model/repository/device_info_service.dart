@@ -18,7 +18,7 @@ class ChildInfoService {
   Future<DeviceInfo> getDeviceInfo() async {
     try {
       // Get battery percentage
-      final batteryPercentage = await _getBatteryPercentage();
+      final batteryPercentage = await getBatteryPercentage();
 
       // Get network information
       final networkInfo = await _getNetworkInfo();
@@ -49,7 +49,7 @@ class ChildInfoService {
   }
 
   /// Get battery percentage
-  Future<int> _getBatteryPercentage() async {
+  Future<int> getBatteryPercentage() async {
     try {
       final batteryLevel = await _battery.batteryLevel;
       return batteryLevel;

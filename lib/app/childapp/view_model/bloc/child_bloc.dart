@@ -21,7 +21,7 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
   Timer? _deviceInfoTimer; // 10 minutes
   Timer? _screenTimeTimer; // 1 hour
   Timer? _childLocationTimer; // 30 seconds
-  Timer? _tripLocationTimer; // 5 seconds for trip tracking
+  Timer? _tripLocationTimer; // 10 seconds for trip tracking
 
   ChildBloc({
     required SharedPrefsService sharedPrefsService,
@@ -321,8 +321,8 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
             location,
           );
 
-          // If moved 10m or more, automatically start trip tracking
-          if (distance >= 10.0) {
+          // If moved 30m or more, automatically start trip tracking
+          if (distance >= 30.0) {
             add(StartTripTracking());
             return; // StartTripTracking will handle the location update
           }
@@ -483,11 +483,11 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
     _stopTripLocationTimer();
     AppLogger.info('Tripping... Stopped trip tracking Timer');
     // Post trip event if we have trip data
-    if (currentState.tripLocations.isNotEmpty &&
-        currentState.tripStartTime != null) {
-      await _postTripEvent(currentState, emit);
-    }
-    AppLogger.info('Tripping... Posted trip event');
+    // if (currentState.tripLocations.isNotEmpty &&
+    //     currentState.tripStartTime != null) {
+    //   await _postTripEvent(currentState, emit);
+    // }
+    // AppLogger.info('Tripping... Posted trip event');
     // Reset trip tracking state
     emit(
       currentState.copyWith(
@@ -541,7 +541,7 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
           lastLocation,
           newLocation,
         );
-        shouldTrack = distance >= 10.0; // 10 meters
+        shouldTrack = distance >= 30.0; // 30 meters
       }
 
       if (shouldTrack) {
@@ -555,27 +555,22 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
           ),
         );
 
-        // Get dynamic address and place name from coordinates
-        final locationInfo = await _childLocationRepo.getAddressAndPlaceName(
-          newLocation.latitude,
-          newLocation.longitude,
-        );
-
-        // Post location update to API
+        // Call new API
         final requestBody = {
-          "address": locationInfo?['address'] ?? 'Unknown',
-          "place_name": locationInfo?['place_name'] ?? 'Unknown',
-          "child_id": childId,
-          "lat": newLocation.latitude,
-          "lng": newLocation.longitude,
-          "accuracy_m": newLocation.accuracy,
-          "speed_mps": newLocation.speed,
-          "bearing": newLocation.heading,
-          "timestamp": DateTime.now().toIso8601String(),
+          "points": [
+            {
+              "lat": newLocation.latitude,
+              "lng": newLocation.longitude,
+              "speed": newLocation.speed,
+              "accuracy": newLocation.accuracy,
+              "ts": DateTime.now().toIso8601String(),
+              "battery": (await _deviceInfoService.getBatteryPercentage()),
+            },
+          ],
         };
-        await _childRepo.postChildLocation(requestBody);
+        await _childRepo.postTripLocation(childId: childId, data: requestBody);
       } else {
-        // Stop trip tracking if distance is less than 10m
+        // Stop trip tracking if distance is less than 30m
         AppLogger.info('Tripping... Stopping trip tracking Timer');
         add(StopTripTracking());
       }
@@ -586,7 +581,7 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
 
   void _startTripLocationTimer() {
     _stopTripLocationTimer();
-    _tripLocationTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+    _tripLocationTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
       if (isClosed || !_isChildLoggedIn()) {
         timer.cancel();
         return;
@@ -618,98 +613,6 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
   void _stopTripLocationTimer() {
     _tripLocationTimer?.cancel();
     _tripLocationTimer = null;
-  }
-
-  Future<void> _postTripEvent(
-    ChildDeviceInfoLoaded state,
-    Emitter<ChildState> emit,
-  ) async {
-    // Check if user is still logged in as child
-    if (!_isChildLoggedIn()) {
-      AppLogger.warning(
-        'ChildBloc: Skipping postTripEvent - not logged in as child',
-      );
-      return;
-    }
-
-    try {
-      final childId = _sharedPrefsService.getString('child_id');
-      if (childId == null || childId.isEmpty) {
-        AppLogger.warning(
-          'ChildBloc: child_id is null, cannot post trip event',
-        );
-        return;
-      }
-
-      if (state.tripLocations.length < 2 || state.tripStartTime == null) {
-        return;
-      }
-
-      final startLocation = state.tripLocations.first;
-      final endLocation = state.tripLocations.last;
-      final endTime = DateTime.now();
-      final duration = endTime.difference(state.tripStartTime!);
-
-      // Get dynamic address and place name for start and end locations
-      final startLocationInfo = await _childLocationRepo.getAddressAndPlaceName(
-        startLocation.latitude,
-        startLocation.longitude,
-      );
-      final endLocationInfo = await _childLocationRepo.getAddressAndPlaceName(
-        endLocation.latitude,
-        endLocation.longitude,
-      );
-
-      // Calculate distance (sum of distances between consecutive points)
-      double totalDistance = 0.0;
-      double maxSpeed = 0.0;
-
-      for (int i = 0; i < state.tripLocations.length - 1; i++) {
-        final distance = await _childLocationRepo.getDistanceBetweenTwoPoints(
-          state.tripLocations[i],
-          state.tripLocations[i + 1],
-        );
-        totalDistance += distance;
-
-        // Track max speed (convert m/s to km/h)
-        final speed = state.tripLocations[i].speed * 3.6;
-        if (speed > maxSpeed) {
-          maxSpeed = speed;
-        }
-      }
-
-      final requestBody = {
-        "child_id": childId,
-        "event_type": "ride",
-        "distance_m": totalDistance.round(),
-        "duration_s": duration.inSeconds,
-        "max_speed_kmph": maxSpeed,
-        "start_lat": startLocation.latitude,
-        "start_lng": startLocation.longitude,
-        "start_address": startLocationInfo?['address'] ?? 'Unknown',
-        "start_place_name": startLocationInfo?['place_name'] ?? 'Unknown',
-        "end_lat": endLocation.latitude,
-        "end_lng": endLocation.longitude,
-        "end_address": endLocationInfo?['address'] ?? 'Unknown',
-        "end_place_name": endLocationInfo?['place_name'] ?? 'Unknown',
-        "start_time": state.tripStartTime!.toIso8601String(),
-        "end_time": endTime.toIso8601String(),
-      };
-      AppLogger.info(
-        'Tripping... Posting trip event request body: $requestBody',
-      );
-
-      final response = await _childRepo.postTripEvent(requestBody);
-      if (response.isSuccess) {
-        AppLogger.info('Tripping... Trip event posted successfully');
-      } else {
-        AppLogger.error(
-          'Tripping... Failed to post trip event: ${response.message}',
-        );
-      }
-    } catch (e) {
-      AppLogger.error('Failed to post trip event: ${e.toString()}');
-    }
   }
 
   @override

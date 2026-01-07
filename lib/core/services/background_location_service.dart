@@ -175,25 +175,9 @@ void onStart(ServiceInstance service) async {
           }
         }
 
-        final requestBody = {
-          "child_id": childId,
-          "event_type": "ride",
-          "distance_m": totalDistance.round(),
-          "duration_s": duration.inSeconds,
-          "max_speed_kmph": maxSpeed,
-          "start_lat": startLocation.latitude,
-          "start_lng": startLocation.longitude,
-          "start_address": startLocationInfo?['address'] ?? 'Unknown',
-          "start_place_name": startLocationInfo?['place_name'] ?? 'Unknown',
-          "end_lat": endLocation.latitude,
-          "end_lng": endLocation.longitude,
-          "end_address": endLocationInfo?['address'] ?? 'Unknown',
-          "end_place_name": endLocationInfo?['place_name'] ?? 'Unknown',
-          "start_time": tripStartTime!.toIso8601String(),
-          "end_time": endTime.toIso8601String(),
-        };
+        
 
-        await childRepo.postTripEvent(requestBody);
+        // await childRepo.postTripEvent(requestBody);//TODO Change herewith new api and should reuse the bloc logics
         AppLogger.info('Trip event posted from background service');
       } catch (e) {
         AppLogger.error('Error posting trip event from background: $e');
