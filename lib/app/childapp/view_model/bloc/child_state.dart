@@ -16,6 +16,9 @@ final class ChildDeviceInfoLoaded extends ChildState {
   final DateTime? tripStartTime;
   final Position? lastTrackedLocation;
   final bool hasUsagePermission;
+  final TripStatus tripStatus;
+  final TripMode tripMode;
+  final DateTime? waitingStartTime;
 
   const ChildDeviceInfoLoaded({
     required this.deviceInfo,
@@ -26,6 +29,9 @@ final class ChildDeviceInfoLoaded extends ChildState {
     this.tripStartTime,
     this.lastTrackedLocation,
     this.hasUsagePermission = false,
+    this.tripStatus = TripStatus.idle,
+    this.tripMode = TripMode.unknown,
+    this.waitingStartTime,
   });
 
   @override
@@ -38,6 +44,9 @@ final class ChildDeviceInfoLoaded extends ChildState {
     if (tripStartTime != null) tripStartTime!,
     if (lastTrackedLocation != null) lastTrackedLocation!,
     hasUsagePermission,
+    tripStatus,
+    tripMode,
+    if (waitingStartTime != null) waitingStartTime!,
   ];
 
   ChildDeviceInfoLoaded copyWith({
@@ -49,6 +58,9 @@ final class ChildDeviceInfoLoaded extends ChildState {
     DateTime? tripStartTime,
     Position? lastTrackedLocation,
     bool? hasUsagePermission,
+    TripStatus? tripStatus,
+    TripMode? tripMode,
+    DateTime? waitingStartTime,
   }) {
     return ChildDeviceInfoLoaded(
       deviceInfo: deviceInfo ?? this.deviceInfo,
@@ -59,6 +71,9 @@ final class ChildDeviceInfoLoaded extends ChildState {
       tripStartTime: tripStartTime ?? this.tripStartTime,
       lastTrackedLocation: lastTrackedLocation ?? this.lastTrackedLocation,
       hasUsagePermission: hasUsagePermission ?? this.hasUsagePermission,
+      tripStatus: tripStatus ?? this.tripStatus,
+      tripMode: tripMode ?? this.tripMode,
+      waitingStartTime: waitingStartTime ?? this.waitingStartTime,
     );
   }
 
@@ -86,3 +101,7 @@ final class SosError extends ChildState {
   @override
   List<Object> get props => [message];
 }
+
+enum TripStatus { idle, moving, waiting, ended }
+
+enum TripMode { unknown, walking, vehicle }
