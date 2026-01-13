@@ -589,6 +589,9 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
           'Tripping... Distance between last location and new location: $distance',
         );
         shouldTrack = distance >= 30.0; // 30 meters
+        AppLogger.info(
+          'Tripping... Should track distance: $shouldTrack $distance',
+        );
       }
 
       if (shouldTrack) {
