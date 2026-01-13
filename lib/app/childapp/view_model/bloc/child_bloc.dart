@@ -624,7 +624,9 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
           childId: childId,
           data: requestBody,
         );
-        AppLogger.info('Tripping...############# response: $response');
+        AppLogger.info(
+          'Tripping...############# response: ${response.isSuccess} ${response.message} ${response.data}',
+        );
       } else {
         // Stop trip tracking if distance is less than 30m
         AppLogger.info('Tripping... Stopping trip tracking Timer');
