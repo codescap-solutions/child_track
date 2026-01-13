@@ -7,7 +7,6 @@ import 'package:child_track/core/constants/app_colors.dart';
 import 'package:child_track/core/constants/app_sizes.dart';
 import 'package:child_track/core/constants/app_text_styles.dart';
 import 'package:child_track/core/widgets/common_button.dart';
-import '../../settings/view/settings_view.dart';
 import 'widgets/social_app_item.dart';
 
 class SocialAppsView extends StatefulWidget {

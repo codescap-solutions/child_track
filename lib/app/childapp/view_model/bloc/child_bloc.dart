@@ -608,7 +608,13 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
             },
           ],
         };
-        await _childRepo.postTripLocation(childId: childId, data: requestBody);
+        AppLogger.info('Tripping...############# request body: $requestBody');
+
+        final response = await _childRepo.postTripLocation(
+          childId: childId,
+          data: requestBody,
+        );
+        AppLogger.info('Tripping...############# response: $response');
       } else {
         // Stop trip tracking if distance is less than 30m
         AppLogger.info('Tripping... Stopping trip tracking Timer');
