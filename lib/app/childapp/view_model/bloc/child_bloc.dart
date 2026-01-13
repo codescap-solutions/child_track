@@ -283,6 +283,14 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
         return;
       }
 
+      // 1. Sync Screentime Data (Critical Path)
+      // Send usage data without icons
+      final appsData = event.appScreenTimes.map((app) {
+        final json = app.toJson();
+        json.remove('icon'); // Remove icon from sync payload
+        return json;
+      }).toList();
+
       final requestBody = {
         "child_id": childId,
         "date": DateTime.now().toIso8601String().split('T')[0],
@@ -290,9 +298,41 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
           0,
           (sum, app) => sum + app.seconds,
         ),
-        "apps": event.appScreenTimes.map((app) => app.toJson()).toList(),
+        "apps": appsData,
       };
+
       await _childRepo.postScreenTime(requestBody);
+      AppLogger.info('ChildBloc: Screentime synced successfully');
+
+      // 2. Check Available Icons (Cache Refresh)
+      final iconsResponse = await _childRepo.getAvailableIcons();
+      Set<String> availableIcons = {};
+
+      if (iconsResponse.isSuccess && iconsResponse.data != null) {
+        final data = iconsResponse.data!;
+        if (data['data'] != null && data['data']['packages'] != null) {
+          final packages = List<String>.from(data['data']['packages']);
+          availableIcons = packages.toSet();
+        }
+      }
+
+      // 3. Upload New Icons (Background)
+      final Map<String, String> iconsToUpload = {};
+
+      for (var app in event.appScreenTimes) {
+        if (!availableIcons.contains(app.package) &&
+            app.iconBase64 != null &&
+            app.iconBase64!.isNotEmpty) {
+          iconsToUpload[app.package] = app.iconBase64!;
+        }
+      }
+
+      if (iconsToUpload.isNotEmpty) {
+        AppLogger.info(
+          'ChildBloc: Uploading ${iconsToUpload.length} missing icons',
+        );
+        await _childRepo.uploadIcons(iconsToUpload);
+      }
     } catch (e) {
       AppLogger.error('Failed to post screen time: ${e.toString()}');
     } finally {

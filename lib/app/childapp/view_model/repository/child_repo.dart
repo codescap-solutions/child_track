@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'dart:developer';
+import 'package:dio/dio.dart';
 
 import 'package:child_track/core/services/api_endpoints.dart';
 import 'package:child_track/core/services/base_service.dart';
@@ -93,6 +95,48 @@ class ChildRepo extends BaseService {
     return response;
   }
 
+  Future<BaseResponse> getAvailableIcons() async {
+    AppLogger.info('ChildRepo: Fetching available icons...');
+    final response = await get(ApiEndpoints.getAvailableIcons);
+    if (response.isSuccess) {
+      AppLogger.info('ChildRepo: Available icons fetched: ${response.data}');
+    } else {
+      AppLogger.error('ChildRepo: Failed to fetch icons: ${response.message}');
+    }
+    return response;
+  }
+
+  Future<BaseResponse> uploadIcons(Map<String, String> iconsToUpload) async {
+    AppLogger.info('ChildRepo: Uploading ${iconsToUpload.length} icons...');
+    final formData = FormData();
+
+    iconsToUpload.forEach((package, iconBase64) {
+      if (iconBase64.isNotEmpty) {
+        try {
+          final bytes = base64Decode(iconBase64);
+          formData.files.add(
+            MapEntry(
+              package,
+              MultipartFile.fromBytes(bytes, filename: '$package.png'),
+            ),
+          );
+        } catch (e) {
+          AppLogger.error('Error decoding icon for $package: $e');
+        }
+      }
+    });
+
+    final response = await post(ApiEndpoints.uploadIcons, data: formData);
+    if (response.isSuccess) {
+      AppLogger.info(
+        'ChildRepo: Icons uploaded successfully: ${response.message}',
+      );
+    } else {
+      AppLogger.error('ChildRepo: Failed to upload icons: ${response.message}');
+    }
+    return response;
+  }
+
   Future<BaseResponse> postChildLocation(Map<String, dynamic> data) async {
     // if (_socketService.isConnected) {
     //   _socketService.sendLocation(data);
@@ -115,6 +159,4 @@ class ChildRepo extends BaseService {
     );
     return response;
   }
-
-  
 }

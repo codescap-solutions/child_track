@@ -34,8 +34,16 @@ class DioClient {
       InterceptorsWrapper(
         onRequest: (options, handler) {
           AppLogger.info('🚀 Request url: ${options.method} ${options.uri}');
-          AppLogger.debug('Request Data: ${jsonEncode(options.data)}');
-          AppLogger.debug('Request Headers: ${jsonEncode(options.headers)}');
+          try {
+            if (options.data is FormData) {
+              AppLogger.debug('Request Data: [FormData]');
+            } else {
+              AppLogger.debug('Request Data: ${jsonEncode(options.data)}');
+            }
+            AppLogger.debug('Request Headers: ${jsonEncode(options.headers)}');
+          } catch (e) {
+            AppLogger.debug('Request Data (raw): ${options.data}');
+          }
 
           // Add auth token if available
           final token = _sharedPrefsService.getAuthToken();

@@ -18,7 +18,7 @@ import UserNotifications
     // NOTE: This key should match the GOOGLE_MAPS_API_KEY in your .env file
     // For iOS, you need to manually update this key to match your .env file
     // TODO: Consider reading from Info.plist or using build configurations for better security
-    GMSServices.provideAPIKey("AIzaSyASaOyJsO7dp01jjv625MI9Tw9HwEeTuQg")
+    GMSServices.provideAPIKey("your_google_maps_api_key_here")
     
     GeneratedPluginRegistrant.register(with: self)
     
