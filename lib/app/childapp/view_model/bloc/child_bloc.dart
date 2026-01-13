@@ -558,6 +558,10 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
     final currentState = state;
     if (currentState is! ChildDeviceInfoLoaded ||
         !currentState.isTripTracking) {
+      AppLogger.info(
+        'Tripping... Skipping updateTripLocation - not in trip tracking state',
+      );
+
       return;
     }
 
@@ -565,7 +569,7 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
       final childId = _sharedPrefsService.getString('child_id');
       if (childId == null || childId.isEmpty) {
         AppLogger.warning(
-          'ChildBloc: child_id is null, stopping trip tracking',
+          'Tripping... child_id is null, stopping trip tracking',
         );
         _stopTripLocationTimer();
         return;
@@ -580,6 +584,9 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
         final distance = await _childLocationRepo.getDistanceBetweenTwoPoints(
           lastLocation,
           newLocation,
+        );
+        AppLogger.info(
+          'Tripping... Distance between last location and new location: $distance',
         );
         shouldTrack = distance >= 30.0; // 30 meters
       }
