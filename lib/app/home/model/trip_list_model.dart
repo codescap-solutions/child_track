@@ -38,20 +38,27 @@ class Trip {
   });
 
   factory Trip.fromJson(Map<String, dynamic> json) {
+    final points =
+        (json['points'] as List<dynamic>?)
+            ?.map((e) => TripPoint.fromJson(e as Map<String, dynamic>))
+            .toList() ??
+        [];
+
+    String? endTimeRaw = json['end_time'];
+    if ((endTimeRaw == null || endTimeRaw.isEmpty) && points.isNotEmpty) {
+      endTimeRaw = points.last.ts;
+    }
+
     return Trip(
       tripId: json['trip_id'] ?? '',
       dayLabel: json['day_label'] ?? '',
       startTime: _getData(json['start_time']),
-      endTime: _getData(json['end_time']),
+      endTime: _getData(endTimeRaw),
       distanceKm: (json['distance_km'] ?? 0).toString(),
       eventsCount: json['events_count'] ?? 0,
       fromPlace: json['from_place'] ?? '',
       toPlace: json['to_place'] ?? '',
-      points:
-          (json['points'] as List<dynamic>?)
-              ?.map((e) => TripPoint.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          [],
+      points: points,
     );
   }
 }

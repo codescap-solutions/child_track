@@ -290,7 +290,7 @@ class _ConnectToParentScreenState extends State<ConnectToParentScreen> {
         isServiceEnabled = await locationService.isLocationServiceEnabled();
         if (!isServiceEnabled) {
           // Still disabled, try next attempt loop or just continue to let loop handle it
-          continue;
+          continue; 
         }
       }
 

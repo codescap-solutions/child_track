@@ -8,6 +8,7 @@ import 'package:child_track/core/constants/app_text_styles.dart';
 import 'package:child_track/core/widgets/common_button.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:intl/intl.dart';
 
 /// Trips List View - Shows all trips
 class TripsView extends StatefulWidget {
@@ -155,7 +156,7 @@ class _SimpleTripCard extends StatelessWidget {
     final midIndex = trip.points.length ~/ 2;
     return CameraPosition(
       target: LatLng(trip.points[midIndex].lat, trip.points[midIndex].lng),
-      zoom: 13, // Adjust zoom as needed
+      zoom: 12,
     );
   }
 
@@ -194,8 +195,16 @@ class _SimpleTripCard extends StatelessWidget {
                       polylines: _createPolylines(),
                       markers: _createMarkers(),
                       onMapCreated: (controller) {
-                        // Optional: Bounds fitting could be attempted here if strictly needed
-                        // but risky in ListView performance wise or race conditions.
+                        if (trip.points.isNotEmpty) {
+                          final bounds = _createBounds(
+                            trip.points
+                                .map((p) => LatLng(p.lat, p.lng))
+                                .toList(),
+                          );
+                          controller.moveCamera(
+                            CameraUpdate.newLatLngBounds(bounds, 20),
+                          );
+                        }
                       },
                     )
                   : Container(
@@ -230,7 +239,8 @@ class _SimpleTripCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            '${trip.startTime} - ${trip.endTime}',
+                            'from ${_formatTime(trip.startTime)} to ${_formatTime(trip.endTime)}',
+                            maxLines: 2,
                             style: AppTextStyles.subtitle2.copyWith(
                               fontWeight: FontWeight.bold,
                             ),
@@ -297,5 +307,38 @@ class _SimpleTripCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  LatLngBounds _createBounds(List<LatLng> positions) {
+    final southwestLat = positions
+        .map((p) => p.latitude)
+        .reduce((a, b) => a < b ? a : b);
+    final southwestLng = positions
+        .map((p) => p.longitude)
+        .reduce((a, b) => a < b ? a : b);
+    final northeastLat = positions
+        .map((p) => p.latitude)
+        .reduce((a, b) => a > b ? a : b);
+    final northeastLng = positions
+        .map((p) => p.longitude)
+        .reduce((a, b) => a > b ? a : b);
+    return LatLngBounds(
+      southwest: LatLng(southwestLat, southwestLng),
+      northeast: LatLng(northeastLat, northeastLng),
+    );
+  }
+
+  String _formatTime(String timeStr) {
+    if (timeStr.isEmpty) return '';
+    try {
+      // Input format from Trip model: "dd-MM-yyyy HH:mm:ss"
+      final inputFormat = DateFormat('dd-MM-yyyy HH:mm:ss');
+      final dt = inputFormat.parse(timeStr);
+      // Output format: "4pm"
+      final outputFormat = DateFormat('ha');
+      return outputFormat.format(dt).toLowerCase();
+    } catch (e) {
+      return timeStr;
+    }
   }
 }
