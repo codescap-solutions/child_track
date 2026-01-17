@@ -74,9 +74,9 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
     _stopTripLocationTimer();
   }
 
-  /// Public method to stop all child tracking activities
+  /// Public method to stop all NAVIQing activities
   void stopChildTracking() {
-    AppLogger.info('ChildBloc: Stopping all child tracking activities');
+    AppLogger.info('ChildBloc: Stopping all NAVIQing activities');
     _stopAllTimers();
   }
 
@@ -534,13 +534,22 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
               "lng": newLocation.longitude,
               "speed": newLocation.speed,
               "accuracy": newLocation.accuracy,
-              "ts": DateTime.now().toIso8601String(),
+              "ts": DateTime.now().toUtc().toIso8601String(),
               "battery": (await _deviceInfoService.getBatteryPercentage()),
             },
           ],
         };
 
-        await _childRepo.postTripLocation(childId: childId, data: requestBody);
+        AppLogger.info('Tripping... Post Trip Location Request: $requestBody');
+
+        final response = await _childRepo.postTripLocation(
+          childId: childId,
+          data: requestBody,
+        );
+
+        AppLogger.info(
+          'Tripping... Post Trip Location Response: ${response.message}',
+        );
       } else {
         // Even if distance didn't change enough for an API call,
         // we might still need to update status (Waiting timer needs to be persisted in state)
@@ -655,7 +664,7 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
 
   void _startChildLocationTimer() {
     _stopChildLocationTimer();
-    _childLocationTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+    _childLocationTimer = Timer.periodic(const Duration(seconds: 60), (timer) {
       if (isClosed || !_isChildLoggedIn()) {
         timer.cancel();
         return;

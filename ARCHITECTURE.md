@@ -1,4 +1,4 @@
-# Child Track - Flutter MVVM Architecture
+# NAVIQ - Flutter MVVM Architecture
 
 ## 🏗️ Architecture Overview
 
@@ -199,7 +199,7 @@ flutter build apk --release
 
 ## 🚀 Next Steps
 
-This base architecture provides a solid foundation for building the Child Track app. You can now:
+This base architecture provides a solid foundation for building the NAVIQ app. You can now:
 
 1. Add more screens and features
 2. Implement real API endpoints

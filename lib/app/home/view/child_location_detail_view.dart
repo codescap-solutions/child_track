@@ -1,3 +1,4 @@
+import 'package:child_track/app/home/model/trip_list_model.dart';
 import 'package:child_track/app/home/model/last_trip_model.dart';
 import 'package:child_track/app/home/view/trips_view.dart';
 import 'package:child_track/app/home/view_model/bloc/homepage_bloc.dart';
@@ -18,7 +19,9 @@ class ChildLocationDetailView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider.value(
-      value: injector<HomepageBloc>()..add(GetHomepageData()),
+      value: injector<HomepageBloc>()
+        ..add(GetHomepageData())
+        ..add(GetTrips(page: 1, pageSize: 10)),
       child: Scaffold(
         backgroundColor: AppColors.backgroundColor,
         appBar: AppBar(
@@ -29,17 +32,24 @@ class ChildLocationDetailView extends StatelessWidget {
             icon: const Icon(Icons.arrow_back_ios_new, size: 18),
             onPressed: () => Navigator.of(context).pop(),
           ),
-          title: const Text('Kid Location Details'),
+          title: Text('Kid Location Details', style: AppTextStyles.body1),
         ),
         body: SingleChildScrollView(
           child: BlocBuilder<HomepageBloc, HomepageState>(
             builder: (context, state) {
               if (state is HomepageSuccess) {
-                if (state.yesterdayTrips.isEmpty) {
+                TripSegment? trip;
+                if (state.trips.isNotEmpty) {
+                  trip = TripSegment.fromTrip(state.trips.first);
+                } else if (state.yesterdayTrips.isNotEmpty) {
+                  trip = state.yesterdayTrips.first;
+                }
+
+                if (trip == null) {
                   return const Center(child: Text('No trip data available'));
                 }
+
                 final currentLocation = state.currentLocation;
-                final trip = state.yesterdayTrips.first;
                 return Column(
                   children: [
                     SizedBox(
