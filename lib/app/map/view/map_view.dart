@@ -179,6 +179,7 @@ class _MapViewWidgetState extends State<MapViewWidget> {
                         widget.minZoom,
                         widget.maxZoom,
                       ),
+
                       zoomGesturesEnabled: widget.interactive,
                       tiltGesturesEnabled: widget.interactive,
                       rotateGesturesEnabled: widget.interactive,
@@ -191,7 +192,7 @@ class _MapViewWidgetState extends State<MapViewWidget> {
                       polylines: Set<Polyline>.of(polylines.values),
                       initialCameraPosition: CameraPosition(
                         target: widget.currentPosition ?? state.currentPosition,
-                        zoom: widget.currentPosition != null ? 15.0 : 11.0,
+                        zoom: widget.currentPosition != null ? 15.0 : 15.0,
                       ),
                       markers: () {
                         final markersToUse =
@@ -209,26 +210,15 @@ class _MapViewWidgetState extends State<MapViewWidget> {
                   ),
                   // Floating layers button
                   Positioned(
-                    right: 16,
-                    bottom: 160,
-                    child: Material(
-                      color: Colors.white,
-                      shape: const CircleBorder(),
-                      elevation: 4,
-                      child: InkWell(
-                        onTap: () => _showMapTypeOptions(context),
-                        borderRadius: BorderRadius.circular(24),
-                        child: Container(
-                          width: 48,
-                          height: 48,
-                          decoration: const BoxDecoration(
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.layers,
-                            color: Colors.black87,
-                          ),
-                        ),
+                    top: MediaQuery.of(context).padding.top + 10,
+                    right: 60,
+                    child: InkWell(
+                      onTap: () => _showMapTypeOptions(context),
+                      child: CircleAvatar(
+                        backgroundColor: Colors.black.withOpacity(
+                          0.6,
+                        ), // Standard map button style
+                        child: const Icon(Icons.layers, color: Colors.white),
                       ),
                     ),
                   ),

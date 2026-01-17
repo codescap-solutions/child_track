@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 import 'package:child_track/core/navigation/app_router.dart';
 import 'package:child_track/core/navigation/route_names.dart';
 import 'package:flutter/services.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:child_track/app/home/view_model/bloc/homepage_bloc.dart';
 import 'package:child_track/app/map/view/map_view.dart';
 import 'package:child_track/core/di/injector.dart';
@@ -23,6 +24,7 @@ import '../../social_apps/view/social_apps_view.dart';
 import '../../addplace/model/saved_place_model.dart';
 import '../../addplace/service/saved_places_service.dart';
 import 'child_location_detail_view.dart';
+import 'package:child_track/core/services/location_service.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -32,11 +34,11 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  final ScrollController _bottomSheetScrollController = ScrollController();
-  bool _hasNavigated = false;
   final SocketService _socketService = SocketService();
   final SharedPrefsService _sharedPrefsService = injector<SharedPrefsService>();
   StreamSubscription? _locationSubscription;
+  final DraggableScrollableController _sheetController =
+      DraggableScrollableController();
 
   late final SavedPlacesService _savedPlacesService;
   List<SavedPlace> _savedPlaces = [];
@@ -46,7 +48,6 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     _savedPlacesService = injector<SavedPlacesService>();
     _loadSavedPlaces();
-    _bottomSheetScrollController.addListener(_onScroll);
     _initSocket();
   }
 
@@ -59,12 +60,10 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // ... (existing methods)
-
   SavedPlace? _findMatchingPlace(double? lat, double? lng) {
     if (lat == null || lng == null) return null;
-    // Tolerance for float comparison (approx 11 meters)
-    const double tolerance = 0.0001;
+    // Tolerance for float comparison (approx 110 meters)
+    const double tolerance = 0.001;
 
     try {
       return _savedPlaces.firstWhere((place) {
@@ -95,8 +94,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void dispose() {
     _locationSubscription?.cancel();
-    _bottomSheetScrollController.removeListener(_onScroll);
-    _bottomSheetScrollController.dispose();
+    _sheetController.dispose();
     super.dispose();
   }
 
@@ -124,47 +122,6 @@ class _HomePageState extends State<HomePage> {
       return BitmapDescriptor.bytes(markerIconBytes);
     } catch (e) {
       return null;
-    }
-  }
-
-  void _onScroll() {
-    // Navigate when scroll reaches the end
-    if (_bottomSheetScrollController.hasClients && !_hasNavigated) {
-      final maxScroll = _bottomSheetScrollController.position.maxScrollExtent;
-      final currentScroll = _bottomSheetScrollController.offset;
-
-      // Check if scrolled to the end (with a small threshold for better UX)
-      if (currentScroll >= maxScroll - 10) {
-        _hasNavigated = true;
-        Navigator.of(context)
-            .push(
-              MaterialPageRoute(
-                builder: (_) => const ChildLocationDetailView(),
-              ),
-            )
-            .then((_) {
-              // Reset flag when returning from detail view
-              if (mounted) {
-                _hasNavigated = false;
-              }
-            });
-      }
-    }
-  }
-
-  void _navigateToDetail() {
-    if (!_hasNavigated) {
-      _hasNavigated = true;
-      Navigator.of(context)
-          .push(
-            MaterialPageRoute(builder: (_) => const ChildLocationDetailView()),
-          )
-          .then((_) {
-            // Reset flag when returning from detail view
-            if (mounted) {
-              _hasNavigated = false;
-            }
-          });
     }
   }
 
@@ -213,10 +170,35 @@ class _HomePageState extends State<HomePage> {
     return '$locality, $statePart';
   }
 
+  String _formatTimeAgo(String? timestamp) {
+    if (timestamp == null || timestamp.isEmpty) {
+      return 'Unknown times';
+    }
+
+    try {
+      final timestampDate = DateTime.parse(timestamp);
+      final now = DateTime.now();
+      final difference = now.difference(timestampDate);
+
+      if (difference.inMinutes < 1) {
+        return 'Just now';
+      } else if (difference.inMinutes < 60) {
+        final minutes = difference.inMinutes;
+        return '$minutes ${minutes == 1 ? 'minute' : 'minutes'} ago';
+      } else if (difference.inHours < 24) {
+        final hours = difference.inHours;
+        return '$hours ${hours == 1 ? 'hour' : 'hours'} ago';
+      } else {
+        final days = difference.inDays;
+        return '$days ${days == 1 ? 'day' : 'days'} ago';
+      }
+    } catch (e) {
+      return 'Invalid time';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height;
-    final bottomSheetHeight = screenHeight * 0.4;
     return BlocProvider.value(
       value: injector<HomepageBloc>()
         ..add(GetHomepageData()), // Will get from SharedPreferences
@@ -224,86 +206,92 @@ class _HomePageState extends State<HomePage> {
         backgroundColor: AppColors.backgroundColor,
         body: Stack(
           children: [
-            CustomScrollView(
-              slivers: [
-                // App Bar with collapsing effect
-                SliverAppBar(
-                  expandedHeight: MediaQuery.of(context).size.height * 0.7,
-                  floating: false,
-                  pinned: true,
-                  backgroundColor: AppColors.surfaceColor,
-                  foregroundColor: AppColors.textPrimary,
-                  elevation: 0,
-                  //   leading: IconButton(
-                  //  //   icon: const Icon(Icons.arrow_back_ios_new, size: 18),
-                  //     onPressed: () => Navigator.of(context).maybePop(),
-                  //   ),
-                  actions: [
-                    IconButton(
-                      icon: CircleAvatar(
-                        backgroundColor: AppColors.surfaceColor,
-                        child: Icon(Icons.person, color: AppColors.success),
-                      ),
-                      onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const SettingsView()),
-                      ),
-                    ),
-                  ],
-                  flexibleSpace: FlexibleSpaceBar(
-                    background: _HomeMapBackground(
-                      loadCustomMarker: _loadCustomMarker,
-                    ),
-                  ),
-                ),
-              ],
+            // Layer 1: Map Background
+            Positioned.fill(
+              child: _HomeMapBackground(loadCustomMarker: _loadCustomMarker),
             ),
-            // Bottom sheet container
+
+            // Layer 2: Top Bar Actions (Settings, etc.)
             Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: Container(
-                height: bottomSheetHeight,
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceColor,
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(AppSizes.radiusXL),
-                    topRight: Radius.circular(AppSizes.radiusXL),
-                  ),
-                ),
-                child: Column(
-                  children: [
-                    // Drag handle
-                    GestureDetector(
-                      onTap: _navigateToDetail,
-                      child: Container(
-                        margin: const EdgeInsets.symmetric(
-                          vertical: AppSizes.spacingS,
-                        ),
-                        width: 40,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: AppColors.textSecondary.withValues(alpha: 0.3),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
-                    // Scrollable content
-                    Expanded(
-                      child: SingleChildScrollView(
-                        controller: _bottomSheetScrollController,
-                        child: Padding(
-                          padding: const EdgeInsets.only(
-                            bottom: AppSizes.paddingL,
-                          ),
-                          child: _buildChildLocationCardContent(context),
-                        ),
-                      ),
-                    ),
-                  ],
+              top: MediaQuery.of(context).padding.top + 10,
+              left: 16,
+              child: InkWell(
+                onTap: () {
+                  // Add back navigation if needed or menu
+                },
+                child: CircleAvatar(
+                  backgroundColor: Colors.black.withOpacity(0.6),
+                  child: const Icon(Icons.arrow_back, color: Colors.white),
                 ),
               ),
+            ),
+
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 10,
+              right: 16,
+              child: InkWell(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const SettingsView()),
+                ),
+                child: CircleAvatar(
+                  backgroundColor: Colors.black.withOpacity(
+                    0.6,
+                  ), // Standard map button style
+                  child: const Icon(Icons.settings, color: Colors.white),
+                ),
+              ),
+            ),
+
+            // Layer 3: Draggable Bottom Sheet
+            DraggableScrollableSheet(
+              controller: _sheetController,
+              initialChildSize: 0.4,
+              minChildSize: 0.2, // Small enough to show map
+              maxChildSize: 0.85,
+              builder: (context, scrollController) {
+                return Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceColor,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(AppSizes.radiusXL),
+                      topRight: Radius.circular(AppSizes.radiusXL),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 10,
+                        spreadRadius: 2,
+                        offset: const Offset(0, -2),
+                      ),
+                    ],
+                  ),
+                  child: SingleChildScrollView(
+                    controller: scrollController,
+                    physics: const ClampingScrollPhysics(), // Smooth feel
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: AppSizes.paddingL),
+                      child: Column(
+                        children: [
+                          // Drag Handle
+                          Center(
+                            child: Container(
+                              margin: const EdgeInsets.symmetric(vertical: 12),
+                              width: 40,
+                              height: 4,
+                              decoration: BoxDecoration(
+                                color: Colors.grey[300],
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                          ),
+                          _buildChildLocationCardContent(context),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
           ],
         ),
@@ -337,7 +325,11 @@ class _HomePageState extends State<HomePage> {
         }
 
         if (state is! HomepageSuccess) {
-          return const Center(child: CircularProgressIndicator());
+          // Show simplified loading or placeholder
+          return const Padding(
+            padding: EdgeInsets.all(20.0),
+            child: Center(child: CircularProgressIndicator()),
+          );
         }
 
         // Show "no child connected" UI
@@ -346,7 +338,7 @@ class _HomePageState extends State<HomePage> {
         }
 
         return Padding(
-          padding: const EdgeInsets.all(AppSizes.paddingM),
+          padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingM),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -547,26 +539,6 @@ class _HomePageState extends State<HomePage> {
                       );
                     },
                   ),
-                  Spacer(),
-                  // Action icons
-                  Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(
-                          Icons.settings_outlined,
-                          color: AppColors.textSecondary,
-                        ),
-                        onPressed: () {},
-                      ),
-                      IconButton(
-                        icon: const Icon(
-                          Icons.share_outlined,
-                          color: AppColors.textSecondary,
-                        ),
-                        onPressed: () {},
-                      ),
-                    ],
-                  ),
                 ],
               ),
 
@@ -575,8 +547,6 @@ class _HomePageState extends State<HomePage> {
               // Feature Cards Row
               Row(
                 children: [
-                  // Geo Guard card
-
                   // Scroll card
                   Expanded(
                     child: _buildFeatureCard(
@@ -597,7 +567,9 @@ class _HomePageState extends State<HomePage> {
                       title: 'Geo Guard',
                       subtitle: 'Places &\nGeofencing',
                       icon: 'assets/home/geo_guard_girl.svg',
-                      onTap: () {},
+                      onTap: () {
+                        // Feature implementation needed
+                      },
                     ),
                   ),
                 ],
@@ -648,6 +620,30 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ],
                 ),
+              ),
+
+              const SizedBox(height: AppSizes.spacingM),
+
+              // Additional Details (can be navigated to)
+              ListTile(
+                tileColor: AppColors.surfaceColor,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppSizes.radiusM),
+                  side: BorderSide(color: Colors.grey.shade200),
+                ),
+                leading: const Icon(
+                  Icons.info_outline,
+                  color: AppColors.textSecondary,
+                ),
+                title: const Text("View Full Location History"),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const ChildLocationDetailView(),
+                    ),
+                  );
+                },
               ),
             ],
           ),
@@ -717,104 +713,20 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  String _formatTimeAgo(String? timestamp) {
-    if (timestamp == null || timestamp.isEmpty) {
-      return 'Unknown times';
-    }
-
-    try {
-      final timestampDate = DateTime.parse(timestamp);
-      final now = DateTime.now();
-      final difference = now.difference(timestampDate);
-
-      if (difference.inMinutes < 1) {
-        return 'Just now';
-      } else if (difference.inMinutes < 60) {
-        final minutes = difference.inMinutes;
-        return '$minutes ${minutes == 1 ? 'minute' : 'minutes'} ago';
-      } else if (difference.inHours < 24) {
-        final hours = difference.inHours;
-        return '$hours ${hours == 1 ? 'hour' : 'hours'} ago';
-      } else {
-        final days = difference.inDays;
-        return '$days ${days == 1 ? 'day' : 'days'} ago';
-      }
-    } catch (e) {
-      return 'Invalid time';
-    }
-  }
-
   Widget _buildNoChildConnectedUI(BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height;
-    final bottomSheetHeight = screenHeight * 0.4;
-
-    return ConstrainedBox(
-      constraints: BoxConstraints(
-        minHeight:
-            bottomSheetHeight - 100, // Account for padding and drag handle
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSizes.paddingXL,
-          vertical: AppSizes.paddingL,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const SizedBox(height: AppSizes.spacingL),
-            Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                color: AppColors.primaryColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(AppSizes.radiusXXL),
-              ),
-              child: const Icon(
-                Icons.child_care_outlined,
-                size: 60,
-                color: AppColors.primaryColor,
-              ),
-            ),
-            const SizedBox(height: AppSizes.spacingXL),
-            Text(
-              'Child Not Connected',
-              style: AppTextStyles.headline2.copyWith(
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.bold,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: AppSizes.spacingM),
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSizes.paddingS,
-              ),
-              child: Text(
-                'Please connect and add a matched child to view tracking information.',
-                style: AppTextStyles.body1.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-            const SizedBox(height: AppSizes.spacingXL),
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSizes.paddingM,
-              ),
-              child: CommonButton(
-                text: 'Add Child',
-                onPressed: () {
-                  // Navigate to add child screen or connect screen
-                  Navigator.of(context).pushNamed('/add-child');
-                },
-                width: double.infinity,
-              ),
-            ),
-            const SizedBox(height: AppSizes.spacingL),
-          ],
-        ),
+    // Keeping simple for now
+    return Padding(
+      padding: const EdgeInsets.all(AppSizes.paddingL),
+      child: Column(
+        children: [
+          Icon(Icons.child_care, size: 60, color: Colors.grey),
+          Text("No Child Connected", style: AppTextStyles.headline3),
+          const SizedBox(height: 20),
+          CommonButton(
+            text: "Add Child",
+            onPressed: () => Navigator.of(context).pushNamed('/add-child'),
+          ),
+        ],
       ),
     );
   }
@@ -1081,24 +993,32 @@ class _HomeMapBackgroundState extends State<_HomeMapBackground> {
   void _animateTo(LatLng target) {
     if (_mapController == null) return;
 
-    /*
-    if (_lastAnimatedLocation != null) {
-      final distance = _calculateDistance(
-        _lastAnimatedLocation!.latitude,
-        _lastAnimatedLocation!.longitude,
-        target.latitude,
-        target.longitude,
-      );
-      // Only animate if moved more than 10 meters
-      if (distance < 10.0) {
-        // 10 meters
-        return;
-      }
-    }
-    */
-
     AppLogger.info("Moving camera to $target");
     _mapController!.animateCamera(CameraUpdate.newLatLngZoom(target, 15.0));
+  }
+
+  Future<void> _onParentLocationPressed() async {
+    try {
+      final locationService = injector<LocationService>();
+      final permission = await locationService.requestPermission();
+
+      if (permission == LocationPermission.whileInUse ||
+          permission == LocationPermission.always) {
+        final position = await locationService.getCurrentPosition();
+        if (position != null && mounted) {
+          final latLng = LatLng(position.latitude, position.longitude);
+          _animateTo(latLng);
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Location permission is required')),
+          );
+        }
+      }
+    } catch (e) {
+      AppLogger.error("Error getting parent location: $e");
+    }
   }
 
   @override
@@ -1186,28 +1106,46 @@ class _HomeMapBackgroundState extends State<_HomeMapBackground> {
             },
           };
 
-          return MapViewWidget(
-            key: const ValueKey('home_map_static'),
-            width: double.infinity,
-            height: double.infinity,
-            interactive: true,
-            currentPosition: location,
-            markers: markers.toList(),
-            myLocationEnabled: false,
-            minZoom: 0.0,
-            myLocationButtonEnabled: false,
-            onMapCreated: (controller) {
-              _mapController = controller;
-              // Animate to current location when map is created
-              if (location != null) {
-                // Use a small delay to ensure map is fully initialized
-                Future.delayed(const Duration(milliseconds: 300), () {
-                  if (mounted && _mapController != null) {
-                    _animateTo(location);
+          return Stack(
+            children: [
+              MapViewWidget(
+                key: const ValueKey('home_map_static'),
+                width: double.infinity,
+                height: double.infinity,
+                interactive: true,
+                currentPosition: location,
+                markers: markers.toList(),
+                myLocationEnabled: true,
+                minZoom: 0.0,
+                maxZoom: 20,
+                myLocationButtonEnabled: true,
+                onMapCreated: (controller) {
+                  _mapController = controller;
+                  // Animate to current location when map is created
+                  if (location != null) {
+                    // Use a small delay to ensure map is fully initialized
+                    Future.delayed(const Duration(milliseconds: 300), () {
+                      if (mounted && _mapController != null) {
+                        _animateTo(location);
+                      }
+                    });
                   }
-                });
-              }
-            },
+                },
+              ),
+              // Positioned(
+              //   bottom: 250, // Moved up to clear bottom sheet (approx)
+              //   right: 16,
+              //   child: FloatingActionButton(
+              //     heroTag: 'parent_location_fab',
+              //     onPressed: _onParentLocationPressed,
+              //     backgroundColor: AppColors.surfaceColor,
+              //     child: const Icon(
+              //       Icons.gps_fixed,
+              //       color: AppColors.textPrimary,
+              //     ),
+              //   ),
+              // ),
+            ],
           );
         },
       ),
