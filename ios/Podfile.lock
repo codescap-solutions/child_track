@@ -156,30 +156,30 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/url_launcher_ios/ios"
 
 SPEC CHECKSUMS:
-  battery_plus: 1f754123913841c027a12384d25b1463d113aae7
-  connectivity_plus: cb623214f4e1f6ef8fe7403d580fdad517d2f7dd
+  battery_plus: 3b68b6e7710fe49c022999753d22760e6dbbc471
+  connectivity_plus: 2a701ffec2c0ae28a48cf7540e279787e77c447d
   Firebase: d99ac19b909cd2c548339c2241ecd0d1599ab02e
-  firebase_core: 995454a784ff288be5689b796deb9e9fa3601818
-  firebase_messaging: f4a41dd102ac18b840eba3f39d67e77922d3f707
+  firebase_core: 99a37263b3c27536063a7b601d9e2a49400a433c
+  firebase_messaging: bf6697c61f31c7cc0f654131212ff04c0115c2c7
   FirebaseCore: efb3893e5b94f32b86e331e3bd6dadf18b66568e
   FirebaseCoreInternal: 9afa45b1159304c963da48addb78275ef701c6b4
   FirebaseInstallations: 317270fec08a5d418fdbc8429282238cab3ac843
   FirebaseMessaging: 3b26e2cee503815e01c3701236b020aa9b576f09
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
-  flutter_background_service_ios: 00d31bdff7b4bfe06d32375df358abe0329cf87e
-  flutter_local_notifications: 395056b3175ba4f08480a7c5de30cd36d69827e4
-  geolocator_apple: ab36aa0e8b7d7a2d7639b3b4e48308394e8cef5e
+  flutter_background_service_ios: e30e0d3ee69e4cee66272d0c78eacd48c2e94aac
+  flutter_local_notifications: df98d66e515e1ca797af436137b4459b160ad8c9
+  geolocator_apple: 66b711889fd333205763b83c9dcf0a57a28c7afd
   Google-Maps-iOS-Utils: 66d6de12be1ce6d3742a54661e7a79cb317a9321
-  google_maps_flutter_ios: 0291eb2aa252298a769b04d075e4a9d747ff7264
+  google_maps_flutter_ios: e31555a04d1986ab130f2b9f24b6cdc861acc6d3
   GoogleDataTransport: aae35b7ea0c09004c3797d53c8c41f66f219d6a7
   GoogleMaps: 8939898920281c649150e0af74aa291c60f2e77d
   GoogleUtilities: 00c88b9a86066ef77f0da2fab05f65d7768ed8e1
   nanopb: fad817b59e0457d11a5dfbde799381cd727c1275
-  path_provider_foundation: bb55f6dbba17d0dccd6737fe6f7f34fbd0376880
-  permission_handler_apple: 4ed2196e43d0651e8ff7ca3483a069d469701f2d
+  path_provider_foundation: 0b743cbb62d8e47eab856f09262bb8c1ddcfe6ba
+  permission_handler_apple: 9878588469a2b0d0fc1e048d9f43605f92e6cec2
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
-  shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
-  url_launcher_ios: 7a95fa5b60cc718a708b8f2966718e93db0cef1b
+  shared_preferences_foundation: 5086985c1d43c5ba4d5e69a4e8083a389e2909e6
+  url_launcher_ios: bb13df5870e8c4234ca12609d04010a21be43dfa
 
 PODFILE CHECKSUM: 8ba722d6402551062f5e80183c78c9288d08d09b
 

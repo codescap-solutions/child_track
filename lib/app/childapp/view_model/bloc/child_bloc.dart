@@ -74,9 +74,9 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
     _stopTripLocationTimer();
   }
 
-  /// Public method to stop all child tracking activities
+  /// Public method to stop all NAVIQing activities
   void stopChildTracking() {
-    AppLogger.info('ChildBloc: Stopping all child tracking activities');
+    AppLogger.info('ChildBloc: Stopping all NAVIQing activities');
     _stopAllTimers();
   }
 
@@ -343,6 +343,16 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
     }
   }
 
+  static const double kWalkingSpeedThreshold = 2.5; // m/s
+  static const double kWalkingDistanceThreshold = 30.0; // meters
+  static const double kVehicleDistanceThreshold = 100.0; // meters
+  static const double kWaitingSpeedThreshold = 1.0; // m/s
+  static const Duration kWaitingDurationThreshold = Duration(minutes: 5);
+
+  TripMode _determineTripMode(double speed) {
+    return speed < kWalkingSpeedThreshold ? TripMode.walking : TripMode.vehicle;
+  }
+
   Future<void> _onGetChildLocation(
     GetChildLocation event,
     Emitter<ChildState> emit,
@@ -354,17 +364,23 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
       if (location != null) {
         final previousLocation = currentState.childLocation;
 
-        // Check if child moved 10m or more (and not already tracking a trip)
+        // Check if child moved significantly to start a trip
         if (previousLocation != null && !currentState.isTripTracking) {
           final distance = await _childLocationRepo.getDistanceBetweenTwoPoints(
             previousLocation,
             location,
           );
 
-          // If moved 30m or more, automatically start trip tracking
-          if (distance >= 30.0) {
-            add(StartTripTracking());
-            return; // StartTripTracking will handle the location update
+          final speed = location.speed; // speed in m/s
+          final mode = _determineTripMode(speed);
+          final threshold = mode == TripMode.walking
+              ? kWalkingDistanceThreshold
+              : kVehicleDistanceThreshold;
+
+          if (distance >= threshold) {
+            // Pass the determined mode to start tracking
+            add(StartTripTracking(initialMode: mode));
+            return;
           }
         }
 
@@ -373,6 +389,185 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
       }
     } catch (e) {
       AppLogger.error('Failed to get child location: ${e.toString()}');
+    }
+  }
+
+  Future<void> _onStartTripTracking(
+    StartTripTracking event,
+    Emitter<ChildState> emit,
+  ) async {
+    final currentState = state;
+    if (currentState is! ChildDeviceInfoLoaded) return;
+    AppLogger.info('Tripping... Starting trip tracking');
+
+    try {
+      final location = await _childLocationRepo.getChildLocation();
+      if (location != null) {
+        final now = DateTime.now();
+        // Determine mode if not passed (though it should be passed from _onGetChildLocation usually)
+        // Check if event has mode, if not calculate.
+        // Note: StartTripTracking event needs to support optional mode, or we calculate here.
+        // Assuming we update event or calculate here. Let's calculate for safety.
+        final mode = _determineTripMode(location.speed);
+
+        emit(
+          currentState.copyWith(
+            isTripTracking: true,
+            tripStartTime: now,
+            tripLocations: [location],
+            lastTrackedLocation: location,
+            childLocation: location,
+            tripStatus: TripStatus.moving,
+            tripMode: mode,
+            waitingStartTime: null,
+          ),
+        );
+
+        _startTripLocationTimer();
+        AppLogger.info('Tripping... Started trip tracking Timer');
+      }
+    } catch (e) {
+      AppLogger.error('Failed to start trip tracking: ${e.toString()}');
+    }
+  }
+
+  // ... existing stop trip ...
+
+  Future<void> _onUpdateTripLocation(
+    UpdateTripLocation event,
+    Emitter<ChildState> emit,
+  ) async {
+    if (!_isChildLoggedIn()) {
+      _stopTripLocationTimer();
+      return;
+    }
+
+    final currentState = state;
+    if (currentState is! ChildDeviceInfoLoaded ||
+        !currentState.isTripTracking) {
+      return;
+    }
+
+    try {
+      final childId = _sharedPrefsService.getString('child_id');
+      if (childId == null || childId.isEmpty) {
+        _stopTripLocationTimer();
+        return;
+      }
+
+      final newLocation = event.location;
+      final lastLocation = currentState.lastTrackedLocation;
+
+      // 1. Check for Waiting State vs End Trip
+      final currentSpeed = newLocation.speed;
+      TripStatus newStatus = currentState.tripStatus;
+      DateTime? newWaitingStartTime = currentState.waitingStartTime;
+
+      if (currentSpeed < kWaitingSpeedThreshold) {
+        // Child is effectively stopped
+        if (newStatus != TripStatus.waiting) {
+          newStatus = TripStatus.waiting;
+          newWaitingStartTime = DateTime.now();
+          AppLogger.info('Tripping... Status changed to WAITING');
+        } else if (newWaitingStartTime != null) {
+          // Already waiting, check duration
+          final waitingDuration = DateTime.now().difference(
+            newWaitingStartTime,
+          );
+          if (waitingDuration > kWaitingDurationThreshold) {
+            AppLogger.info(
+              'Tripping... Waiting too long ($waitingDuration), ENDING TRIP',
+            );
+            add(StopTripTracking());
+            return;
+          }
+        }
+      } else {
+        // Child is moving
+        if (newStatus == TripStatus.waiting) {
+          AppLogger.info('Tripping... Resumed MOVING');
+          newStatus = TripStatus.moving;
+          newWaitingStartTime = null;
+        }
+      }
+
+      // 2. Check Distance for API Update
+      bool shouldTrack = true;
+      if (lastLocation != null) {
+        final distance = await _childLocationRepo.getDistanceBetweenTwoPoints(
+          lastLocation,
+          newLocation,
+        );
+        // Use 30m threshold for updates regardless of mode for now, or adapt based on mode
+        shouldTrack = distance >= 30.0;
+      }
+
+      if (shouldTrack) {
+        final updatedLocations = [...currentState.tripLocations, newLocation];
+
+        // Update Trip Mode dynamically?
+        // If they speed up significantly, maybe upgrade walking -> vehicle.
+        // If they slow down, maybe vehicle -> walking (unlikely during a trip, usually separate trips).
+        // Let's keep initial mode or update if sustained high speed?
+        // For simplicity, let's stick to initial mode or update if speed implies vehicle.
+        TripMode currentMode = currentState.tripMode;
+        if (currentMode == TripMode.walking &&
+            currentSpeed > kWalkingSpeedThreshold) {
+          currentMode = TripMode.vehicle; // Upgrade to vehicle
+        }
+
+        emit(
+          currentState.copyWith(
+            tripLocations: updatedLocations,
+            lastTrackedLocation: newLocation,
+            childLocation: newLocation,
+            tripStatus: newStatus,
+            tripMode: currentMode,
+            waitingStartTime: newWaitingStartTime,
+          ),
+        );
+
+        final requestBody = {
+          "points": [
+            {
+              "lat": newLocation.latitude,
+              "lng": newLocation.longitude,
+              "speed": newLocation.speed,
+              "accuracy": newLocation.accuracy,
+              "ts": DateTime.now().toUtc().toIso8601String(),
+              "battery": (await _deviceInfoService.getBatteryPercentage()),
+            },
+          ],
+        };
+
+        AppLogger.info('Tripping... Post Trip Location Request: $requestBody');
+
+        final response = await _childRepo.postTripLocation(
+          childId: childId,
+          data: requestBody,
+        );
+
+        AppLogger.info(
+          'Tripping... Post Trip Location Response: ${response.message}',
+        );
+      } else {
+        // Even if distance didn't change enough for an API call,
+        // we might still need to update status (Waiting timer needs to be persisted in state)
+        // BUT, since we emit above only inside `if (shouldTrack)`, the waiting logic might be lost if we don't emit here too.
+        // We MUST emit waiting state changes even if location tracking didn't trigger a point update.
+
+        if (newStatus != currentState.tripStatus ||
+            newWaitingStartTime != currentState.waitingStartTime) {
+          emit(
+            currentState.copyWith(
+              tripStatus: newStatus,
+              waitingStartTime: newWaitingStartTime,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      AppLogger.error('Failed to update trip location: ${e.toString()}');
     }
   }
 
@@ -469,45 +664,13 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
 
   void _startChildLocationTimer() {
     _stopChildLocationTimer();
-    _childLocationTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+    _childLocationTimer = Timer.periodic(const Duration(seconds: 60), (timer) {
       if (isClosed || !_isChildLoggedIn()) {
         timer.cancel();
         return;
       }
       add(GetChildLocation());
     });
-  }
-
-  Future<void> _onStartTripTracking(
-    StartTripTracking event,
-    Emitter<ChildState> emit,
-  ) async {
-    final currentState = state;
-    if (currentState is! ChildDeviceInfoLoaded) return;
-    AppLogger.info('Tripping... Starting trip tracking');
-
-    // Get initial location
-    try {
-      final location = await _childLocationRepo.getChildLocation();
-      if (location != null) {
-        final now = DateTime.now();
-        emit(
-          currentState.copyWith(
-            isTripTracking: true,
-            tripStartTime: now,
-            tripLocations: [location],
-            lastTrackedLocation: location,
-            childLocation: location,
-          ),
-        );
-
-        // Start trip location tracking timer (every 5 seconds)
-        _startTripLocationTimer();
-        AppLogger.info('Tripping... Started trip tracking Timer');
-      }
-    } catch (e) {
-      AppLogger.error('Failed to start trip tracking: ${e.toString()}');
-    }
   }
 
   Future<void> _onStopTripTracking(
@@ -522,13 +685,6 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
     AppLogger.info('Tripping... Stopping trip tracking Timer');
     _stopTripLocationTimer();
     AppLogger.info('Tripping... Stopped trip tracking Timer');
-    // Post trip event if we have trip data
-    // if (currentState.tripLocations.isNotEmpty &&
-    //     currentState.tripStartTime != null) {
-    //   await _postTripEvent(currentState, emit);
-    // }
-    // AppLogger.info('Tripping... Posted trip event');
-    // Reset trip tracking state
     emit(
       currentState.copyWith(
         isTripTracking: false,
@@ -537,92 +693,6 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
         lastTrackedLocation: null,
       ),
     );
-  }
-
-  Future<void> _onUpdateTripLocation(
-    UpdateTripLocation event,
-    Emitter<ChildState> emit,
-  ) async {
-    // Check if user is still logged in as child
-    if (!_isChildLoggedIn()) {
-      AppLogger.info(
-        'Tripping... Skipping updateTripLocation - not logged in as child',
-      );
-      AppLogger.warning(
-        'ChildBloc: Skipping updateTripLocation - not logged in as child',
-      );
-      _stopTripLocationTimer();
-      return;
-    }
-    AppLogger.info('Tripping... Updating trip location');
-    final currentState = state;
-    if (currentState is! ChildDeviceInfoLoaded ||
-        !currentState.isTripTracking) {
-      return;
-    }
-
-    try {
-      final childId = _sharedPrefsService.getString('child_id');
-      if (childId == null || childId.isEmpty) {
-        AppLogger.warning(
-          'ChildBloc: child_id is null, stopping trip tracking',
-        );
-        _stopTripLocationTimer();
-        return;
-      }
-
-      final newLocation = event.location;
-      final lastLocation = currentState.lastTrackedLocation;
-
-      // Check if child moved 10m or more from last tracked location
-      bool shouldTrack = true;
-      if (lastLocation != null) {
-        final distance = await _childLocationRepo.getDistanceBetweenTwoPoints(
-          lastLocation,
-          newLocation,
-        );
-        shouldTrack = distance >= 30.0; // 30 meters
-      }
-
-      if (shouldTrack) {
-        // Update state with new location
-        final updatedLocations = [...currentState.tripLocations, newLocation];
-        emit(
-          currentState.copyWith(
-            tripLocations: updatedLocations,
-            lastTrackedLocation: newLocation,
-            childLocation: newLocation,
-          ),
-        );
-
-        // Call new API
-        final requestBody = {
-          "points": [
-            {
-              "lat": newLocation.latitude,
-              "lng": newLocation.longitude,
-              "speed": newLocation.speed,
-              "accuracy": newLocation.accuracy,
-              "ts": DateTime.now().toIso8601String(),
-              "battery": (await _deviceInfoService.getBatteryPercentage()),
-            },
-          ],
-        };
-        AppLogger.info('Tripping...############# request body: $requestBody');
-
-        final response = await _childRepo.postTripLocation(
-          childId: childId,
-          data: requestBody,
-        );
-        AppLogger.info('Tripping...############# response: $response');
-      } else {
-        // Stop trip tracking if distance is less than 30m
-        AppLogger.info('Tripping... Stopping trip tracking Timer');
-        add(StopTripTracking());
-      }
-    } catch (e) {
-      AppLogger.error('Failed to update trip location: ${e.toString()}');
-    }
   }
 
   void _startTripLocationTimer() {

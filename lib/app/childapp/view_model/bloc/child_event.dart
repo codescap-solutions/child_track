@@ -40,7 +40,12 @@ final class PostChildLocation extends ChildEvent {
   List<Object> get props => [childLocation];
 }
 
-final class StartTripTracking extends ChildEvent {}
+final class StartTripTracking extends ChildEvent {
+  final TripMode? initialMode;
+  const StartTripTracking({this.initialMode});
+  @override
+  List<Object> get props => [if (initialMode != null) initialMode!];
+}
 
 final class StopTripTracking extends ChildEvent {}
 

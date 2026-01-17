@@ -4,8 +4,8 @@ class AppStrings {
   // Keys
   static String get googleMapsApiKey => dotenv.env['GOOGLE_MAPS_API_KEY'] ?? '';
   // App Info
-  static const String appName = 'Child Track';
-  static const String appTitle = 'Child Track';
+  static const String appName = 'NAVIQ';
+  static const String appTitle = 'NAVIQ';
 
   // Common Strings
   static const String loading = 'Loading...';
@@ -18,7 +18,7 @@ class AppStrings {
   static const String no = 'No';
 
   // Login Screen
-  static const String loginTitle = 'Welcome to Child Track';
+  static const String loginTitle = 'Welcome to NAVIQ';
   static const String loginSubtitle = 'Enter your phone number to continue';
   static const String phoneNumberHint = 'Enter phone number';
   static const String sendOtp = 'Send OTP';
@@ -37,7 +37,7 @@ class AppStrings {
 
   // Home Screen
   static const String homeTitle = 'Home';
-  static const String welcomeMessage = 'Welcome to Child Track';
+  static const String welcomeMessage = 'Welcome to NAVIQ';
 
   // Error Messages
   static const String networkError =

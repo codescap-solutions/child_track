@@ -15,7 +15,7 @@ void main() {
     await tester.pumpWidget(const ChildTrackApp());
 
     // Verify that our app shows the splash screen
-    expect(find.text('Child Track'), findsOneWidget);
+    expect(find.text('NAVIQ'), findsOneWidget);
     expect(find.text('Keeping children safe'), findsOneWidget);
   });
 }
