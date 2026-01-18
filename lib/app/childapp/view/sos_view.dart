@@ -51,8 +51,8 @@ class _SosViewState extends State<SosView> with WidgetsBindingObserver {
       AppLogger.info(
         'SosView: App resumed, starting permission check polling...',
       );
-      // Poll for permission status: Check 5 times with 1-second intervals
-      for (int i = 0; i < 5; i++) {
+      // Poll for permission status: Check 10 times with 1-second intervals
+      for (int i = 0; i < 10; i++) {
         Future.delayed(Duration(seconds: i), () {
           if (mounted) {
             AppLogger.info(

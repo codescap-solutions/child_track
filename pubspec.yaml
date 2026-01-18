@@ -72,6 +72,7 @@ dependencies:
   flutter_background_service: ^5.1.0
   flutter_local_notifications: ^18.0.1
   url_launcher: ^6.3.2
+  shimmer: ^3.0.0
 
 dev_dependencies:
   flutter_test:

@@ -95,7 +95,17 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
   ) async {
     try {
       final deviceInfo = await _deviceInfoService.getDeviceInfo();
-      emit(ChildDeviceInfoLoaded(deviceInfo: deviceInfo));
+      final currentState = state;
+      if (currentState is ChildDeviceInfoLoaded) {
+        emit(currentState.copyWith(deviceInfo: deviceInfo));
+      } else {
+        emit(
+          ChildDeviceInfoLoaded(
+            deviceInfo: deviceInfo,
+            // Preserve defaults for others if initial load
+          ),
+        );
+      }
       add(PostDeviceInfo(deviceInfo: deviceInfo));
     } catch (e) {
       AppLogger.error('Failed to load device info: ${e.toString()}');
