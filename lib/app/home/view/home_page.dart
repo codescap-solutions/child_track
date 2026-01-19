@@ -3,7 +3,6 @@ import 'dart:ui' as ui;
 import 'package:child_track/core/navigation/app_router.dart';
 import 'package:child_track/core/navigation/route_names.dart';
 import 'package:flutter/services.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:child_track/app/home/view_model/bloc/homepage_bloc.dart';
 import 'package:child_track/app/map/view/map_view.dart';
 import 'package:child_track/core/di/injector.dart';
@@ -20,11 +19,9 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../settings/view/settings_view.dart';
 import '../../social_apps/view/social_apps_view.dart';
-
 import '../../addplace/model/saved_place_model.dart';
 import '../../addplace/service/saved_places_service.dart';
 import 'child_location_detail_view.dart';
-import 'package:child_track/core/services/location_service.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -995,30 +992,6 @@ class _HomeMapBackgroundState extends State<_HomeMapBackground> {
 
     AppLogger.info("Moving camera to $target");
     _mapController!.animateCamera(CameraUpdate.newLatLngZoom(target, 15.0));
-  }
-
-  Future<void> _onParentLocationPressed() async {
-    try {
-      final locationService = injector<LocationService>();
-      final permission = await locationService.requestPermission();
-
-      if (permission == LocationPermission.whileInUse ||
-          permission == LocationPermission.always) {
-        final position = await locationService.getCurrentPosition();
-        if (position != null && mounted) {
-          final latLng = LatLng(position.latitude, position.longitude);
-          _animateTo(latLng);
-        }
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Location permission is required')),
-          );
-        }
-      }
-    } catch (e) {
-      AppLogger.error("Error getting parent location: $e");
-    }
   }
 
   @override

@@ -20,7 +20,7 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
   // Timers
   Timer? _deviceInfoTimer; // 10 minutes
   Timer? _screenTimeTimer; // 1 hour
-  Timer? _childLocationTimer; // 30 seconds
+  // Timer? _childLocationTimer; // Replaced by _locationSubscription
   Timer? _tripLocationTimer; // 10 seconds for trip tracking
 
   ChildBloc({
@@ -56,7 +56,8 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
       AppLogger.info('ChildBloc: Initializing for child_id: $childId');
       add(LoadDeviceInfo());
       add(CheckUsagePermission());
-      add(GetChildLocation());
+      _startChildLocationTimer(); // Start location stream
+      // add(GetChildLocation()); // Removed one-off call, stream will handle it
     } else {
       AppLogger.info(
         'ChildBloc: Skipping initialization - not logged in as child',
@@ -363,28 +364,100 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
       final location = await _childLocationRepo.getChildLocation();
       if (location != null) {
         final previousLocation = currentState.childLocation;
+        ChildDeviceInfoLoaded newState = currentState;
 
-        // Check if child moved significantly to start a trip
-        if (previousLocation != null && !currentState.isTripTracking) {
+        // Trip Detection Logic (Only if not already tracking)
+        if (!newState.isTripTracking && previousLocation != null) {
+          double speed = location.speed;
+          if (speed < 0) speed = 0;
+
           final distance = await _childLocationRepo.getDistanceBetweenTwoPoints(
             previousLocation,
             location,
           );
 
-          final speed = location.speed; // speed in m/s
-          final mode = _determineTripMode(speed);
-          final threshold = mode == TripMode.walking
-              ? kWalkingDistanceThreshold
-              : kVehicleDistanceThreshold;
-
-          if (distance >= threshold) {
-            // Pass the determined mode to start tracking
-            add(StartTripTracking(initialMode: mode));
+          if (distance < 10) {
+            AppLogger.info(
+              'ChildLocation: Movement too small (${distance.toStringAsFixed(1)}m), skipping API update',
+            );
             return;
+          }
+
+          // --- Trip Start Logic ---
+          const double minStartSpeed = 1.2;
+          const int minConsecutivePoints = 3;
+          const double minStartDisplacement = 30.0;
+          const int confirmationTimeSec = 30;
+          const double confirmationDistance = 100.0;
+
+          // Stage 1 Check: Moving?
+          bool isMoving = speed >= minStartSpeed;
+
+          // Candidate Phase Handling
+          if (newState.candidateStartTime != null) {
+            // We are in Candidate Phase (Stage 2)
+            if (!isMoving) {
+              AppLogger.info('TripCandidate: Stopped moving, RESET candidate');
+              newState = newState.copyWith(
+                consecutiveMovingPoints: 0,
+                candidateStartTime: null,
+                candidateStartLocation: null,
+              );
+              emit(newState);
+            } else {
+              // Check Confirmation
+              final duration = DateTime.now()
+                  .difference(newState.candidateStartTime!)
+                  .inSeconds;
+              final totalDist = await _childLocationRepo
+                  .getDistanceBetweenTwoPoints(
+                    newState.candidateStartLocation!,
+                    location,
+                  );
+
+              AppLogger.info(
+                'TripCandidate: Checking confirmation (Duration: ${duration}s, Dist: ${totalDist}m)',
+              );
+
+              if (duration >= confirmationTimeSec ||
+                  totalDist >= confirmationDistance) {
+                AppLogger.info('TripCandidate: TRIP CONFIRMED!');
+                final mode = _determineTripMode(speed);
+                add(StartTripTracking(initialMode: mode));
+                return;
+              }
+            }
+          } else {
+            // Not in Candidate Phase -> Check Stage 1
+            if (isMoving) {
+              final newConsecutive = newState.consecutiveMovingPoints + 1;
+              newState = newState.copyWith(
+                consecutiveMovingPoints: newConsecutive,
+              );
+
+              bool triggerConsecutive = newConsecutive >= minConsecutivePoints;
+              bool triggerDisplacement = distance >= minStartDisplacement;
+
+              if (triggerConsecutive || triggerDisplacement) {
+                AppLogger.info(
+                  'TripCandidate: ENTERING CANDIDATE PHASE (Consec: $newConsecutive, Dist: $distance)',
+                );
+                newState = newState.copyWith(
+                  candidateStartTime: DateTime.now(),
+                  candidateStartLocation: location,
+                );
+              }
+              emit(newState);
+            } else {
+              if (newState.consecutiveMovingPoints > 0) {
+                newState = newState.copyWith(consecutiveMovingPoints: 0);
+                emit(newState);
+              }
+            }
           }
         }
 
-        emit(currentState.copyWith(childLocation: location));
+        emit(newState.copyWith(childLocation: location));
         add(PostChildLocation(childLocation: location));
       }
     } catch (e) {
@@ -404,10 +477,6 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
       final location = await _childLocationRepo.getChildLocation();
       if (location != null) {
         final now = DateTime.now();
-        // Determine mode if not passed (though it should be passed from _onGetChildLocation usually)
-        // Check if event has mode, if not calculate.
-        // Note: StartTripTracking event needs to support optional mode, or we calculate here.
-        // Assuming we update event or calculate here. Let's calculate for safety.
         final mode = _determineTripMode(location.speed);
 
         emit(
@@ -468,19 +537,11 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
         if (newStatus != TripStatus.waiting) {
           newStatus = TripStatus.waiting;
           newWaitingStartTime = DateTime.now();
-          AppLogger.info('Tripping... Status changed to WAITING');
+          // AppLogger.info('Tripping... Status changed to WAITING');
         } else if (newWaitingStartTime != null) {
-          // Already waiting, check duration
-          final waitingDuration = DateTime.now().difference(
-            newWaitingStartTime,
-          );
-          if (waitingDuration > kWaitingDurationThreshold) {
-            AppLogger.info(
-              'Tripping... Waiting too long ($waitingDuration), ENDING TRIP',
-            );
-            add(StopTripTracking());
-            return;
-          }
+          // Already waiting.
+          // Frontend stop logic REMOVED.
+          // We just wait for backend to tell us to stop or for motion to resume.
         }
       } else {
         // Child is moving
@@ -505,15 +566,10 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
       if (shouldTrack) {
         final updatedLocations = [...currentState.tripLocations, newLocation];
 
-        // Update Trip Mode dynamically?
-        // If they speed up significantly, maybe upgrade walking -> vehicle.
-        // If they slow down, maybe vehicle -> walking (unlikely during a trip, usually separate trips).
-        // Let's keep initial mode or update if sustained high speed?
-        // For simplicity, let's stick to initial mode or update if speed implies vehicle.
         TripMode currentMode = currentState.tripMode;
         if (currentMode == TripMode.walking &&
             currentSpeed > kWalkingSpeedThreshold) {
-          currentMode = TripMode.vehicle; // Upgrade to vehicle
+          currentMode = TripMode.vehicle;
         }
 
         emit(
@@ -550,11 +606,35 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
         AppLogger.info(
           'Tripping... Post Trip Location Response: ${response.message}',
         );
+
+        // Backend Driven Trip Stop Logic
+        if (response.isSuccess && response.data != null) {
+          final data = response.data!;
+          final currentStateStr =
+              data['currentState']; // "IDLE" or "ON_TRIP" (or "END_CANDIDATE" etc)
+
+          if (currentStateStr == 'IDLE') {
+            AppLogger.info('Tripping... Backend reports IDLE. Stopping trip.');
+
+            // Optional: Log reason if available
+            if (data['stateTransitions'] != null) {
+              final transitions = data['stateTransitions'] as List;
+              if (transitions.isNotEmpty) {
+                final reason = transitions.last['reason'];
+                AppLogger.info('Tripping... Stop Reason: $reason');
+                if (reason == 'STATIONARY_CONFIRMED') {
+                  add(StopTripTracking());
+                }
+              }
+            }
+            return;
+          }
+        }
       } else {
-        // Even if distance didn't change enough for an API call,
-        // we might still need to update status (Waiting timer needs to be persisted in state)
-        // BUT, since we emit above only inside `if (shouldTrack)`, the waiting logic might be lost if we don't emit here too.
-        // We MUST emit waiting state changes even if location tracking didn't trigger a point update.
+        // Even if distance didn't change enough for an API call, we can still emit waiting state.
+        // But with backend logic, "Waiting" state is also backend driven potentially?
+        // User asked to remove frontend stopping logic.
+        // We'll keep the Waiting Display updates (UI only) but remove the timer-based Stop.
 
         if (newStatus != currentState.tripStatus ||
             newWaitingStartTime != currentState.waitingStartTime) {
@@ -616,9 +696,9 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
       AppLogger.error('Failed to post child location: ${e.toString()}');
     } finally {
       // Only start timer if still logged in as child
-      if (_isChildLoggedIn()) {
-        _startChildLocationTimer();
-      }
+      // if (_isChildLoggedIn()) {
+      //   _startChildLocationTimer(); // Removed to prevent infinite loop with Stream
+      // }
     }
   }
 
@@ -657,20 +737,41 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
     _screenTimeTimer = null;
   }
 
+  StreamSubscription<Position>? _locationSubscription;
+
   void _stopChildLocationTimer() {
-    _childLocationTimer?.cancel();
-    _childLocationTimer = null;
+    _locationSubscription?.cancel();
+    _locationSubscription = null;
   }
 
   void _startChildLocationTimer() {
     _stopChildLocationTimer();
-    _childLocationTimer = Timer.periodic(const Duration(seconds: 60), (timer) {
-      if (isClosed || !_isChildLoggedIn()) {
-        timer.cancel();
-        return;
-      }
-      add(GetChildLocation());
-    });
+
+    // Check if logged in first
+    if (isClosed || !_isChildLoggedIn()) return;
+
+    // Use distanceFilter of 10 meters to reduce redundant API calls
+    const locationSettings = LocationSettings(
+      accuracy: LocationAccuracy.high,
+      distanceFilter: 10,
+    );
+
+    _locationSubscription =
+        Geolocator.getPositionStream(locationSettings: locationSettings).listen(
+          (Position? position) {
+            if (isClosed || !_isChildLoggedIn()) {
+              _stopChildLocationTimer();
+              return;
+            }
+            AppLogger.info(
+              'ChildBloc: Location info updated detected (moved > 10m)',
+            );
+            add(GetChildLocation());
+          },
+          onError: (e) {
+            AppLogger.error('ChildBloc: Location stream error: $e');
+          },
+        );
   }
 
   Future<void> _onStopTripTracking(
