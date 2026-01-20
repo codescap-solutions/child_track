@@ -1105,19 +1105,19 @@ class _HomeMapBackgroundState extends State<_HomeMapBackground> {
                   }
                 },
               ),
-              Positioned(
-                bottom: 250, // Moved up to clear bottom sheet (approx)
-                right: 16,
-                child: FloatingActionButton(
-                  heroTag: 'parent_location_fab',
-                  onPressed: _onParentLocationPressed,
-                  backgroundColor: AppColors.surfaceColor,
-                  child: const Icon(
-                    Icons.gps_fixed,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-              ),
+              // Positioned(
+              //   bottom: 250, // Moved up to clear bottom sheet (approx)
+              //   right: 16,
+              //   child: FloatingActionButton(
+              //     heroTag: 'parent_location_fab',
+              //     onPressed: _onParentLocationPressed,
+              //     backgroundColor: AppColors.surfaceColor,
+              //     child: const Icon(
+              //       Icons.gps_fixed,
+              //       color: AppColors.textPrimary,
+              //     ),
+              //   ),
+              // ),
             ],
           );
         },
