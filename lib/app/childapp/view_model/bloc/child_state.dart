@@ -19,6 +19,9 @@ final class ChildDeviceInfoLoaded extends ChildState {
   final TripStatus tripStatus;
   final TripMode tripMode;
   final DateTime? waitingStartTime;
+  final int consecutiveMovingPoints;
+  final DateTime? candidateStartTime;
+  final Position? candidateStartLocation;
 
   const ChildDeviceInfoLoaded({
     required this.deviceInfo,
@@ -32,6 +35,9 @@ final class ChildDeviceInfoLoaded extends ChildState {
     this.tripStatus = TripStatus.idle,
     this.tripMode = TripMode.unknown,
     this.waitingStartTime,
+    this.consecutiveMovingPoints = 0,
+    this.candidateStartTime,
+    this.candidateStartLocation,
   });
 
   @override
@@ -47,6 +53,9 @@ final class ChildDeviceInfoLoaded extends ChildState {
     tripStatus,
     tripMode,
     if (waitingStartTime != null) waitingStartTime!,
+    consecutiveMovingPoints,
+    if (candidateStartTime != null) candidateStartTime!,
+    if (candidateStartLocation != null) candidateStartLocation!,
   ];
 
   ChildDeviceInfoLoaded copyWith({
@@ -61,6 +70,9 @@ final class ChildDeviceInfoLoaded extends ChildState {
     TripStatus? tripStatus,
     TripMode? tripMode,
     DateTime? waitingStartTime,
+    int? consecutiveMovingPoints,
+    DateTime? candidateStartTime,
+    Position? candidateStartLocation,
   }) {
     return ChildDeviceInfoLoaded(
       deviceInfo: deviceInfo ?? this.deviceInfo,
@@ -74,6 +86,11 @@ final class ChildDeviceInfoLoaded extends ChildState {
       tripStatus: tripStatus ?? this.tripStatus,
       tripMode: tripMode ?? this.tripMode,
       waitingStartTime: waitingStartTime ?? this.waitingStartTime,
+      consecutiveMovingPoints:
+          consecutiveMovingPoints ?? this.consecutiveMovingPoints,
+      candidateStartTime: candidateStartTime ?? this.candidateStartTime,
+      candidateStartLocation:
+          candidateStartLocation ?? this.candidateStartLocation,
     );
   }
 
