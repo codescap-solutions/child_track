@@ -633,6 +633,9 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
                 final reason = transitions.last['reason'];
                 AppLogger.info('Tripping... Stop Reason: $reason');
                 if (reason == 'STATIONARY_CONFIRMED') {
+                  AppLogger.info(
+                    'Tripping... Backend reports STATIONARY_CONFIRMED. Stopping trip.',
+                  );
                   add(StopTripTracking());
                 }
               }
