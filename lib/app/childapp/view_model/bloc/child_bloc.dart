@@ -22,6 +22,13 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
   Timer? _screenTimeTimer; // 1 hour
   Timer? _tripLocationTimer; // 10 seconds for trip tracking
 
+  // --- Trip Start Logic ---
+  final double minStartSpeed = 1.2;
+  final int minConsecutivePoints = 3;
+  final double minStartDisplacement = 30.0;
+  final int confirmationTimeSec = 30;
+  final double confirmationDistance = 100.0;
+
   // Location stream
   StreamSubscription<Position>? _locationSubscription;
 
@@ -96,13 +103,6 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
             );
             return;
           }
-
-          // --- Trip Start Logic ---
-          const double minStartSpeed = 1.2;
-          const int minConsecutivePoints = 3;
-          const double minStartDisplacement = 30.0;
-          const int confirmationTimeSec = 30;
-          const double confirmationDistance = 100.0;
 
           // Stage 1 Check: Moving?
           bool isMoving = speed >= minStartSpeed;
@@ -312,7 +312,7 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
       final newLocation = event.location;
       final lastLocation = currentState.lastTrackedLocation;
 
-      // 1. Check for Waiting State vs End Trip
+      // 1. Check for Waiting State vs Moving (UI Status Only)
       final currentSpeed = newLocation.speed;
       TripStatus newStatus = currentState.tripStatus;
       DateTime? newWaitingStartTime = currentState.waitingStartTime;
@@ -322,114 +322,106 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
         if (newStatus != TripStatus.waiting) {
           newStatus = TripStatus.waiting;
           newWaitingStartTime = DateTime.now();
-          // AppLogger.info('Tripping... Status changed to WAITING');
-        } else if (newWaitingStartTime != null) {
-          // Already waiting.
-          // Frontend stop logic REMOVED.
-          // We just wait for backend to tell us to stop or for motion to resume.
         }
       } else {
         // Child is moving
         if (newStatus == TripStatus.waiting) {
-          AppLogger.info('Tripping... Resumed MOVING');
           newStatus = TripStatus.moving;
           newWaitingStartTime = null;
         }
       }
 
-      // 2. Check Distance for API Update
-      bool shouldTrack = true;
+      // 2. Check Distance for Local Point Recording
+      // We only add points to the local line if they are significant updates
+      bool shouldRecordLocally = true;
       if (lastLocation != null) {
         final distance = await _childLocationRepo.getDistanceBetweenTwoPoints(
           lastLocation,
           newLocation,
         );
-        // Use 30m threshold for updates regardless of mode for now, or adapt based on mode
-        shouldTrack = distance >= 30.0;
+        shouldRecordLocally = distance >= 30.0;
       }
 
-      if (shouldTrack) {
-        final updatedLocations = [...currentState.tripLocations, newLocation];
+      var updatedLocations = currentState.tripLocations;
+      var updatedLastTracked = currentState.lastTrackedLocation;
 
-        TripMode currentMode = currentState.tripMode;
-        if (currentMode == TripMode.walking &&
-            currentSpeed > kWalkingSpeedThreshold) {
-          currentMode = TripMode.vehicle;
-        }
+      if (shouldRecordLocally) {
+        updatedLocations = [...currentState.tripLocations, newLocation];
+        updatedLastTracked = newLocation;
+      }
 
-        emit(
-          currentState.copyWith(
-            tripLocations: updatedLocations,
-            lastTrackedLocation: newLocation,
-            childLocation: newLocation,
-            tripStatus: newStatus,
-            tripMode: currentMode,
-            waitingStartTime: newWaitingStartTime,
-          ),
-        );
+      TripMode currentMode = currentState.tripMode;
+      if (currentMode == TripMode.walking &&
+          currentSpeed > kWalkingSpeedThreshold) {
+        currentMode = TripMode.vehicle;
+      }
 
-        final requestBody = {
-          "points": [
-            {
-              "lat": newLocation.latitude,
-              "lng": newLocation.longitude,
-              "speed": newLocation.speed,
-              "accuracy": newLocation.accuracy,
-              "ts": DateTime.now().toUtc().toIso8601String(),
-              "battery": (await _deviceInfoService.getBatteryPercentage()),
-            },
-          ],
-        };
+      // Always update current 'childLocation' and status
+      emit(
+        currentState.copyWith(
+          tripLocations: updatedLocations,
+          lastTrackedLocation: updatedLastTracked,
+          childLocation: newLocation,
+          tripStatus: newStatus,
+          tripMode: currentMode,
+          waitingStartTime: newWaitingStartTime,
+        ),
+      );
 
-        AppLogger.info('Tripping... Post Trip Location Request: $requestBody');
+      // 3. API Call - ALWAYS perform this during a trip regardless of movement
+      final requestBody = {
+        "points": [
+          {
+            "lat": newLocation.latitude,
+            "lng": newLocation.longitude,
+            "speed": newLocation.speed,
+            "accuracy": newLocation.accuracy,
+            "ts": DateTime.now().toUtc().toIso8601String(),
+            "battery": (await _deviceInfoService.getBatteryPercentage()),
+          },
+        ],
+      };
 
-        final response = await _childRepo.postTripLocation(
-          childId: childId,
-          data: requestBody,
-        );
+      AppLogger.info('Tripping... Post Trip Location Request: $requestBody');
 
-        AppLogger.info(
-          'Tripping... Post Trip Location Response: ${response.message}',
-        );
+      final response = await _childRepo.postTripLocation(
+        childId: childId,
+        data: requestBody,
+      );
 
-        // Backend Driven Trip Stop Logic
-        if (response.isSuccess && response.data != null) {
-          final data = response.data!;
-          final currentStateStr = data['currentState'];
+      AppLogger.info(
+        'Tripping... Post Trip Location Response: ${response.message}',
+      );
 
-          if (currentStateStr == 'IDLE') {
-            AppLogger.info('Tripping... Backend reports IDLE. Stopping trip.');
+      // 4. Backend Driven Trip Stop Logic
+      if (response.isSuccess && response.data != null) {
+        final data = response.data!;
+        final currentStateStr = data['currentState'];
 
-            if (data['stateTransitions'] != null) {
-              final transitions = data['stateTransitions'] as List;
-              if (transitions.isNotEmpty) {
-                final reason = transitions.last['reason'];
-                AppLogger.info('Tripping... Stop Reason: $reason');
-                if (reason == 'STATIONARY_CONFIRMED') {
-                  AppLogger.info(
-                    'Tripping... Backend reports STATIONARY_CONFIRMED. Stopping trip.',
-                  );
-                  add(StopTripTracking());
-                }
+        if (currentStateStr == 'IDLE') {
+          AppLogger.info('Tripping... Backend reports IDLE.');
+
+          if (data['stateTransitions'] != null) {
+            final transitions = data['stateTransitions'] as List;
+            bool confirmedStop = false;
+
+            // Check for specific transition: END_CANDIDATE -> ENDED with reason STATIONARY_CONFIRMED
+            for (var t in transitions) {
+              if (t['from'] == 'END_CANDIDATE' &&
+                  t['to'] == 'ENDED' &&
+                  t['reason'] == 'STATIONARY_CONFIRMED') {
+                confirmedStop = true;
+                break;
               }
             }
-            return;
-          }
-        }
-      } else {
-        // Even if distance didn't change enough for an API call, we can still emit waiting state.
-        // But with backend logic, "Waiting" state is also backend driven potentially?
-        // User asked to remove frontend stopping logic.
-        // We'll keep the Waiting Display updates (UI only) but remove the timer-based Stop.
 
-        if (newStatus != currentState.tripStatus ||
-            newWaitingStartTime != currentState.waitingStartTime) {
-          emit(
-            currentState.copyWith(
-              tripStatus: newStatus,
-              waitingStartTime: newWaitingStartTime,
-            ),
-          );
+            if (confirmedStop) {
+              AppLogger.info(
+                'Tripping... Backend reports STATIONARY_CONFIRMED. Stopping trip.',
+              );
+              add(StopTripTracking());
+            }
+          }
         }
       }
     } catch (e) {
