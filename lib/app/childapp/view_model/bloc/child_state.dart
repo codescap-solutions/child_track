@@ -23,6 +23,8 @@ final class ChildDeviceInfoLoaded extends ChildState {
   final DateTime? candidateStartTime;
   final Position? candidateStartLocation;
   final Position? lastPostedLocation;
+  final List<Position> candidatePoints;
+  final TripDetectionStatus detectionStatus;
 
   const ChildDeviceInfoLoaded({
     required this.deviceInfo,
@@ -40,6 +42,8 @@ final class ChildDeviceInfoLoaded extends ChildState {
     this.candidateStartTime,
     this.candidateStartLocation,
     this.lastPostedLocation,
+    this.candidatePoints = const [],
+    this.detectionStatus = TripDetectionStatus.idle,
   });
 
   @override
@@ -58,7 +62,10 @@ final class ChildDeviceInfoLoaded extends ChildState {
     consecutiveMovingPoints,
     if (candidateStartTime != null) candidateStartTime!,
     if (candidateStartLocation != null) candidateStartLocation!,
+    if (candidateStartLocation != null) candidateStartLocation!,
     if (lastPostedLocation != null) lastPostedLocation!,
+    candidatePoints,
+    detectionStatus,
   ];
 
   ChildDeviceInfoLoaded copyWith({
@@ -77,6 +84,8 @@ final class ChildDeviceInfoLoaded extends ChildState {
     DateTime? candidateStartTime,
     Position? candidateStartLocation,
     Position? lastPostedLocation,
+    List<Position>? candidatePoints,
+    TripDetectionStatus? detectionStatus,
   }) {
     return ChildDeviceInfoLoaded(
       deviceInfo: deviceInfo ?? this.deviceInfo,
@@ -96,6 +105,8 @@ final class ChildDeviceInfoLoaded extends ChildState {
       candidateStartLocation:
           candidateStartLocation ?? this.candidateStartLocation,
       lastPostedLocation: lastPostedLocation ?? this.lastPostedLocation,
+      candidatePoints: candidatePoints ?? this.candidatePoints,
+      detectionStatus: detectionStatus ?? this.detectionStatus,
     );
   }
 
@@ -127,3 +138,5 @@ final class SosError extends ChildState {
 enum TripStatus { idle, moving, waiting, ended }
 
 enum TripMode { unknown, walking, vehicle }
+
+enum TripDetectionStatus { idle, candidate }

@@ -793,6 +793,7 @@ class OldChildBloc extends Bloc<ChildEvent, ChildState> {
   TripMode _determineTripMode(double speed) {
     return speed < kWalkingSpeedThreshold ? TripMode.walking : TripMode.vehicle;
   }
+  
 
   void _startDeviceInfoTimer() {
     _stopDeviceInfoTimer();

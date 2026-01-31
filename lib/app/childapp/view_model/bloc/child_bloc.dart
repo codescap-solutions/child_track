@@ -38,9 +38,9 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
     on<CheckUsagePermission>(_onCheckUsagePermission);
     on<GetChildLocation>(_onGetChildLocation);
     on<PostChildLocation>(_onPostChildLocation);
-    // on<StartTripTracking>(_onStartTripTracking);
-    // on<StopTripTracking>(_onStopTripTracking);
-    // on<UpdateTripLocation>(_onUpdateTripLocation);
+    on<StartTripTracking>(_onStartTripTracking);
+    on<StopTripTracking>(_onStopTripTracking);
+    on<UpdateTripLocation>(_onUpdateTripLocation);
   }
 
   void onInitialize() {
@@ -68,6 +68,7 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
   ) async {
     final currentState = state;
     if (currentState is! ChildDeviceInfoLoaded) return;
+
     try {
       final location = await _childLocationRepo.getChildLocation();
       if (location != null) {
@@ -81,10 +82,18 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
             : 0.0;
         AppLogger.info('new logic: get child location $distance meters');
 
-        if (lastPosted == null || distance >= 3) {
+        if (lastPosted == null || distance >= 10) {
           emit(currentState.copyWith(lastPostedLocation: location));
           AppLogger.info('new logic: Posting child location $location');
           add(PostChildLocation(childLocation: location));
+
+          // Trip Logic
+          if (currentState.isTripTracking) {
+            add(UpdateTripLocation(location: location));
+          } else {
+            // Start trip if not already tracking and moved > 10m
+            _processTripStartLogic(location, currentState, emit);
+          }
         }
         if (_locationSubscription == null) {
           _startChildLocationStream();
@@ -95,15 +104,167 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
     }
   }
 
+  void _processTripStartLogic(
+    Position location,
+    ChildDeviceInfoLoaded currentState,
+    Emitter<ChildState> emit,
+  ) {
+    // 1. FILTER NOISE
+    if (location.accuracy > 30.0) {
+      AppLogger.info(
+        'TripCandidate: Ignored poor accuracy point (${location.accuracy}m)',
+      );
+      return;
+    }
+
+    // 2. SLIDING WINDOW MANAGEMENT
+    List<Position> newWindow = List.from(currentState.candidatePoints);
+    newWindow.add(location);
+
+    // Keep last 15 points max (to allow catching 100m vehicle moves with ~10m gaps)
+    if (newWindow.length > 15) {
+      newWindow.removeAt(0);
+    }
+
+    // 3. CHECK FOR RESET (TIMEOUT)
+    if (newWindow.isNotEmpty) {
+      final lastPoint = newWindow.last;
+
+      // Check gap from previous point to detect stale window
+      if (newWindow.length > 1) {
+        final prevPoint = newWindow[newWindow.length - 2];
+        final gap = lastPoint.timestamp
+            .difference(prevPoint.timestamp)
+            .inSeconds;
+        // If we haven't moved 10m in 5 minutes, reset window.
+        // Child might have stopped and started again later.
+        if (gap > 300) {
+          AppLogger.info(
+            'TripCandidate: Gap too large ($gap s), resetting window',
+          );
+          newWindow = [location];
+        }
+      }
+    }
+
+    // 4. ANALYZE WINDOW SIGNALS
+    if (newWindow.length < 3) {
+      // Not enough points yet
+      emit(
+        currentState.copyWith(
+          candidatePoints: newWindow,
+          detectionStatus: TripDetectionStatus.candidate,
+        ),
+      );
+      return;
+    }
+
+    // Calculate Metrics
+    double totalDistance = 0;
+    for (int i = 0; i < newWindow.length - 1; i++) {
+      totalDistance += Geolocator.distanceBetween(
+        newWindow[i].latitude,
+        newWindow[i].longitude,
+        newWindow[i + 1].latitude,
+        newWindow[i + 1].longitude,
+      );
+    }
+
+    final startPoint = newWindow.first;
+    final endPoint = newWindow.last;
+    final straightDist = Geolocator.distanceBetween(
+      startPoint.latitude,
+      startPoint.longitude,
+      endPoint.latitude,
+      endPoint.longitude,
+    );
+
+    final durationSeconds = endPoint.timestamp
+        .difference(startPoint.timestamp)
+        .inSeconds;
+
+    // Avoid division by zero or super short duration
+    if (durationSeconds < 1) return;
+
+    final avgSpeed = totalDistance / durationSeconds;
+    final consistencyRatio = totalDistance > 0
+        ? straightDist / totalDistance
+        : 0.0;
+
+    AppLogger.info(
+      'TripCandidate: Window=${newWindow.length} pts, Dur=${durationSeconds}s, '
+      'Dist=${totalDistance.toStringAsFixed(1)}m, Speed=${avgSpeed.toStringAsFixed(1)}m/s, '
+      'Consistency=${consistencyRatio.toStringAsFixed(2)}',
+    );
+
+    // 5. DETERMINE MODE & CHECK RULES
+    TripMode? estimatedMode;
+    bool rulesMet = false;
+
+    // Mode Thresholds
+    // Walking: > 30m, Speed 0.6-1.8 m/s, Duration > 30s
+    if (avgSpeed >= 0.6 && avgSpeed <= 1.8) {
+      if (totalDistance >= 30 && durationSeconds >= 30) {
+        estimatedMode = TripMode.walking;
+        rulesMet = true;
+      }
+    }
+    // Cycling/Running: > 60m, Speed 1.8-5.0 m/s
+    else if (avgSpeed > 1.8 && avgSpeed <= 5.0) {
+      if (totalDistance >= 60 && durationSeconds >= 20) {
+        // Treating as vehicle for now or specifically cycling if supported
+        estimatedMode = TripMode.vehicle;
+        rulesMet = true;
+      }
+    }
+    // Vehicle: > 100m, Speed > 5.0 m/s
+    else if (avgSpeed > 5.0) {
+      if (totalDistance >= 100 && durationSeconds >= 20) {
+        estimatedMode = TripMode.vehicle;
+        rulesMet = true;
+      }
+    }
+
+    // 6. DIRECTION CONSISTENCY CHECK
+    if (rulesMet) {
+      if (consistencyRatio < 0.6) {
+        AppLogger.info(
+          'TripCandidate: Rejected due to low consistency ($consistencyRatio)',
+        );
+        rulesMet = false;
+      }
+    }
+
+    // 7. DECISION
+    if (rulesMet && estimatedMode != null) {
+      AppLogger.info('TripCandidate: TRIP CONFIRMED! Mode: $estimatedMode');
+      add(StartTripTracking(initialMode: estimatedMode));
+      // ALSO: Clear the candidate window?
+      // Optional, but good practice.
+      // But `StartTripTracking` handler will reset some state?
+      // Actually `StartTripTracking` logic (which I saw earlier) resets `tripStartTime` but maybe not `candidatePoints`.
+      // It's safer to clear it here or let `StartTripTracking` handle it.
+      // `StartTripTracking` handler sets `tripStatus` to moving.
+      // I'll leave candidatePoints as is, they might be useful for history or just ignored once tracking starts.
+    } else {
+      emit(
+        currentState.copyWith(
+          candidatePoints: newWindow,
+          detectionStatus: TripDetectionStatus.candidate,
+        ),
+      );
+    }
+  }
+
   void _startChildLocationStream() {
     _stopChildLocationStream();
     if (isClosed || !_isChildLoggedIn()) return;
 
     _locationSubscription = _childLocationRepo
-        .getPositionStream(2)
+        .getPositionStream(5)
         ?.listen(
           (Position position) async {
-            AppLogger.info('new logic: get child stream');
+            AppLogger.debug('new logic: get child stream');
             if (isClosed || !_isChildLoggedIn()) {
               AppLogger.info('new logic: get child stream closed');
               _stopChildLocationStream();
@@ -401,5 +562,127 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
     await _deviceInfoService.openUsageSettings();
   }
 
-  void stopChildTracking() {}
+  Future<void> _onStartTripTracking(
+    StartTripTracking event,
+    Emitter<ChildState> emit,
+  ) async {
+    final currentState = state;
+    if (currentState is! ChildDeviceInfoLoaded) return;
+    const double kWalkingSpeedThreshold = 2.5; // m/s
+    TripMode _determineTripMode(double speed) {
+      return speed < kWalkingSpeedThreshold
+          ? TripMode.walking
+          : TripMode.vehicle;
+    }
+
+    AppLogger.info('Tripping... Starting trip tracking');
+
+    try {
+      final location = await _childLocationRepo.getChildLocation();
+      if (location != null) {
+        final now = DateTime.now();
+        final mode = event.initialMode ?? _determineTripMode(location.speed);
+
+        emit(
+          currentState.copyWith(
+            isTripTracking: true,
+            tripStartTime: now,
+            tripLocations: [location],
+            lastTrackedLocation: location,
+            childLocation: location,
+            tripStatus: TripStatus.moving,
+            tripMode: mode,
+            waitingStartTime: null,
+          ),
+        );
+
+        // Immediately trigger update to log the start point
+        add(UpdateTripLocation(location: location));
+      }
+    } catch (e) {
+      AppLogger.error('Failed to start trip tracking: ${e.toString()}');
+    }
+  }
+
+  Future<void> _onStopTripTracking(
+    StopTripTracking event,
+    Emitter<ChildState> emit,
+  ) async {
+    final currentState = state;
+    if (currentState is! ChildDeviceInfoLoaded ||
+        !currentState.isTripTracking) {
+      return;
+    }
+    AppLogger.info('Tripping... Stopping trip tracking');
+    emit(
+      currentState.copyWith(
+        isTripTracking: false,
+        tripLocations: [],
+        tripStartTime: null,
+        lastTrackedLocation: null,
+      ),
+    );
+  }
+
+  Future<void> _onUpdateTripLocation(
+    UpdateTripLocation event,
+    Emitter<ChildState> emit,
+  ) async {
+    final currentState = state;
+    if (currentState is! ChildDeviceInfoLoaded ||
+        !currentState.isTripTracking) {
+      return;
+    }
+
+    try {
+      final childId = _sharedPrefsService.getString('child_id');
+      if (childId == null || childId.isEmpty) {
+        return;
+      }
+
+      final newLocation = event.location;
+
+      // Update local state
+      final updatedLocations = [...currentState.tripLocations, newLocation];
+      emit(
+        currentState.copyWith(
+          tripLocations: updatedLocations,
+          lastTrackedLocation: newLocation,
+        ),
+      );
+
+      // Prepare API Payload
+      final requestBody = {
+        "points": [
+          {
+            "lat": newLocation.latitude,
+            "lng": newLocation.longitude,
+            "speed": newLocation.speed,
+            "accuracy": newLocation.accuracy,
+            "ts": DateTime.now().toUtc().toIso8601String(),
+            "battery": (await _deviceInfoService.getBatteryPercentage()),
+          },
+        ],
+      };
+
+      AppLogger.info('Tripping... Post Trip Location Request: $requestBody');
+
+      final response = await _childRepo.postTripLocation(
+        childId: childId,
+        data: requestBody,
+      );
+
+      // Handle stop logic here if needed based on response,
+      // but for now user said stop logic will be discussed later.
+      if (response.isSuccess && response.data != null) {
+        // Placeholder for response handling
+      }
+    } catch (e) {
+      AppLogger.error('Failed to update trip location: ${e.toString()}');
+    }
+  }
+
+  void stopChildTracking() {
+    _stopChildLocationStream();
+  }
 }
