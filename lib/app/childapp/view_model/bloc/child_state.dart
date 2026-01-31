@@ -22,6 +22,7 @@ final class ChildDeviceInfoLoaded extends ChildState {
   final int consecutiveMovingPoints;
   final DateTime? candidateStartTime;
   final Position? candidateStartLocation;
+  final Position? lastPostedLocation;
 
   const ChildDeviceInfoLoaded({
     required this.deviceInfo,
@@ -38,6 +39,7 @@ final class ChildDeviceInfoLoaded extends ChildState {
     this.consecutiveMovingPoints = 0,
     this.candidateStartTime,
     this.candidateStartLocation,
+    this.lastPostedLocation,
   });
 
   @override
@@ -56,6 +58,7 @@ final class ChildDeviceInfoLoaded extends ChildState {
     consecutiveMovingPoints,
     if (candidateStartTime != null) candidateStartTime!,
     if (candidateStartLocation != null) candidateStartLocation!,
+    if (lastPostedLocation != null) lastPostedLocation!,
   ];
 
   ChildDeviceInfoLoaded copyWith({
@@ -73,6 +76,7 @@ final class ChildDeviceInfoLoaded extends ChildState {
     int? consecutiveMovingPoints,
     DateTime? candidateStartTime,
     Position? candidateStartLocation,
+    Position? lastPostedLocation,
   }) {
     return ChildDeviceInfoLoaded(
       deviceInfo: deviceInfo ?? this.deviceInfo,
@@ -91,6 +95,7 @@ final class ChildDeviceInfoLoaded extends ChildState {
       candidateStartTime: candidateStartTime ?? this.candidateStartTime,
       candidateStartLocation:
           candidateStartLocation ?? this.candidateStartLocation,
+      lastPostedLocation: lastPostedLocation ?? this.lastPostedLocation,
     );
   }
 

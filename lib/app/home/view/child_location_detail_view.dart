@@ -1,4 +1,3 @@
-import 'package:child_track/app/home/model/trip_list_model.dart';
 import 'package:child_track/app/home/model/last_trip_model.dart';
 import 'package:child_track/app/home/view/trips_view.dart';
 import 'package:child_track/app/home/view_model/bloc/homepage_bloc.dart';
