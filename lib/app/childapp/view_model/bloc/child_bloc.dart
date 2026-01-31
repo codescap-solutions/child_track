@@ -112,7 +112,7 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
     // 1. FILTER NOISE
     if (location.accuracy > 30.0) {
       AppLogger.info(
-        'TripCandidate: Ignored poor accuracy point (${location.accuracy}m)',
+        'new logic:TripCandidate: Ignored poor accuracy point (${location.accuracy}m)',
       );
       return;
     }
@@ -140,7 +140,7 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
         // Child might have stopped and started again later.
         if (gap > 300) {
           AppLogger.info(
-            'TripCandidate: Gap too large ($gap s), resetting window',
+            'new logic:TripCandidate: Gap too large ($gap s), resetting window',
           );
           newWindow = [location];
         }
@@ -192,9 +192,10 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
         : 0.0;
 
     AppLogger.info(
+      'new logic:',
       'TripCandidate: Window=${newWindow.length} pts, Dur=${durationSeconds}s, '
-      'Dist=${totalDistance.toStringAsFixed(1)}m, Speed=${avgSpeed.toStringAsFixed(1)}m/s, '
-      'Consistency=${consistencyRatio.toStringAsFixed(2)}',
+          'Dist=${totalDistance.toStringAsFixed(1)}m, Speed=${avgSpeed.toStringAsFixed(1)}m/s, '
+          'Consistency=${consistencyRatio.toStringAsFixed(2)}',
     );
 
     // 5. DETERMINE MODE & CHECK RULES
@@ -568,20 +569,14 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
   ) async {
     final currentState = state;
     if (currentState is! ChildDeviceInfoLoaded) return;
-    const double kWalkingSpeedThreshold = 2.5; // m/s
-    TripMode _determineTripMode(double speed) {
-      return speed < kWalkingSpeedThreshold
-          ? TripMode.walking
-          : TripMode.vehicle;
-    }
 
-    AppLogger.info('Tripping... Starting trip tracking');
+    AppLogger.info('new logic:Tripping... Starting trip tracking');
 
     try {
       final location = await _childLocationRepo.getChildLocation();
       if (location != null) {
         final now = DateTime.now();
-        final mode = event.initialMode ?? _determineTripMode(location.speed);
+        final mode = event.initialMode;
 
         emit(
           currentState.copyWith(
@@ -592,7 +587,6 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
             childLocation: location,
             tripStatus: TripStatus.moving,
             tripMode: mode,
-            waitingStartTime: null,
           ),
         );
 
@@ -609,17 +603,24 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
     Emitter<ChildState> emit,
   ) async {
     final currentState = state;
-    if (currentState is! ChildDeviceInfoLoaded ||
-        !currentState.isTripTracking) {
+    // Defensive check: only stop if we know we are tracking or have residual state
+    if (currentState is! ChildDeviceInfoLoaded) {
       return;
     }
-    AppLogger.info('Tripping... Stopping trip tracking');
+
+    AppLogger.info(
+      'new logic:Tripping... Stopping trip tracking & clearing state',
+    );
+
     emit(
       currentState.copyWith(
         isTripTracking: false,
         tripLocations: [],
         tripStartTime: null,
         lastTrackedLocation: null,
+        // Clear candidate window and status to ensure clean slate for next trip
+        candidatePoints: [],
+        detectionStatus: TripDetectionStatus.idle,
       ),
     );
   }
@@ -671,18 +672,50 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
         childId: childId,
         data: requestBody,
       );
+      AppLogger.info(
+        'new logic:Tripping... Post Trip Location Response: $response',
+      );
 
-      // Handle stop logic here if needed based on response,
-      // but for now user said stop logic will be discussed later.
       if (response.isSuccess && response.data != null) {
-        // Placeholder for response handling
+        if (_shouldStopTrip(response.data)) {
+          AppLogger.info(
+            'new logic:Tripping... Backend requested STOP. Stopping now.',
+          );
+          add(StopTripTracking());
+        }
       }
     } catch (e) {
       AppLogger.error('Failed to update trip location: ${e.toString()}');
     }
   }
 
+  bool _shouldStopTrip(dynamic responseData) {
+    if (responseData == null) return false;
+
+    try {
+      final currentState = responseData['currentState'];
+      // Condition 1: Current State must be IDLE
+      if (currentState != 'IDLE') return false;
+
+      final transitions = responseData['stateTransitions'];
+      if (transitions is List && transitions.isNotEmpty) {
+        // Condition 2: Must have specific transition to ENDED with confirmation
+        for (var transition in transitions) {
+          if (transition['to'] == 'ENDED' &&
+              transition['reason'] == 'STATIONARY_CONFIRMED') {
+            return true;
+          }
+        }
+      }
+    } catch (e) {
+      AppLogger.error('Error parsing stop trip response: $e');
+    }
+
+    return false;
+  }
+
   void stopChildTracking() {
     _stopChildLocationStream();
+    add(StopTripTracking());
   }
 }
