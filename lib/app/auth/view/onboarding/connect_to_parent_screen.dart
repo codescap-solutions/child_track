@@ -233,8 +233,6 @@ class _ConnectToParentScreenState extends State<ConnectToParentScreen> {
           }
 
           if (mounted) {
-            AppSnackbar.showSuccess(context, 'Connected successfully!');
-
             // Navigate to SOS view (child app main screen)
             Navigator.of(context).pushReplacement(
               MaterialPageRoute(builder: (_) => const SosView()),

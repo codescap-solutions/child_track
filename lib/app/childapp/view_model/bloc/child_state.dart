@@ -18,10 +18,9 @@ final class ChildDeviceInfoLoaded extends ChildState {
   final bool hasUsagePermission;
   final TripStatus tripStatus;
   final TripMode tripMode;
-  final DateTime? waitingStartTime;
-  final int consecutiveMovingPoints;
-  final DateTime? candidateStartTime;
-  final Position? candidateStartLocation;
+  final Position? lastPostedLocation;
+  final List<Position> candidatePoints;
+  final TripDetectionStatus detectionStatus;
 
   const ChildDeviceInfoLoaded({
     required this.deviceInfo,
@@ -34,10 +33,9 @@ final class ChildDeviceInfoLoaded extends ChildState {
     this.hasUsagePermission = false,
     this.tripStatus = TripStatus.idle,
     this.tripMode = TripMode.unknown,
-    this.waitingStartTime,
-    this.consecutiveMovingPoints = 0,
-    this.candidateStartTime,
-    this.candidateStartLocation,
+    this.lastPostedLocation,
+    this.candidatePoints = const [],
+    this.detectionStatus = TripDetectionStatus.idle,
   });
 
   @override
@@ -52,10 +50,9 @@ final class ChildDeviceInfoLoaded extends ChildState {
     hasUsagePermission,
     tripStatus,
     tripMode,
-    if (waitingStartTime != null) waitingStartTime!,
-    consecutiveMovingPoints,
-    if (candidateStartTime != null) candidateStartTime!,
-    if (candidateStartLocation != null) candidateStartLocation!,
+    if (lastPostedLocation != null) lastPostedLocation!,
+    candidatePoints,
+    detectionStatus,
   ];
 
   ChildDeviceInfoLoaded copyWith({
@@ -69,10 +66,9 @@ final class ChildDeviceInfoLoaded extends ChildState {
     bool? hasUsagePermission,
     TripStatus? tripStatus,
     TripMode? tripMode,
-    DateTime? waitingStartTime,
-    int? consecutiveMovingPoints,
-    DateTime? candidateStartTime,
-    Position? candidateStartLocation,
+    Position? lastPostedLocation,
+    List<Position>? candidatePoints,
+    TripDetectionStatus? detectionStatus,
   }) {
     return ChildDeviceInfoLoaded(
       deviceInfo: deviceInfo ?? this.deviceInfo,
@@ -85,12 +81,9 @@ final class ChildDeviceInfoLoaded extends ChildState {
       hasUsagePermission: hasUsagePermission ?? this.hasUsagePermission,
       tripStatus: tripStatus ?? this.tripStatus,
       tripMode: tripMode ?? this.tripMode,
-      waitingStartTime: waitingStartTime ?? this.waitingStartTime,
-      consecutiveMovingPoints:
-          consecutiveMovingPoints ?? this.consecutiveMovingPoints,
-      candidateStartTime: candidateStartTime ?? this.candidateStartTime,
-      candidateStartLocation:
-          candidateStartLocation ?? this.candidateStartLocation,
+      lastPostedLocation: lastPostedLocation ?? this.lastPostedLocation,
+      candidatePoints: candidatePoints ?? this.candidatePoints,
+      detectionStatus: detectionStatus ?? this.detectionStatus,
     );
   }
 
@@ -122,3 +115,5 @@ final class SosError extends ChildState {
 enum TripStatus { idle, moving, waiting, ended }
 
 enum TripMode { unknown, walking, vehicle }
+
+enum TripDetectionStatus { idle, candidate }
