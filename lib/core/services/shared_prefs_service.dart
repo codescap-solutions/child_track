@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../models/child_profile.dart';
 import '../utils/app_logger.dart';
 
 class SharedPrefsService {
@@ -177,7 +179,6 @@ class SharedPrefsService {
         userId.isNotEmpty;
   }
 
-
   // Logout user
   Future<bool> logout() async {
     try {
@@ -186,7 +187,7 @@ class SharedPrefsService {
       await removeUserPhone();
       await removeChildId();
       await removeParentId();
-  
+
       await removeAuthToken();
       AppLogger.info('User logged out successfully');
       return true;
@@ -195,8 +196,7 @@ class SharedPrefsService {
       return false;
     }
   }
-  
-   
+
   Future<bool> removeChildId() async {
     try {
       return await prefs.remove('child_id');
@@ -215,4 +215,63 @@ class SharedPrefsService {
     }
   }
 
+  // Multi-Child Support
+  Future<bool> saveChildren(List<ChildProfile> children) async {
+    try {
+      final String encoded = json.encode(
+        children.map((e) => e.toMap()).toList(),
+      );
+      return await prefs.setString('stored_children', encoded);
+    } catch (e) {
+      AppLogger.error('Error saving children list: $e');
+      return false;
+    }
+  }
+
+  List<ChildProfile> getChildren() {
+    try {
+      final String? encoded = prefs.getString('stored_children');
+      if (encoded == null) return [];
+      final List<dynamic> decoded = json.decode(encoded);
+      return decoded.map((e) => ChildProfile.fromMap(e)).toList();
+    } catch (e) {
+      AppLogger.error('Error getting children list: $e');
+      return [];
+    }
+  }
+
+  Future<bool> addChild(ChildProfile child) async {
+    final children = getChildren();
+    // Prevent duplicates
+    children.removeWhere((element) => element.childId == child.childId);
+    children.add(child);
+    return await saveChildren(children);
+  }
+
+  Future<bool> switchChild(String childId) async {
+    final children = getChildren();
+    final child = children.firstWhere(
+      (element) => element.childId == childId,
+      orElse: () => throw Exception('Child not found locally'),
+    );
+
+    // Update session data
+    await setAuthToken(child.authToken);
+    await setString('child_code', child.childId);
+    await setUserId(
+      child.childId,
+    ); // Assuming userId maps to childId in this app context
+    await setString('child_name', child.childName);
+
+    // Update last active
+    final updatedChildren = children.map((e) {
+      if (e.childId == childId) {
+        return e.copyWith(lastActiveAt: DateTime.now());
+      }
+      return e;
+    }).toList();
+    await saveChildren(updatedChildren);
+
+    return true;
+  }
 }

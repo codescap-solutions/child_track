@@ -11,9 +11,71 @@ import 'package:child_track/core/constants/app_text_styles.dart';
 import 'package:child_track/core/widgets/common_button.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:geocoding/geocoding.dart';
 
-class ChildLocationDetailView extends StatelessWidget {
+class ChildLocationDetailView extends StatefulWidget {
   const ChildLocationDetailView({super.key});
+
+  @override
+  State<ChildLocationDetailView> createState() =>
+      _ChildLocationDetailViewState();
+}
+
+class _ChildLocationDetailViewState extends State<ChildLocationDetailView> {
+  GoogleMapController? _mapController;
+
+  void _fitBounds(TripSegment trip) {
+    if (_mapController == null) return;
+
+    // Safety check for empty points
+    if (trip.polylinePoints.isEmpty &&
+        trip.startLocation.latitude == 0 &&
+        trip.endLocation.latitude == 0)
+      return;
+
+    double minLat = trip.startLocation.latitude;
+    double maxLat = trip.startLocation.latitude;
+    double minLng = trip.startLocation.longitude;
+    double maxLng = trip.startLocation.longitude;
+
+    // Check end location
+    if (trip.endLocation.latitude < minLat) minLat = trip.endLocation.latitude;
+    if (trip.endLocation.latitude > maxLat) maxLat = trip.endLocation.latitude;
+    if (trip.endLocation.longitude < minLng)
+      minLng = trip.endLocation.longitude;
+    if (trip.endLocation.longitude > maxLng)
+      maxLng = trip.endLocation.longitude;
+
+    // Check polyline points
+    for (var point in trip.polylinePoints) {
+      if (point.latitude < minLat) minLat = point.latitude;
+      if (point.latitude > maxLat) maxLat = point.latitude;
+      if (point.longitude < minLng) minLng = point.longitude;
+      if (point.longitude > maxLng) maxLng = point.longitude;
+    }
+
+    // If points are all same or invalid, add some buffer
+    if (minLat == maxLat && minLng == maxLng) {
+      minLat -= 0.01;
+      maxLat += 0.01;
+      minLng -= 0.01;
+      maxLng += 0.01;
+    }
+
+    try {
+      _mapController!.animateCamera(
+        CameraUpdate.newLatLngBounds(
+          LatLngBounds(
+            southwest: LatLng(minLat, minLng),
+            northeast: LatLng(maxLat, maxLng),
+          ),
+          50.0, // padding
+        ),
+      );
+    } catch (e) {
+      debugPrint('Error fitting map bounds: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -75,6 +137,17 @@ class ChildLocationDetailView extends StatelessWidget {
                                 ),
                                 // padding: const EdgeInsets.all(AppSizes.paddingM),
                                 child: MapViewWidget(
+                                  onMapCreated: (controller) {
+                                    _mapController = controller;
+                                    // Use a post-frame callback or small delay to ensure map size is calculated
+                                    // before fitting bounds, though map is usually ready.
+                                    Future.delayed(
+                                      const Duration(milliseconds: 300),
+                                      () {
+                                        if (mounted) _fitBounds(trip!);
+                                      },
+                                    );
+                                  },
                                   interactive: true,
                                   isPolyLines: true,
 
@@ -131,6 +204,8 @@ class ChildLocationDetailView extends StatelessWidget {
                             left: 30,
                             child: _buildTripTodayCard(
                               context,
+                              trip,
+                              state.tripsTotalItems ?? 0,
                               withMargin: false,
                             ),
                           ),
@@ -149,7 +224,12 @@ class ChildLocationDetailView extends StatelessWidget {
     );
   }
 
-  Widget _buildTripTodayCard(BuildContext context, {bool withMargin = true}) {
+  Widget _buildTripTodayCard(
+    BuildContext context,
+    TripSegment trip,
+    int eventCount, {
+    bool withMargin = true,
+  }) {
     return Container(
       height: 85,
       margin: withMargin
@@ -169,59 +249,68 @@ class ChildLocationDetailView extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '08:43 am - 21:20 pm (12hrs)',
-                style: AppTextStyles.overline.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              // const SizedBox(height: AppSizes.spacingXS),
-              Text(
-                'Kamakshi Palaya - Cubbon Park',
-                style: AppTextStyles.overline.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              const SizedBox(height: AppSizes.spacingM),
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSizes.paddingXS,
-                      vertical: AppSizes.paddingXS,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.backgroundColor,
-                      borderRadius: BorderRadius.circular(AppSizes.radiusS),
-                    ),
-                    child: Text('4 Events', style: AppTextStyles.caption),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${trip.startTime} - ${trip.endTime} (${trip.durationMinutes}min)',
+                  style: AppTextStyles.overline.copyWith(
+                    color: AppColors.textSecondary,
                   ),
-                  const SizedBox(width: AppSizes.spacingS),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSizes.paddingS,
-                      vertical: AppSizes.paddingXS,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryColor.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(AppSizes.radiusS),
-                    ),
-                    child: Text(
-                      'today',
-                      style: AppTextStyles.caption.copyWith(
-                        color: AppColors.primaryColor,
-                        fontWeight: FontWeight.w600,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                // const SizedBox(height: AppSizes.spacingXS),
+                Text(
+                  '${trip.startPlace} - ${trip.endPlace}',
+                  style: AppTextStyles.overline.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: AppSizes.spacingM),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSizes.paddingXS,
+                        vertical: AppSizes.paddingXS,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.backgroundColor,
+                        borderRadius: BorderRadius.circular(AppSizes.radiusS),
+                      ),
+                      child: Text(
+                        '$eventCount Events',
+                        style: AppTextStyles.caption,
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ],
+                    const SizedBox(width: AppSizes.spacingS),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSizes.paddingS,
+                        vertical: AppSizes.paddingXS,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryColor.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(AppSizes.radiusS),
+                      ),
+                      child: Text(
+                        'today',
+                        style: AppTextStyles.caption.copyWith(
+                          color: AppColors.primaryColor,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-          const Spacer(),
+          const SizedBox(width: AppSizes.spacingS),
           CommonButton(
             padding: EdgeInsets.zero,
             width: 80,
@@ -329,10 +418,13 @@ class ChildLocationDetailView extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
 
                       children: [
-                        _buildActivityMetric(
-                          '${trip.startPlace} - ${trip.endPlace}',
-
-                          'Route',
+                        Expanded(
+                          child: _RouteRenderer(
+                            startPlace: trip.startPlace,
+                            endPlace: trip.endPlace,
+                            startLocation: trip.startLocation,
+                            endLocation: trip.endLocation,
+                          ),
                         ),
                         const SizedBox(width: AppSizes.spacingS),
                         _buildActivityMetric(
@@ -427,7 +519,11 @@ class ChildLocationDetailView extends StatelessWidget {
   }
 
   // Activity Metric Widget
-  Widget _buildActivityMetric(String value, String label) {
+  Widget _buildActivityMetric(
+    String value,
+    String label, {
+    bool isRoute = false,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -438,6 +534,8 @@ class ChildLocationDetailView extends StatelessWidget {
             fontWeight: FontWeight.bold,
             fontSize: 12,
           ),
+          maxLines: isRoute ? 2 : 1,
+          overflow: TextOverflow.ellipsis,
         ),
         const SizedBox(width: AppSizes.spacingXS),
         Text(
@@ -624,6 +722,137 @@ class ChildLocationDetailView extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _RouteRenderer extends StatefulWidget {
+  final String startPlace;
+  final String endPlace;
+  final LatLng startLocation;
+  final LatLng endLocation;
+
+  const _RouteRenderer({
+    required this.startPlace,
+    required this.endPlace,
+    required this.startLocation,
+    required this.endLocation,
+  });
+
+  @override
+  State<_RouteRenderer> createState() => _RouteRendererState();
+}
+
+class _RouteRendererState extends State<_RouteRenderer> {
+  String? _resolvedStart;
+  String? _resolvedEnd;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_shouldResolve()) {
+      _resolveAddresses();
+    }
+  }
+
+  bool _shouldResolve() {
+    return widget.startPlace == "Unknown Location" ||
+        widget.endPlace == "Unknown Location";
+  }
+
+  Future<String?> _resolveSingle(LatLng pos) async {
+    try {
+      final placemarks = await placemarkFromCoordinates(
+        pos.latitude,
+        pos.longitude,
+      );
+      if (placemarks.isNotEmpty) {
+        final place = placemarks.first;
+        final address = [
+          place.street,
+          place.subLocality,
+          place.locality,
+        ].where((e) => e != null && e.isNotEmpty).join(', ');
+
+        return address.isNotEmpty ? address : place.name;
+      }
+    } catch (e) {
+      debugPrint('Error resolving address: $e');
+    }
+    return null;
+  }
+
+  Future<void> _resolveAddresses() async {
+    if (mounted) setState(() => _isLoading = true);
+
+    String? startAddr;
+    String? endAddr;
+
+    if (widget.startPlace == "Unknown Location") {
+      startAddr = await _resolveSingle(widget.startLocation);
+    }
+
+    if (widget.endPlace == "Unknown Location") {
+      endAddr = await _resolveSingle(widget.endLocation);
+    }
+
+    if (mounted) {
+      setState(() {
+        _resolvedStart = startAddr;
+        _resolvedEnd = endAddr;
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(
+            width: 14,
+            height: 14,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: AppColors.primaryColor,
+            ),
+          ),
+          const SizedBox(width: AppSizes.spacingXS),
+          Text(
+            'Route',
+            style: AppTextStyles.caption.copyWith(
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ],
+      );
+    }
+
+    final start = _resolvedStart ?? widget.startPlace;
+    final end = _resolvedEnd ?? widget.endPlace;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '$start - $end',
+          style: AppTextStyles.subtitle1.copyWith(
+            color: AppColors.primaryColor,
+            fontWeight: FontWeight.bold,
+            fontSize: 12,
+          ),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(width: AppSizes.spacingXS),
+        Text(
+          'Route',
+          style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary),
+        ),
+      ],
     );
   }
 }

@@ -7,8 +7,11 @@ import 'package:child_track/core/constants/app_sizes.dart';
 import 'package:child_track/core/constants/app_text_styles.dart';
 import 'package:child_track/core/widgets/common_button.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:child_track/app/home/view/trip_detail_view.dart';
+import 'package:child_track/app/home/model/last_trip_model.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
+import 'package:geocoding/geocoding.dart';
 
 /// Trips List View - Shows all trips
 class TripsView extends StatefulWidget {
@@ -261,7 +264,24 @@ class _SimpleTripCard extends StatelessWidget {
                       fontSize: 12,
                       textColor: AppColors.surfaceColor,
                       onPressed: () {
-                        // Navigate to Detail View - will need to fetch detail inside there
+                        if (trip.points.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("No detailed trip data available"),
+                            ),
+                          );
+                          return;
+                        }
+                        final tripSegment = TripSegment.fromTrip(trip);
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => TripDetailView(
+                              trip: tripSegment,
+                              markers: _createMarkers().toList(),
+                              polylines: _createPolylines().toList(),
+                            ),
+                          ),
+                        );
                       },
                       height: 30,
                     ),
@@ -269,18 +289,11 @@ class _SimpleTripCard extends StatelessWidget {
                 ),
                 const SizedBox(height: AppSizes.spacingM),
                 // Route info
-                Row(
-                  children: [
-                    const Icon(Icons.circle, size: 8, color: Colors.green),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        trip.fromPlace,
-                        style: AppTextStyles.body2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
+                // Route info
+                _PlaceRenderer(
+                  placeName: trip.fromPlace,
+                  point: trip.points.isNotEmpty ? trip.points.first : null,
+                  iconColor: Colors.green,
                 ),
                 Container(
                   margin: const EdgeInsets.only(left: 3.5),
@@ -288,18 +301,10 @@ class _SimpleTripCard extends StatelessWidget {
                   width: 1,
                   color: AppColors.textSecondary.withValues(alpha: 0.3),
                 ),
-                Row(
-                  children: [
-                    const Icon(Icons.circle, size: 8, color: Colors.red),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        trip.toPlace,
-                        style: AppTextStyles.body2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
+                _PlaceRenderer(
+                  placeName: trip.toPlace,
+                  point: trip.points.isNotEmpty ? trip.points.last : null,
+                  iconColor: Colors.red,
                 ),
               ],
             ),
@@ -310,21 +315,22 @@ class _SimpleTripCard extends StatelessWidget {
   }
 
   LatLngBounds _createBounds(List<LatLng> positions) {
-    final southwestLat = positions
-        .map((p) => p.latitude)
-        .reduce((a, b) => a < b ? a : b);
-    final southwestLng = positions
-        .map((p) => p.longitude)
-        .reduce((a, b) => a < b ? a : b);
-    final northeastLat = positions
-        .map((p) => p.latitude)
-        .reduce((a, b) => a > b ? a : b);
-    final northeastLng = positions
-        .map((p) => p.longitude)
-        .reduce((a, b) => a > b ? a : b);
+    var south = positions.first.latitude;
+    var north = positions.first.latitude;
+    var west = positions.first.longitude;
+    var east = positions.first.longitude;
+
+    for (var i = 1; i < positions.length; i++) {
+      var p = positions[i];
+      if (p.latitude < south) south = p.latitude;
+      if (p.latitude > north) north = p.latitude;
+      if (p.longitude < west) west = p.longitude;
+      if (p.longitude > east) east = p.longitude;
+    }
+
     return LatLngBounds(
-      southwest: LatLng(southwestLat, southwestLng),
-      northeast: LatLng(northeastLat, northeastLng),
+      southwest: LatLng(south, west),
+      northeast: LatLng(north, east),
     );
   }
 
@@ -340,5 +346,100 @@ class _SimpleTripCard extends StatelessWidget {
     } catch (e) {
       return timeStr;
     }
+  }
+}
+
+class _PlaceRenderer extends StatefulWidget {
+  final String placeName;
+  final TripPoint? point;
+  final Color iconColor;
+
+  const _PlaceRenderer({
+    required this.placeName,
+    required this.point,
+    required this.iconColor,
+  });
+
+  @override
+  State<_PlaceRenderer> createState() => _PlaceRendererState();
+}
+
+class _PlaceRendererState extends State<_PlaceRenderer> {
+  String? _resolvedAddress;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_shouldResolveAddress()) {
+      _resolveAddress();
+    }
+  }
+
+  bool _shouldResolveAddress() {
+    return widget.placeName == "Unknown Location" && widget.point != null;
+  }
+
+  Future<void> _resolveAddress() async {
+    if (mounted) {
+      setState(() => _isLoading = true);
+    }
+
+    try {
+      final placemarks = await placemarkFromCoordinates(
+        widget.point!.lat,
+        widget.point!.lng,
+      );
+
+      if (placemarks.isNotEmpty && mounted) {
+        final place = placemarks.first;
+        setState(() {
+          // Construct a simple address string
+          _resolvedAddress = [
+            place.street,
+            place.subLocality,
+            place.locality,
+          ].where((e) => e != null && e.isNotEmpty).join(', ');
+
+          if (_resolvedAddress!.isEmpty) {
+            _resolvedAddress = "${place.name}";
+          }
+        });
+      }
+    } catch (e) {
+      // debugPrint('Failed to resolve address: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final displayText = _resolvedAddress ?? widget.placeName;
+
+    return Row(
+      children: [
+        Icon(Icons.circle, size: 8, color: widget.iconColor),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _isLoading
+              ? SizedBox(
+                  height: 14,
+                  width: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppColors.textSecondary,
+                  ),
+                )
+              : Text(
+                  displayText,
+                  style: AppTextStyles.body2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+        ),
+      ],
+    );
   }
 }
