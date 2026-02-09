@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/child_profile.dart';
 import '../utils/app_logger.dart';
 
@@ -7,9 +8,50 @@ class SharedPrefsService {
   static SharedPreferences? _prefs;
 
   // Initialize SharedPreferences
+  static final _secureStorage = FlutterSecureStorage();
+  static String? _cachedAuthToken;
+
+  // Initialize SharedPreferences and load secure token
+  // Initialize SharedPreferences and load secure token
   static Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
-    AppLogger.info('SharedPreferences initialized');
+
+    // Migration: Check for legacy token in SharedPreferences
+    // We only migrate IF SecureStorage works. If it fails, we stick to Prefs.
+    String? secureToken;
+    bool secureStorageWorking = true;
+
+    try {
+      secureToken = await _secureStorage.read(key: 'auth_token');
+    } catch (e) {
+      secureStorageWorking = false;
+      AppLogger.error('SecureStorage not available: $e');
+    }
+
+    final legacyToken = _prefs?.getString('auth_token');
+
+    if (secureStorageWorking &&
+        legacyToken != null &&
+        legacyToken.isNotEmpty &&
+        secureToken == null) {
+      // Migrate
+      AppLogger.info('Migrating legacy auth token to SecureStorage');
+      try {
+        await _secureStorage.write(key: 'auth_token', value: legacyToken);
+        _cachedAuthToken = legacyToken;
+        await _prefs?.remove('auth_token');
+      } catch (e) {
+        // If write fails, keep legacy
+        _cachedAuthToken = legacyToken;
+      }
+    } else {
+      // Load from whichever source is available
+      _cachedAuthToken = secureToken ?? legacyToken;
+    }
+
+    AppLogger.info(
+      'SharedPreferences and SecureStorage initialized. Token loaded: ${_cachedAuthToken != null}',
+    );
   }
 
   // Get SharedPreferences instance
@@ -20,28 +62,52 @@ class SharedPrefsService {
     return _prefs!;
   }
 
-  // Auth Token
+  // Auth Token (Secure)
+  // Auth Token (Secure with Fallback)
   Future<bool> setAuthToken(String token) async {
     try {
-      return await prefs.setString('auth_token', token);
+      await _secureStorage.write(key: 'auth_token', value: token);
+      _cachedAuthToken = token;
+      return true;
     } catch (e) {
-      AppLogger.error('Error saving auth token: $e');
-      return false;
+      AppLogger.error('Error saving auth token to secure storage: $e');
+      // Fallback to SharedPreferences
+      try {
+        await prefs.setString('auth_token', token);
+        _cachedAuthToken = token;
+        return true;
+      } catch (e2) {
+        AppLogger.error('Error saving auth token to shared prefs: $e2');
+        return false;
+      }
     }
   }
 
-  String? getAuthToken() {
+  // Force reload of token from storage (useful after migration/re-install)
+  Future<void> reloadAuthToken() async {
     try {
-      return prefs.getString('auth_token');
+      _cachedAuthToken = await _secureStorage.read(key: 'auth_token');
     } catch (e) {
-      AppLogger.error('Error getting auth token: $e');
-      return null;
+      AppLogger.error('Error reloading secure token: $e');
+      // Fallback to SharedPreferences
+      try {
+        _cachedAuthToken = prefs.getString('auth_token');
+      } catch (e2) {
+        AppLogger.error('Error reloading shared prefs token: $e2');
+      }
     }
+    AppLogger.info('Auth token reloaded: ${_cachedAuthToken != null}');
+  }
+
+  String? getAuthToken() {
+    return _cachedAuthToken;
   }
 
   Future<bool> removeAuthToken() async {
     try {
-      return await prefs.remove('auth_token');
+      await _secureStorage.delete(key: 'auth_token');
+      _cachedAuthToken = null;
+      return true;
     } catch (e) {
       AppLogger.error('Error removing auth token: $e');
       return false;

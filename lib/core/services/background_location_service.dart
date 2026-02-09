@@ -137,7 +137,9 @@ void onStart(ServiceInstance service) async {
         accuracy: LocationAccuracy.high,
         distanceFilter: 10, // 10m filter to save battery
         forceLocationManager: true,
-        intervalDuration: const Duration(seconds: 5), // Min interval
+        intervalDuration: const Duration(
+          seconds: 30,
+        ), // Min interval to avoid bad behavior flag
         foregroundNotificationConfig: const ForegroundNotificationConfig(
           notificationTitle: "NaviQ Active",
           notificationText: "Tracking location...",

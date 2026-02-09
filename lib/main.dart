@@ -3,6 +3,7 @@ import 'package:child_track/core/services/connectivity/bloc/connectivity_bloc.da
 import 'package:child_track/core/services/shared_prefs_service.dart';
 import 'package:child_track/core/services/firebase_notification_service.dart';
 import 'package:child_track/core/services/background_location_service.dart';
+import 'package:child_track/core/services/background_task_service.dart';
 import 'package:child_track/core/utils/app_snackbar.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -37,6 +38,9 @@ void main() async {
 
   // Initialize Background Location Service
   await BackgroundLocationService().initialize();
+
+  // Initialize Background Task Service (WorkManager)
+  await BackgroundTaskService.initialize();
 
   runApp(const ChildTrackApp());
 }
@@ -93,17 +97,16 @@ class _SplashScreenState extends State<SplashScreen> {
     // Add a small delay for splash screen
     await Future.delayed(const Duration(seconds: 2));
 
-final childId = injector<SharedPrefsService>().getString('child_id');
-final parentId = injector<SharedPrefsService>().getString('parent_id');
+    final childId = injector<SharedPrefsService>().getString('child_id');
+    final parentId = injector<SharedPrefsService>().getString('parent_id');
     if (mounted) {
-  if (parentId != null && parentId.isNotEmpty) {
-    Navigator.pushReplacementNamed(context, RouteNames.home);
-  } else if (childId != null && childId.isNotEmpty) {
-    Navigator.pushReplacementNamed(context, RouteNames.sos);
-  } else {
-    Navigator.pushReplacementNamed(context, RouteNames.onBoarding);
-  }
-
+      if (parentId != null && parentId.isNotEmpty) {
+        Navigator.pushReplacementNamed(context, RouteNames.home);
+      } else if (childId != null && childId.isNotEmpty) {
+        Navigator.pushReplacementNamed(context, RouteNames.sos);
+      } else {
+        Navigator.pushReplacementNamed(context, RouteNames.onBoarding);
+      }
     }
   }
 

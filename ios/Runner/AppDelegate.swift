@@ -43,7 +43,7 @@ import UserNotifications
     // Setup method channel for device info after plugins are registered
     if let controller = window?.rootViewController as? FlutterViewController {
       let deviceInfoChannel = FlutterMethodChannel(
-        name: "com.example.child_track/device_info",
+        name: "com.truenyx.naviq/device_info",
         binaryMessenger: controller.binaryMessenger
       )
       

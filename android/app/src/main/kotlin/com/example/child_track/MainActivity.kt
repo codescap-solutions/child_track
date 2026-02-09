@@ -1,4 +1,4 @@
-package com.example.child_track
+package com.truenyx.naviq
 
 import android.content.Context
 import android.content.pm.ApplicationInfo
@@ -21,7 +21,7 @@ import java.io.ByteArrayOutputStream
 import java.util.Calendar
 
 class MainActivity : FlutterActivity() {
-    private val CHANNEL = "com.example.child_track/device_info"
+    private val CHANNEL = "com.truenyx.naviq/device_info"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -258,7 +258,12 @@ class MainActivity : FlutterActivity() {
         }.sortedByDescending { it["seconds"] as Int }
     }
 
+    private val iconCache = java.util.concurrent.ConcurrentHashMap<String, String>()
+
     private fun getAppIconBase64(packageName: String): String? {
+        if (iconCache.containsKey(packageName)) {
+            return iconCache[packageName]
+        }
         return try {
             val packageManager = packageManager
             val appInfo = packageManager.getApplicationInfo(packageName, 0)
@@ -276,7 +281,9 @@ class MainActivity : FlutterActivity() {
             val byteArray = byteArrayOutputStream.toByteArray()
             
             // Encode to Base64
-            Base64.encodeToString(byteArray, Base64.NO_WRAP)
+            val encoded = Base64.encodeToString(byteArray, Base64.NO_WRAP)
+            iconCache[packageName] = encoded
+            encoded
         } catch (e: Exception) {
             null
         }

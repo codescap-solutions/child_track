@@ -17,13 +17,16 @@ class _PendingRequest {
 
 class DioClient {
   late Dio _dio;
-  final SharedPrefsService _sharedPrefsService = injector<SharedPrefsService>();
-  final ConnectivityBloc _connectivityBloc;
+  late final SharedPrefsService _sharedPrefsService;
+  final ConnectivityBloc? _connectivityBloc;
   bool _isRefreshing = false;
   final List<_PendingRequest> _pendingRequests = [];
 
-  DioClient({required ConnectivityBloc connectivityBloc})
-    : _connectivityBloc = connectivityBloc {
+  DioClient({
+    ConnectivityBloc? connectivityBloc,
+    SharedPrefsService? sharedPrefsService,
+  }) : _connectivityBloc = connectivityBloc {
+    _sharedPrefsService = sharedPrefsService ?? injector<SharedPrefsService>();
     _dio = Dio(BaseOptions(baseUrl: ApiEndpoints.baseUrl));
     _setupInterceptors();
   }
@@ -32,7 +35,7 @@ class DioClient {
     // Request Interceptor
     _dio.interceptors.add(
       InterceptorsWrapper(
-        onRequest: (options, handler) {
+        onRequest: (options, handler) async {
           AppLogger.info('🚀 Request url: ${options.method} ${options.uri}');
           try {
             if (options.data is FormData) {
@@ -46,7 +49,14 @@ class DioClient {
           }
 
           // Add auth token if available
-          final token = _sharedPrefsService.getAuthToken();
+          var token = _sharedPrefsService.getAuthToken();
+
+          // Emergency reload if token is missing
+          if (token == null || token.isEmpty) {
+            await _sharedPrefsService.reloadAuthToken();
+            token = _sharedPrefsService.getAuthToken();
+          }
+
           if (token != null && token.isNotEmpty) {
             options.headers['Authorization'] = 'Bearer $token';
           }
@@ -209,7 +219,8 @@ class DioClient {
 
   // Check connectivity before making request
   void _checkConnectivity() {
-    final state = _connectivityBloc.state;
+    if (_connectivityBloc == null) return;
+    final state = _connectivityBloc!.state;
     if (state is ConnectivityOffline) {
       throw Exception('Internet not available. Please check your connection.');
     }

@@ -1,3 +1,4 @@
+import 'package:child_track/app/settings/view/account_view.dart';
 import 'package:child_track/core/di/injector.dart';
 import 'package:child_track/core/navigation/route_names.dart';
 import 'package:child_track/core/services/shared_prefs_service.dart';
@@ -10,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:child_track/core/constants/app_colors.dart';
 import 'package:child_track/core/constants/app_sizes.dart';
 import 'package:child_track/core/constants/app_text_styles.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'widgets/section_card.dart';
 import 'widgets/setting_tile.dart';
 import 'notification_settings_view.dart';
@@ -169,61 +171,60 @@ class _SettingsViewState extends State<SettingsView> {
                 ),
               ),
 
-              SectionCard(
-                child: Column(
-                  children: [
-                    _toggleTile(
-                      context,
-                      Icons.block,
-                      'Restrict from deleting',
-                      'contact details of each location',
-                      _restrictDeletion,
-                      (value) async {
-                        await _sharedPrefsService.setBool(
-                          'restrict_deletion',
-                          value,
-                        );
-                        setState(() => _restrictDeletion = value);
-                      },
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: const Divider(
-                        height: 1,
-                        endIndent: 20,
-                        indent: 20,
-                      ),
-                    ),
-                    _toggleTile(
-                      context,
-                      Icons.do_not_disturb_on_outlined,
-                      'Block 18plus Websites',
-                      'contact details of each location',
-                      _block18Plus,
-                      (value) async {
-                        if (Theme.of(context).platform == TargetPlatform.iOS) {
-                          // Redirection logic for iOS would go here
-                          // For now, just toggling and persisting
-                        }
-                        await _sharedPrefsService.setBool(
-                          'block_18plus',
-                          value,
-                        );
-                        setState(() => _block18Plus = value);
-                      },
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: const Divider(
-                        height: 1,
-                        endIndent: 20,
-                        indent: 20,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
+              // SectionCard(
+              //   child: Column(
+              //     children: [
+              //       _toggleTile(
+              //         context,
+              //         Icons.block,
+              //         'Restrict from deleting',
+              //         'contact details of each location',
+              //         _restrictDeletion,
+              //         (value) async {
+              //           await _sharedPrefsService.setBool(
+              //             'restrict_deletion',
+              //             value,
+              //           );
+              //           setState(() => _restrictDeletion = value);
+              //         },
+              //       ),
+              //       Padding(
+              //         padding: const EdgeInsets.all(8.0),
+              //         child: const Divider(
+              //           height: 1,
+              //           endIndent: 20,
+              //           indent: 20,
+              //         ),
+              //       ),
+              //       _toggleTile(
+              //         context,
+              //         Icons.do_not_disturb_on_outlined,
+              //         'Block 18plus Websites',
+              //         'contact details of each location',
+              //         _block18Plus,
+              //         (value) async {
+              //           if (Theme.of(context).platform == TargetPlatform.iOS) {
+              //             // Redirection logic for iOS would go here
+              //             // For now, just toggling and persisting
+              //           }
+              //           await _sharedPrefsService.setBool(
+              //             'block_18plus',
+              //             value,
+              //           );
+              //           setState(() => _block18Plus = value);
+              //         },
+              //       ),
+              //       Padding(
+              //         padding: const EdgeInsets.all(8.0),
+              //         child: const Divider(
+              //           height: 1,
+              //           endIndent: 20,
+              //           indent: 20,
+              //         ),
+              //       ),
+              //     ],
+              //   ),
+              // ),
               SectionCard(
                 child: Column(
                   children: [
@@ -263,100 +264,100 @@ class _SettingsViewState extends State<SettingsView> {
                         indent: 20,
                       ),
                     ),
-                    SettingTile(
-                      subtitle: 'Get live location of others',
-                      leading: const Icon(
-                        Icons.notifications_none,
-                        color: AppColors.textSecondary,
-                      ),
-                      title: 'Request Location',
-                      trailing: TextButton(
-                        onPressed: () {
-                          // Logical trigger for location ping
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Requesting location ping...'),
-                            ),
-                          );
-                        },
-                        child: Text(
-                          'PING',
-                          style: TextStyle(
-                            color: AppColors.primaryColor,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: const Divider(
-                        height: 1,
-                        endIndent: 20,
-                        indent: 20,
-                      ),
-                    ),
-                    SettingTile(
-                      subtitle: 'Details contact shown in kids app',
-                      leading: const Icon(
-                        Icons.family_restroom_rounded,
-                        color: AppColors.textSecondary,
-                      ),
-                      title: 'Emergency Contacts',
-                      trailing: const Icon(
-                        Icons.arrow_forward_ios,
-                        size: 16,
-                        color: AppColors.textSecondary,
-                      ),
-                      onTap: () {
-                        // Navigation to Emergency Contacts view
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Emergency Contacts feature coming soon',
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: const Divider(
-                        height: 1,
-                        endIndent: 20,
-                        indent: 20,
-                      ),
-                    ),
+                    // SettingTile(
+                    //   subtitle: 'Get live location of others',
+                    //   leading: const Icon(
+                    //     Icons.notifications_none,
+                    //     color: AppColors.textSecondary,
+                    //   ),
+                    //   title: 'Request Location',
+                    //   trailing: TextButton(
+                    //     onPressed: () {
+                    //       // Logical trigger for location ping
+                    //       ScaffoldMessenger.of(context).showSnackBar(
+                    //         const SnackBar(
+                    //           content: Text('Requesting location ping...'),
+                    //         ),
+                    //       );
+                    //     },
+                    //     child: Text(
+                    //       'PING',
+                    //       style: TextStyle(
+                    //         color: AppColors.primaryColor,
+                    //         fontWeight: FontWeight.bold,
+                    //       ),
+                    //     ),
+                    //   ),
+                    // ),
+                    // Padding(
+                    //   padding: const EdgeInsets.all(8.0),
+                    //   child: const Divider(
+                    //     height: 1,
+                    //     endIndent: 20,
+                    //     indent: 20,
+                    //   ),
+                    // ),
+                    // SettingTile(
+                    //   subtitle: 'Details contact shown in kids app',
+                    //   leading: const Icon(
+                    //     Icons.family_restroom_rounded,
+                    //     color: AppColors.textSecondary,
+                    //   ),
+                    //   title: 'Emergency Contacts',
+                    //   trailing: const Icon(
+                    //     Icons.arrow_forward_ios,
+                    //     size: 16,
+                    //     color: AppColors.textSecondary,
+                    //   ),
+                    //   onTap: () {
+                    //     // Navigation to Emergency Contacts view
+                    //     ScaffoldMessenger.of(context).showSnackBar(
+                    //       const SnackBar(
+                    //         content: Text(
+                    //           'Emergency Contacts feature coming soon',
+                    //         ),
+                    //       ),
+                    //     );
+                    //   },
+                    // ),
+                    // Padding(
+                    //   padding: const EdgeInsets.all(8.0),
+                    //   child: const Divider(
+                    //     height: 1,
+                    //     endIndent: 20,
+                    //     indent: 20,
+                    //   ),
+                    // ),
                     SizedBox(height: 10),
-                    SettingTile(
-                      subtitle: 'Manage your subscription',
-                      leading: const Icon(
-                        Icons.family_restroom_rounded,
-                        color: AppColors.textSecondary,
-                      ),
-                      title: 'Subscription',
-                      trailing: const Icon(
-                        Icons.arrow_forward_ios,
-                        size: 16,
-                        color: AppColors.textSecondary,
-                      ),
-                      onTap: () {
-                        // Navigation to Subscription view
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Subscription management by parent'),
-                          ),
-                        );
-                      },
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: const Divider(
-                        height: 1,
-                        endIndent: 20,
-                        indent: 20,
-                      ),
-                    ),
+                    // SettingTile(
+                    //   subtitle: 'Manage your subscription',
+                    //   leading: const Icon(
+                    //     Icons.family_restroom_rounded,
+                    //     color: AppColors.textSecondary,
+                    //   ),
+                    //   title: 'Subscription',
+                    //   trailing: const Icon(
+                    //     Icons.arrow_forward_ios,
+                    //     size: 16,
+                    //     color: AppColors.textSecondary,
+                    //   ),
+                    //   onTap: () {
+                    //     // Navigation to Subscription view
+                    //     ScaffoldMessenger.of(context).showSnackBar(
+                    //       const SnackBar(
+                    //         content: Text('Subscription management by parent'),
+                    //       ),
+                    //     );
+                    //   },
+                    // ),
+                    // Padding(
+                    //   padding: const EdgeInsets.all(8.0),
+                    //   child: const Divider(
+                    //     height: 1,
+                    //     endIndent: 20,
+                    //     indent: 20,
+                    //   ),
+                    // ),
                   ],
                 ),
               ),
@@ -391,52 +392,59 @@ class _SettingsViewState extends State<SettingsView> {
                         indent: 20,
                       ),
                     ),
-                    SettingTile(
-                      subtitle: 'Your account details',
-                      leading: const Icon(
-                        Icons.person,
-                        color: AppColors.textSecondary,
-                      ),
-                      title: 'Account',
-                      trailing: const Icon(
-                        Icons.arrow_forward_ios,
-                        size: 16,
-                        color: AppColors.textSecondary,
-                      ),
-                      onTap: () {},
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: const Divider(
-                        height: 1,
-                        endIndent: 20,
-                        indent: 20,
-                      ),
-                    ),
-                    SettingTile(
-                      subtitle: 'Device details',
-                      leading: const Icon(
-                        Icons.person,
-                        color: AppColors.textSecondary,
-                      ),
-                      title: 'Device',
-                      trailing: const Icon(
-                        Icons.arrow_forward_ios,
-                        size: 16,
-                        color: AppColors.textSecondary,
-                      ),
-                      onTap: () {},
-                    ),
 
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: const Divider(
-                        height: 1,
-                        endIndent: 20,
-                        indent: 20,
-                      ),
-                    ),
+                    // SettingTile(
+                    //   subtitle: 'Your account details',
+                    //   leading: const Icon(
+                    //     Icons.person,
+                    //     color: AppColors.textSecondary,
+                    //   ),
+                    //   title: 'Account',
+                    //   trailing: const Icon(
+                    //     Icons.arrow_forward_ios,
+                    //     size: 16,
+                    //     color: AppColors.textSecondary,
+                    //   ),
+                    //   onTap: () {
+                    //     Navigator.push(
+                    //       context,
+                    //       MaterialPageRoute(
+                    //         builder: (_) => const AccountView(),
+                    //       ),
+                    //     );
+                    //   },
+                    // ),
+                    // Padding(
+                    //   padding: const EdgeInsets.all(8.0),
+                    //   child: const Divider(
+                    //     height: 1,
+                    //     endIndent: 20,
+                    //     indent: 20,
+                    //   ),
+                    // ),
+                    // SettingTile(
+                    //   subtitle: 'Device details',
+                    //   leading: const Icon(
+                    //     Icons.person,
+                    //     color: AppColors.textSecondary,
+                    //   ),
+                    //   title: 'Device',
+                    //   trailing: const Icon(
+                    //     Icons.arrow_forward_ios,
+                    //     size: 16,
+                    //     color: AppColors.textSecondary,
+                    //   ),
+                    //   onTap: () {},
+                    // ),
 
+                    // Padding(
+                    //   padding: const EdgeInsets.all(8.0),
+                    //   child: const Divider(
+                    //     height: 1,
+                    //     endIndent: 20,
+                    //     indent: 20,
+                    //   ),
+                    // ),
                     SettingTile(
                       subtitle: 'Help and support',
                       leading: const Icon(
@@ -449,7 +457,7 @@ class _SettingsViewState extends State<SettingsView> {
                         size: 16,
                         color: AppColors.textSecondary,
                       ),
-                      onTap: () {},
+                      onTap: () => _showHelpOptions(context),
                     ),
                     Padding(
                       padding: const EdgeInsets.all(8.0),
@@ -471,7 +479,29 @@ class _SettingsViewState extends State<SettingsView> {
                         size: 16,
                         color: AppColors.textSecondary,
                       ),
-                      onTap: () {},
+                      onTap: () => _showAboutAppDialog(context),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: const Divider(
+                        height: 1,
+                        endIndent: 20,
+                        indent: 20,
+                      ),
+                    ),
+                    SettingTile(
+                      subtitle: 'Delete Account',
+                      leading: const Icon(
+                        Icons.delete_outline,
+                        color: AppColors.textSecondary,
+                      ),
+                      title: 'Delete Account',
+                      trailing: const Icon(
+                        Icons.arrow_forward_ios,
+                        size: 16,
+                        color: AppColors.textSecondary,
+                      ),
+                      onTap: () => _showDeleteAccountDialog(context),
                     ),
                     Padding(
                       padding: const EdgeInsets.all(8.0),
@@ -510,6 +540,148 @@ class _SettingsViewState extends State<SettingsView> {
         ),
       ),
     );
+  }
+
+  void _showDeleteAccountDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Delete Account"),
+        content: const Text(
+          "This will permanently delete your account and associated data.\n\n"
+          "You will be redirected to a deletion request form.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () {
+              Navigator.pop(context);
+              _openDeleteForm();
+            },
+            child: const Text(
+              "Continue",
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openDeleteForm() async {
+    final Uri url = Uri.parse(
+      "https://docs.google.com/forms/d/e/1FAIpQLSdmxHaRpEqVL1ACZWxk35c9dxvIc6evS-pBfHNc-hHdPJHdfg/viewform",
+    );
+
+    try {
+      if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+        debugPrint('Could not open delete account form');
+      }
+    } catch (e) {
+      debugPrint('Error launching URL: $e');
+    }
+  }
+
+  void _showHelpOptions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 10),
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 20),
+              ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: Color(0xFFE8F5E9),
+                  child: Icon(Icons.email, color: Color(0xFF2E7D32)),
+                ),
+                title: const Text('Email Support'),
+                subtitle: const Text('info.truenyx@gmail.com'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _launchContactUrl(
+                    Uri(scheme: 'mailto', path: 'info.truenyx@gmail.com'),
+                  );
+                },
+              ),
+              const Divider(),
+              ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: Color(0xFFE3F2FD),
+                  child: Icon(Icons.phone, color: Color(0xFF1565C0)),
+                ),
+                title: const Text('Call Support'),
+                subtitle: const Text('+91 90371 62751'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _launchContactUrl(Uri(scheme: 'tel', path: '+919037162751'));
+                },
+              ),
+              const SizedBox(height: 20),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showAboutAppDialog(BuildContext context) {
+    showAboutDialog(
+      context: context,
+      applicationName: 'NaviQ',
+      applicationVersion: '1.0.0',
+      applicationIcon: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: AppColors.primaryColor,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Icon(Icons.child_care, color: Colors.white, size: 32),
+      ),
+      children: [
+        const SizedBox(height: 16),
+        const Text(
+          'Keeping children safe and parents connected.',
+          style: TextStyle(fontSize: 14, color: Colors.grey),
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          '© 2026 CodeScap Solutions',
+          style: TextStyle(fontSize: 12, color: Colors.grey),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _launchContactUrl(Uri url) async {
+    try {
+      if (!await launchUrl(url)) {
+        if (mounted) {
+          AppSnackbar.showError(context, 'Could not launch action');
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        AppSnackbar.showError(context, 'Error: $e');
+      }
+    }
   }
 
   Widget _toggleTile(

@@ -208,21 +208,20 @@ class _HomePageState extends State<HomePage> {
               child: _HomeMapBackground(loadCustomMarker: _loadCustomMarker),
             ),
 
-            // Layer 2: Top Bar Actions (Settings, etc.)
-            Positioned(
-              top: MediaQuery.of(context).padding.top + 10,
-              left: 16,
-              child: InkWell(
-                onTap: () {
-                  // Add back navigation if needed or menu
-                },
-                child: CircleAvatar(
-                  backgroundColor: Colors.black.withOpacity(0.6),
-                  child: const Icon(Icons.arrow_back, color: Colors.white),
-                ),
-              ),
-            ),
-
+            // // Layer 2: Top Bar Actions (Settings, etc.)
+            // Positioned(
+            //   top: MediaQuery.of(context).padding.top + 10,
+            //   left: 16,
+            //   child: InkWell(
+            //     onTap: () {
+            //       // Add back navigation if needed or menu
+            //     },
+            //     child: CircleAvatar(
+            //       backgroundColor: Colors.black.withOpacity(0.6),
+            //       child: const Icon(Icons.arrow_back, color: Colors.white),
+            //     ),
+            //   ),
+            // ),
             Positioned(
               top: MediaQuery.of(context).padding.top + 10,
               right: 16,
