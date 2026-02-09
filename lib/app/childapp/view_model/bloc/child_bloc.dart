@@ -587,7 +587,7 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
         data: requestBody,
       );
       AppLogger.info(
-        'new logic:Tripping... Post Trip Location Response: $response',
+        'new logic:Tripping... Post Trip Location Response: ${response.data}',
       );
 
       if (response.isSuccess && response.data != null) {
