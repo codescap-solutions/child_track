@@ -27,7 +27,7 @@ class BackgroundLocationService {
       'child_track_location', // id
       'Location Tracking', // title
       description: 'Tracking your location in background', // description
-      importance: Importance.low, // importance must be at low or higher level
+      importance: Importance.high, // importance must be at low or higher level
     );
 
     final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =

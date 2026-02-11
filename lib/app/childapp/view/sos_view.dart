@@ -331,8 +331,104 @@ class _SosViewContent extends StatelessWidget {
                                   foregroundColor: Colors.white,
                                 ),
                                 onPressed: () {
-                                  context.read<ChildBloc>().add(
-                                    OpenUsageSettings(),
+                                  showDialog(
+                                    context: context,
+                                    barrierDismissible: false,
+                                    builder: (dialogContext) => AlertDialog(
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(
+                                          AppSizes.radiusL,
+                                        ),
+                                      ),
+                                      title: Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.data_usage,
+                                            color: AppColors.primaryColor,
+                                          ),
+                                          const SizedBox(
+                                            width: AppSizes.spacingS,
+                                          ),
+                                          Expanded(
+                                            child: Text(
+                                              "App Usage Monitoring",
+                                              style: AppTextStyles.headline6
+                                                  .copyWith(
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      content: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            "NaviQ needs 'Usage Access' permission to monitor your screen time and app activity.",
+                                            style: AppTextStyles.body2.copyWith(
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          const SizedBox(
+                                            height: AppSizes.spacingM,
+                                          ),
+                                          Text(
+                                            "This data is shared with your parent to help them manage your digital well-being and ensure safe device usage.",
+                                            style: AppTextStyles.body2,
+                                          ),
+                                          const SizedBox(
+                                            height: AppSizes.spacingS,
+                                          ),
+                                          Text(
+                                            "Tap 'Accept' to open Settings, then find 'NaviQ' and enable 'Allow usage tracking'.",
+                                            style: AppTextStyles.caption
+                                                .copyWith(
+                                                  color:
+                                                      AppColors.textSecondary,
+                                                ),
+                                          ),
+                                        ],
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          child: Text(
+                                            "Deny",
+                                            style: AppTextStyles.button
+                                                .copyWith(
+                                                  color:
+                                                      AppColors.textSecondary,
+                                                ),
+                                          ),
+                                          onPressed: () =>
+                                              Navigator.pop(dialogContext),
+                                        ),
+                                        FilledButton(
+                                          onPressed: () {
+                                            Navigator.pop(dialogContext);
+                                            context.read<ChildBloc>().add(
+                                              OpenUsageSettings(),
+                                            );
+                                          },
+                                          style: FilledButton.styleFrom(
+                                            backgroundColor:
+                                                AppColors.primaryColor,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(
+                                                    AppSizes.radiusM,
+                                                  ),
+                                            ),
+                                          ),
+                                          child: Text(
+                                            "Accept",
+                                            style: AppTextStyles.button
+                                                .copyWith(color: Colors.white),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   );
                                 },
                                 child: const Text('Enable Usage Access'),

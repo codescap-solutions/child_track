@@ -180,6 +180,104 @@ class _ConnectToParentScreenState extends State<ConnectToParentScreen> {
         if (response.isSuccess) {
           AppLogger.info('Child login successful');
 
+          if (!mounted) return;
+
+          // ---------------------------------------------------------
+          // PROMINENT DISCLOSURE (Google Play Policy Requirement)
+          // Must show BEFORE system permission request
+          // ---------------------------------------------------------
+          final bool userAgreed =
+              await showDialog<bool>(
+                context: context,
+                barrierDismissible: false,
+                builder: (dialogContext) => AlertDialog(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppSizes.radiusL),
+                  ),
+                  title: Row(
+                    children: [
+                      const Icon(
+                        Icons.location_on,
+                        color: AppColors.primaryColor,
+                      ),
+                      const SizedBox(width: AppSizes.spacingS),
+                      Expanded(
+                        child: Text(
+                          "Location Tracking",
+                          style: AppTextStyles.headline6.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  content: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          "NaviQ collects location data to enable parental monitoring and safety tracking even when the app is closed or not in use.",
+                          style: AppTextStyles.body2.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: AppSizes.spacingM),
+                        Text(
+                          "This data is securely transmitted to your parent's device to provide them with your safety status.",
+                          style: AppTextStyles.body2,
+                        ),
+                        const SizedBox(height: AppSizes.spacingS),
+                        Text(
+                          "Please tap 'Accept' to grant 'Always Allow' location permission in the next step.",
+                          style: AppTextStyles.caption.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  actions: [
+                    TextButton(
+                      child: Text(
+                        "Deny",
+                        style: AppTextStyles.button.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      onPressed: () => Navigator.pop(dialogContext, false),
+                    ),
+                    FilledButton(
+                      onPressed: () => Navigator.pop(dialogContext, true),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.primaryColor,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppSizes.radiusM),
+                        ),
+                      ),
+                      child: Text(
+                        "Accept",
+                        style: AppTextStyles.button.copyWith(
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ) ??
+              false;
+
+          if (!userAgreed) {
+            if (mounted) {
+              AppSnackbar.showError(
+                context,
+                'You must accept location tracking to use this app.',
+              );
+              setState(() => _isLoading = false);
+            }
+            return;
+          }
+
           // Ensure location permission is set to "always allow"
           final locationService = LocationService();
           bool hasAlwaysPermission = await _ensureAlwaysAllowPermission(
@@ -288,7 +386,7 @@ class _ConnectToParentScreenState extends State<ConnectToParentScreen> {
         isServiceEnabled = await locationService.isLocationServiceEnabled();
         if (!isServiceEnabled) {
           // Still disabled, try next attempt loop or just continue to let loop handle it
-          continue; 
+          continue;
         }
       }
 
