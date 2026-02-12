@@ -39,11 +39,16 @@ class RegisterUser extends AuthEvent {
   });
 
   @override
-  List<Object?> get props => [
-        phoneNumber,
-        name,
-        if (address != null) address!,
-      ];
+  List<Object?> get props => [phoneNumber, name, if (address != null) address!];
+}
+
+class SelectChild extends AuthEvent {
+  final String childId;
+
+  const SelectChild({required this.childId});
+
+  @override
+  List<Object?> get props => [childId];
 }
 
 class AuthLoggedIn extends AuthEvent {}

@@ -95,23 +95,23 @@ class _ChildLocationDetailViewState extends State<ChildLocationDetailView> {
           ),
           title: Text('Kid Location Details', style: AppTextStyles.body1),
         ),
-        body: SingleChildScrollView(
-          child: BlocBuilder<HomepageBloc, HomepageState>(
-            builder: (context, state) {
-              if (state is HomepageSuccess) {
-                TripSegment? trip;
-                if (state.trips.isNotEmpty) {
-                  trip = TripSegment.fromTrip(state.trips.first);
-                } else if (state.yesterdayTrips.isNotEmpty) {
-                  trip = state.yesterdayTrips.first;
-                }
+        body: BlocBuilder<HomepageBloc, HomepageState>(
+          builder: (context, state) {
+            if (state is HomepageSuccess) {
+              TripSegment? trip;
+              if (state.trips.isNotEmpty) {
+                trip = TripSegment.fromTrip(state.trips.first);
+              } else if (state.yesterdayTrips.isNotEmpty) {
+                trip = state.yesterdayTrips.first;
+              }
 
-                if (trip == null) {
-                  return const Center(child: Text('No trip data available'));
-                }
+              if (trip == null) {
+                return const Center(child: Text('No trip data available'));
+              }
 
-                final currentLocation = state.currentLocation;
-                return Column(
+              final currentLocation = state.currentLocation;
+              return SingleChildScrollView(
+                child: Column(
                   children: [
                     SizedBox(
                       height: MediaQuery.of(context).size.height * 0.45,
@@ -214,11 +214,11 @@ class _ChildLocationDetailViewState extends State<ChildLocationDetailView> {
                     ),
                     _buildChildLocationCardContent(context, trip, state.cards),
                   ],
-                );
-              }
-              return const Center(child: CircularProgressIndicator());
-            },
-          ),
+                ),
+              );
+            }
+            return const Center(child: CircularProgressIndicator());
+          },
         ),
       ),
     );

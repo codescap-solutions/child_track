@@ -1,6 +1,6 @@
 import 'package:equatable/equatable.dart';
 
-abstract class AuthState extends Equatable{
+abstract class AuthState extends Equatable {
   const AuthState();
 
   @override
@@ -45,6 +45,15 @@ class AuthNewUser extends AuthState {
 
   @override
   List<Object?> get props => [phoneNumber];
+}
+
+class AuthSelectChild extends AuthState {
+  final List<Map<String, dynamic>> children;
+
+  const AuthSelectChild({required this.children});
+
+  @override
+  List<Object?> get props => [children];
 }
 
 class AuthNeedsRegistration extends AuthState {}
