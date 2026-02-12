@@ -424,21 +424,25 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
     final currentState = state;
     if (currentState is! ChildDeviceInfoLoaded) return;
 
-    // Check permission first
+    // Only check permission if we haven't confirmed it yet
+    // Avoid repeated permission checks for performance
     if (!currentState.hasUsagePermission) {
+      AppLogger.info('ChildBloc: Permission not yet confirmed, checking...');
       final hasPermission = await _deviceInfoService.checkUsagePermission();
       if (!hasPermission) {
+        AppLogger.warning('ChildBloc: Usage permission not granted');
         emit(currentState.copyWith(hasUsagePermission: false, screenTime: []));
         return;
-      } else {
-        emit(currentState.copyWith(hasUsagePermission: true));
       }
+      emit(currentState.copyWith(hasUsagePermission: true));
     }
 
     try {
+      AppLogger.info('ChildBloc: Fetching screen time data');
       final mergedScreenTime = await _screenTimeSyncService
           .fetchScreenTimeData();
 
+      AppLogger.info('ChildBloc: Retrieved ${mergedScreenTime.length} apps');
       emit(currentState.copyWith(screenTime: mergedScreenTime));
       add(PostScreenTime(appScreenTimes: mergedScreenTime));
     } catch (e) {

@@ -1,6 +1,6 @@
 // This is a generated file; do not edit or check into version control.
-FLUTTER_ROOT=/Users/fasnamohammed/Documents/development/flutter
-FLUTTER_APPLICATION_PATH=/Users/fasnamohammed/Documents/flutter projects/child_track
+FLUTTER_ROOT=C:\src\flutter
+FLUTTER_APPLICATION_PATH=C:\out_side_project\naviq-mobile-app
 COCOAPODS_PARALLEL_CODE_SIGN=true
 FLUTTER_BUILD_DIR=build
 FLUTTER_BUILD_NAME=1.0.0
