@@ -163,15 +163,16 @@ class _AddandSavePlaceState extends State<AddandSavePlace> {
   }
 
   IconData _getPlaceIcon(String name) {
-    switch (name.toLowerCase()) {
-      case 'home':
-        return Icons.home;
-      case 'school':
-        return Icons.school;
-      case 'tuition':
-        return Icons.menu_book;
-      default:
-        return Icons.place;
+    final lowerName = name.toLowerCase();
+
+    if (lowerName.contains('home')) {
+      return Icons.home;
+    } else if (lowerName.contains('school')) {
+      return Icons.school;
+    } else if (lowerName.contains('tuition')) {
+      return Icons.menu_book;
+    } else {
+      return Icons.place;
     }
   }
 

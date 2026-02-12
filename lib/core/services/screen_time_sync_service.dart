@@ -9,7 +9,18 @@ class ScreenTimeSyncService {
   final ChildRepo _childRepo;
   final SharedPrefsService _prefs;
 
+  // Cache for screen time data to avoid frequent re-fetching
+  List<AppScreenTimeModel>? _screenTimeCache;
+  DateTime? _lastFetchTime;
+  static const Duration _cacheDuration = Duration(minutes: 5);
+
   ScreenTimeSyncService(this._deviceInfoService, this._childRepo, this._prefs);
+
+  /// Check if cache is still valid
+  bool _isCacheValid() {
+    if (_screenTimeCache == null || _lastFetchTime == null) return false;
+    return DateTime.now().difference(_lastFetchTime!).inMinutes < _cacheDuration.inMinutes;
+  }
 
   Future<void> syncScreenTime() async {
     final childId = _prefs.getString('child_id');
@@ -18,8 +29,48 @@ class ScreenTimeSyncService {
       return;
     }
 
-    // Permission check
-    final hasPermission = await _deviceInfoService.checkUsagePermission();
+    // Permission check - cache result for 1 minute to avoid frequent native calls
+    final hasPermissionKey = 'usage_permission_cache';
+    final lastPermissionCheck = _prefs.getString('${hasPermissionKey}_time');
+    bool hasPermission = false;
+
+    if (lastPermissionCheck != null) {
+      final lastCheck = DateTime.parse(lastPermissionCheck);
+      if (DateTime.now().difference(lastCheck).inMinutes < 1) {
+        hasPermission = _prefs.getBool(hasPermissionKey) ?? false;
+        if (!hasPermission) {
+          AppLogger.warning('ScreenTimeSyncService: Usage permission not granted (cached)');
+          return;
+        } else {
+          // Cache is valid and permission is granted, proceed with sync
+          try {
+            final mergedScreenTime = await fetchScreenTimeData();
+            if (mergedScreenTime.isEmpty) {
+              AppLogger.info('ScreenTimeSyncService: No apps with usage > 0 found.');
+              return;
+            }
+
+            await uploadScreenTimeData(mergedScreenTime, childId);
+
+            // Save sync time
+            _prefs.setString(
+              'last_screen_time_sync',
+              DateTime.now().toIso8601String(),
+            );
+            return;
+          } catch (e) {
+            AppLogger.error('ScreenTimeSyncService: Failed to sync screen time: $e');
+            return;
+          }
+        }
+      }
+    }
+
+    // Fresh permission check if cache expired or not set
+    hasPermission = await _deviceInfoService.checkUsagePermission();
+    _prefs.setBool(hasPermissionKey, hasPermission);
+    _prefs.setString('${hasPermissionKey}_time', DateTime.now().toIso8601String());
+    
     if (!hasPermission) {
       AppLogger.warning('ScreenTimeSyncService: Usage permission not granted');
       return;
@@ -45,6 +96,12 @@ class ScreenTimeSyncService {
   }
 
   Future<List<AppScreenTimeModel>> fetchScreenTimeData() async {
+    // Return cached data if valid
+    if (_isCacheValid()) {
+      AppLogger.info('ScreenTimeSyncService: Returning cached screen time data');
+      return _screenTimeCache ?? [];
+    }
+
     final installedApps = await _deviceInfoService.getInstalledApps();
     final screenTimeUsage = await _deviceInfoService.getScreenTime();
 
@@ -94,7 +151,7 @@ class ScreenTimeSyncService {
       usageMap.remove(app.packageName);
     }
 
-    // Add remaining apps from usageMap
+    // Add remaining apps from usageMap that weren't in installed apps
     usageMap.forEach((package, usageModel) {
       if (usageModel.seconds > 0) {
         mergedScreenTime.add(
@@ -107,8 +164,11 @@ class ScreenTimeSyncService {
       }
     });
 
-    // Sort by seconds
+    // Sort by seconds and cache
     mergedScreenTime.sort((a, b) => b.seconds.compareTo(a.seconds));
+    _screenTimeCache = mergedScreenTime;
+    _lastFetchTime = DateTime.now();
+    
     return mergedScreenTime;
   }
 
