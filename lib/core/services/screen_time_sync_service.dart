@@ -37,7 +37,7 @@ class ScreenTimeSyncService {
     if (lastPermissionCheck != null) {
       final lastCheck = DateTime.parse(lastPermissionCheck);
       if (DateTime.now().difference(lastCheck).inMinutes < 1) {
-        hasPermission = _prefs.getBool(hasPermissionKey) ?? false;
+        hasPermission = _prefs.getBool(hasPermissionKey);
         if (!hasPermission) {
           AppLogger.warning('ScreenTimeSyncService: Usage permission not granted (cached)');
           return;
