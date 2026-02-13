@@ -27,9 +27,17 @@ class SavedPlacesService {
   }
 
   // Get all saved places
-  Future<List<SavedPlace>> getSavedPlaces() async {
+  Future<List<SavedPlace>> getSavedPlaces({String? childId}) async {
     try {
-      final response = await _dioClient.get(ApiEndpoints.places);
+      final Map<String, dynamic> queryParams = {};
+      if (childId != null) {
+        queryParams['child_id'] = childId;
+      }
+
+      final response = await _dioClient.get(
+        ApiEndpoints.places,
+        queryParameters: queryParams,
+      );
 
       if (response.statusCode == 200 && response.data != null) {
         final List<dynamic> data = response.data['data']['places'] ?? [];

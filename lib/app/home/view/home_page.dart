@@ -49,7 +49,8 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _loadSavedPlaces() async {
-    final places = await _savedPlacesService.getSavedPlaces();
+    final childId = _sharedPrefsService.getString('child_id');
+    final places = await _savedPlacesService.getSavedPlaces(childId: childId);
     if (mounted) {
       setState(() {
         _savedPlaces = places;
@@ -85,6 +86,18 @@ class _HomePageState extends State<HomePage> {
           injector<HomepageBloc>().add(UpdateSocketLocation(data));
         }
       });
+    }
+  }
+
+  void _refreshData() {
+    final childId = _sharedPrefsService.getString('child_id');
+    if (childId != null) {
+      // Re-init socket for new child
+      _initSocket();
+      // Fetch new home data
+      injector<HomepageBloc>().add(GetHomepageData());
+      // Fetch saved places for new child
+      _loadSavedPlaces();
     }
   }
 
@@ -208,29 +221,31 @@ class _HomePageState extends State<HomePage> {
               child: _HomeMapBackground(loadCustomMarker: _loadCustomMarker),
             ),
 
-            // Layer 2: Top Bar Actions (Settings, etc.)
-            Positioned(
-              top: MediaQuery.of(context).padding.top + 10,
-              left: 16,
-              child: InkWell(
-                onTap: () {
-                  // Add back navigation if needed or menu
-                },
-                child: CircleAvatar(
-                  backgroundColor: Colors.black.withOpacity(0.6),
-                  child: const Icon(Icons.arrow_back, color: Colors.white),
-                ),
-              ),
-            ),
-
+            // // Layer 2: Top Bar Actions (Settings, etc.)
+            // Positioned(
+            //   top: MediaQuery.of(context).padding.top + 10,
+            //   left: 16,
+            //   child: InkWell(
+            //     onTap: () {
+            //       // Add back navigation if needed or menu
+            //     },
+            //     child: CircleAvatar(
+            //       backgroundColor: Colors.black.withOpacity(0.6),
+            //       child: const Icon(Icons.arrow_back, color: Colors.white),
+            //     ),
+            //   ),
+            // ),
             Positioned(
               top: MediaQuery.of(context).padding.top + 10,
               right: 16,
               child: InkWell(
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const SettingsView()),
-                ),
+                onTap: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const SettingsView()),
+                  );
+                  _refreshData();
+                },
                 child: CircleAvatar(
                   backgroundColor: Colors.black.withOpacity(
                     0.6,

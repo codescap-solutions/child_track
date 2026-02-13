@@ -1,3 +1,4 @@
+import 'package:child_track/app/auth/view/child_selection_screen.dart';
 import 'package:child_track/app/auth/view/onboarding/sign_in_view.dart';
 import 'package:child_track/app/auth/view_model/bloc/auth_bloc.dart';
 import 'package:child_track/app/auth/view_model/bloc/auth_event.dart';
@@ -46,26 +47,30 @@ class _OtpScreenState extends State<OtpScreen> {
               builder: (_) => SignInView(phoneNumber: state.phoneNumber),
             ),
           );
+        } else if (state is AuthSelectChild) {
+          // Multiple children - navigate to selection screen
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (_) => ChildSelectionScreen(children: state.children),
+            ),
+          );
         } else if (state is AuthSuccess) {
           if (state.hasChildren) {
             // User has children - navigate to home screen
-            Navigator.of(context).pushNamedAndRemoveUntil(
-              RouteNames.home,
-              (route) => false,
-            );
+            Navigator.of(
+              context,
+            ).pushNamedAndRemoveUntil(RouteNames.home, (route) => false);
           } else {
             // Existing user with no children - navigate to add child screen
-            Navigator.of(context).pushNamedAndRemoveUntil(
-              RouteNames.addChild,
-              (route) => false,
-            );
+            Navigator.of(
+              context,
+            ).pushNamedAndRemoveUntil(RouteNames.addChild, (route) => false);
           }
         } else if (state is AuthNeedsRegistration) {
           // Navigate to registration screen when data is null
-          Navigator.of(context).pushNamedAndRemoveUntil(
-            RouteNames.addChild,
-            (route) => false,
-          );
+          Navigator.of(
+            context,
+          ).pushNamedAndRemoveUntil(RouteNames.addChild, (route) => false);
         } else if (state is AuthError) {
           // Show error message
           AppSnackbar.showError(context, state.message);

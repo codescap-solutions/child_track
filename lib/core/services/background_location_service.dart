@@ -27,7 +27,7 @@ class BackgroundLocationService {
       'child_track_location', // id
       'Location Tracking', // title
       description: 'Tracking your location in background', // description
-      importance: Importance.low, // importance must be at low or higher level
+      importance: Importance.high, // importance must be at low or higher level
     );
 
     final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
@@ -137,7 +137,9 @@ void onStart(ServiceInstance service) async {
         accuracy: LocationAccuracy.high,
         distanceFilter: 10, // 10m filter to save battery
         forceLocationManager: true,
-        intervalDuration: const Duration(seconds: 5), // Min interval
+        intervalDuration: const Duration(
+          seconds: 30,
+        ), // Min interval to avoid bad behavior flag
         foregroundNotificationConfig: const ForegroundNotificationConfig(
           notificationTitle: "NaviQ Active",
           notificationText: "Tracking location...",

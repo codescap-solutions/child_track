@@ -6,6 +6,7 @@ import 'package:child_track/core/services/api_endpoints.dart';
 import 'package:child_track/core/services/base_service.dart';
 import 'package:child_track/core/services/dio_client.dart';
 import 'package:child_track/core/services/shared_prefs_service.dart';
+import 'package:child_track/core/models/child_profile.dart';
 import 'package:child_track/core/utils/app_logger.dart';
 
 class ChildRepo extends BaseService {
@@ -46,9 +47,18 @@ class ChildRepo extends BaseService {
           await _sharedPrefsService.setString('child_code', childCode);
           AppLogger.info('Child login: Child ID saved: $childId');
 
-          final name = data['child']?['name'] as String?;
-          if (name != null) {
-            await _sharedPrefsService.setString('child_name', name);
+          final name = data['child']?['name'] as String? ?? 'Child';
+          await _sharedPrefsService.setString('child_name', name);
+
+          // Multi-Child: Save to profile list
+          if (token != null) {
+            final profile = ChildProfile(
+              childId: childCode,
+              childName: name,
+              authToken: token,
+              lastActiveAt: DateTime.now(),
+            );
+            await _sharedPrefsService.addChild(profile);
           }
 
           final parentPhone = data['child']?['parent_phone']?.toString();

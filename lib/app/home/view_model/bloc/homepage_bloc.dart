@@ -100,7 +100,7 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
           ),
         );
         emit(
-          HomepageSuccess(
+          startingState.copyWith(
             deviceInfo: homeData.deviceInfo,
             yesterdayTrips: tripsToUse,
             yesterdayTripSummary: homeData.yesterdayTripSummary,

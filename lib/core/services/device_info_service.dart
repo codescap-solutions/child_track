@@ -14,7 +14,7 @@ class DeviceInfoService {
   final Battery _battery = Battery();
   final Connectivity _connectivity = Connectivity();
   static const MethodChannel _channel = MethodChannel(
-    'com.example.child_track/device_info',
+    'com.truenyx.naviq/device_info',
   );
 
   /// Get current device information
@@ -178,4 +178,6 @@ class DeviceInfoService {
       return [];
     }
   }
+
+  Future checkUsagePermission() async {}
 }

@@ -90,4 +90,34 @@ class AppSnackbar {
       ),
     );
   }
+
+  static void showLoading(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const SizedBox(
+              height: 20,
+              width: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  AppColors.surfaceColor,
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Text(
+              message,
+              style: const TextStyle(color: AppColors.surfaceColor),
+            ),
+          ],
+        ),
+        backgroundColor: AppColors.primaryColor,
+        duration: const Duration(seconds: 10),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+  }
 }

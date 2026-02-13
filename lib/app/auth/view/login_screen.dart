@@ -78,19 +78,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _buildHeader() {
     return Column(
       children: [
-        Container(
-          width: 120,
-          height: 120,
-          decoration: BoxDecoration(
-            color: AppColors.primaryColor,
-            borderRadius: BorderRadius.circular(AppSizes.radiusXXL),
-          ),
-          child: const Icon(
-            Icons.child_care,
-            size: 60,
-            color: AppColors.surfaceColor,
-          ),
-        ),
+        Image.asset('assets/images/logo.jpg', width: 120, height: 120),
         const SizedBox(height: AppSizes.spacingL),
         Text(
           AppStrings.loginTitle,

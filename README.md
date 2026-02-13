@@ -28,7 +28,7 @@ This project uses Firebase Cloud Messaging (FCM) for push notifications. Follow 
 
 2. **Add Android App to Firebase**:
    - In your Firebase project, click the Android icon (or "Add app")
-   - Package name: `com.example.child_track` (must match your `applicationId` in `android/app/build.gradle.kts`)
+   - Package name: `com.truenyx.naviq` (must match your `applicationId` in `android/app/build.gradle.kts`)
    - App nickname: `NAVIQ Android` (optional)
    - Register app
    - Download `google-services.json`
@@ -36,7 +36,7 @@ This project uses Firebase Cloud Messaging (FCM) for push notifications. Follow 
 
 3. **Add iOS App to Firebase**:
    - In your Firebase project, click the iOS icon (or "Add app")
-   - Bundle ID: `com.example.child_track` (must match your bundle identifier)
+   - Bundle ID: `com.truenyx.naviq` (must match your bundle identifier)
    - App nickname: `NAVIQ iOS` (optional)
    - Register app
    - Download `GoogleService-Info.plist`
