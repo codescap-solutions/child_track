@@ -2,6 +2,7 @@ import 'package:child_track/app/settings/view/account_view.dart';
 import 'package:child_track/core/di/injector.dart';
 import 'package:child_track/core/navigation/route_names.dart';
 import 'package:child_track/core/services/shared_prefs_service.dart';
+import 'package:child_track/core/services/firebase_notification_service.dart';
 import 'package:child_track/core/models/child_profile.dart';
 import 'package:child_track/core/services/background_location_service.dart';
 import 'package:child_track/core/utils/app_logger.dart';
@@ -523,7 +524,10 @@ class _SettingsViewState extends State<SettingsView> {
                         size: 16,
                         color: AppColors.textSecondary,
                       ),
-                      onTap: () {
+                      onTap: () async {
+                        // Remove FCM token from server before logout
+                        await FirebaseNotificationService()
+                            .removeTokenFromServer();
                         injector<SharedPrefsService>().logout();
                         Navigator.pushNamedAndRemoveUntil(
                           context,

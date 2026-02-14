@@ -4,6 +4,7 @@ import 'package:child_track/app/childapp/view_model/repository/child_location_re
 import 'package:child_track/app/childapp/view_model/repository/device_info_service.dart';
 import 'package:child_track/app/home/model/device_model.dart';
 import 'package:child_track/core/utils/app_logger.dart';
+import 'package:child_track/core/services/firebase_notification_service.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:child_track/app/childapp/view_model/repository/child_repo.dart';
@@ -62,6 +63,9 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
 
       // Schedule background sync
       BackgroundTaskService.schedulePeriodicSync();
+
+      // Register FCM token with server for child device
+      FirebaseNotificationService().registerTokenWithServer();
     } else {
       AppLogger.info(
         'ChildBloc: Skipping initialization - not logged in as child',

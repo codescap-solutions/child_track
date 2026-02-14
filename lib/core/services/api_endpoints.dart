@@ -30,4 +30,11 @@ class ApiEndpoints {
       'trip-tracking/$childId/locations';
   static const String places = 'places';
   static const String getAppUsage = 'app-usage';
+
+  // FCM Token endpoints
+  static const String parentFcmToken = 'fcm-token/parent';
+  static const String childFcmToken = 'fcm-token/child';
+
+  // SOS endpoint
+  static const String childSOS = 'child/sos';
 }

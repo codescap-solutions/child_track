@@ -225,6 +225,29 @@ class AuthRepository extends BaseService {
     }
   }
 
+  // Register parent FCM token with server
+  Future<BaseResponse> registerParentFcmToken(String fcmToken) async {
+    try {
+      final response = await put(
+        ApiEndpoints.parentFcmToken,
+        data: {'fcm_token': fcmToken},
+      );
+      return response;
+    } catch (e) {
+      return BaseResponse.error(message: e.toString());
+    }
+  }
+
+  // Remove parent FCM token from server (on logout)
+  Future<BaseResponse> removeParentFcmToken() async {
+    try {
+      final response = await delete(ApiEndpoints.parentFcmToken);
+      return response;
+    } catch (e) {
+      return BaseResponse.error(message: e.toString());
+    }
+  }
+
   // Get current user info
   Map<String, String?> getCurrentUser() {
     return {
