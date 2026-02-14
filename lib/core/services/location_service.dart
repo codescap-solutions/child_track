@@ -46,13 +46,11 @@ class LocationService {
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
-          AppLogger.warning('Location permissions are denied');
           return LocationPermission.denied;
         }
       }
 
       if (permission == LocationPermission.deniedForever) {
-        AppLogger.warning('Location permissions are permanently denied');
         return LocationPermission.deniedForever;
       }
 
@@ -61,9 +59,6 @@ class LocationService {
         try {
           // Check if we have "always" permission, if not, request background permission
           if (permission == LocationPermission.whileInUse) {
-            AppLogger.info(
-              'Requesting background location permission for Android 10+',
-            );
             final backgroundStatus =
                 await permission_handler.Permission.locationAlways.status;
 
@@ -74,20 +69,13 @@ class LocationService {
                   .request();
 
               if (backgroundPermission.isGranted) {
-                AppLogger.info('Background location permission granted');
                 permission = LocationPermission.always;
               } else if (backgroundPermission.isPermanentlyDenied) {
-                AppLogger.warning(
-                  'Background location permission permanently denied',
-                );
-                // User needs to enable it manually in settings
+                permission = LocationPermission.deniedForever;
               } else {
-                AppLogger.warning(
-                  'Background location permission denied, but foreground permission granted',
-                );
+                permission = LocationPermission.denied;
               }
             } else {
-              AppLogger.info('Background location permission already granted');
               permission = LocationPermission.always;
             }
           }
@@ -99,7 +87,6 @@ class LocationService {
         }
       }
 
-      AppLogger.info('Location permission granted: $permission');
       return permission;
     } catch (e) {
       AppLogger.error('Error requesting permission: $e');
@@ -115,7 +102,6 @@ class LocationService {
       // First check if location services are enabled
       bool serviceEnabled = await isLocationServiceEnabled();
       if (!serviceEnabled) {
-        AppLogger.warning('Location services are disabled');
         return {'granted': false, 'needsSettings': false};
       }
 
@@ -125,13 +111,11 @@ class LocationService {
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
-          AppLogger.warning('Location permissions are denied');
           return {'granted': false, 'needsSettings': false};
         }
       }
 
       if (permission == LocationPermission.deniedForever) {
-        AppLogger.warning('Location permissions are permanently denied');
         return {'granted': false, 'needsSettings': true};
       }
 
@@ -149,9 +133,6 @@ class LocationService {
       // Step 3: For Android 10+ (API 29+), request background location permission separately
       if (Platform.isAndroid) {
         if (permission == LocationPermission.whileInUse) {
-          AppLogger.info(
-            'Requesting background location permission for Android 10+',
-          );
           final backgroundStatus =
               await permission_handler.Permission.locationAlways.status;
 
@@ -164,23 +145,16 @@ class LocationService {
                 .request();
 
             if (backgroundPermission.isGranted) {
-              AppLogger.info('Background location permission granted');
               permission = LocationPermission.always;
             } else if (backgroundPermission.isPermanentlyDenied) {
-              AppLogger.warning(
-                'Background location permission permanently denied',
-              );
               return {'granted': false, 'needsSettings': true};
             } else {
               // On Android 10+, if not granted, user typically needs to go to Settings
               // The system dialog usually guides them there
-              AppLogger.warning(
-                'Background location permission denied - user needs to enable in Settings',
-              );
+
               return {'granted': false, 'needsSettings': true};
             }
           } else {
-            AppLogger.info('Background location permission already granted');
             permission = LocationPermission.always;
           }
         }
@@ -190,9 +164,6 @@ class LocationService {
       final finalPermission = await checkPermission();
       final hasAlwaysPermission = finalPermission == LocationPermission.always;
 
-      AppLogger.info(
-        'Final location permission: $finalPermission, hasAlwaysPermission: $hasAlwaysPermission',
-      );
       return {
         'granted': hasAlwaysPermission,
         'needsSettings':
@@ -234,19 +205,15 @@ class LocationService {
       LocationPermission permission = await requestPermission();
       if (permission != LocationPermission.whileInUse &&
           permission != LocationPermission.always) {
-        AppLogger.warning('Location permission not granted');
         return null;
       }
 
       // Get current position
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
-        timeLimit: const Duration(seconds: 5),
+        timeLimit: const Duration(seconds: 10),
       );
 
-      AppLogger.info(
-        'Current position: ${position.latitude}, ${position.longitude}',
-      );
       return position;
     } catch (e) {
       AppLogger.error('Error getting current position: $e');
@@ -258,11 +225,6 @@ class LocationService {
   Future<Position?> getLastKnownPosition() async {
     try {
       Position? position = await Geolocator.getLastKnownPosition();
-      if (position != null) {
-        AppLogger.info(
-          'Last known position: ${position.latitude}, ${position.longitude}',
-        );
-      }
       return position;
     } catch (e) {
       AppLogger.error('Error getting last known position: $e');
@@ -273,12 +235,12 @@ class LocationService {
   /// Stream of position updates (works in foreground and background)
   /// Note: For reliable background tracking when app is killed, consider using
   /// a foreground service or WorkManager package
-  Stream<Position>? getPositionStream() {
+  Stream<Position>? getPositionStream(int distanceFilter) {
     try {
       return Geolocator.getPositionStream(
-        locationSettings: const LocationSettings(
+        locationSettings: LocationSettings(
           accuracy: LocationAccuracy.high,
-          distanceFilter: 10, // Update every 10 meters
+          distanceFilter: distanceFilter,
         ),
       );
     } catch (e) {
@@ -319,7 +281,6 @@ class LocationService {
       );
 
       if (address == null) {
-        AppLogger.warning('Could not get address from coordinates');
         return {'address': 'Unknown', 'place_name': 'Unknown'};
       }
 

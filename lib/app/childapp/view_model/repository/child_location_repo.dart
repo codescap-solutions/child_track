@@ -42,4 +42,12 @@ class ChildGoogleMapsRepo {
       return {'address': 'Unknown-1', 'place_name': 'Unknown -2'};
     }
   }
+
+  Stream<Position>? getPositionStream(int distanceFilter) {
+    try {
+      return _locationService.getPositionStream(distanceFilter);
+    } catch (e) {
+      return null;
+    }
+  }
 }

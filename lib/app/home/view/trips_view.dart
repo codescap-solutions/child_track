@@ -7,6 +7,11 @@ import 'package:child_track/core/constants/app_sizes.dart';
 import 'package:child_track/core/constants/app_text_styles.dart';
 import 'package:child_track/core/widgets/common_button.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:child_track/app/home/view/trip_detail_view.dart';
+import 'package:child_track/app/home/model/last_trip_model.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:intl/intl.dart';
+import 'package:geocoding/geocoding.dart';
 
 /// Trips List View - Shows all trips
 class TripsView extends StatefulWidget {
@@ -38,7 +43,7 @@ class _TripsViewState extends State<TripsView> {
   void _onScroll() {
     if (_isBottom) {
       // TODO: Implement pagination load more
-      // _homepageBloc.add(GetTrips(page: nextPage, pageSize: 10));
+      _homepageBloc.add(GetTrips(page: 1, pageSize: 10));
     }
   }
 
@@ -106,11 +111,62 @@ class _SimpleTripCard extends StatelessWidget {
 
   const _SimpleTripCard({required this.trip});
 
+  Set<Polyline> _createPolylines() {
+    if (trip.points.isEmpty) return {};
+
+    final coordinates = trip.points
+        .map((point) => LatLng(point.lat, point.lng))
+        .toList();
+
+    return {
+      Polyline(
+        polylineId: PolylineId('trip_${trip.tripId}'),
+        points: coordinates,
+        color: AppColors.primaryColor,
+        width: 3,
+        startCap: Cap.roundCap,
+        endCap: Cap.roundCap,
+      ),
+    };
+  }
+
+  Set<Marker> _createMarkers() {
+    if (trip.points.isEmpty) return {};
+
+    final startPoint = trip.points.first;
+    final endPoint = trip.points.last;
+
+    return {
+      Marker(
+        markerId: const MarkerId('start'),
+        position: LatLng(startPoint.lat, startPoint.lng),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+      ),
+      Marker(
+        markerId: const MarkerId('end'),
+        position: LatLng(endPoint.lat, endPoint.lng),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+      ),
+    };
+  }
+
+  CameraPosition _getInitialCameraPosition() {
+    if (trip.points.isEmpty) {
+      return const CameraPosition(target: LatLng(0, 0), zoom: 1);
+    }
+    // Center map on the first point, or calculate bounds if possible (lite mode handles bounds poorly/static)
+    // For lite mode, centering on start or midpoint is best.
+    final midIndex = trip.points.length ~/ 2;
+    return CameraPosition(
+      target: LatLng(trip.points[midIndex].lat, trip.points[midIndex].lng),
+      zoom: 12,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(bottom: AppSizes.spacingL),
-      padding: const EdgeInsets.all(AppSizes.paddingM),
       decoration: BoxDecoration(
         color: AppColors.surfaceColor,
         borderRadius: BorderRadius.circular(AppSizes.radiusL),
@@ -124,92 +180,284 @@ class _SimpleTripCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Row(
-            children: [
-              Container(
-                width: 50,
-                height: 50,
-                decoration: BoxDecoration(
-                  color: AppColors.primaryColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(AppSizes.radiusM),
-                ),
-                child: Icon(
-                  Icons.directions_car,
-                  color: AppColors.primaryColor,
-                ),
+          // Map Section
+          SizedBox(
+            height: 150,
+            width: double.infinity,
+            child: ClipRRect(
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(AppSizes.radiusL),
+                topRight: Radius.circular(AppSizes.radiusL),
               ),
-              const SizedBox(width: AppSizes.spacingM),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              child: trip.points.isNotEmpty
+                  ? GoogleMap(
+                      initialCameraPosition: _getInitialCameraPosition(),
+                      liteModeEnabled: true,
+                      mapToolbarEnabled: false,
+                      zoomControlsEnabled: false,
+                      polylines: _createPolylines(),
+                      markers: _createMarkers(),
+                      onMapCreated: (controller) {
+                        if (trip.points.isNotEmpty) {
+                          final bounds = _createBounds(
+                            trip.points
+                                .map((p) => LatLng(p.lat, p.lng))
+                                .toList(),
+                          );
+                          controller.moveCamera(
+                            CameraUpdate.newLatLngBounds(bounds, 20),
+                          );
+                        }
+                      },
+                    )
+                  : Container(
+                      color: Colors.grey[100],
+                      child: const Center(child: Text('No path data')),
+                    ),
+            ),
+          ),
+
+          // Details Section
+          Padding(
+            padding: const EdgeInsets.all(AppSizes.paddingM),
+            child: Column(
+              children: [
+                Row(
                   children: [
-                    Text(
-                      '${trip.startTime} - ${trip.endTime}',
-                      style: AppTextStyles.subtitle2.copyWith(
-                        fontWeight: FontWeight.bold,
+                    Container(
+                      width: 50,
+                      height: 50,
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(AppSizes.radiusM),
+                      ),
+                      child: Icon(
+                        Icons.directions_car,
+                        color: AppColors.primaryColor,
                       ),
                     ),
-                    Text(
-                      '${trip.distanceKm} km • ${trip.eventsCount} events',
-                      style: AppTextStyles.caption.copyWith(
-                        color: AppColors.textSecondary,
+                    const SizedBox(width: AppSizes.spacingM),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'from ${_formatTime(trip.startTime)} to ${_formatTime(trip.endTime)}',
+                            maxLines: 2,
+                            style: AppTextStyles.subtitle2.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            '${trip.distanceKm} km • ${trip.eventsCount} events',
+                            style: AppTextStyles.caption.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
                       ),
+                    ),
+                    CommonButton(
+                      padding: EdgeInsets.zero,
+                      width: 80,
+                      text: 'View',
+                      fontSize: 12,
+                      textColor: AppColors.surfaceColor,
+                      onPressed: () {
+                        if (trip.points.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("No detailed trip data available"),
+                            ),
+                          );
+                          return;
+                        }
+                        final tripSegment = TripSegment.fromTrip(trip);
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => TripDetailView(
+                              trip: tripSegment,
+                              markers: _createMarkers().toList(),
+                              polylines: _createPolylines().toList(),
+                            ),
+                          ),
+                        );
+                      },
+                      height: 30,
                     ),
                   ],
                 ),
-              ),
-              CommonButton(
-                padding: EdgeInsets.zero,
-                width: 80,
-                text: 'View',
-                fontSize: 12,
-                textColor: AppColors.surfaceColor,
-                onPressed: () {
-                  // Navigate to Detail View - will need to fetch detail inside there
-                  // Note: TripDetailView currently expects TripSegment.
-                  // This part might need adjustment if TripDetailView isn't updated.
-                  // As per current task scope, we are focusing on TripsView listing.
-                },
-                height: 30,
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSizes.spacingM),
-          // Route info
-          Row(
-            children: [
-              const Icon(Icons.circle, size: 8, color: Colors.green),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  trip.fromPlace,
-                  style: AppTextStyles.body2,
-                  overflow: TextOverflow.ellipsis,
+                const SizedBox(height: AppSizes.spacingM),
+                // Route info
+                // Route info
+                _PlaceRenderer(
+                  placeName: trip.fromPlace,
+                  point: trip.points.isNotEmpty ? trip.points.first : null,
+                  iconColor: Colors.green,
                 ),
-              ),
-            ],
-          ),
-          Container(
-            margin: const EdgeInsets.only(left: 3.5),
-            height: 16,
-            width: 1,
-            color: AppColors.textSecondary.withValues(alpha: 0.3),
-          ),
-          Row(
-            children: [
-              const Icon(Icons.circle, size: 8, color: Colors.red),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  trip.toPlace,
-                  style: AppTextStyles.body2,
-                  overflow: TextOverflow.ellipsis,
+                Container(
+                  margin: const EdgeInsets.only(left: 3.5),
+                  height: 16,
+                  width: 1,
+                  color: AppColors.textSecondary.withValues(alpha: 0.3),
                 ),
-              ),
-            ],
+                _PlaceRenderer(
+                  placeName: trip.toPlace,
+                  point: trip.points.isNotEmpty ? trip.points.last : null,
+                  iconColor: Colors.red,
+                ),
+              ],
+            ),
           ),
         ],
       ),
+    );
+  }
+
+  LatLngBounds _createBounds(List<LatLng> positions) {
+    var south = positions.first.latitude;
+    var north = positions.first.latitude;
+    var west = positions.first.longitude;
+    var east = positions.first.longitude;
+
+    for (var i = 1; i < positions.length; i++) {
+      var p = positions[i];
+      if (p.latitude < south) south = p.latitude;
+      if (p.latitude > north) north = p.latitude;
+      if (p.longitude < west) west = p.longitude;
+      if (p.longitude > east) east = p.longitude;
+    }
+
+    return LatLngBounds(
+      southwest: LatLng(south, west),
+      northeast: LatLng(north, east),
+    );
+  }
+
+  String _formatTime(String timeStr) {
+    if (timeStr.isEmpty) return '';
+    try {
+      // First try ISO 8601 directly (if model changes in future)
+      final dt = DateTime.parse(timeStr).toLocal();
+      return DateFormat('h:mm a').format(dt).toLowerCase();
+    } catch (_) {
+      try {
+        // Fallback for current model format: "dd-MM-yyyy HH:mm:ss"
+        // This format is derived from UTC string but stripped of timezone info.
+        final inputFormat = DateFormat('dd-MM-yyyy HH:mm:ss');
+        // Parse as a local DateTime (default behavior) but it holds UTC values
+        final dtParsed = inputFormat.parse(timeStr);
+        // Create a UTC DateTime with these components
+        final dtUtc = DateTime.utc(
+          dtParsed.year,
+          dtParsed.month,
+          dtParsed.day,
+          dtParsed.hour,
+          dtParsed.minute,
+          dtParsed.second,
+        );
+        // Convert to device local time
+        final dtLocal = dtUtc.toLocal();
+
+        return DateFormat('h:mm a').format(dtLocal).toLowerCase();
+      } catch (e) {
+        return timeStr;
+      }
+    }
+  }
+}
+
+class _PlaceRenderer extends StatefulWidget {
+  final String placeName;
+  final TripPoint? point;
+  final Color iconColor;
+
+  const _PlaceRenderer({
+    required this.placeName,
+    required this.point,
+    required this.iconColor,
+  });
+
+  @override
+  State<_PlaceRenderer> createState() => _PlaceRendererState();
+}
+
+class _PlaceRendererState extends State<_PlaceRenderer> {
+  String? _resolvedAddress;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_shouldResolveAddress()) {
+      _resolveAddress();
+    }
+  }
+
+  bool _shouldResolveAddress() {
+    return widget.placeName == "Unknown Location" && widget.point != null;
+  }
+
+  Future<void> _resolveAddress() async {
+    if (mounted) {
+      setState(() => _isLoading = true);
+    }
+
+    try {
+      final placemarks = await placemarkFromCoordinates(
+        widget.point!.lat,
+        widget.point!.lng,
+      );
+
+      if (placemarks.isNotEmpty && mounted) {
+        final place = placemarks.first;
+        setState(() {
+          // Construct a simple address string
+          _resolvedAddress = [
+            place.street,
+            place.subLocality,
+            place.locality,
+          ].where((e) => e != null && e.isNotEmpty).join(', ');
+
+          if (_resolvedAddress!.isEmpty) {
+            _resolvedAddress = "${place.name}";
+          }
+        });
+      }
+    } catch (e) {
+      // debugPrint('Failed to resolve address: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final displayText = _resolvedAddress ?? widget.placeName;
+
+    return Row(
+      children: [
+        Icon(Icons.circle, size: 8, color: widget.iconColor),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _isLoading
+              ? SizedBox(
+                  height: 14,
+                  width: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppColors.textSecondary,
+                  ),
+                )
+              : Text(
+                  displayText,
+                  style: AppTextStyles.body2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+        ),
+      ],
     );
   }
 }

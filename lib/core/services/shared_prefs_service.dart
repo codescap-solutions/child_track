@@ -1,13 +1,57 @@
+import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../models/child_profile.dart';
 import '../utils/app_logger.dart';
 
 class SharedPrefsService {
   static SharedPreferences? _prefs;
 
   // Initialize SharedPreferences
+  static final _secureStorage = FlutterSecureStorage();
+  static String? _cachedAuthToken;
+
+  // Initialize SharedPreferences and load secure token
+  // Initialize SharedPreferences and load secure token
   static Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
-    AppLogger.info('SharedPreferences initialized');
+
+    // Migration: Check for legacy token in SharedPreferences
+    // We only migrate IF SecureStorage works. If it fails, we stick to Prefs.
+    String? secureToken;
+    bool secureStorageWorking = true;
+
+    try {
+      secureToken = await _secureStorage.read(key: 'auth_token');
+    } catch (e) {
+      secureStorageWorking = false;
+      AppLogger.error('SecureStorage not available: $e');
+    }
+
+    final legacyToken = _prefs?.getString('auth_token');
+
+    if (secureStorageWorking &&
+        legacyToken != null &&
+        legacyToken.isNotEmpty &&
+        secureToken == null) {
+      // Migrate
+      AppLogger.info('Migrating legacy auth token to SecureStorage');
+      try {
+        await _secureStorage.write(key: 'auth_token', value: legacyToken);
+        _cachedAuthToken = legacyToken;
+        await _prefs?.remove('auth_token');
+      } catch (e) {
+        // If write fails, keep legacy
+        _cachedAuthToken = legacyToken;
+      }
+    } else {
+      // Load from whichever source is available
+      _cachedAuthToken = secureToken ?? legacyToken;
+    }
+
+    AppLogger.info(
+      'SharedPreferences and SecureStorage initialized. Token loaded: ${_cachedAuthToken != null}',
+    );
   }
 
   // Get SharedPreferences instance
@@ -18,28 +62,52 @@ class SharedPrefsService {
     return _prefs!;
   }
 
-  // Auth Token
+  // Auth Token (Secure)
+  // Auth Token (Secure with Fallback)
   Future<bool> setAuthToken(String token) async {
     try {
-      return await prefs.setString('auth_token', token);
+      await _secureStorage.write(key: 'auth_token', value: token);
+      _cachedAuthToken = token;
+      return true;
     } catch (e) {
-      AppLogger.error('Error saving auth token: $e');
-      return false;
+      AppLogger.error('Error saving auth token to secure storage: $e');
+      // Fallback to SharedPreferences
+      try {
+        await prefs.setString('auth_token', token);
+        _cachedAuthToken = token;
+        return true;
+      } catch (e2) {
+        AppLogger.error('Error saving auth token to shared prefs: $e2');
+        return false;
+      }
     }
   }
 
-  String? getAuthToken() {
+  // Force reload of token from storage (useful after migration/re-install)
+  Future<void> reloadAuthToken() async {
     try {
-      return prefs.getString('auth_token');
+      _cachedAuthToken = await _secureStorage.read(key: 'auth_token');
     } catch (e) {
-      AppLogger.error('Error getting auth token: $e');
-      return null;
+      AppLogger.error('Error reloading secure token: $e');
+      // Fallback to SharedPreferences
+      try {
+        _cachedAuthToken = prefs.getString('auth_token');
+      } catch (e2) {
+        AppLogger.error('Error reloading shared prefs token: $e2');
+      }
     }
+    AppLogger.info('Auth token reloaded: ${_cachedAuthToken != null}');
+  }
+
+  String? getAuthToken() {
+    return _cachedAuthToken;
   }
 
   Future<bool> removeAuthToken() async {
     try {
-      return await prefs.remove('auth_token');
+      await _secureStorage.delete(key: 'auth_token');
+      _cachedAuthToken = null;
+      return true;
     } catch (e) {
       AppLogger.error('Error removing auth token: $e');
       return false;
@@ -177,7 +245,6 @@ class SharedPrefsService {
         userId.isNotEmpty;
   }
 
-
   // Logout user
   Future<bool> logout() async {
     try {
@@ -186,7 +253,7 @@ class SharedPrefsService {
       await removeUserPhone();
       await removeChildId();
       await removeParentId();
-  
+
       await removeAuthToken();
       AppLogger.info('User logged out successfully');
       return true;
@@ -195,8 +262,7 @@ class SharedPrefsService {
       return false;
     }
   }
-  
-   
+
   Future<bool> removeChildId() async {
     try {
       return await prefs.remove('child_id');
@@ -215,4 +281,64 @@ class SharedPrefsService {
     }
   }
 
+  // Multi-Child Support
+  Future<bool> saveChildren(List<ChildProfile> children) async {
+    try {
+      final String encoded = json.encode(
+        children.map((e) => e.toMap()).toList(),
+      );
+      return await prefs.setString('stored_children', encoded);
+    } catch (e) {
+      AppLogger.error('Error saving children list: $e');
+      return false;
+    }
+  }
+
+  List<ChildProfile> getChildren() {
+    try {
+      final String? encoded = prefs.getString('stored_children');
+      if (encoded == null) return [];
+      final List<dynamic> decoded = json.decode(encoded);
+      return decoded.map((e) => ChildProfile.fromMap(e)).toList();
+    } catch (e) {
+      AppLogger.error('Error getting children list: $e');
+      return [];
+    }
+  }
+
+  Future<bool> addChild(ChildProfile child) async {
+    final children = getChildren();
+    // Prevent duplicates
+    children.removeWhere((element) => element.childId == child.childId);
+    children.add(child);
+    return await saveChildren(children);
+  }
+
+  Future<bool> switchChild(String childId) async {
+    final children = getChildren();
+    final child = children.firstWhere(
+      (element) => element.childId == childId,
+      orElse: () => throw Exception('Child not found locally'),
+    );
+
+    // Update session data
+    await setAuthToken(child.authToken);
+    await setString('child_code', child.childId);
+    await setString('child_id', child.childId); // Critical for Home module
+    await setUserId(
+      child.childId,
+    ); // Assuming userId maps to childId in this app context
+    await setString('child_name', child.childName);
+
+    // Update last active
+    final updatedChildren = children.map((e) {
+      if (e.childId == childId) {
+        return e.copyWith(lastActiveAt: DateTime.now());
+      }
+      return e;
+    }).toList();
+    await saveChildren(updatedChildren);
+
+    return true;
+  }
 }

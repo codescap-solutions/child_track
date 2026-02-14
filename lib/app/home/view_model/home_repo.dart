@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:child_track/app/home/model/home_model.dart';
+import 'package:child_track/app/home/model/trip_list_model.dart';
 import 'package:child_track/core/services/api_endpoints.dart';
 import 'package:child_track/core/services/base_service.dart';
 import 'package:child_track/core/services/dio_client.dart';
@@ -12,7 +13,7 @@ class HomeRepository extends BaseService {
       ApiEndpoints.getHome,
       queryParameters: childId != null ? {'child_id': childId} : null,
     );
-    
+
     if (response.isSuccess && response.data != null) {
       try {
         final homeData = HomeResponse.fromJson(response.data!);
@@ -23,7 +24,7 @@ class HomeRepository extends BaseService {
         );
       }
     }
-    
+
     return BaseResponse.error(
       message: response.message,
       statusCode: response.statusCode,
@@ -46,21 +47,38 @@ class HomeRepository extends BaseService {
     );
   }
 
-  Future<BaseResponse> getTrips({
+  Future<BaseResponse<TripListResponse>> getTrips({
     String? childId,
     int? page,
     int? pageSize,
+    bool includePoints = true,
   }) async {
     final queryParams = <String, dynamic>{};
     if (childId != null) queryParams['child_id'] = childId;
     if (page != null) queryParams['page'] = page;
     if (pageSize != null) queryParams['page_size'] = pageSize;
+    queryParams['include_points'] = includePoints;
 
     final response = await get(
       ApiEndpoints.getTrips,
       queryParameters: queryParams.isNotEmpty ? queryParams : null,
     );
-    return response;
+
+    if (response.isSuccess && response.data != null) {
+      try {
+        final tripsData = TripListResponse.fromJson(response.data!);
+        return BaseResponse.success(data: tripsData, message: response.message);
+      } catch (e) {
+        return BaseResponse.error(
+          message: 'Failed to parse trips data: ${e.toString()}',
+        );
+      }
+    }
+
+    return BaseResponse.error(
+      message: response.message,
+      statusCode: response.statusCode,
+    );
   }
 
   Future<BaseResponse> getTripDetail(String tripId) async {

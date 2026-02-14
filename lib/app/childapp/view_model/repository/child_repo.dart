@@ -1,9 +1,12 @@
+import 'dart:convert';
 import 'dart:developer';
+import 'package:dio/dio.dart';
 
 import 'package:child_track/core/services/api_endpoints.dart';
 import 'package:child_track/core/services/base_service.dart';
 import 'package:child_track/core/services/dio_client.dart';
 import 'package:child_track/core/services/shared_prefs_service.dart';
+import 'package:child_track/core/models/child_profile.dart';
 import 'package:child_track/core/utils/app_logger.dart';
 
 class ChildRepo extends BaseService {
@@ -44,9 +47,18 @@ class ChildRepo extends BaseService {
           await _sharedPrefsService.setString('child_code', childCode);
           AppLogger.info('Child login: Child ID saved: $childId');
 
-          final name = data['child']?['name'] as String?;
-          if (name != null) {
-            await _sharedPrefsService.setString('child_name', name);
+          final name = data['child']?['name'] as String? ?? 'Child';
+          await _sharedPrefsService.setString('child_name', name);
+
+          // Multi-Child: Save to profile list
+          if (token != null) {
+            final profile = ChildProfile(
+              childId: childCode,
+              childName: name,
+              authToken: token,
+              lastActiveAt: DateTime.now(),
+            );
+            await _sharedPrefsService.addChild(profile);
           }
 
           final parentPhone = data['child']?['parent_phone']?.toString();
@@ -93,6 +105,48 @@ class ChildRepo extends BaseService {
     return response;
   }
 
+  Future<BaseResponse> getAvailableIcons() async {
+    AppLogger.info('ChildRepo: Fetching available icons...');
+    final response = await get(ApiEndpoints.getAvailableIcons);
+    if (response.isSuccess) {
+      AppLogger.info('ChildRepo: Available icons fetched: ${response.data}');
+    } else {
+      AppLogger.error('ChildRepo: Failed to fetch icons: ${response.message}');
+    }
+    return response;
+  }
+
+  Future<BaseResponse> uploadIcons(Map<String, String> iconsToUpload) async {
+    AppLogger.info('ChildRepo: Uploading ${iconsToUpload.length} icons...');
+    final formData = FormData();
+
+    iconsToUpload.forEach((package, iconBase64) {
+      if (iconBase64.isNotEmpty) {
+        try {
+          final bytes = base64Decode(iconBase64);
+          formData.files.add(
+            MapEntry(
+              package,
+              MultipartFile.fromBytes(bytes, filename: '$package.png'),
+            ),
+          );
+        } catch (e) {
+          AppLogger.error('Error decoding icon for $package: $e');
+        }
+      }
+    });
+
+    final response = await post(ApiEndpoints.uploadIcons, data: formData);
+    if (response.isSuccess) {
+      AppLogger.info(
+        'ChildRepo: Icons uploaded successfully: ${response.message}',
+      );
+    } else {
+      AppLogger.error('ChildRepo: Failed to upload icons: ${response.message}');
+    }
+    return response;
+  }
+
   Future<BaseResponse> postChildLocation(Map<String, dynamic> data) async {
     // if (_socketService.isConnected) {
     //   _socketService.sendLocation(data);
@@ -115,6 +169,4 @@ class ChildRepo extends BaseService {
     );
     return response;
   }
-
-  
 }

@@ -21,9 +21,13 @@ class MapViewWidget extends StatefulWidget {
     this.myLocationButtonEnabled = true,
     this.minZoom = 1.0,
     this.maxZoom = 20.0,
+    this.useEagerGestures = false,
+    this.onCameraMove,
   });
   final double width, height;
   final bool interactive, isPolyLines;
+  final bool useEagerGestures;
+  final void Function(CameraPosition)? onCameraMove;
   final LatLng? currentPosition;
   final List<Marker>? markers;
   final List<Polyline>? polylines;
@@ -142,7 +146,27 @@ class _MapViewWidgetState extends State<MapViewWidget> {
 
   Future<void> getPolylines() async {
     if (!mounted) return;
-    polylines = await injector<MapBloc>().getPolyLines(widget.markers ?? []);
+
+    // Start with provided polylines if any
+    final Map<PolylineId, Polyline> initialPolylines = {};
+    if (widget.polylines != null) {
+      for (var polyline in widget.polylines!) {
+        initialPolylines[polyline.polylineId] = polyline;
+      }
+    }
+
+    // Attempt to get polylines from markers via Bloc
+    try {
+      final blocPolylines = await injector<MapBloc>().getPolyLines(
+        widget.markers ?? [],
+      );
+      initialPolylines.addAll(blocPolylines);
+    } catch (e) {
+      // Ignore error if bloc fails, keep provided polylines
+    }
+
+    polylines = initialPolylines;
+
     if (mounted) {
       setState(() {});
     }
@@ -167,7 +191,8 @@ class _MapViewWidgetState extends State<MapViewWidget> {
                       mapToolbarEnabled: true,
                       zoomControlsEnabled: true,
                       compassEnabled: false,
-                      gestureRecognizers: widget.interactive
+                      gestureRecognizers:
+                          widget.interactive && widget.useEagerGestures
                           ? <Factory<OneSequenceGestureRecognizer>>{
                               Factory<OneSequenceGestureRecognizer>(
                                 () => EagerGestureRecognizer(),
@@ -179,6 +204,7 @@ class _MapViewWidgetState extends State<MapViewWidget> {
                         widget.minZoom,
                         widget.maxZoom,
                       ),
+
                       zoomGesturesEnabled: widget.interactive,
                       tiltGesturesEnabled: widget.interactive,
                       rotateGesturesEnabled: widget.interactive,
@@ -191,7 +217,7 @@ class _MapViewWidgetState extends State<MapViewWidget> {
                       polylines: Set<Polyline>.of(polylines.values),
                       initialCameraPosition: CameraPosition(
                         target: widget.currentPosition ?? state.currentPosition,
-                        zoom: widget.currentPosition != null ? 15.0 : 11.0,
+                        zoom: widget.currentPosition != null ? 15.0 : 15.0,
                       ),
                       markers: () {
                         final markersToUse =
@@ -201,6 +227,7 @@ class _MapViewWidgetState extends State<MapViewWidget> {
 
                         return markersToUse;
                       }(),
+                      onCameraMove: widget.onCameraMove,
                       onCameraMoveStarted: () {},
                       onCameraIdle: () {},
                       myLocationEnabled: widget.myLocationEnabled,
@@ -209,26 +236,15 @@ class _MapViewWidgetState extends State<MapViewWidget> {
                   ),
                   // Floating layers button
                   Positioned(
-                    right: 16,
-                    bottom: 160,
-                    child: Material(
-                      color: Colors.white,
-                      shape: const CircleBorder(),
-                      elevation: 4,
-                      child: InkWell(
-                        onTap: () => _showMapTypeOptions(context),
-                        borderRadius: BorderRadius.circular(24),
-                        child: Container(
-                          width: 48,
-                          height: 48,
-                          decoration: const BoxDecoration(
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.layers,
-                            color: Colors.black87,
-                          ),
-                        ),
+                    top: MediaQuery.of(context).padding.top + 10,
+                    right: 60,
+                    child: InkWell(
+                      onTap: () => _showMapTypeOptions(context),
+                      child: CircleAvatar(
+                        backgroundColor: Colors.black.withOpacity(
+                          0.6,
+                        ), // Standard map button style
+                        child: const Icon(Icons.layers, color: Colors.white),
                       ),
                     ),
                   ),

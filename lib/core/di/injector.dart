@@ -9,6 +9,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/dio_client.dart';
+import 'package:child_track/core/services/screen_time_sync_service.dart';
 import '../services/shared_prefs_service.dart';
 import '../../app/auth/view_model/auth_repository.dart';
 import '../../app/auth/view_model/bloc/auth_bloc.dart';
@@ -94,12 +95,21 @@ Future<void> initializeDependencies() async {
       socketService: injector<SocketService>(),
     ),
   );
+  injector.registerLazySingleton<ScreenTimeSyncService>(
+    () => ScreenTimeSyncService(
+      injector<ChildInfoService>(),
+      injector<ChildRepo>(),
+      injector<SharedPrefsService>(),
+    ),
+  );
+
   injector.registerLazySingleton<ChildBloc>(
     () => ChildBloc(
       sharedPrefsService: injector<SharedPrefsService>(),
       deviceInfoService: injector<ChildInfoService>(),
       childRepo: injector<ChildRepo>(),
       childLocationRepo: injector<ChildGoogleMapsRepo>(),
+      screenTimeSyncService: injector<ScreenTimeSyncService>(),
     ),
   );
 

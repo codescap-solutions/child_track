@@ -2,13 +2,13 @@
 
 ## 📱 Overview
 
-This document provides a comprehensive explanation of the **Installed Apps Feature** implemented in the Child Track application. This feature allows the app to fetch and display all installed applications (both system and user-installed apps) on the device, enabling parents to monitor and control their child's app usage.
+This document provides a comprehensive explanation of the **Installed Apps Feature** implemented in the NAVIQ application. This feature allows the app to fetch and display all installed applications (both system and user-installed apps) on the device, enabling parents to monitor and control their child's app usage.
 
 ---
 
 ## 🎯 Feature Purpose
 
-The Installed Apps feature is part of the "Scroll" section of the Child Track app, which provides:
+The Installed Apps feature is part of the "Scroll" section of the NAVIQ app, which provides:
 - **App Discovery**: View all apps installed on the child's device
 - **App Management**: Monitor and control app usage
 - **Screen Time Tracking**: Track time spent on different apps

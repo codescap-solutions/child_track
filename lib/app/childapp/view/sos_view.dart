@@ -49,19 +49,16 @@ class _SosViewState extends State<SosView> with WidgetsBindingObserver {
     AppLogger.info('SosView: Lifecycle state changed to $state');
     if (state == AppLifecycleState.resumed) {
       AppLogger.info(
-        'SosView: App resumed, starting permission check polling...',
+        'SosView: App resumed, checking permission status...',
       );
-      // Poll for permission status: Check 5 times with 1-second intervals
-      for (int i = 0; i < 5; i++) {
-        Future.delayed(Duration(seconds: i), () {
-          if (mounted) {
-            AppLogger.info(
-              'SosView: Check usage permission (attempt ${i + 1})',
-            );
-            _childBloc.add(CheckUsagePermission());
-          }
-        });
-      }
+      // Check permission once with a small delay instead of polling 5 times
+      // This significantly reduces the number of expensive native calls
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          AppLogger.info('SosView: Checking usage permission');
+          _childBloc.add(CheckUsagePermission());
+        }
+      });
     }
   }
 

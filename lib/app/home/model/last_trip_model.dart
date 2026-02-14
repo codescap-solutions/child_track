@@ -1,3 +1,4 @@
+import 'package:child_track/app/home/model/trip_list_model.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class TripSegment {
@@ -57,5 +58,47 @@ class TripSegment {
       ),
       progress: (json['progress'] ?? 0).toDouble(),
     );
+  }
+
+  factory TripSegment.fromTrip(Trip trip) {
+    return TripSegment(
+      segmentId: trip.tripId,
+      type: 'ride',
+      startTime: trip.startTime,
+      endTime: trip.endTime,
+      startPlace: trip.fromPlace.isNotEmpty
+          ? trip.fromPlace
+          : 'Unknown Location',
+      endPlace: trip.toPlace.isNotEmpty ? trip.toPlace : 'Unknown Location',
+      distanceKm: double.tryParse(trip.distanceKm) ?? 0.0,
+      durationMinutes: _calculateDurationMinutes(trip.startTime, trip.endTime),
+      maxSpeedKmph: 0.0,
+      polylinePoints: trip.points.map((p) => LatLng(p.lat, p.lng)).toList(),
+      startLocation: trip.points.isNotEmpty
+          ? LatLng(trip.points.first.lat, trip.points.first.lng)
+          : const LatLng(0, 0),
+      endLocation: trip.points.isNotEmpty
+          ? LatLng(trip.points.last.lat, trip.points.last.lng)
+          : const LatLng(0, 0),
+      progress: 100.0,
+    );
+  }
+
+  static int _calculateDurationMinutes(String start, String end) {
+    try {
+      String toIso(String s) {
+        final parts = s.split(' ');
+        if (parts.length != 2) return s;
+        final dateParts = parts[0].split('-');
+        if (dateParts.length != 3) return s;
+        return "${dateParts[2]}-${dateParts[1]}-${dateParts[0]} ${parts[1]}";
+      }
+
+      final s = DateTime.parse(toIso(start));
+      final e = DateTime.parse(toIso(end));
+      return e.difference(s).inMinutes;
+    } catch (_) {
+      return 0;
+    }
   }
 }

@@ -5,8 +5,10 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 
 class GeocodingService {
-  static const String _geocodingBaseUrl = 'https://maps.googleapis.com/maps/api/geocode/json';
-  static const String _placesBaseUrl = 'https://maps.googleapis.com/maps/api/place';
+  static const String _geocodingBaseUrl =
+      'https://maps.googleapis.com/maps/api/geocode/json';
+  static const String _placesBaseUrl =
+      'https://maps.googleapis.com/maps/api/place';
 
   // Reverse geocoding: Get address from coordinates
   Future<String?> getAddressFromCoordinates(LatLng location) async {
@@ -21,16 +23,30 @@ class GeocodingService {
         '$_geocodingBaseUrl?latlng=${location.latitude},${location.longitude}&key=$apiKey',
       );
 
+      AppLogger.info(
+        'Geocoding URL: ${url.toString().replaceAll(apiKey, "KEY_HIDDEN")}',
+      );
+
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        if (data['status'] == 'OK' && data['results'].isNotEmpty) {
+
+        if (data['status'] == 'OK' &&
+            data['results'] != null &&
+            (data['results'] as List).isNotEmpty) {
           final result = data['results'][0];
           return result['formatted_address'] as String?;
+        } else {
+          AppLogger.error('Geocoding API Error: ${jsonEncode(data)}');
+          return null;
         }
+      } else {
+        AppLogger.error(
+          'Geocoding HTTP Error: ${response.statusCode} - ${response.body}',
+        );
+        return null;
       }
-      return null;
     } catch (e) {
       AppLogger.error('Error getting address from coordinates: $e');
       return null;
@@ -91,4 +107,3 @@ class PlaceSearchResult {
 
   LatLng get location => LatLng(latitude, longitude);
 }
-

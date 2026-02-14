@@ -16,6 +16,11 @@ final class ChildDeviceInfoLoaded extends ChildState {
   final DateTime? tripStartTime;
   final Position? lastTrackedLocation;
   final bool hasUsagePermission;
+  final TripStatus tripStatus;
+  final TripMode tripMode;
+  final Position? lastPostedLocation;
+  final List<Position> candidatePoints;
+  final TripDetectionStatus detectionStatus;
 
   const ChildDeviceInfoLoaded({
     required this.deviceInfo,
@@ -26,6 +31,11 @@ final class ChildDeviceInfoLoaded extends ChildState {
     this.tripStartTime,
     this.lastTrackedLocation,
     this.hasUsagePermission = false,
+    this.tripStatus = TripStatus.idle,
+    this.tripMode = TripMode.unknown,
+    this.lastPostedLocation,
+    this.candidatePoints = const [],
+    this.detectionStatus = TripDetectionStatus.idle,
   });
 
   @override
@@ -38,6 +48,11 @@ final class ChildDeviceInfoLoaded extends ChildState {
     if (tripStartTime != null) tripStartTime!,
     if (lastTrackedLocation != null) lastTrackedLocation!,
     hasUsagePermission,
+    tripStatus,
+    tripMode,
+    if (lastPostedLocation != null) lastPostedLocation!,
+    candidatePoints,
+    detectionStatus,
   ];
 
   ChildDeviceInfoLoaded copyWith({
@@ -49,6 +64,11 @@ final class ChildDeviceInfoLoaded extends ChildState {
     DateTime? tripStartTime,
     Position? lastTrackedLocation,
     bool? hasUsagePermission,
+    TripStatus? tripStatus,
+    TripMode? tripMode,
+    Position? lastPostedLocation,
+    List<Position>? candidatePoints,
+    TripDetectionStatus? detectionStatus,
   }) {
     return ChildDeviceInfoLoaded(
       deviceInfo: deviceInfo ?? this.deviceInfo,
@@ -59,6 +79,11 @@ final class ChildDeviceInfoLoaded extends ChildState {
       tripStartTime: tripStartTime ?? this.tripStartTime,
       lastTrackedLocation: lastTrackedLocation ?? this.lastTrackedLocation,
       hasUsagePermission: hasUsagePermission ?? this.hasUsagePermission,
+      tripStatus: tripStatus ?? this.tripStatus,
+      tripMode: tripMode ?? this.tripMode,
+      lastPostedLocation: lastPostedLocation ?? this.lastPostedLocation,
+      candidatePoints: candidatePoints ?? this.candidatePoints,
+      detectionStatus: detectionStatus ?? this.detectionStatus,
     );
   }
 
@@ -86,3 +111,9 @@ final class SosError extends ChildState {
   @override
   List<Object> get props => [message];
 }
+
+enum TripStatus { idle, moving, waiting, ended }
+
+enum TripMode { unknown, walking, vehicle }
+
+enum TripDetectionStatus { idle, candidate }

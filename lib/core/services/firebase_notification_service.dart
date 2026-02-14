@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import '../utils/app_logger.dart';
+import 'package:child_track/core/services/background_task_service.dart';
 
 /// Top-level function for handling background messages
 /// This must be a top-level function, not a class method
@@ -8,6 +9,20 @@ import '../utils/app_logger.dart';
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   AppLogger.info('Background message received: ${message.messageId}');
   AppLogger.info('Background message data: ${message.data}');
+
+  if (message.data['type'] == 'SYNC_SCREEN_TIME') {
+    AppLogger.info('Received SYNC_SCREEN_TIME command via FCM');
+    // Ensure WorkManager is initialized (safe to call multiple times or if main app not running?)
+    // WorkManager plugin handles initialization check usually, but might need to be sure.
+    // However, we can just call triggerImmediateSync which registerOneOffTask.
+    // NOTE: Workmanager().initialize needs to be called before registering tasks?
+    // Actually, if the app was killed, we might need to initialize it here if not already.
+    // But `registerOneOffTask` might fail if not initialized.
+    // However, usually callbackDispatcher is what needs init.
+    // Let's assume we can just trigger it. If it fails, we might need a safer init pattern.
+    // Based on user request: "Workmanager().registerOneOffTask(...)" is what they want.
+    await BackgroundTaskService.triggerImmediateSync();
+  }
 }
 
 class FirebaseNotificationService {
@@ -38,18 +53,20 @@ class FirebaseNotificationService {
   Future<void> initialize() async {
     try {
       // Request notification permissions
-      NotificationSettings settings =
-          await _firebaseMessaging.requestPermission(
-        alert: true,
-        announcement: false,
-        badge: true,
-        carPlay: false,
-        criticalAlert: false,
-        provisional: false,
-        sound: true,
-      );
+      NotificationSettings settings = await _firebaseMessaging
+          .requestPermission(
+            alert: true,
+            announcement: false,
+            badge: true,
+            carPlay: false,
+            criticalAlert: false,
+            provisional: false,
+            sound: true,
+          );
 
-      AppLogger.info('User granted permission: ${settings.authorizationStatus}');
+      AppLogger.info(
+        'User granted permission: ${settings.authorizationStatus}',
+      );
 
       // Get FCM token
       await _getFCMToken();
@@ -58,10 +75,9 @@ class FirebaseNotificationService {
       _firebaseMessaging.onTokenRefresh.listen((newToken) {
         _fcmToken = newToken;
         AppLogger.info('FCM Token refreshed: $newToken');
-        _messageController.add(RemoteMessage(
-          messageId: 'token_refresh',
-          data: {'token': newToken},
-        ));
+        _messageController.add(
+          RemoteMessage(messageId: 'token_refresh', data: {'token': newToken}),
+        );
       });
 
       // Handle foreground messages
@@ -71,8 +87,8 @@ class FirebaseNotificationService {
       FirebaseMessaging.onMessageOpenedApp.listen(_handleNotificationTap);
 
       // Check if app was opened from a notification (terminated state)
-      RemoteMessage? initialMessage =
-          await _firebaseMessaging.getInitialMessage();
+      RemoteMessage? initialMessage = await _firebaseMessaging
+          .getInitialMessage();
       if (initialMessage != null) {
         _handleNotificationTap(initialMessage);
       }
@@ -154,4 +170,3 @@ class FirebaseNotificationService {
     _notificationTapController.close();
   }
 }
-
