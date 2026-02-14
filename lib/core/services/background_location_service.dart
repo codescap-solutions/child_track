@@ -63,16 +63,32 @@ class BackgroundLocationService {
 
   /// Start the background service
   Future<void> start() async {
-    final service = FlutterBackgroundService();
-    StructuredLogger.log(LogTag.BG, 'Starting service manually');
-    await service.startService();
+    try {
+      final service = FlutterBackgroundService();
+      final running = await service.isRunning();
+      if (running) {
+        StructuredLogger.log(
+          LogTag.BG,
+          'Service already running, skipping start',
+        );
+        return;
+      }
+      StructuredLogger.log(LogTag.BG, 'Starting service manually');
+      await service.startService();
+    } catch (e) {
+      StructuredLogger.log(LogTag.BG, 'Failed to start service', error: e);
+    }
   }
 
   /// Stop the background service
   Future<void> stop() async {
-    final service = FlutterBackgroundService();
-    StructuredLogger.log(LogTag.BG, 'Stopping service manually');
-    service.invoke('stop');
+    try {
+      final service = FlutterBackgroundService();
+      StructuredLogger.log(LogTag.BG, 'Stopping service manually');
+      service.invoke('stop');
+    } catch (e) {
+      StructuredLogger.log(LogTag.BG, 'Failed to stop service', error: e);
+    }
   }
 
   /// Check if service is running
@@ -91,6 +107,12 @@ void onStart(ServiceInstance service) async {
   try {
     DartPluginRegistrant.ensureInitialized();
     StructuredLogger.log(LogTag.BG, 'Service onStart initiated');
+
+    // CRITICAL: Set foreground IMMEDIATELY to satisfy Android's timeout
+    // requirement (must call startForeground within ~10s of startForegroundService)
+    if (service is AndroidServiceInstance) {
+      await service.setAsForegroundService();
+    }
 
     // 1. Service Controls
     if (service is AndroidServiceInstance) {
