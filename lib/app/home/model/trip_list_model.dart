@@ -26,6 +26,7 @@ class Trip {
   final String fromPlace;
   final String toPlace;
   final List<TripPoint> points;
+  final String rideMode;
 
   Trip({
     required this.tripId,
@@ -37,6 +38,7 @@ class Trip {
     required this.fromPlace,
     required this.toPlace,
     required this.points,
+    required this.rideMode,
   });
 
   factory Trip.fromJson(Map<String, dynamic> json) {
@@ -61,6 +63,7 @@ class Trip {
       fromPlace: json['from_place'] ?? '',
       toPlace: json['to_place'] ?? '',
       points: points,
+      rideMode: json['ride_mode'] ?? 'vehicle',
     );
   }
 }

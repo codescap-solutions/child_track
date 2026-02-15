@@ -111,6 +111,20 @@ class _SimpleTripCard extends StatelessWidget {
 
   const _SimpleTripCard({required this.trip});
 
+  IconData _getRideModeIcon(String rideMode) {
+    switch (rideMode.toLowerCase()) {
+      case 'walking':
+        return Icons.directions_walk;
+      case 'cycling':
+        return Icons.directions_bike;
+      case 'stationary':
+        return Icons.location_on;
+      case 'vehicle':
+      default:
+        return Icons.directions_car;
+    }
+  }
+
   Set<Polyline> _createPolylines() {
     if (trip.points.isEmpty) return {};
 
@@ -126,6 +140,9 @@ class _SimpleTripCard extends StatelessWidget {
         width: 3,
         startCap: Cap.roundCap,
         endCap: Cap.roundCap,
+        patterns: trip.rideMode.toLowerCase() == 'walking'
+            ? [PatternItem.dot, PatternItem.gap(10)]
+            : [],
       ),
     };
   }
@@ -154,8 +171,6 @@ class _SimpleTripCard extends StatelessWidget {
     if (trip.points.isEmpty) {
       return const CameraPosition(target: LatLng(0, 0), zoom: 1);
     }
-    // Center map on the first point, or calculate bounds if possible (lite mode handles bounds poorly/static)
-    // For lite mode, centering on start or midpoint is best.
     final midIndex = trip.points.length ~/ 2;
     return CameraPosition(
       target: LatLng(trip.points[midIndex].lat, trip.points[midIndex].lng),
@@ -232,7 +247,7 @@ class _SimpleTripCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(AppSizes.radiusM),
                       ),
                       child: Icon(
-                        Icons.directions_car,
+                        _getRideModeIcon(trip.rideMode),
                         color: AppColors.primaryColor,
                       ),
                     ),
@@ -288,7 +303,6 @@ class _SimpleTripCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: AppSizes.spacingM),
-                // Route info
                 // Route info
                 _PlaceRenderer(
                   placeName: trip.fromPlace,
