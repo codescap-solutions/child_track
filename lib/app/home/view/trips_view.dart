@@ -42,8 +42,13 @@ class _TripsViewState extends State<TripsView> {
 
   void _onScroll() {
     if (_isBottom) {
-      // TODO: Implement pagination load more
-      _homepageBloc.add(GetTrips(page: 1, pageSize: 10));
+      final state = _homepageBloc.state;
+      if (state is HomepageSuccess &&
+          !state.isLoadingTrips &&
+          !state.hasReachedMax) {
+        final nextPage = (state.tripsPage ?? 1) + 1;
+        _homepageBloc.add(GetTrips(page: nextPage, pageSize: 10));
+      }
     }
   }
 
@@ -88,10 +93,16 @@ class _TripsViewState extends State<TripsView> {
               controller: _scrollController,
               shrinkWrap: true,
               padding: const EdgeInsets.all(AppSizes.paddingL),
-              itemCount: state.trips.length + (state.isLoadingTrips ? 1 : 0),
+              // Add +1 for loader if loading more
+              itemCount: state.hasReachedMax
+                  ? state.trips.length
+                  : state.trips.length + 1,
               itemBuilder: (context, index) {
                 if (index >= state.trips.length) {
-                  return const Center(child: CircularProgressIndicator());
+                  return const Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
                 }
                 final trip = state.trips[index];
                 return _SimpleTripCard(trip: trip);
