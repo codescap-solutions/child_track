@@ -248,41 +248,95 @@ class _SimpleTripCard extends StatelessWidget {
             padding: const EdgeInsets.all(AppSizes.paddingM),
             child: Column(
               children: [
+                // Top Row: Time, Duration, Distance
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Container(
-                      width: 50,
-                      height: 50,
-                      decoration: BoxDecoration(
-                        color: AppColors.primaryColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(AppSizes.radiusM),
-                      ),
-                      child: Icon(
-                        _getRideModeIcon(trip.rideMode),
-                        color: AppColors.primaryColor,
+                    Expanded(
+                      child: RichText(
+                        text: TextSpan(
+                          style: AppTextStyles.body2.copyWith(
+                            color: AppColors.textPrimary,
+                          ),
+                          children: [
+                            TextSpan(
+                              text:
+                                  '${_formatTime(trip.startTime)} - ${_formatTime(trip.endTime)}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            TextSpan(
+                              text:
+                                  '   ${_calculateDuration(trip.startTime, trip.endTime)}',
+                              style: AppTextStyles.body2.copyWith(
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
+                    Icon(_getRideModeIcon(trip.rideMode)),
                     const SizedBox(width: AppSizes.spacingM),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[200],
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '${trip.distanceKm}km',
+                        style: AppTextStyles.caption.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSizes.spacingM),
+                // Bottom Row: Timeline and View Button
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'from ${_formatTime(trip.startTime)} to ${_formatTime(trip.endTime)}',
-                            maxLines: 2,
-                            style: AppTextStyles.subtitle2.copyWith(
-                              fontWeight: FontWeight.bold,
+                          _PlaceRenderer(
+                            placeName: trip.fromPlace.isNotEmpty
+                                ? trip.fromPlace
+                                : 'Unknown Location',
+                            point: trip.points.isNotEmpty
+                                ? trip.points.first
+                                : null,
+                            iconColor: Colors.grey.shade400,
+                          ),
+                          Container(
+                            margin: const EdgeInsets.only(left: 3.5),
+                            height: 12,
+                            width: 1,
+                            color: AppColors.textSecondary.withValues(
+                              alpha: 0.3,
                             ),
                           ),
-                          Text(
-                            '${trip.distanceKm} km • ${trip.eventsCount} events',
-                            style: AppTextStyles.caption.copyWith(
-                              color: AppColors.textSecondary,
-                            ),
+                          _PlaceRenderer(
+                            placeName: trip.toPlace.isNotEmpty
+                                ? trip.toPlace
+                                : 'Unknown Location',
+                            point: trip.points.isNotEmpty
+                                ? trip.points.last
+                                : null,
+                            iconColor: Colors.grey.shade400,
                           ),
                         ],
                       ),
                     ),
+                    const SizedBox(width: AppSizes.spacingM),
                     CommonButton(
                       padding: EdgeInsets.zero,
                       width: 80,
@@ -313,24 +367,7 @@ class _SimpleTripCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: AppSizes.spacingM),
-                // Route info
-                _PlaceRenderer(
-                  placeName: trip.fromPlace,
-                  point: trip.points.isNotEmpty ? trip.points.first : null,
-                  iconColor: Colors.green,
-                ),
-                Container(
-                  margin: const EdgeInsets.only(left: 3.5),
-                  height: 16,
-                  width: 1,
-                  color: AppColors.textSecondary.withValues(alpha: 0.3),
-                ),
-                _PlaceRenderer(
-                  placeName: trip.toPlace,
-                  point: trip.points.isNotEmpty ? trip.points.last : null,
-                  iconColor: Colors.red,
-                ),
+                // Removed redundant SizedBox and PlaceRenderers that were here
               ],
             ),
           ),
@@ -357,6 +394,24 @@ class _SimpleTripCard extends StatelessWidget {
       southwest: LatLng(south, west),
       northeast: LatLng(north, east),
     );
+  }
+
+  String _calculateDuration(String startStr, String endStr) {
+    try {
+      final start = DateTime.parse(startStr);
+      final end = DateTime.parse(endStr);
+      final duration = end.difference(start);
+      final hours = duration.inHours;
+      final minutes = duration.inMinutes.remainder(60);
+
+      if (hours > 0) {
+        return '(${hours}hrs ${minutes > 0 ? '$minutes min' : ''})'.trim();
+      } else {
+        return '($minutes min)';
+      }
+    } catch (_) {
+      return '';
+    }
   }
 
   String _formatTime(String timeStr) {
