@@ -7,6 +7,7 @@ import 'package:child_track/core/services/shared_prefs_service.dart';
 import 'package:child_track/core/di/injector.dart';
 import 'package:child_track/app/auth/view_model/auth_repository.dart';
 import 'package:child_track/app/childapp/view_model/repository/child_repo.dart';
+import 'package:workmanager/workmanager.dart';
 
 /// Top-level function for handling background messages
 /// This must be a top-level function, not a class method
@@ -17,16 +18,16 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
   if (message.data['type'] == 'SYNC_SCREEN_TIME') {
     AppLogger.info('Received SYNC_SCREEN_TIME command via FCM');
-    // Ensure WorkManager is initialized (safe to call multiple times or if main app not running?)
-    // WorkManager plugin handles initialization check usually, but might need to be sure.
-    // However, we can just call triggerImmediateSync which registerOneOffTask.
-    // NOTE: Workmanager().initialize needs to be called before registering tasks?
-    // Actually, if the app was killed, we might need to initialize it here if not already.
-    // But `registerOneOffTask` might fail if not initialized.
-    // However, usually callbackDispatcher is what needs init.
-    // Let's assume we can just trigger it. If it fails, we might need a safer init pattern.
-    // Based on user request: "Workmanager().registerOneOffTask(...)" is what they want.
-    await BackgroundTaskService.triggerImmediateSync();
+    try {
+      // CRITICAL: Initialize WorkManager in background isolate.
+      // When the app is killed, main() hasn't run, so WorkManager
+      // is not initialized. Safe to call multiple times.
+      await Workmanager().initialize(callbackDispatcher);
+      await BackgroundTaskService.triggerImmediateSync();
+      AppLogger.info('SYNC_SCREEN_TIME: WorkManager task scheduled');
+    } catch (e) {
+      AppLogger.error('SYNC_SCREEN_TIME: Failed to schedule sync: $e');
+    }
   }
 }
 
