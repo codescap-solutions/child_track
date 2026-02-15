@@ -1,6 +1,7 @@
 import 'package:child_track/app/home/model/device_model.dart';
 import 'package:child_track/app/childapp/view_model/bloc/child_bloc.dart';
 import 'package:child_track/core/di/injector.dart';
+import 'package:child_track/core/services/firebase_notification_service.dart';
 import 'package:child_track/core/utils/app_logger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -48,9 +49,7 @@ class _SosViewState extends State<SosView> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     AppLogger.info('SosView: Lifecycle state changed to $state');
     if (state == AppLifecycleState.resumed) {
-      AppLogger.info(
-        'SosView: App resumed, checking permission status...',
-      );
+      AppLogger.info('SosView: App resumed, checking permission status...');
       // Check permission once with a small delay instead of polling 5 times
       // This significantly reduces the number of expensive native calls
       Future.delayed(const Duration(milliseconds: 500), () {
@@ -190,6 +189,14 @@ class _SosViewContent extends StatelessWidget {
 
   Future<void> _performLogout(BuildContext context) async {
     try {
+      // Remove FCM token from server before logout
+      try {
+        await FirebaseNotificationService().removeTokenFromServer();
+        AppLogger.info('FCM token removed from server');
+      } catch (e) {
+        AppLogger.error('Error removing FCM token: $e');
+      }
+
       // Stop ChildBloc timers and tracking
       try {
         final childBloc = injector<ChildBloc>();

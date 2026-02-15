@@ -169,4 +169,50 @@ class ChildRepo extends BaseService {
     );
     return response;
   }
+
+  // Register child FCM token with server
+  Future<BaseResponse> registerChildFcmToken({
+    required String childId,
+    required String fcmToken,
+  }) async {
+    try {
+      final response = await put(
+        ApiEndpoints.childFcmToken,
+        data: {'child_id': childId, 'fcm_token': fcmToken},
+      );
+      return response;
+    } catch (e) {
+      return BaseResponse.error(message: e.toString());
+    }
+  }
+
+  // Remove child FCM token from server (on logout)
+  Future<BaseResponse> removeChildFcmToken({required String childId}) async {
+    try {
+      final response = await delete(
+        ApiEndpoints.childFcmToken,
+        data: {'child_id': childId},
+      );
+      return response;
+    } catch (e) {
+      return BaseResponse.error(message: e.toString());
+    }
+  }
+
+  // Send SOS emergency
+  Future<BaseResponse> sendSOS({
+    required String childId,
+    required double lat,
+    required double lng,
+  }) async {
+    try {
+      final response = await post(
+        ApiEndpoints.childSOS,
+        data: {'child_id': childId, 'lat': lat, 'lng': lng},
+      );
+      return response;
+    } catch (e) {
+      return BaseResponse.error(message: e.toString());
+    }
+  }
 }

@@ -2,6 +2,7 @@ import 'package:child_track/app/auth/view_model/auth_repository.dart';
 import 'package:child_track/app/auth/view_model/bloc/auth_event.dart';
 import 'package:child_track/app/auth/view_model/bloc/auth_state.dart';
 import 'package:child_track/core/services/shared_prefs_service.dart';
+import 'package:child_track/core/services/firebase_notification_service.dart';
 import 'package:child_track/core/utils/app_logger.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -101,6 +102,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
                 'children_count',
                 children.length,
               );
+              // Register FCM token with server after successful login
+              FirebaseNotificationService().registerTokenWithServer();
               emit(const AuthSuccess(hasChildren: true));
             }
           } else {
@@ -145,6 +148,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
             currentState.children.length,
           );
 
+          // Register FCM token with server after child selection
+          FirebaseNotificationService().registerTokenWithServer();
           emit(const AuthSuccess(hasChildren: true));
         } else {
           emit(const AuthError(message: 'Selected child not found'));
@@ -169,6 +174,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       );
       if (response.isSuccess) {
         // After registration, user has no children yet
+        // Register FCM token with server after registration
+        FirebaseNotificationService().registerTokenWithServer();
         emit(const AuthSuccess(hasChildren: false));
       } else {
         emit(AuthError(message: response.message));

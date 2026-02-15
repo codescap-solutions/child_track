@@ -45,44 +45,50 @@ class SocialAppsBloc extends Bloc<SocialAppsEvent, SocialAppsState> {
       if (response.isSuccess) {
         var appUsageResponse = response.data!;
 
-        try {
-          final localApps = await _childInfoService.getScreenTime();
-          final iconMap = <String, String>{};
-          for (var app in localApps) {
-            if (app.iconBase64 != null) {
-              iconMap[app.package] = app.iconBase64!;
-            }
-          }
-
-          final enrichedDailyUsage = <String, List<AppUsageItem>>{};
-          appUsageResponse.dailyUsage.forEach((date, items) {
-            enrichedDailyUsage[date] = items.map((item) {
-              final icon = iconMap[item.packageName];
-              if (icon != null) {
-                return AppUsageItem(
-                  date: item.date,
-                  appName: item.appName,
-                  packageName: item.packageName,
-                  usageTime: item.usageTime,
-                  usageTimeFormatted: item.usageTimeFormatted,
-                  platform: item.platform,
-                  openCount: item.openCount,
-                  iconBase64: icon,
-                );
+        // Only enrich with local icons if running on the child device.
+        // On the parent device, the child's apps aren't installed and the
+        // native MethodChannel call would fail with MissingPluginException.
+        final isParent = _sharedPrefsService.getString('parent_id') != null;
+        if (!isParent) {
+          try {
+            final localApps = await _childInfoService.getScreenTime();
+            final iconMap = <String, String>{};
+            for (var app in localApps) {
+              if (app.iconBase64 != null) {
+                iconMap[app.package] = app.iconBase64!;
               }
-              return item;
-            }).toList();
-          });
+            }
 
-          appUsageResponse = AppUsageResponse(
-            userId: appUsageResponse.userId,
-            totalUsageTime: appUsageResponse.totalUsageTime,
-            totalUsageTimeFormatted: appUsageResponse.totalUsageTimeFormatted,
-            totalApps: appUsageResponse.totalApps,
-            dailyUsage: enrichedDailyUsage,
-          );
-        } catch (e) {
-          // Continue with original data if icon fetch fails
+            final enrichedDailyUsage = <String, List<AppUsageItem>>{};
+            appUsageResponse.dailyUsage.forEach((date, items) {
+              enrichedDailyUsage[date] = items.map((item) {
+                final icon = iconMap[item.packageName];
+                if (icon != null) {
+                  return AppUsageItem(
+                    date: item.date,
+                    appName: item.appName,
+                    packageName: item.packageName,
+                    usageTime: item.usageTime,
+                    usageTimeFormatted: item.usageTimeFormatted,
+                    platform: item.platform,
+                    openCount: item.openCount,
+                    iconBase64: icon,
+                  );
+                }
+                return item;
+              }).toList();
+            });
+
+            appUsageResponse = AppUsageResponse(
+              userId: appUsageResponse.userId,
+              totalUsageTime: appUsageResponse.totalUsageTime,
+              totalUsageTimeFormatted: appUsageResponse.totalUsageTimeFormatted,
+              totalApps: appUsageResponse.totalApps,
+              dailyUsage: enrichedDailyUsage,
+            );
+          } catch (e) {
+            // Continue with original data if icon fetch fails
+          }
         }
 
         emit(
@@ -93,7 +99,7 @@ class SocialAppsBloc extends Bloc<SocialAppsEvent, SocialAppsState> {
           ),
         );
       } else {
-        emit(SocialAppsError(response.message ));
+        emit(SocialAppsError(response.message));
       }
     } catch (e) {
       emit(SocialAppsError(e.toString()));
