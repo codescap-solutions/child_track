@@ -24,6 +24,10 @@
         android:label="NaviQ"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <!-- Declare as a monitoring tool per Google Play policy -->
+        <meta-data
+            android:name="com.google.android.gms.monitoring.isMonitoringTool"
+            android:value="child_monitoring" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
