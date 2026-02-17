@@ -359,6 +359,7 @@ class _AdvancedSegmentedTabState extends State<AdvancedSegmentedTab>
 
           // Actual tabs
           TabBar(
+            dividerHeight: 0,
             controller: _controller,
             indicatorColor: Colors.transparent,
             overlayColor: WidgetStateProperty.all(Colors.transparent),

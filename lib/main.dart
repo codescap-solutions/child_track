@@ -10,6 +10,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'app/geofencing/view_model/bloc/geofence_bloc.dart';
 import 'core/di/injector.dart';
 import 'core/navigation/app_router.dart';
 import 'core/navigation/route_names.dart';
@@ -56,6 +57,9 @@ class ChildTrackApp extends StatelessWidget {
           create: (context) => injector<ConnectivityBloc>(),
         ),
         BlocProvider<AuthBloc>(create: (context) => injector<AuthBloc>()),
+        BlocProvider<GeofenceBloc>(
+          create: (context) => injector<GeofenceBloc>(),
+        ),
       ],
       child: MaterialApp(
         title: AppStrings.appTitle,

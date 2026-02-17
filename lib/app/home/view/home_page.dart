@@ -17,6 +17,7 @@ import 'package:child_track/core/utils/app_logger.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import '../../geofencing/view/geo_fencing_view.dart';
 import '../../settings/view/settings_view.dart';
 import '../../social_apps/view/social_apps_view.dart';
 import '../../addplace/model/saved_place_model.dart';
@@ -581,6 +582,12 @@ class _HomePageState extends State<HomePage> {
                       icon: 'assets/home/geo_guard_girl.svg',
                       onTap: () {
                         // Feature implementation needed
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const GeoFencingView(),
+                          ),
+                        );
                       },
                     ),
                   ),

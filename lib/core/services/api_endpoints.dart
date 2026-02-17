@@ -37,4 +37,9 @@ class ApiEndpoints {
 
   // SOS endpoint
   static const String childSOS = 'child/sos';
+
+  // Geofence Endpoints
+  static const String geofences = 'parent/geofences';
+  static String geofenceDetail(String id) => 'parent/geofences/$id';
+  static String geofenceLock(String id) => 'parent/geofences/$id/lock';
 }
