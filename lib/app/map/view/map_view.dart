@@ -45,11 +45,18 @@ class MapViewWidget extends StatefulWidget {
 class _MapViewWidgetState extends State<MapViewWidget> {
   Map<PolylineId, Polyline> polylines = {};
   MapType currentMapType = MapType.normal;
+  late CameraPosition _initialCameraPosition;
 
   @override
   void initState() {
     super.initState();
     getPolylines();
+    _initialCameraPosition = CameraPosition(
+      target:
+          widget.currentPosition ??
+          const LatLng(11.258753, 75.780410), // fallback
+      zoom: 15,
+    );
   }
 
   void _showMapTypeOptions(BuildContext context) {
@@ -188,55 +195,55 @@ class _MapViewWidgetState extends State<MapViewWidget> {
                 children: [
                   IgnorePointer(
                     ignoring: !widget.interactive,
-                    child: GoogleMap(
-                      onTap: (LatLng position) {
-                        widget.onMapTap?.call(position);
-                      },
-                      mapType: currentMapType,
-                      mapToolbarEnabled: true,
-                      zoomControlsEnabled: true,
-                      compassEnabled: false,
-                      gestureRecognizers:
-                          widget.interactive && widget.useEagerGestures
-                          ? <Factory<OneSequenceGestureRecognizer>>{
-                              Factory<OneSequenceGestureRecognizer>(
-                                () => EagerGestureRecognizer(),
-                              ),
-                            }
-                          : <Factory<OneSequenceGestureRecognizer>>{},
-                      scrollGesturesEnabled: widget.interactive,
-                      minMaxZoomPreference: MinMaxZoomPreference(
-                        widget.minZoom,
-                        widget.maxZoom,
+                    child: RepaintBoundary(
+                      child: GoogleMap(
+                        onTap: (LatLng position) {
+                          widget.onMapTap?.call(position);
+                        },
+                        mapType: currentMapType,
+                        mapToolbarEnabled: true,
+                        zoomControlsEnabled: true,
+                        compassEnabled: false,
+                        gestureRecognizers:
+                            widget.interactive && widget.useEagerGestures
+                            ? <Factory<OneSequenceGestureRecognizer>>{
+                                Factory<OneSequenceGestureRecognizer>(
+                                  () => EagerGestureRecognizer(),
+                                ),
+                              }
+                            : <Factory<OneSequenceGestureRecognizer>>{},
+                        scrollGesturesEnabled: widget.interactive,
+                        minMaxZoomPreference: MinMaxZoomPreference(
+                          widget.minZoom,
+                          widget.maxZoom,
+                        ),
+
+                        zoomGesturesEnabled: widget.interactive,
+                        tiltGesturesEnabled: widget.interactive,
+                        rotateGesturesEnabled: widget.interactive,
+
+                        onMapCreated: (controller) {
+                          injector<MapBloc>().add(MapCreated(controller));
+                          // Call custom onMapCreated callback if provided
+                          widget.onMapCreated?.call(controller);
+                        },
+                        polylines: Set<Polyline>.of(polylines.values),
+                        initialCameraPosition: _initialCameraPosition,
+                        markers: () {
+                          final markersToUse =
+                              widget.markers != null &&
+                                  widget.markers!.isNotEmpty
+                              ? widget.markers!.toSet()
+                              : state.markers.toSet();
+
+                          return markersToUse;
+                        }(),
+                        onCameraMove: widget.onCameraMove,
+                        onCameraMoveStarted: () {},
+                        onCameraIdle: () {},
+                        myLocationEnabled: widget.myLocationEnabled,
+                        myLocationButtonEnabled: widget.myLocationButtonEnabled,
                       ),
-
-                      zoomGesturesEnabled: widget.interactive,
-                      tiltGesturesEnabled: widget.interactive,
-                      rotateGesturesEnabled: widget.interactive,
-
-                      onMapCreated: (controller) {
-                        injector<MapBloc>().add(MapCreated(controller));
-                        // Call custom onMapCreated callback if provided
-                        widget.onMapCreated?.call(controller);
-                      },
-                      polylines: Set<Polyline>.of(polylines.values),
-                      initialCameraPosition: CameraPosition(
-                        target: widget.currentPosition ?? state.currentPosition,
-                        zoom: widget.currentPosition != null ? 15.0 : 15.0,
-                      ),
-                      markers: () {
-                        final markersToUse =
-                            widget.markers != null && widget.markers!.isNotEmpty
-                            ? widget.markers!.toSet()
-                            : state.markers.toSet();
-
-                        return markersToUse;
-                      }(),
-                      onCameraMove: widget.onCameraMove,
-                      onCameraMoveStarted: () {},
-                      onCameraIdle: () {},
-                      myLocationEnabled: widget.myLocationEnabled,
-                      myLocationButtonEnabled: widget.myLocationButtonEnabled,
                     ),
                   ),
                   // Floating layers button
