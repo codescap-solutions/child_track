@@ -42,8 +42,13 @@ class _TripsViewState extends State<TripsView> {
 
   void _onScroll() {
     if (_isBottom) {
-      // TODO: Implement pagination load more
-      _homepageBloc.add(GetTrips(page: 1, pageSize: 10));
+      final state = _homepageBloc.state;
+      if (state is HomepageSuccess &&
+          !state.isLoadingTrips &&
+          !state.hasReachedMax) {
+        final nextPage = (state.tripsPage ?? 1) + 1;
+        _homepageBloc.add(GetTrips(page: nextPage, pageSize: 10));
+      }
     }
   }
 
@@ -88,10 +93,16 @@ class _TripsViewState extends State<TripsView> {
               controller: _scrollController,
               shrinkWrap: true,
               padding: const EdgeInsets.all(AppSizes.paddingL),
-              itemCount: state.trips.length + (state.isLoadingTrips ? 1 : 0),
+              // Add +1 for loader if loading more
+              itemCount: state.hasReachedMax
+                  ? state.trips.length
+                  : state.trips.length + 1,
               itemBuilder: (context, index) {
                 if (index >= state.trips.length) {
-                  return const Center(child: CircularProgressIndicator());
+                  return const Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
                 }
                 final trip = state.trips[index];
                 return _SimpleTripCard(trip: trip);
@@ -111,6 +122,20 @@ class _SimpleTripCard extends StatelessWidget {
 
   const _SimpleTripCard({required this.trip});
 
+  IconData _getRideModeIcon(String rideMode) {
+    switch (rideMode.toLowerCase()) {
+      case 'walking':
+        return Icons.directions_walk;
+      case 'cycling':
+        return Icons.directions_bike;
+      case 'stationary':
+        return Icons.location_on;
+      case 'vehicle':
+      default:
+        return Icons.directions_car;
+    }
+  }
+
   Set<Polyline> _createPolylines() {
     if (trip.points.isEmpty) return {};
 
@@ -126,6 +151,9 @@ class _SimpleTripCard extends StatelessWidget {
         width: 3,
         startCap: Cap.roundCap,
         endCap: Cap.roundCap,
+        patterns: trip.rideMode.toLowerCase() == 'walking'
+            ? [PatternItem.dot, PatternItem.gap(10)]
+            : [],
       ),
     };
   }
@@ -154,8 +182,6 @@ class _SimpleTripCard extends StatelessWidget {
     if (trip.points.isEmpty) {
       return const CameraPosition(target: LatLng(0, 0), zoom: 1);
     }
-    // Center map on the first point, or calculate bounds if possible (lite mode handles bounds poorly/static)
-    // For lite mode, centering on start or midpoint is best.
     final midIndex = trip.points.length ~/ 2;
     return CameraPosition(
       target: LatLng(trip.points[midIndex].lat, trip.points[midIndex].lng),
@@ -222,41 +248,95 @@ class _SimpleTripCard extends StatelessWidget {
             padding: const EdgeInsets.all(AppSizes.paddingM),
             child: Column(
               children: [
+                // Top Row: Time, Duration, Distance
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Container(
-                      width: 50,
-                      height: 50,
-                      decoration: BoxDecoration(
-                        color: AppColors.primaryColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(AppSizes.radiusM),
-                      ),
-                      child: Icon(
-                        Icons.directions_car,
-                        color: AppColors.primaryColor,
+                    Expanded(
+                      child: RichText(
+                        text: TextSpan(
+                          style: AppTextStyles.body2.copyWith(
+                            color: AppColors.textPrimary,
+                          ),
+                          children: [
+                            TextSpan(
+                              text:
+                                  '${_formatTime(trip.startTime)} - ${_formatTime(trip.endTime)}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            TextSpan(
+                              text:
+                                  '   ${_calculateDuration(trip.startTime, trip.endTime)}',
+                              style: AppTextStyles.body2.copyWith(
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
+                    Icon(_getRideModeIcon(trip.rideMode)),
                     const SizedBox(width: AppSizes.spacingM),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[200],
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '${trip.distanceKm}km',
+                        style: AppTextStyles.caption.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSizes.spacingM),
+                // Bottom Row: Timeline and View Button
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'from ${_formatTime(trip.startTime)} to ${_formatTime(trip.endTime)}',
-                            maxLines: 2,
-                            style: AppTextStyles.subtitle2.copyWith(
-                              fontWeight: FontWeight.bold,
+                          _PlaceRenderer(
+                            placeName: trip.fromPlace.isNotEmpty
+                                ? trip.fromPlace
+                                : 'Unknown Location',
+                            point: trip.points.isNotEmpty
+                                ? trip.points.first
+                                : null,
+                            iconColor: Colors.grey.shade400,
+                          ),
+                          Container(
+                            margin: const EdgeInsets.only(left: 3.5),
+                            height: 12,
+                            width: 1,
+                            color: AppColors.textSecondary.withValues(
+                              alpha: 0.3,
                             ),
                           ),
-                          Text(
-                            '${trip.distanceKm} km • ${trip.eventsCount} events',
-                            style: AppTextStyles.caption.copyWith(
-                              color: AppColors.textSecondary,
-                            ),
+                          _PlaceRenderer(
+                            placeName: trip.toPlace.isNotEmpty
+                                ? trip.toPlace
+                                : 'Unknown Location',
+                            point: trip.points.isNotEmpty
+                                ? trip.points.last
+                                : null,
+                            iconColor: Colors.grey.shade400,
                           ),
                         ],
                       ),
                     ),
+                    const SizedBox(width: AppSizes.spacingM),
                     CommonButton(
                       padding: EdgeInsets.zero,
                       width: 80,
@@ -287,25 +367,7 @@ class _SimpleTripCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: AppSizes.spacingM),
-                // Route info
-                // Route info
-                _PlaceRenderer(
-                  placeName: trip.fromPlace,
-                  point: trip.points.isNotEmpty ? trip.points.first : null,
-                  iconColor: Colors.green,
-                ),
-                Container(
-                  margin: const EdgeInsets.only(left: 3.5),
-                  height: 16,
-                  width: 1,
-                  color: AppColors.textSecondary.withValues(alpha: 0.3),
-                ),
-                _PlaceRenderer(
-                  placeName: trip.toPlace,
-                  point: trip.points.isNotEmpty ? trip.points.last : null,
-                  iconColor: Colors.red,
-                ),
+                // Removed redundant SizedBox and PlaceRenderers that were here
               ],
             ),
           ),
@@ -332,6 +394,24 @@ class _SimpleTripCard extends StatelessWidget {
       southwest: LatLng(south, west),
       northeast: LatLng(north, east),
     );
+  }
+
+  String _calculateDuration(String startStr, String endStr) {
+    try {
+      final start = DateTime.parse(startStr);
+      final end = DateTime.parse(endStr);
+      final duration = end.difference(start);
+      final hours = duration.inHours;
+      final minutes = duration.inMinutes.remainder(60);
+
+      if (hours > 0) {
+        return '(${hours}hrs ${minutes > 0 ? '$minutes min' : ''})'.trim();
+      } else {
+        return '($minutes min)';
+      }
+    } catch (_) {
+      return '';
+    }
   }
 
   String _formatTime(String timeStr) {

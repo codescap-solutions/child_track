@@ -39,6 +39,7 @@ class TripDetailResponse {
   final int steps;
   final double walkingKm;
   final double maxSpeedKmph;
+  final String rideMode;
   final List<String> polylinePoints;
   final List<TripEvent> events;
 
@@ -50,6 +51,7 @@ class TripDetailResponse {
     required this.steps,
     required this.walkingKm,
     required this.maxSpeedKmph,
+    required this.rideMode,
     required this.polylinePoints,
     required this.events,
   });
@@ -63,15 +65,19 @@ class TripDetailResponse {
       steps: json['steps'] ?? 0,
       walkingKm: (json['walking_km'] ?? 0).toDouble(),
       maxSpeedKmph: (json['max_speed_kmph'] ?? 0).toDouble(),
-      polylinePoints: (json['polyline_points'] as List<dynamic>?)
+      rideMode: json['rideMode'] ?? 'vehicle',
+      polylinePoints:
+          (json['polyline_points'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           [],
-      events: (json['events'] as List<dynamic>?)
-              ?.map((event) => TripEvent.fromJson(event as Map<String, dynamic>))
+      events:
+          (json['events'] as List<dynamic>?)
+              ?.map(
+                (event) => TripEvent.fromJson(event as Map<String, dynamic>),
+              )
               .toList() ??
           [],
     );
   }
 }
-

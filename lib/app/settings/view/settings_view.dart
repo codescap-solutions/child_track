@@ -1,4 +1,3 @@
-import 'package:child_track/app/settings/view/account_view.dart';
 import 'package:child_track/core/di/injector.dart';
 import 'package:child_track/core/navigation/route_names.dart';
 import 'package:child_track/core/services/shared_prefs_service.dart';
