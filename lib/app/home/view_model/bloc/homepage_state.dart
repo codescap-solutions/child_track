@@ -21,6 +21,7 @@ final class HomepageSuccess extends HomepageState {
   final int? tripsPageSize;
   final int? tripsTotalItems;
   final bool isLoadingTrips;
+  final bool hasReachedMax; // New field
   // Trip detail data
   final TripDetailResponse? selectedTripDetail;
   final bool isLoadingTripDetail;
@@ -39,6 +40,7 @@ final class HomepageSuccess extends HomepageState {
     this.tripsPageSize,
     this.tripsTotalItems,
     this.isLoadingTrips = false,
+    this.hasReachedMax = false, // Initialize
     this.selectedTripDetail,
     this.isLoadingTripDetail = false,
     this.selectedTripId,
@@ -58,6 +60,7 @@ final class HomepageSuccess extends HomepageState {
         tripsPageSize: null,
         tripsTotalItems: null,
         isLoadingTrips: false,
+        hasReachedMax: false, // Initialize
         selectedTripDetail: null,
         isLoadingTripDetail: false,
         selectedTripId: null,
@@ -76,6 +79,7 @@ final class HomepageSuccess extends HomepageState {
     if (tripsPageSize != null) tripsPageSize!,
     if (tripsTotalItems != null) tripsTotalItems!,
     isLoadingTrips,
+    hasReachedMax, // Add to props
     if (selectedTripDetail != null) selectedTripDetail!,
     isLoadingTripDetail,
     if (selectedTripId != null) selectedTripId!,
@@ -93,6 +97,7 @@ final class HomepageSuccess extends HomepageState {
     int? tripsPageSize,
     int? tripsTotalItems,
     bool? isLoadingTrips,
+    bool? hasReachedMax, // Add to copyWith params
     TripDetailResponse? selectedTripDetail,
     bool? isLoadingTripDetail,
     String? selectedTripId,
@@ -110,6 +115,7 @@ final class HomepageSuccess extends HomepageState {
       tripsPageSize: tripsPageSize ?? this.tripsPageSize,
       tripsTotalItems: tripsTotalItems ?? this.tripsTotalItems,
       isLoadingTrips: isLoadingTrips ?? this.isLoadingTrips,
+      hasReachedMax: hasReachedMax ?? this.hasReachedMax, // Assign
       selectedTripDetail: selectedTripDetail ?? this.selectedTripDetail,
       isLoadingTripDetail: isLoadingTripDetail ?? this.isLoadingTripDetail,
       selectedTripId: selectedTripId ?? this.selectedTripId,

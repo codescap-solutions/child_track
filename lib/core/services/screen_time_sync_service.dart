@@ -19,7 +19,8 @@ class ScreenTimeSyncService {
   /// Check if cache is still valid
   bool _isCacheValid() {
     if (_screenTimeCache == null || _lastFetchTime == null) return false;
-    return DateTime.now().difference(_lastFetchTime!).inMinutes < _cacheDuration.inMinutes;
+    return DateTime.now().difference(_lastFetchTime!).inMinutes <
+        _cacheDuration.inMinutes;
   }
 
   Future<void> syncScreenTime() async {
@@ -37,20 +38,25 @@ class ScreenTimeSyncService {
     if (lastPermissionCheck != null) {
       final lastCheck = DateTime.parse(lastPermissionCheck);
       if (DateTime.now().difference(lastCheck).inMinutes < 1) {
-        hasPermission = _prefs.getBool(hasPermissionKey) ?? false;
+        hasPermission = _prefs.getBool(hasPermissionKey);
         if (!hasPermission) {
-          AppLogger.warning('ScreenTimeSyncService: Usage permission not granted (cached)');
+          AppLogger.warning(
+            'ScreenTimeSyncService: Usage permission not granted (cached)',
+          );
           return;
         } else {
           // Cache is valid and permission is granted, proceed with sync
           try {
             final mergedScreenTime = await fetchScreenTimeData();
             if (mergedScreenTime.isEmpty) {
-              AppLogger.info('ScreenTimeSyncService: No apps with usage > 0 found.');
+              AppLogger.info(
+                'ScreenTimeSyncService: No apps with usage > 0 found.',
+              );
               return;
             }
 
             await uploadScreenTimeData(mergedScreenTime, childId);
+            await _syncDeviceInfo(childId);
 
             // Save sync time
             _prefs.setString(
@@ -59,7 +65,9 @@ class ScreenTimeSyncService {
             );
             return;
           } catch (e) {
-            AppLogger.error('ScreenTimeSyncService: Failed to sync screen time: $e');
+            AppLogger.error(
+              'ScreenTimeSyncService: Failed to sync screen time: $e',
+            );
             return;
           }
         }
@@ -69,8 +77,11 @@ class ScreenTimeSyncService {
     // Fresh permission check if cache expired or not set
     hasPermission = await _deviceInfoService.checkUsagePermission();
     _prefs.setBool(hasPermissionKey, hasPermission);
-    _prefs.setString('${hasPermissionKey}_time', DateTime.now().toIso8601String());
-    
+    _prefs.setString(
+      '${hasPermissionKey}_time',
+      DateTime.now().toIso8601String(),
+    );
+
     if (!hasPermission) {
       AppLogger.warning('ScreenTimeSyncService: Usage permission not granted');
       return;
@@ -84,6 +95,7 @@ class ScreenTimeSyncService {
       }
 
       await uploadScreenTimeData(mergedScreenTime, childId);
+      await _syncDeviceInfo(childId);
 
       // Save sync time
       _prefs.setString(
@@ -98,7 +110,9 @@ class ScreenTimeSyncService {
   Future<List<AppScreenTimeModel>> fetchScreenTimeData() async {
     // Return cached data if valid
     if (_isCacheValid()) {
-      AppLogger.info('ScreenTimeSyncService: Returning cached screen time data');
+      AppLogger.info(
+        'ScreenTimeSyncService: Returning cached screen time data',
+      );
       return _screenTimeCache ?? [];
     }
 
@@ -168,7 +182,7 @@ class ScreenTimeSyncService {
     mergedScreenTime.sort((a, b) => b.seconds.compareTo(a.seconds));
     _screenTimeCache = mergedScreenTime;
     _lastFetchTime = DateTime.now();
-    
+
     return mergedScreenTime;
   }
 
@@ -231,6 +245,26 @@ class ScreenTimeSyncService {
       }
     } catch (e) {
       AppLogger.error('ScreenTimeSyncService: Failed to sync icons: $e');
+    }
+  }
+
+  /// Push device info (battery, network, sound profile) to parent
+  Future<void> _syncDeviceInfo(String childId) async {
+    try {
+      final deviceInfo = await _deviceInfoService.getDeviceInfo();
+      final data = {
+        'child_id': childId,
+        'battery_percentage': deviceInfo.batteryPercentage,
+        'network_status': deviceInfo.networkStatus,
+        'network_type': deviceInfo.networkType,
+        'sound_profile': deviceInfo.soundProfile,
+        'is_online': deviceInfo.isOnline,
+        'online_since': deviceInfo.onlineSince,
+      };
+      await _childRepo.postChildData(data);
+      AppLogger.info('ScreenTimeSyncService: Device info synced successfully');
+    } catch (e) {
+      AppLogger.error('ScreenTimeSyncService: Device info sync failed: $e');
     }
   }
 }

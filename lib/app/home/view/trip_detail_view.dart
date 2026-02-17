@@ -56,6 +56,21 @@ class _TripDetailViewState extends State<TripDetailView> {
     }
   }
 
+  String _getRideModeText(String rideMode) {
+    switch (rideMode.toLowerCase()) {
+      case 'walking':
+        return 'Walking';
+      case 'cycling':
+        return 'Cycling';
+      case 'stationary':
+        return 'Stationary';
+      case 'vehicle':
+        return 'In Vehicle';
+      default:
+        return 'Ride';
+    }
+  }
+
   void _fitBounds() {
     if (_mapController == null || widget.polylines.isEmpty) return;
 
@@ -428,10 +443,7 @@ class _TripDetailViewState extends State<TripDetailView> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            widget.trip.type.isNotEmpty
-                                ? widget.trip.type[0].toUpperCase() +
-                                      widget.trip.type.substring(1)
-                                : 'Ride',
+                            _getRideModeText(widget.trip.rideMode),
                             style: AppTextStyles.body2.copyWith(
                               fontWeight: FontWeight.bold,
                             ),

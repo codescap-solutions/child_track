@@ -32,7 +32,7 @@ class _SignUpViewState extends State<SignUpView> {
     _password.dispose();
     super.dispose();
   }
-
+ 
   @override
   Widget build(BuildContext context) {
     return Scaffold(

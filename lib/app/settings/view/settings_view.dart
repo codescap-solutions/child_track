@@ -1,4 +1,3 @@
-import 'package:child_track/app/settings/view/account_view.dart';
 import 'package:child_track/core/di/injector.dart';
 import 'package:child_track/core/navigation/route_names.dart';
 import 'package:child_track/core/services/shared_prefs_service.dart';
@@ -172,197 +171,196 @@ class _SettingsViewState extends State<SettingsView> {
                 ),
               ),
 
-              SectionCard(
-                child: Column(
-                  children: [
-                    _toggleTile(
-                      context,
-                      Icons.block,
-                      'Restrict from deleting',
-                      'contact details of each location',
-                      _restrictDeletion,
-                      (value) async {
-                        await _sharedPrefsService.setBool(
-                          'restrict_deletion',
-                          value,
-                        );
-                        setState(() => _restrictDeletion = value);
-                      },
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: const Divider(
-                        height: 1,
-                        endIndent: 20,
-                        indent: 20,
-                      ),
-                    ),
-                    _toggleTile(
-                      context,
-                      Icons.do_not_disturb_on_outlined,
-                      'Block 18plus Websites',
-                      'contact details of each location',
-                      _block18Plus,
-                      (value) async {
-                        if (Theme.of(context).platform == TargetPlatform.iOS) {
-                          // Redirection logic for iOS would go here
-                          // For now, just toggling and persisting
-                        }
-                        await _sharedPrefsService.setBool(
-                          'block_18plus',
-                          value,
-                        );
-                        setState(() => _block18Plus = value);
-                      },
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: const Divider(
-                        height: 1,
-                        endIndent: 20,
-                        indent: 20,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              SectionCard(
-                child: Column(
-                  children: [
-                    SettingTile(
-                      subtitle: 'Notification settings for the app',
-                      leading: const Icon(
-                        Icons.notifications_none,
-                        color: AppColors.textSecondary,
-                      ),
-                      title: 'Notification Settings',
-                      trailing: Transform.scale(
-                        alignment: Alignment.centerRight,
-                        scale: 0.7,
-                        child: CupertinoSwitch(
-                          value: _notificationSettings,
-                          onChanged: (value) async {
-                            await _sharedPrefsService.setBool(
-                              'notification_settings',
-                              value,
-                            );
-                            setState(() => _notificationSettings = value);
-                          },
-                        ),
-                      ),
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const NotificationSettingsView(),
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: const Divider(
-                        height: 1,
-                        endIndent: 20,
-                        indent: 20,
-                      ),
-                    ),
-                    SettingTile(
-                      subtitle: 'Get live location of others',
-                      leading: const Icon(
-                        Icons.notifications_none,
-                        color: AppColors.textSecondary,
-                      ),
-                      title: 'Request Location',
-                      trailing: TextButton(
-                        onPressed: () {
-                          // Logical trigger for location ping
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Requesting location ping...'),
-                            ),
-                          );
-                        },
-                        child: Text(
-                          'PING',
-                          style: TextStyle(
-                            color: AppColors.primaryColor,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: const Divider(
-                        height: 1,
-                        endIndent: 20,
-                        indent: 20,
-                      ),
-                    ),
-                    SettingTile(
-                      subtitle: 'Details contact shown in kids app',
-                      leading: const Icon(
-                        Icons.family_restroom_rounded,
-                        color: AppColors.textSecondary,
-                      ),
-                      title: 'Emergency Contacts',
-                      trailing: const Icon(
-                        Icons.arrow_forward_ios,
-                        size: 16,
-                        color: AppColors.textSecondary,
-                      ),
-                      onTap: () {
-                        // Navigation to Emergency Contacts view
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Emergency Contacts feature coming soon',
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: const Divider(
-                        height: 1,
-                        endIndent: 20,
-                        indent: 20,
-                      ),
-                    ),
-                    SizedBox(height: 10),
-                    SettingTile(
-                      subtitle: 'Manage your subscription',
-                      leading: const Icon(
-                        Icons.family_restroom_rounded,
-                        color: AppColors.textSecondary,
-                      ),
-                      title: 'Subscription',
-                      trailing: const Icon(
-                        Icons.arrow_forward_ios,
-                        size: 16,
-                        color: AppColors.textSecondary,
-                      ),
-                      onTap: () {
-                        // Navigation to Subscription view
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Subscription management by parent'),
-                          ),
-                        );
-                      },
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: const Divider(
-                        height: 1,
-                        endIndent: 20,
-                        indent: 20,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
+              // SectionCard(
+              //   child: Column(
+              //     children: [
+              //       _toggleTile(
+              //         context,
+              //         Icons.block,
+              //         'Restrict from deleting',
+              //         'contact details of each location',
+              //         _restrictDeletion,
+              //         (value) async {
+              //           await _sharedPrefsService.setBool(
+              //             'restrict_deletion',
+              //             value,
+              //           );
+              //           setState(() => _restrictDeletion = value);
+              //         },
+              //       ),
+              //       Padding(
+              //         padding: const EdgeInsets.all(8.0),
+              //         child: const Divider(
+              //           height: 1,
+              //           endIndent: 20,
+              //           indent: 20,
+              //         ),
+              //       ),
+              //       _toggleTile(
+              //         context,
+              //         Icons.do_not_disturb_on_outlined,
+              //         'Block 18plus Websites',
+              //         'contact details of each location',
+              //         _block18Plus,
+              //         (value) async {
+              //           if (Theme.of(context).platform == TargetPlatform.iOS) {
+              //             // Redirection logic for iOS would go here
+              //             // For now, just toggling and persisting
+              //           }
+              //           await _sharedPrefsService.setBool(
+              //             'block_18plus',
+              //             value,
+              //           );
+              //           setState(() => _block18Plus = value);
+              //         },
+              //       ),
+              //       Padding(
+              //         padding: const EdgeInsets.all(8.0),
+              //         child: const Divider(
+              //           height: 1,
+              //           endIndent: 20,
+              //           indent: 20,
+              //         ),
+              //       ),
+              //     ],
+              //   ),
+              // ),
+              // // SectionCard(
+              // //   child: Column(
+              // //     children: [
+              // //       SettingTile(
+              // //         subtitle: 'Notification settings for the app',
+              // //         leading: const Icon(
+              // //           Icons.notifications_none,
+              // //           color: AppColors.textSecondary,
+              // //         ),
+              // //         title: 'Notification Settings',
+              // //         trailing: Transform.scale(
+              // //           alignment: Alignment.centerRight,
+              // //           scale: 0.7,
+              // //           child: CupertinoSwitch(
+              // //             value: _notificationSettings,
+              // //             onChanged: (value) async {
+              // //               await _sharedPrefsService.setBool(
+              // //                 'notification_settings',
+              // //                 value,
+              // //               );
+              // //               setState(() => _notificationSettings = value);
+              // //             },
+              // //           ),
+              // //         ),
+              // //         onTap: () => Navigator.push(
+              // //           context,
+              // //           MaterialPageRoute(
+              // //             builder: (_) => const NotificationSettingsView(),
+              // //           ),
+              // //         ),
+              // //       ),
+              // //       Padding(
+              // //         padding: const EdgeInsets.all(8.0),
+              // //         child: const Divider(
+              // //           height: 1,
+              // //           endIndent: 20,
+              // //           indent: 20,
+              // //         ),
+              // //       ),
+              // //       SettingTile(
+              // //         subtitle: 'Get live location of others',
+              // //         leading: const Icon(
+              // //           Icons.notifications_none,
+              // //           color: AppColors.textSecondary,
+              // //         ),
+              // //         title: 'Request Location',
+              // //         trailing: TextButton(
+              // //           onPressed: () {
+              // //             // Logical trigger for location ping
+              // //             ScaffoldMessenger.of(context).showSnackBar(
+              // //               const SnackBar(
+              // //                 content: Text('Requesting location ping...'),
+              // //               ),
+              // //             );
+              // //           },
+              // //           child: Text(
+              // //             'PING',
+              // //             style: TextStyle(
+              // //               color: AppColors.primaryColor,
+              // //               fontWeight: FontWeight.bold,
+              // //             ),
+              // //           ),
+              // //         ),
+              // //       ),
+              // //       Padding(
+              // //         padding: const EdgeInsets.all(8.0),
+              // //         child: const Divider(
+              // //           height: 1,
+              // //           endIndent: 20,
+              // //           indent: 20,
+              // //         ),
+              // //       ),
+              // //       SettingTile(
+              // //         subtitle: 'Details contact shown in kids app',
+              // //         leading: const Icon(
+              // //           Icons.family_restroom_rounded,
+              // //           color: AppColors.textSecondary,
+              // //         ),
+              // //         title: 'Emergency Contacts',
+              // //         trailing: const Icon(
+              // //           Icons.arrow_forward_ios,
+              // //           size: 16,
+              // //           color: AppColors.textSecondary,
+              // //         ),
+              // //         onTap: () {
+              // //           // Navigation to Emergency Contacts view
+              // //           ScaffoldMessenger.of(context).showSnackBar(
+              // //             const SnackBar(
+              // //               content: Text(
+              // //                 'Emergency Contacts feature coming soon',
+              // //               ),
+              // //             ),
+              // //           );
+              // //         },
+              // //       ),
+              // //       Padding(
+              // //         padding: const EdgeInsets.all(8.0),
+              // //         child: const Divider(
+              // //           height: 1,
+              // //           endIndent: 20,
+              // //           indent: 20,
+              // //         ),
+              // //       ),
+              // //       SizedBox(height: 10),
+              // //       SettingTile(
+              // //         subtitle: 'Manage your subscription',
+              // //         leading: const Icon(
+              // //           Icons.family_restroom_rounded,
+              // //           color: AppColors.textSecondary,
+              // //         ),
+              // //         title: 'Subscription',
+              // //         trailing: const Icon(
+              // //           Icons.arrow_forward_ios,
+              // //           size: 16,
+              // //           color: AppColors.textSecondary,
+              // //         ),
+              // //         onTap: () {
+              // //           // Navigation to Subscription view
+              // //           ScaffoldMessenger.of(context).showSnackBar(
+              // //             const SnackBar(
+              // //               content: Text('Subscription management by parent'),
+              // //             ),
+              // //           );
+              // //         },
+              // //       ),
+              //       Padding(
+              //         padding: const EdgeInsets.all(8.0),
+              //         child: const Divider(
+              //           height: 1,
+              //           endIndent: 20,
+              //           indent: 20,
+              //         ),
+              //       ),
+              //     ],
+              //   ),
+              // ),
               SectionCard(
                 child: Column(
                   children: [

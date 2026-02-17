@@ -220,7 +220,7 @@ class DioClient {
   // Check connectivity before making request
   void _checkConnectivity() {
     if (_connectivityBloc == null) return;
-    final state = _connectivityBloc!.state;
+    final state = _connectivityBloc.state;
     if (state is ConnectivityOffline) {
       throw Exception('Internet not available. Please check your connection.');
     }

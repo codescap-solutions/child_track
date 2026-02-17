@@ -128,7 +128,15 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
   Future<void> _onGetTrips(GetTrips event, Emitter<HomepageState> emit) async {
     final currentState = state;
     if (currentState is! HomepageSuccess) return;
+
+    // If we've already reached max and trying to fetch more (not refresh), return
+    if (currentState.hasReachedMax && event.page != 1) return;
+
+    // If already loading trips, avoid duplicate requests
+    if (currentState.isLoadingTrips) return;
+
     emit(currentState.copyWith(isLoadingTrips: true));
+
     try {
       final response = await _homeRepository.getTrips(
         childId: _sharedPrefsService.getString('child_id'),
@@ -136,15 +144,29 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
         pageSize: event.pageSize,
         includePoints: true,
       );
+
       if (response.isSuccess && response.data != null) {
         final tripsData = response.data!;
+        final newTrips = tripsData.trips;
+        final totalItems = tripsData.totalItems;
+
+        List<Trip> allTrips;
+        if (event.page == 1) {
+          allTrips = newTrips;
+        } else {
+          allTrips = List.of(currentState.trips)..addAll(newTrips);
+        }
+
+        final hasReachedMax = allTrips.length >= totalItems;
+
         emit(
           currentState.copyWith(
-            trips: tripsData.trips,
+            trips: allTrips,
             tripsPage: tripsData.page,
             tripsPageSize: tripsData.pageSize,
-            tripsTotalItems: tripsData.totalItems,
+            tripsTotalItems: totalItems,
             isLoadingTrips: false,
+            hasReachedMax: hasReachedMax,
           ),
         );
       } else {

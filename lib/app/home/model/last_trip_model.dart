@@ -15,6 +15,7 @@ class TripSegment {
   final LatLng startLocation;
   final LatLng endLocation;
   final double progress;
+  final String rideMode;
 
   TripSegment({
     required this.segmentId,
@@ -30,6 +31,7 @@ class TripSegment {
     required this.startLocation,
     required this.endLocation,
     required this.progress,
+    required this.rideMode,
   });
 
   factory TripSegment.fromJson(Map<String, dynamic> json) {
@@ -57,6 +59,7 @@ class TripSegment {
         json['end_longitude'] ?? 0,
       ),
       progress: (json['progress'] ?? 0).toDouble(),
+      rideMode: json['rideMode'] ?? 'vehicle',
     );
   }
 
@@ -81,6 +84,7 @@ class TripSegment {
           ? LatLng(trip.points.last.lat, trip.points.last.lng)
           : const LatLng(0, 0),
       progress: 100.0,
+      rideMode: trip.rideMode,
     );
   }
 
