@@ -23,6 +23,7 @@ class MapViewWidget extends StatefulWidget {
     this.maxZoom = 20.0,
     this.useEagerGestures = false,
     this.onCameraMove,
+    this.onMapTap,
   });
   final double width, height;
   final bool interactive, isPolyLines;
@@ -36,6 +37,7 @@ class MapViewWidget extends StatefulWidget {
   final bool myLocationButtonEnabled;
   final double minZoom;
   final double maxZoom;
+  final void Function(LatLng)? onMapTap;
   @override
   State<MapViewWidget> createState() => _MapViewWidgetState();
 }
@@ -187,6 +189,9 @@ class _MapViewWidgetState extends State<MapViewWidget> {
                   IgnorePointer(
                     ignoring: !widget.interactive,
                     child: GoogleMap(
+                      onTap: (LatLng position) {
+                        widget.onMapTap?.call(position);
+                      },
                       mapType: currentMapType,
                       mapToolbarEnabled: true,
                       zoomControlsEnabled: true,
