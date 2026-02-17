@@ -11,6 +11,7 @@ import 'package:child_track/core/constants/app_text_styles.dart';
 import 'package:child_track/core/widgets/common_button.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:child_track/core/utils/map_marker_utils.dart';
 import 'package:geocoding/geocoding.dart';
 
 class ChildLocationDetailView extends StatefulWidget {
@@ -21,8 +22,33 @@ class ChildLocationDetailView extends StatefulWidget {
       _ChildLocationDetailViewState();
 }
 
+// ... other imports ...
+
 class _ChildLocationDetailViewState extends State<ChildLocationDetailView> {
   GoogleMapController? _mapController;
+  BitmapDescriptor? _sourceIcon;
+  BitmapDescriptor? _destinationIcon;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCustomMarkers();
+  }
+
+  Future<void> _loadCustomMarkers() async {
+    try {
+      final start = await MapMarkerUtils.getStartMarker();
+      final end = await MapMarkerUtils.getEndMarker();
+      if (mounted) {
+        setState(() {
+          _sourceIcon = start;
+          _destinationIcon = end;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading custom markers: $e');
+    }
+  }
 
   void _fitBounds(TripSegment trip) {
     if (_mapController == null) return;
@@ -206,6 +232,7 @@ class _ChildLocationDetailViewState extends State<ChildLocationDetailView> {
                                             trip.startLocation.longitude,
                                           ),
                                           icon:
+                                              _sourceIcon ??
                                               BitmapDescriptor.defaultMarkerWithHue(
                                                 BitmapDescriptor.hueGreen,
                                               ),
@@ -217,6 +244,7 @@ class _ChildLocationDetailViewState extends State<ChildLocationDetailView> {
                                             trip.endLocation.longitude,
                                           ),
                                           icon:
+                                              _destinationIcon ??
                                               BitmapDescriptor.defaultMarkerWithHue(
                                                 BitmapDescriptor.hueRed,
                                               ),
@@ -226,7 +254,7 @@ class _ChildLocationDetailViewState extends State<ChildLocationDetailView> {
                                         Polyline(
                                           polylineId: PolylineId('route'),
                                           points: trip.polylinePoints,
-                                          color: AppColors.primaryColor,
+                                          color: AppColors.tripPolyline,
                                           width: 4,
                                           patterns:
                                               trip.rideMode.toLowerCase() ==
