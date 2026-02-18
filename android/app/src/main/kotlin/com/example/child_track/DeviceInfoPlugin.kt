@@ -1,6 +1,7 @@
 package com.truenyx.naviq
 
 import android.app.AppOpsManager
+import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
@@ -225,34 +226,57 @@ class DeviceInfoPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
             val startTime = calendar.timeInMillis
             val endTime = System.currentTimeMillis()
 
-            // Use INTERVAL_DAILY instead of queryAndAggregateUsageStats.
-            // queryAndAggregateUsageStats sums across overlapping interval buckets
-            // which causes totalTimeInForeground to be ~2x the real value.
-            // INTERVAL_DAILY returns a single clean per-day stat matching Digital Wellbeing.
-            val statsList =
-                usageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, startTime, endTime)
+            // ── Use queryEvents() for precise foreground time ──
+            // queryUsageStats(INTERVAL_DAILY) returns duplicate entries per
+            // package, causing totalTimeInForeground to be summed multiple
+            // times (inflated ~1.5-2.7x). queryEvents() gives individual
+            // FOREGROUND / BACKGROUND transitions so we can compute exact time.
 
-            // Manually aggregate by package name (INTERVAL_DAILY may return
-            // multiple entries for the same package if query spans midnight)
-            val aggregated = mutableMapOf<String, Long>()
-            val lastUsedMap = mutableMapOf<String, Long>()
+            val usageEvents = usageStatsManager.queryEvents(startTime, endTime)
+            val event = UsageEvents.Event()
 
-            for (stat in statsList) {
-                val pkg = stat.packageName
-                val time = stat.totalTimeInForeground
-                if (time > 0L) {
-                    aggregated[pkg] = (aggregated[pkg] ?: 0L) + time
-                    val prev = lastUsedMap[pkg] ?: 0L
-                    if (stat.lastTimeUsed > prev) {
-                        lastUsedMap[pkg] = stat.lastTimeUsed
+            // per-package tracking
+            val foregroundStart = mutableMapOf<String, Long>()   // currently in FG since
+            val totalTime = mutableMapOf<String, Long>()         // accumulated ms
+            val lastUsedMap = mutableMapOf<String, Long>()       // last interaction ts
+
+            while (usageEvents.hasNextEvent()) {
+                usageEvents.getNextEvent(event)
+                val pkg = event.packageName ?: continue
+                val ts = event.timeStamp
+
+                when (event.eventType) {
+                    // App moved to foreground
+                    UsageEvents.Event.ACTIVITY_RESUMED -> {
+                        foregroundStart[pkg] = ts
+                        // Track last-used regardless
+                        val prev = lastUsedMap[pkg] ?: 0L
+                        if (ts > prev) lastUsedMap[pkg] = ts
                     }
+                    // App moved to background
+                    UsageEvents.Event.ACTIVITY_PAUSED -> {
+                        val start = foregroundStart.remove(pkg)
+                        if (start != null && ts > start) {
+                            totalTime[pkg] = (totalTime[pkg] ?: 0L) + (ts - start)
+                        }
+                        val prev = lastUsedMap[pkg] ?: 0L
+                        if (ts > prev) lastUsedMap[pkg] = ts
+                    }
+                }
+            }
+
+            // Handle apps still in the foreground at query time
+            for ((pkg, start) in foregroundStart) {
+                if (endTime > start) {
+                    totalTime[pkg] = (totalTime[pkg] ?: 0L) + (endTime - start)
                 }
             }
 
             val pm = context.packageManager
 
-            aggregated.entries
-                .mapNotNull { (packageName, totalTime) ->
+            totalTime.entries
+                .filter { it.value > 0L }
+                .mapNotNull { (packageName, timeMs) ->
 
                     try {
                         pm.getLaunchIntentForPackage(packageName)
@@ -267,10 +291,13 @@ class DeviceInfoPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
                             packageName
                         }
 
+                        val seconds = (timeMs / 1000).toInt()
+                        Log.d("ScreenTime", "$packageName = ${seconds}s")
+
                         mapOf(
                             "package" to packageName,
                             "appName" to appName,
-                            "seconds" to (totalTime / 1000).toInt(),
+                            "seconds" to seconds,
                             "lastTimeUsed" to (lastUsedMap[packageName] ?: 0L)
                         )
 
