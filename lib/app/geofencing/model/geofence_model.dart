@@ -9,10 +9,12 @@ class Geofence extends Equatable {
   final String? parentId;
   final double? latitude;
   final double? longitude;
+  final String? address;
   final bool? isLocked;
   final bool? isChildInside;
   final String? createdAt;
   final String? updatedAt;
+  final int? version; // __v
 
   const Geofence({
     this.id,
@@ -23,43 +25,49 @@ class Geofence extends Equatable {
     this.parentId,
     this.latitude,
     this.longitude,
+    this.address,
     this.isLocked,
     this.isChildInside,
     this.createdAt,
     this.updatedAt,
+    this.version,
   });
 
   factory Geofence.fromJson(Map<String, dynamic> json) {
     return Geofence(
-      id: json['id'],
-      name: json['name'],
-      category: json['category'],
-      radius: json['radius'] ?? 0,
-      childId: json['child_id'],
-      parentId: json['parent_id'],
-      latitude: (json['latitude'] as num?)?.toDouble() ?? 0.0,
-      longitude: (json['longitude'] as num?)?.toDouble() ?? 0.0,
-      isLocked: json['is_locked'] ?? false,
-      isChildInside: json['is_child_inside'] ?? false,
-      createdAt: json['created_at'],
-      updatedAt: json['updated_at'],
+      id: json['_id'] as String?,
+      name: json['name'] as String?,
+      category: json['category'] as String?,
+      radius: json['radius'] as int?,
+      childId: json['childId'] as String?,
+      parentId: json['parentId'] as String?,
+      latitude: (json['latitude'] as num?)?.toDouble(),
+      longitude: (json['longitude'] as num?)?.toDouble(),
+      address: json['address'] as String?,
+      isLocked: json['isLocked'] as bool?,
+      isChildInside: json['isChildInside'] as bool?,
+      createdAt: json['createdAt'] as String?,
+      updatedAt: json['updatedAt'] as String?,
+      version: json['__v'] as int?,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'id': id,
+      '_id': id,
       'name': name,
       'category': category,
       'radius': radius,
-      'child_id': childId,
-      'parent_id': parentId,
+      'childId': childId,
+      'parentId': parentId,
       'latitude': latitude,
       'longitude': longitude,
-      'is_locked': isLocked,
-      'is_child_inside': isChildInside,
-      'created_at': createdAt,
-      'updated_at': updatedAt,
+      'address': address,
+      'isLocked': isLocked,
+      'isChildInside': isChildInside,
+      'createdAt': createdAt,
+      'updatedAt': updatedAt,
+      '__v': version,
     };
   }
 
@@ -72,10 +80,12 @@ class Geofence extends Equatable {
     String? parentId,
     double? latitude,
     double? longitude,
+    String? address,
     bool? isLocked,
     bool? isChildInside,
     String? createdAt,
     String? updatedAt,
+    int? version,
   }) {
     return Geofence(
       id: id ?? this.id,
@@ -86,10 +96,12 @@ class Geofence extends Equatable {
       parentId: parentId ?? this.parentId,
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
+      address: address ?? this.address,
       isLocked: isLocked ?? this.isLocked,
       isChildInside: isChildInside ?? this.isChildInside,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      version: version ?? this.version,
     );
   }
 
@@ -103,10 +115,12 @@ class Geofence extends Equatable {
     parentId,
     latitude,
     longitude,
+    address,
     isLocked,
     isChildInside,
     createdAt,
     updatedAt,
+    version,
   ];
 }
 
@@ -136,11 +150,11 @@ class CreateGeofenceRequest extends Equatable {
       'name': name,
       'category': category,
       'radius': radius,
-      'child_id': childId,
+      'childId': childId,
       'parent_id': parentId,
       'latitude': latitude,
       'longitude': longitude,
-      'is_locked': isLocked,
+      'isLocked': isLocked,
     };
   }
 

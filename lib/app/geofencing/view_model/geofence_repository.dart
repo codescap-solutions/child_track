@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import '../../../core/services/dio_client.dart';
 import '../../../core/services/shared_prefs_service.dart';
 import '../../../core/services/api_endpoints.dart';
@@ -5,18 +7,17 @@ import '../../../core/services/base_service.dart';
 import '../model/geofence_model.dart';
 
 class GeofenceRepository extends BaseService {
-  final SharedPrefsService _sharedPrefsService;
-
   GeofenceRepository({
     required DioClient dioClient,
     required SharedPrefsService sharedPrefsService,
-  })  : _sharedPrefsService = sharedPrefsService,
-        super(dioClient);
+  }) : super(dioClient);
 
   // Create Geofence
   Future<BaseResponse<Geofence>> createGeofence(
-      CreateGeofenceRequest request) async {
+    CreateGeofenceRequest request,
+  ) async {
     try {
+      log('Creating geofence with data: ${request.toJson()}');
       final response = await post(
         ApiEndpoints.geofences,
         data: request.toJson(),
@@ -24,10 +25,7 @@ class GeofenceRepository extends BaseService {
 
       if (response.isSuccess && response.data != null) {
         final geofence = Geofence.fromJson(response.data);
-        return BaseResponse.success(
-          data: geofence,
-          message: response.message,
-        );
+        return BaseResponse.success(data: geofence, message: response.message);
       }
 
       return BaseResponse.error(message: response.message);
@@ -37,27 +35,42 @@ class GeofenceRepository extends BaseService {
   }
 
   // Get Geofences List
-  Future<BaseResponse<List<Geofence>>> getGeofences(String childId) async {
+  Future<BaseResponse<List<Geofence>>> getGeofences(
+    String childId, {
+    String? date,
+    String? startDate,
+    String? endDate,
+  }) async {
     try {
+      log('Fetching geofences for child ID: $childId, date: $date');
+      final queryParams = <String, dynamic>{'child_id': childId};
+
+      // Prefer explicit range when both startDate and endDate are provided
+      if (startDate != null && endDate != null) {
+        queryParams['startDate'] = startDate;
+        queryParams['endDate'] = endDate;
+      } else if (date != null && date.isNotEmpty) {
+        queryParams['date'] = date;
+      }
+
       final response = await get(
         ApiEndpoints.geofences,
-        queryParameters: {'child_id': childId},
+        queryParameters: queryParams,
       );
-
+      log('Response received: ${response.data}');
       if (response.isSuccess && response.data != null) {
         final List<dynamic> dataList = response.data is List
             ? response.data
             : (response.data as Map)['data'] ?? [];
 
         final geofences = (dataList).map((item) {
-          final itemData = item is Map<String, dynamic> ? item : {} as Map<String,dynamic>;
+          final itemData = item is Map<String, dynamic>
+              ? item
+              : {} as Map<String, dynamic>;
           return Geofence.fromJson(itemData);
         }).toList();
 
-        return BaseResponse.success(
-          data: geofences,
-          message: response.message,
-        );
+        return BaseResponse.success(data: geofences, message: response.message);
       }
 
       return BaseResponse.error(message: response.message);
@@ -79,10 +92,7 @@ class GeofenceRepository extends BaseService {
 
       if (response.isSuccess && response.data != null) {
         final geofence = Geofence.fromJson(response.data);
-        return BaseResponse.success(
-          data: geofence,
-          message: response.message,
-        );
+        return BaseResponse.success(data: geofence, message: response.message);
       }
 
       return BaseResponse.error(message: response.message);
@@ -99,15 +109,12 @@ class GeofenceRepository extends BaseService {
     try {
       final response = await patch(
         ApiEndpoints.geofenceLock(id),
-        data: {'is_locked': isLocked},
+        data: {'isLocked': isLocked},
       );
 
       if (response.isSuccess && response.data != null) {
         final geofence = Geofence.fromJson(response.data);
-        return BaseResponse.success(
-          data: geofence,
-          message: response.message,
-        );
+        return BaseResponse.success(data: geofence, message: response.message);
       }
 
       return BaseResponse.error(message: response.message);
@@ -119,15 +126,10 @@ class GeofenceRepository extends BaseService {
   // Delete Geofence
   Future<BaseResponse<void>> deleteGeofence(String id) async {
     try {
-      final response = await delete(
-        ApiEndpoints.geofenceDetail(id),
-      );
+      final response = await delete(ApiEndpoints.geofenceDetail(id));
 
       if (response.isSuccess) {
-        return BaseResponse.success(
-          data: null,
-          message: response.message,
-        );
+        return BaseResponse.success(data: null, message: response.message);
       }
 
       return BaseResponse.error(message: response.message);
