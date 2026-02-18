@@ -31,6 +31,52 @@ class _GeoFencingViewState extends State<GeoFencingView> {
   String? _lastDateParam;
   String? _lastStartDate;
   String? _lastEndDate;
+  int _selectedTabIndex = 1; // Track selected tab
+
+  /// Helper method to format seconds to human-readable format
+  String? _formatSeconds(int? seconds) {
+    if (seconds == null || seconds <= 0) return null;
+
+    final hours = seconds ~/ 3600;
+    final minutes = (seconds % 3600) ~/ 60;
+    final secs = seconds % 60;
+
+    final parts = <String>[];
+    if (hours > 0) parts.add('${hours}h');
+    if (minutes > 0) parts.add('${minutes}m');
+    if (secs > 0) parts.add('${secs}s');
+
+    return parts.join(' ');
+  }
+
+  /// Get date label for selected tab
+  String? _getDateLabel(int tabIndex) {
+    switch (tabIndex) {
+      case 0:
+        return 'yesterday';
+      case 1:
+        return 'today';
+      case 2:
+        return 'last week';
+      default:
+        return null;
+    }
+  }
+
+  /// Build subtitle with time spent and date
+  String _buildSubtitle(Geofence? geofence) {
+    if (geofence == null) return 'Unknown';
+
+    final category = geofence.category ?? "Unknown";
+    final radius = geofence.radius ?? 0;
+    final String? timeSpent = _formatSeconds(geofence.totalSpentTime);
+    final String? dateLabel = _getDateLabel(_selectedTabIndex);
+    if (timeSpent == null || dateLabel == null) {
+      return '$category • ${radius}m radius';
+    } else {
+      return '$timeSpent spent $dateLabel';
+    }
+  }
 
   @override
   void initState() {
@@ -155,6 +201,7 @@ class _GeoFencingViewState extends State<GeoFencingView> {
                       null; // use startDate/endDate instead of single date
                 }
                 setState(() {
+                  _selectedTabIndex = index;
                   _pageController.animateToPage(
                     index,
                     duration: const Duration(milliseconds: 300),
@@ -366,8 +413,7 @@ class _GeoFencingViewState extends State<GeoFencingView> {
                 title:
                     geofence?.name ??
                     "Unknown Place", // Fallback to "Unknown Place" if name is null
-                subtitle:
-                    "${geofence?.category ?? "Unknown"} • ${geofence?.radius ?? 0}m radius",
+                subtitle: _buildSubtitle(geofence),
                 isPrimary: true,
                 toggleValue: geofence?.isLocked ?? false,
                 geofenceId: geofence?.id,

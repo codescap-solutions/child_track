@@ -15,6 +15,7 @@ class Geofence extends Equatable {
   final String? createdAt;
   final String? updatedAt;
   final int? version; // __v
+  final int? totalSpentTime; // in seconds
 
   const Geofence({
     this.id,
@@ -31,6 +32,7 @@ class Geofence extends Equatable {
     this.createdAt,
     this.updatedAt,
     this.version,
+    this.totalSpentTime,
   });
 
   factory Geofence.fromJson(Map<String, dynamic> json) {
@@ -49,6 +51,7 @@ class Geofence extends Equatable {
       createdAt: json['createdAt'] as String?,
       updatedAt: json['updatedAt'] as String?,
       version: json['__v'] as int?,
+      totalSpentTime: json['totalSpentTime'] as int?,
     );
   }
 
@@ -68,6 +71,7 @@ class Geofence extends Equatable {
       'createdAt': createdAt,
       'updatedAt': updatedAt,
       '__v': version,
+      'totalSpentTime': totalSpentTime,
     };
   }
 
@@ -86,6 +90,7 @@ class Geofence extends Equatable {
     String? createdAt,
     String? updatedAt,
     int? version,
+    int? totalSpentTime,
   }) {
     return Geofence(
       id: id ?? this.id,
@@ -102,6 +107,7 @@ class Geofence extends Equatable {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       version: version ?? this.version,
+      totalSpentTime: totalSpentTime ?? this.totalSpentTime,
     );
   }
 
@@ -121,6 +127,7 @@ class Geofence extends Equatable {
     createdAt,
     updatedAt,
     version,
+    totalSpentTime,
   ];
 }
 
