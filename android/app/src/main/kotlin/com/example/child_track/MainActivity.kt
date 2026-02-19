@@ -5,13 +5,32 @@ import io.flutter.embedding.engine.FlutterEngine
 
 class MainActivity : FlutterActivity() {
 
+    private val deviceInfoPlugin = DeviceInfoPlugin()
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        flutterEngine.plugins.add(deviceInfoPlugin)
+    }
 
-        // Register DeviceInfoPlugin so the MethodChannel is available
-        // in the main app's Flutter engine.
-        // For background isolates (WorkManager, FCM), the plugin is
-        // auto-registered via GeneratedPluginRegistrant.
-        flutterEngine.plugins.add(DeviceInfoPlugin())
+    override fun onCreate(savedInstanceState: android.os.Bundle?) {
+        super.onCreate(savedInstanceState)
+        handleIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: Intent) {
+        if (intent.action == "com.truenyx.naviq.APP_BLOCKED") {
+            val packageName = intent.getStringExtra("blocked_package")
+            if (packageName != null) {
+                // Delay slightly to ensure Flutter engine is ready if cold start
+                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                    deviceInfoPlugin.sendAppBlockedEvent(packageName)
+                }, 1000)
+            }
+        }
     }
 }

@@ -4,6 +4,7 @@ import 'package:child_track/core/services/shared_prefs_service.dart';
 import 'package:child_track/core/services/firebase_notification_service.dart';
 import 'package:child_track/core/services/background_location_service.dart';
 import 'package:child_track/core/services/background_task_service.dart';
+import 'package:child_track/core/services/lock_sync_service.dart';
 import 'package:child_track/core/utils/app_snackbar.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -18,6 +19,8 @@ import 'core/theme/app_theme.dart';
 import 'core/constants/app_strings.dart';
 import 'core/constants/app_colors.dart';
 import 'core/constants/app_text_styles.dart';
+
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -36,6 +39,9 @@ void main() async {
 
   // Initialize Firebase Notification Service
   await injector<FirebaseNotificationService>().initialize();
+
+  // Initialize LockSyncService for handling app blocking navigation
+  injector<LockSyncService>().initialize(navigatorKey);
 
   // Initialize Background Location Service
   await BackgroundLocationService().initialize();
@@ -62,6 +68,7 @@ class ChildTrackApp extends StatelessWidget {
         ),
       ],
       child: MaterialApp(
+        navigatorKey: navigatorKey,
         title: AppStrings.appTitle,
         theme: AppTheme.lightTheme,
         debugShowCheckedModeBanner: false,

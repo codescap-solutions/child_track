@@ -1,4 +1,7 @@
 import 'package:child_track/app/social_apps/view_model/bloc/social_apps_bloc.dart';
+import 'package:child_track/app/social_apps/view_model/bloc/app_lock_bloc.dart';
+import 'package:child_track/app/social_apps/view_model/bloc/app_lock_state.dart';
+import 'package:child_track/app/social_apps/view_model/bloc/app_lock_event.dart';
 import 'package:child_track/core/di/injector.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -18,12 +21,14 @@ class SocialAppsView extends StatefulWidget {
 
 class _SocialAppsViewState extends State<SocialAppsView> {
   late SocialAppsBloc _bloc;
+  late AppLockBloc _appLockBloc;
   int _selectedTabIndex = 1; // Default to Today (index 1)
 
   @override
   void initState() {
     super.initState();
     _bloc = injector<SocialAppsBloc>();
+    _appLockBloc = injector<AppLockBloc>();
     _fetchDataForIndex(_selectedTabIndex);
   }
 
@@ -52,8 +57,13 @@ class _SocialAppsViewState extends State<SocialAppsView> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => _bloc,
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(create: (_) => _bloc),
+        BlocProvider(
+          create: (_) => _appLockBloc..add(CheckAccessibilityPermission()),
+        ),
+      ],
       child: Scaffold(
         backgroundColor: AppColors.backgroundColor,
         appBar: AppBar(
@@ -141,17 +151,7 @@ class _SocialAppsViewState extends State<SocialAppsView> {
             itemBuilder: (context, index) {
               if (index == dailyData.length) {
                 return Column(
-                  children: [
-                    const SizedBox(height: AppSizes.spacingL),
-                    // CommonButton(
-                    //   text: 'Next',
-                    //   onPressed: () => Navigator.push(
-                    //     context,
-                    //     MaterialPageRoute(builder: (_) => const SettingsView()),
-                    //   ),
-                    // ),
-                    const SizedBox(height: AppSizes.spacingL),
-                  ],
+                  children: [const SizedBox(height: AppSizes.spacingL)],
                 );
               }
 
@@ -172,15 +172,30 @@ class _SocialAppsViewState extends State<SocialAppsView> {
                 );
               }
 
-              return SocialAppItem(
-                // We don't have icon path from API, native side sends it, but here we are fetching from server.
-                // The server API doesn't seem to return iconUrl.
-                // We might need to use a default icon or if we stored icons locally?
-                // For now, use default.
-                icon: iconProvider,
-                name: app.appName.isNotEmpty ? app.appName : app.packageName,
-                usage: app.usageTimeFormatted,
-                isLocked: false,
+              return BlocBuilder<AppLockBloc, AppLockState>(
+                builder: (context, lockState) {
+                  final isLocked =
+                      lockState is AppLockLoaded &&
+                      lockState.lockedPackages.contains(app.packageName);
+
+                  return SocialAppItem(
+                    icon: iconProvider,
+                    name: app.appName.isNotEmpty
+                        ? app.appName
+                        : app.packageName,
+                    usage: app.usageTimeFormatted,
+                    isLocked: isLocked,
+                    onLockToggle: (isLocked, duration) {
+                      _appLockBloc.add(
+                        ToggleAppLock(
+                          packageName: app.packageName,
+                          isLocked: isLocked,
+                          durationMinutes: duration,
+                        ),
+                      );
+                    },
+                  );
+                },
               );
             },
           );

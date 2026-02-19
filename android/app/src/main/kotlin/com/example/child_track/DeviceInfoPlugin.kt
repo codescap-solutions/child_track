@@ -12,6 +12,8 @@ import android.os.Looper
 import android.os.Process
 import android.provider.Settings
 import android.util.Log
+import android.accessibilityservice.AccessibilityServiceInfo
+import android.view.accessibility.AccessibilityManager
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
@@ -39,6 +41,14 @@ class DeviceInfoPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
 
     companion object {
         private const val CHANNEL_NAME = "com.truenyx.naviq/device_info"
+    }
+
+    fun sendAppBlockedEvent(packageName: String) {
+        if (::channel.isInitialized) {
+            mainHandler.post {
+                channel.invokeMethod("appBlocked", packageName)
+            }
+        }
     }
 
     // ─── FlutterPlugin Lifecycle ───
@@ -117,6 +127,35 @@ class DeviceInfoPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
             "openUsageSettings" -> {
                 try {
                     val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    context.startActivity(intent)
+                    result.success(true)
+                } catch (e: Exception) {
+                    result.error("ERROR", e.message, null)
+                }
+            }
+
+            "updateLockList" -> {
+                try {
+                    val packages = call.arguments<List<String>>()
+                    if (packages != null) {
+                        AppLockService.updateLockedPackages(packages.toSet())
+                        result.success(true)
+                    } else {
+                        result.error("INVALID_ARGS", "Expected List<String>", null)
+                    }
+                } catch (e: Exception) {
+                    result.error("ERROR", e.message, null)
+                }
+            }
+
+            "checkAccessibilityPermission" -> {
+                result.success(AppLockService.isServiceEnabled(context))
+            }
+
+            "openAccessibilitySettings" -> {
+                try {
+                    val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
                     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     context.startActivity(intent)
                     result.success(true)

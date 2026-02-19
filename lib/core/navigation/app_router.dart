@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import '../../app/auth/view/login_screen.dart';
 import '../../app/auth/view/otp_screen.dart';
 import 'route_names.dart';
+import 'package:child_track/app/social_apps/view/app_blocked_screen.dart';
 
 class AppRouter {
   static Route<dynamic> generateRoute(RouteSettings settings) {
@@ -22,8 +23,6 @@ class AppRouter {
           builder: (_) => const OnboardingScreen(),
           settings: settings,
         );
-
-
 
       case RouteNames.childCode:
         final args = settings.arguments as Map<String, dynamic>?;
@@ -59,6 +58,15 @@ class AppRouter {
           settings: settings,
         );
 
+      case RouteNames.appBlocked:
+        final args = settings.arguments as Map<String, dynamic>?;
+        return MaterialPageRoute(
+          builder: (_) => AppBlockedScreen(
+            appName: args?['appName'],
+            packageName: args?['packageName'],
+          ),
+          settings: settings,
+        );
 
       case RouteNames.trips:
         return MaterialPageRoute(

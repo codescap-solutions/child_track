@@ -179,5 +179,53 @@ class DeviceInfoService {
     }
   }
 
-  Future checkUsagePermission() async {}
+  Future checkUsagePermission() async {
+    try {
+      if (Platform.isAndroid) {
+        final hasPermission = await _channel.invokeMethod<bool>(
+          'checkUsagePermission',
+        );
+        if (hasPermission == false) {
+          await _channel.invokeMethod('openUsageSettings');
+        }
+      }
+    } catch (e) {
+      AppLogger.error('Error checking usage permission: $e');
+    }
+  }
+
+  Future<bool> checkAccessibilityPermission() async {
+    try {
+      if (Platform.isAndroid) {
+        return await _channel.invokeMethod<bool>(
+              'checkAccessibilityPermission',
+            ) ??
+            false;
+      }
+      return false;
+    } catch (e) {
+      AppLogger.error('Error checking accessibility permission: $e');
+      return false;
+    }
+  }
+
+  Future<void> openAccessibilitySettings() async {
+    try {
+      if (Platform.isAndroid) {
+        await _channel.invokeMethod('openAccessibilitySettings');
+      }
+    } catch (e) {
+      AppLogger.error('Error opening accessibility settings: $e');
+    }
+  }
+
+  Future<void> updateLockList(List<String> packages) async {
+    try {
+      if (Platform.isAndroid) {
+        await _channel.invokeMethod('updateLockList', packages);
+      }
+    } catch (e) {
+      AppLogger.error('Error updating lock list: $e');
+    }
+  }
 }

@@ -9,6 +9,7 @@ class SocialAppItem extends StatelessWidget {
   final String name;
   final String usage;
   final bool isLocked;
+  final Function(bool, int)? onLockToggle;
 
   const SocialAppItem({
     super.key,
@@ -16,6 +17,7 @@ class SocialAppItem extends StatelessWidget {
     required this.name,
     required this.usage,
     required this.isLocked,
+    this.onLockToggle,
   });
 
   @override
@@ -54,7 +56,7 @@ class SocialAppItem extends StatelessWidget {
                   ],
                 ),
               ),
-              _LockIconButton(isLocked: isLocked),
+              _LockIconButton(isLocked: isLocked, onLockToggle: onLockToggle),
             ],
           ),
         ),
@@ -87,11 +89,7 @@ class _AppIcon extends StatelessWidget {
                 color: AppColors.surfaceColor,
                 shape: BoxShape.circle,
               ),
-              child: Icon(
-                Icons.apps,
-                size: 18,
-                color: AppColors.textSecondary,
-              ),
+              child: Icon(Icons.apps, size: 18, color: AppColors.textSecondary),
             );
           },
           loadingBuilder: (context, child, loadingProgress) {
@@ -111,7 +109,7 @@ class _AppIcon extends StatelessWidget {
                     strokeWidth: 2,
                     value: loadingProgress.expectedTotalBytes != null
                         ? loadingProgress.cumulativeBytesLoaded /
-                            loadingProgress.expectedTotalBytes!
+                              loadingProgress.expectedTotalBytes!
                         : null,
                   ),
                 ),
@@ -126,13 +124,22 @@ class _AppIcon extends StatelessWidget {
 
 class _LockIconButton extends StatelessWidget {
   final bool isLocked;
-  const _LockIconButton({required this.isLocked});
+  final Function(bool, int)? onLockToggle;
+
+  const _LockIconButton({required this.isLocked, this.onLockToggle});
 
   @override
   Widget build(BuildContext context) {
     return IconButton(
       iconSize: 24,
-      onPressed: () => _showLockDialog(context),
+      onPressed: () {
+        if (isLocked) {
+          // Verify with user or just unlock? For now just unlock.
+          onLockToggle?.call(false, 0);
+        } else {
+          _showLockDialog(context);
+        }
+      },
       icon: Image.asset(
         isLocked ? 'assets/images/lock.png' : 'assets/images/unlock.png',
         width: 24,
@@ -141,11 +148,15 @@ class _LockIconButton extends StatelessWidget {
     );
   }
 
-  void _showLockDialog(BuildContext context) {
-    showDialog(
+  Future<void> _showLockDialog(BuildContext context) async {
+    final Duration? duration = await showDialog<Duration>(
       context: context,
       builder: (context) => const _LockDurationDialog(),
     );
+
+    if (duration != null && onLockToggle != null) {
+      onLockToggle!(true, duration.inMinutes);
+    }
   }
 }
 

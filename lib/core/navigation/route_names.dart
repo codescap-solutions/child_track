@@ -21,6 +21,9 @@ class RouteNames {
   static const String locationHistory = '/location-history';
   static const String liveTracking = '/live-tracking';
 
+  // App Lock Routes
+  static const String appBlocked = '/app-blocked';
+
   // Attendance Routes
   static const String attendance = '/attendance';
   static const String attendanceHistory = '/attendance-history';

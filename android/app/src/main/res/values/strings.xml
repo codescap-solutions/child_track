@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accessibility_service_description">NaviQ uses this service to enforce app locks set by your parent. It monitors which app is in the foreground and blocks restricted apps.</string>
+</resources>
