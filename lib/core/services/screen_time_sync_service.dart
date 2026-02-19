@@ -119,19 +119,38 @@ class ScreenTimeSyncService {
     final installedApps = await _deviceInfoService.getInstalledApps();
     final screenTimeUsage = await _deviceInfoService.getScreenTime();
 
-    // Popular apps allowlist (package names)
+    // Popular system apps allowlist — these are system apps we still
+    // want to include in screen time reports to the parent.
     final allowList = {
+      // Google apps
       'com.google.android.youtube', // YouTube
+      'com.google.android.googlequicksearchbox', // Google Search
+      'com.android.chrome', // Chrome
+      'com.google.android.gm', // Gmail
+      'com.google.android.apps.maps', // Maps
+      'com.google.android.apps.photos', // Google Photos
+      'com.google.android.apps.docs', // Google Drive
+      'com.google.android.apps.nbu.files', // Files by Google
+      'com.google.android.dialer', // Phone
+      'com.google.android.apps.messaging', // Messages
+      'com.google.android.deskclock', // Clock
+      'com.google.android.calendar', // Google Calendar
+      'com.google.android.gms', // Google Play Services
+      'com.android.vending', // Google Play Store
+      // Social & messaging
       'com.facebook.katana', // Facebook
       'com.instagram.android', // Instagram
       'com.whatsapp', // WhatsApp
+      'com.whatsapp.w4b', // WhatsApp Business
       'com.snapchat.android', // Snapchat
       'com.zhiliaoapp.musically', // TikTok
       'org.telegram.messenger', // Telegram
       'com.twitter.android', // Twitter/X
-      'com.google.android.apps.maps', // Maps
+      // Entertainment
       'com.spotify.music', // Spotify
       'com.netflix.mediaclient', // Netflix
+      'in.startv.hotstar', // JioHotstar
+      'com.amazon.avod.thirdpartyclient', // Amazon Prime Video
     };
 
     // Create a map of usage data for quick lookup

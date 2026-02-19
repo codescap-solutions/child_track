@@ -40,6 +40,8 @@ class SocialAppsBloc extends Bloc<SocialAppsEvent, SocialAppsState> {
       final response = await _repository.getAppUsage(
         childId: childId,
         date: event.date,
+        startDate: event.startDate,
+        endDate: event.endDate,
       );
 
       if (response.isSuccess) {

@@ -215,14 +215,6 @@ class _SettingsViewState extends State<SettingsView> {
                         setState(() => _block18Plus = value);
                       },
                     ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: const Divider(
-                        height: 1,
-                        endIndent: 20,
-                        indent: 20,
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -350,14 +342,6 @@ class _SettingsViewState extends State<SettingsView> {
                           ),
                         );
                       },
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: const Divider(
-                        height: 1,
-                        endIndent: 20,
-                        indent: 20,
-                      ),
                     ),
                   ],
                 ),

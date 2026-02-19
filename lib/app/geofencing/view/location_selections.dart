@@ -1,12 +1,9 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:geocoding/geocoding.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../map/view/map_view.dart';
-import 'package:http/http.dart' as http;
 import '../view_model/bloc/geofence_bloc.dart';
 import '../view_model/bloc/geofence_event.dart';
 import '../view_model/bloc/geofence_state.dart';
@@ -15,9 +12,14 @@ import '../model/geofence_model.dart';
 class LocationSelectionScreen extends StatefulWidget {
   final String? childId;
   final String? parentId;
+  final Geofence? geofence;
 
-  const LocationSelectionScreen({Key? key, this.childId, this.parentId})
-    : super(key: key);
+  const LocationSelectionScreen({
+    super.key,
+    this.childId,
+    this.parentId,
+    this.geofence,
+  });
 
   @override
   State<LocationSelectionScreen> createState() =>
@@ -27,7 +29,6 @@ class LocationSelectionScreen extends StatefulWidget {
 class _LocationSelectionScreenState extends State<LocationSelectionScreen> {
   Completer<GoogleMapController> _controller = Completer();
   final TextEditingController _searchController = TextEditingController();
-  late LatLng _selectedPosition;
   bool _showSuggestions = false;
   Set<Marker> _markers = {};
   bool _isMapReady = false;
@@ -37,7 +38,60 @@ class _LocationSelectionScreenState extends State<LocationSelectionScreen> {
   @override
   void initState() {
     super.initState();
-    _selectedPosition = _initialPosition;
+    // If we are editing an existing geofence, show its marker initially
+    if (widget.geofence != null) {
+      final g = widget.geofence!;
+      if (g.latitude != null && g.longitude != null) {
+        _markers.add(
+          Marker(
+            markerId: const MarkerId('selected_location'),
+            position: LatLng(g.latitude!, g.longitude!),
+            infoWindow: InfoWindow(title: g.name ?? 'Selected Location'),
+            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+            onTap: () async {
+              setState(() {
+                _showSuggestions = false;
+              });
+
+              final result = await showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                backgroundColor: Colors.transparent,
+                builder: (context) => GeoFenceFormSheet(
+                  latitude: g.latitude!,
+                  longitude: g.longitude!,
+                  childId: widget.childId ?? '',
+                  parentId: widget.parentId ?? '',
+                  geofence: g,
+                ),
+              );
+              if (result != null) {
+                Navigator.pop(context, result);
+               }
+            },
+          ),
+        );
+        _searchController.text = g.name ?? '';
+        // Open the edit sheet automatically when screen is opened for editing
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
+          final result = await showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (context) => GeoFenceFormSheet(
+              latitude: g.latitude!,
+              longitude: g.longitude!,
+              childId: widget.childId ?? '',
+              parentId: widget.parentId ?? '',
+              geofence: g,
+            ),
+          );
+          if (result != null) {
+            Navigator.pop(context, result);
+          }
+        });
+      }
+    }
   }
 
   @override
@@ -69,6 +123,7 @@ class _LocationSelectionScreenState extends State<LocationSelectionScreen> {
                 longitude: position.longitude,
                 childId: widget.childId ?? '',
                 parentId: widget.parentId ?? '',
+                geofence: widget.geofence,
               ),
             );
             if (result != null) {
@@ -77,8 +132,6 @@ class _LocationSelectionScreenState extends State<LocationSelectionScreen> {
           },
         ),
       );
-
-      _selectedPosition = position;
     });
   }
 
@@ -123,9 +176,20 @@ class _LocationSelectionScreenState extends State<LocationSelectionScreen> {
                     _isMapReady = true;
                   });
                   await Future.delayed(const Duration(milliseconds: 500));
-                  controller.animateCamera(
-                    CameraUpdate.newLatLngZoom(_initialPosition, 14),
-                  );
+                  if (widget.geofence != null &&
+                      widget.geofence!.latitude != null &&
+                      widget.geofence!.longitude != null) {
+                    controller.animateCamera(
+                      CameraUpdate.newLatLngZoom(
+                        LatLng(widget.geofence!.latitude!, widget.geofence!.longitude!),
+                        16,
+                      ),
+                    );
+                  } else {
+                    controller.animateCamera(
+                      CameraUpdate.newLatLngZoom(_initialPosition, 14),
+                    );
+                  }
                 }
               },
               onMapTap: (position) async {
@@ -143,6 +207,7 @@ class _LocationSelectionScreenState extends State<LocationSelectionScreen> {
                     longitude: position.longitude,
                     childId: widget.childId ?? '',
                     parentId: widget.parentId ?? '',
+                    geofence: widget.geofence,
                   ),
                 );
                 if (result != null) {
@@ -305,6 +370,7 @@ class GeoFenceFormSheet extends StatefulWidget {
   final double longitude;
   final String childId;
   final String parentId;
+  final Geofence? geofence;
 
   const GeoFenceFormSheet({
     Key? key,
@@ -312,6 +378,7 @@ class GeoFenceFormSheet extends StatefulWidget {
     required this.longitude,
     required this.childId,
     required this.parentId,
+    this.geofence,
   }) : super(key: key);
 
   @override
@@ -347,10 +414,31 @@ class _GeoFenceFormSheetState extends State<GeoFenceFormSheet> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    // Prefill fields when editing
+    if (widget.geofence != null) {
+      final g = widget.geofence!;
+      nameController.text = g.name ?? '';
+      selectedCategory = g.category;
+      radiusController.text = (g.radius ?? 30).toString();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return BlocListener<GeofenceBloc, GeofenceState>(
       listener: (context, state) {
         if (state is GeofenceCreated) {
+          Navigator.pop(context, {
+            "id": state.geofence.id,
+            "name": state.geofence.name,
+            "category": state.geofence.category,
+            "latitude": state.geofence.latitude,
+            "longitude": state.geofence.longitude,
+            "radius": state.geofence.radius,
+          });
+        } else if (state is GeofenceUpdated) {
           Navigator.pop(context, {
             "id": state.geofence.id,
             "name": state.geofence.name,
@@ -445,7 +533,7 @@ class _GeoFenceFormSheetState extends State<GeoFenceFormSheet> {
                           borderRadius: BorderRadius.circular(14),
                         ),
                       ),
-                      onPressed: isLoading ? null : _handleCreateGeofence,
+                      onPressed: isLoading ? null : _handleSaveGeofence,
                       child: isLoading
                           ? const SizedBox(
                               height: 20,
@@ -469,7 +557,7 @@ class _GeoFenceFormSheetState extends State<GeoFenceFormSheet> {
     );
   }
 
-  void _handleCreateGeofence() {
+  void _handleSaveGeofence() {
     if (nameController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter a geofence name')),
@@ -485,6 +573,21 @@ class _GeoFenceFormSheetState extends State<GeoFenceFormSheet> {
     }
 
     final radius = int.tryParse(radiusController.text) ?? 30;
+
+    if (widget.geofence != null && widget.geofence!.id != null) {
+      final updateRequest = UpdateGeofenceRequest(
+        name: nameController.text,
+        category: selectedCategory,
+        radius: radius,
+        latitude: widget.latitude,
+        longitude: widget.longitude,
+      );
+
+      context.read<GeofenceBloc>().add(
+        UpdateGeofenceRequested(id: widget.geofence!.id!, request: updateRequest),
+      );
+      return;
+    }
 
     final request = CreateGeofenceRequest(
       name: nameController.text,

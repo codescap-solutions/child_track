@@ -158,20 +158,22 @@ class _MapViewWidgetState extends State<MapViewWidget> {
 
     // Start with provided polylines if any
     final Map<PolylineId, Polyline> initialPolylines = {};
-    if (widget.polylines != null) {
+    if (widget.polylines != null && widget.polylines!.isNotEmpty) {
       for (var polyline in widget.polylines!) {
         initialPolylines[polyline.polylineId] = polyline;
       }
-    }
-
-    // Attempt to get polylines from markers via Bloc
-    try {
-      final blocPolylines = await injector<MapBloc>().getPolyLines(
-        widget.markers ?? [],
-      );
-      initialPolylines.addAll(blocPolylines);
-    } catch (e) {
-      // Ignore error if bloc fails, keep provided polylines
+      // If explicit polylines are provided, we likley don't want to fetch automatic ones from markers
+      // unless we want to merge them. For detail views, we usually want EXACTLY what we passed.
+    } else {
+      // Attempt to get polylines from markers via Bloc ONLY if no polylines provided
+      try {
+        final blocPolylines = await injector<MapBloc>().getPolyLines(
+          widget.markers ?? [],
+        );
+        initialPolylines.addAll(blocPolylines);
+      } catch (e) {
+        // Ignore error if bloc fails
+      }
     }
 
     polylines = initialPolylines;
@@ -253,8 +255,8 @@ class _MapViewWidgetState extends State<MapViewWidget> {
                     child: InkWell(
                       onTap: () => _showMapTypeOptions(context),
                       child: CircleAvatar(
-                        backgroundColor: Colors.black.withOpacity(
-                          0.6,
+                        backgroundColor: Colors.black.withValues(
+                          alpha: 0.6,
                         ), // Standard map button style
                         child: const Icon(Icons.layers, color: Colors.white),
                       ),

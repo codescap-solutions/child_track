@@ -216,7 +216,7 @@ class LocationStateMachine {
         "accuracy_m": p.accuracy,
         "speed_mps": p.speed,
         "bearing": p.heading,
-        "timestamp": p.timestamp.toIso8601String(),
+        "timestamp": p.timestamp.toUtc().toIso8601String(),
       };
 
       // Fire and forget? Or await?

@@ -10,6 +10,7 @@ import '../view_model/bloc/geofence_bloc.dart';
 import '../view_model/bloc/geofence_event.dart';
 import '../view_model/bloc/geofence_state.dart';
 import '../model/geofence_model.dart';
+import 'widgets/geoplace_card.dart';
 
 class GeoFencingView extends StatefulWidget {
   final String? childId;
@@ -21,19 +22,76 @@ class GeoFencingView extends StatefulWidget {
   State<GeoFencingView> createState() => _GeoFencingViewState();
 }
 
+enum FetchResult { success, failure, loading }
+
 class _GeoFencingViewState extends State<GeoFencingView> {
-  int _selectedTabIndex = 1;
-  PageController _pageController = PageController();
+  final PageController _pageController = PageController();
   List<Geofence> _geofences = [];
   int _defaultRadius = 30;
+  String? _lastDateParam;
+  String? _lastStartDate;
+  String? _lastEndDate;
+  int _selectedTabIndex = 1; // Track selected tab
+
+  /// Helper method to format seconds to human-readable format
+  String? _formatSeconds(int? seconds) {
+    if (seconds == null || seconds <= 0) return null;
+
+    final hours = seconds ~/ 3600;
+    final minutes = (seconds % 3600) ~/ 60;
+    final secs = seconds % 60;
+
+    final parts = <String>[];
+    if (hours > 0) parts.add('${hours}h');
+    if (minutes > 0) parts.add('${minutes}m');
+    if (secs > 0) parts.add('${secs}s');
+
+    return parts.join(' ');
+  }
+
+  /// Get date label for selected tab
+  String? _getDateLabel(int tabIndex) {
+    switch (tabIndex) {
+      case 0:
+        return 'yesterday';
+      case 1:
+        return 'today';
+      case 2:
+        return 'last week';
+      default:
+        return null;
+    }
+  }
+
+  /// Build subtitle with time spent and date
+  String _buildSubtitle(Geofence? geofence) {
+    if (geofence == null) return 'Unknown';
+
+    final category = geofence.category ?? "Unknown";
+    final radius = geofence.radius ?? 0;
+    final String? timeSpent = _formatSeconds(geofence.totalSpentTime);
+    final String? dateLabel = _getDateLabel(_selectedTabIndex);
+    if (timeSpent == null || dateLabel == null) {
+      return '$category • ${radius}m radius';
+    } else {
+      return '$timeSpent spent $dateLabel';
+    }
+  }
 
   @override
   void initState() {
     super.initState();
     // Load geofences when the view is initialized
     if (widget.childId != null) {
+      // Default to today's data on initial load
+      final today = DateTime.now();
+      final todayStr =
+          "${today.year.toString().padLeft(4, '0')}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}";
+      _lastDateParam = todayStr;
+      _lastStartDate = null;
+      _lastEndDate = null;
       context.read<GeofenceBloc>().add(
-        GetGeofencesRequested(childId: widget.childId!),
+        GetGeofencesRequested(childId: widget.childId!, date: todayStr),
       );
     }
   }
@@ -111,75 +169,209 @@ class _GeoFencingViewState extends State<GeoFencingView> {
         foregroundColor: AppColors.textPrimary,
         centerTitle: true,
       ),
-      body: BlocListener<GeofenceBloc, GeofenceState>(
-        listener: (context, state) {
-          if (state is GeofencesLoaded) {
-            setState(() {
-              _geofences = state.geofences;
-            });
-          } else if (state is GeofenceCreated) {
-            setState(() {
-              _geofences.add(state.geofence);
-            });
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Geofence created successfully')),
-            );
-          } else if (state is GeofenceDeleted) {
-            setState(() {
-              _geofences.removeWhere((g) => g.id == state.geofenceId);
-            });
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Geofence deleted successfully')),
-            );
-          } else if (state is GeofenceLockToggled) {
-            setState(() {
-              final index = _geofences.indexWhere(
-                (g) => g.id == state.geofence.id,
-              );
-              if (index != -1) {
-                _geofences[index] = state.geofence;
-              }
-            });
-          } else if (state is GeofenceError) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text(state.message)));
-          }
-        },
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingM),
-          child: Column(
-            children: [
-              const SizedBox(height: AppSizes.spacingM),
-              AdvancedSegmentedTab(
-                onTabChanged: (index) {
-                  setState(() {
-                    _selectedTabIndex = index;
-                    _pageController.animateToPage(
-                      index,
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeInOut,
+      body: Column(
+        children: [
+          const SizedBox(height: AppSizes.spacingM),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingM),
+            child: AdvancedSegmentedTab(
+              onTabChanged: (index) {
+                // map tab index -> date parameter
+                String? dateParam;
+                final now = DateTime.now();
+                if (index == 0) {
+                  final yesterday = now.subtract(const Duration(days: 1));
+                  dateParam =
+                      "${yesterday.year.toString().padLeft(4, '0')}-${yesterday.month.toString().padLeft(2, '0')}-${yesterday.day.toString().padLeft(2, '0')}";
+                } else if (index == 1) {
+                  dateParam =
+                      "${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+                } else if (index == 2) {
+                  // For week, compute startDate and endDate (7-day range)
+                  final now = DateTime.now();
+                  final start = now.subtract(const Duration(days: 6));
+                  final startStr =
+                      "${start.year.toString().padLeft(4, '0')}-${start.month.toString().padLeft(2, '0')}-${start.day.toString().padLeft(2, '0')}";
+                  final endStr =
+                      "${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+                  // We'll store range separately for retry logic
+                  _lastStartDate = startStr;
+                  _lastEndDate = endStr;
+                  dateParam =
+                      null; // use startDate/endDate instead of single date
+                }
+                setState(() {
+                  _selectedTabIndex = index;
+                  _pageController.animateToPage(
+                    index,
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                  );
+                });
+
+                // remember last requested date and request
+                _lastDateParam = dateParam ?? _lastDateParam;
+                setState(() {
+                  _pageController.animateToPage(
+                    index,
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                  );
+                });
+
+                if (widget.childId != null) {
+                  if (index == 2) {
+                    context.read<GeofenceBloc>().add(
+                      GetGeofencesRequested(
+                        childId: widget.childId!,
+                        startDate: _lastStartDate,
+                        endDate: _lastEndDate,
+                      ),
                     );
-                  });
-                },
-              ),
-              const SizedBox(height: 10),
-              _buildRadiusInfo(context),
-              const SizedBox(height: 10),
-              Expanded(
-                child: PageView(
-                  controller: _pageController,
-                  physics: const NeverScrollableScrollPhysics(),
-                  children: [
-                    _buildGeofencesListView(),
-                    _buildGeofencesListView(forTest: true),
-                    _buildGeofencesListView(),
-                  ],
-                ),
-              ),
-            ],
+                  } else {
+                    // clear any previous range when requesting a single date
+                    _lastStartDate = null;
+                    _lastEndDate = null;
+                    context.read<GeofenceBloc>().add(
+                      GetGeofencesRequested(
+                        childId: widget.childId!,
+                        date: _lastDateParam,
+                      ),
+                    );
+                  }
+                }
+              },
+            ),
           ),
-        ),
+          Expanded(
+            child: BlocConsumer<GeofenceBloc, GeofenceState>(
+              listener: (context, state) {
+                if (state is GeofencesLoaded) {
+                  setState(() {
+                    _geofences = state.geofences;
+                  });
+                } else if (state is GeofenceCreated) {
+                  setState(() {
+                    _geofences.add(state.geofence);
+                  });
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Geofence created successfully'),
+                    ),
+                  );
+                } else if (state is GeofenceUpdated) {
+                  setState(() {
+                    final index = _geofences.indexWhere(
+                      (g) => g.id == state.geofence.id,
+                    );
+                    if (index != -1) _geofences[index] = state.geofence;
+                  });
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Geofence updated successfully'),
+                    ),
+                  );
+                } else if (state is GeofenceDeleted) {
+                  setState(() {
+                    _geofences.removeWhere((g) => g.id == state.geofenceId);
+                  });
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Geofence deleted successfully'),
+                    ),
+                  );
+                } else if (state is GeofenceLockToggled) {
+                  setState(() {
+                    final index = _geofences.indexWhere(
+                      (g) => g.id == state.geofence.id,
+                    );
+                    if (index != -1) _geofences[index] = state.geofence;
+                  });
+                } else if (state is GeofenceError) {
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text(state.message)));
+                }
+              },
+              builder: (context, state) {
+                // Loading
+                if (state is GeofenceLoading) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                // Error: show UI with retry
+                if (state is GeofenceError) {
+                  final message = state.message;
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            message,
+                            style: const TextStyle(color: Colors.red),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 12),
+                          ElevatedButton(
+                            onPressed: () {
+                              if (widget.childId != null) {
+                                if (_lastStartDate != null &&
+                                    _lastEndDate != null) {
+                                  context.read<GeofenceBloc>().add(
+                                    GetGeofencesRequested(
+                                      childId: widget.childId!,
+                                      startDate: _lastStartDate,
+                                      endDate: _lastEndDate,
+                                    ),
+                                  );
+                                } else {
+                                  context.read<GeofenceBloc>().add(
+                                    GetGeofencesRequested(
+                                      childId: widget.childId!,
+                                      date: _lastDateParam,
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                            child: const Text('Retry'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+
+                // Loaded / other states: render content using current list
+                return Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSizes.paddingM,
+                  ),
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 10),
+                      _buildRadiusInfo(context),
+                      const SizedBox(height: 10),
+                      Expanded(
+                        child: PageView(
+                          controller: _pageController,
+                          physics: const NeverScrollableScrollPhysics(),
+                          children: [
+                            _buildGeofencesListView(),
+                            _buildGeofencesListView(),
+                            _buildGeofencesListView(),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -204,87 +396,64 @@ class _GeoFencingViewState extends State<GeoFencingView> {
     );
   }
 
-  Widget _buildGeofencesListView({bool forTest = false}) {
-    if (_geofences.isEmpty && forTest) {
-      return ListView.builder(
-        itemCount: 5,
-        itemBuilder: (context, index) {
-          final geofence = Geofence();
-          return GeoPlaceCard(
-            title:
-                geofence.name ??
-                (forTest
-                    ? "Test Geofence ${index + 1}"
-                    : "Geofence ${index + 1}"),
-            subtitle:
-                "${geofence.category ?? (forTest ? "Test Category" : "Unknown")} • ${geofence.radius ?? 0}m radius",
-            isPrimary: true,
-            toggleValue:
-                geofence.isLocked ?? (forTest ? index % 2 == 0 : false),
-            geofenceId: geofence.id,
-            onToggle: (value) {
-              if (geofence.id != null) {
-                context.read<GeofenceBloc>().add(
-                  ToggleGeofenceLockRequested(
-                    id: geofence.id!,
-                    isLocked: value,
-                  ),
-                );
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Invalid geofence ID')),
-                );
-              }
-            },
-            onDelete: () {
-              _showDeleteConfirmation(geofence);
-            },
-          );
-        },
-      );
-    } else if (_geofences.isEmpty && !forTest) {
+  Widget _buildGeofencesListView() {
+    if (_geofences.isEmpty) {
       return _buildAddGeofencesView();
     }
 
     return ListView.builder(
-      itemCount: _geofences.length,
+      itemCount: _geofences.length + 1,
       itemBuilder: (context, index) {
-        final geofence = _geofences[index];
-        return GeoPlaceCard(
-          title:
-              geofence.name ??
-              "Unknown Place", // Fallback to "Unknown Place" if name is null
-          subtitle:
-              "${geofence.category ?? "Unknown"} • ${geofence.radius ?? 0}m radius",
-          isPrimary: true,
-          toggleValue: geofence.isLocked ?? false,
-          geofenceId: geofence.id,
-          onToggle: (value) {
-            if (geofence.id != null) {
-              context.read<GeofenceBloc>().add(
-                ToggleGeofenceLockRequested(id: geofence.id!, isLocked: value),
+        Geofence? geofence;
+        if (index < _geofences.length) {
+          geofence = _geofences[index];
+        }
+        return index < _geofences.length
+            ? GeoPlaceCard(
+                title:
+                    geofence?.name ??
+                    "Unknown Place", // Fallback to "Unknown Place" if name is null
+                subtitle: _buildSubtitle(geofence),
+                isPrimary: true,
+                toggleValue: geofence?.isLocked ?? false,
+                geofenceId: geofence?.id,
+                onTap: () => _navigateToLocationSelection(geofence: geofence),
+                onToggle: (value) {
+                  if (geofence?.id != null) {
+                    context.read<GeofenceBloc>().add(
+                      ToggleGeofenceLockRequested(
+                        id: geofence?.id ?? '',
+                        isLocked: value,
+                      ),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Invalid geofence ID')),
+                    );
+                  }
+                },
+                onDelete: () {
+                  if (geofence != null) {
+                    _showDeleteConfirmation(geofence);
+                  }
+                },
+              )
+            : GeoPlaceCard(
+                title: "Add Place",
+                onTap: _navigateToLocationSelection,
               );
-            } else {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Invalid geofence ID')),
-              );
-            }
-          },
-          onDelete: () {
-            _showDeleteConfirmation(geofence);
-          },
-        );
       },
     );
   }
 
-  void _navigateToLocationSelection() {
+  void _navigateToLocationSelection({Geofence? geofence}) {
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => LocationSelectionScreen(
           childId: widget.childId,
           parentId: widget.parentId,
+          geofence: geofence,
         ),
       ),
     );
@@ -320,252 +489,33 @@ class _GeoFencingViewState extends State<GeoFencingView> {
       ),
     );
   }
-}
 
-Widget _buildRadiusInfo(BuildContext context) {
-  final state = context.findAncestorStateOfType<_GeoFencingViewState>();
-  final radius = state?._defaultRadius ?? 30;
-
-  return Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 16),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(
-          "${radius}mtr radius will be locked",
-          style: const TextStyle(fontSize: 13),
-        ),
-        const SizedBox(width: 6),
-        GestureDetector(
-          onTap: () => state?._showRadiusEditDialog(),
-          child: const Text(
-            "edit",
-            style: TextStyle(
-              color: Color(0xFF0070F0),
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
+  Widget _buildRadiusInfo(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            "${_defaultRadius}mtr radius will be locked",
+            style: const TextStyle(fontSize: 13),
+          ),
+          const SizedBox(width: 6),
+          GestureDetector(
+            onTap: () {
+              _showRadiusEditDialog();
+            },
+            child: const Text(
+              "edit",
+              style: TextStyle(
+                color: Color(0xFF0070F0),
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
-        ),
-      ],
-    ),
-  );
-}
-
-class GeoPlaceCard extends StatelessWidget {
-  final String title;
-  final String? subtitle;
-  final bool isPrimary;
-  final bool toggleValue;
-  final String? geofenceId;
-  final VoidCallback? onTap;
-  final ValueChanged<bool>? onToggle;
-  final VoidCallback? onDelete;
-
-  const GeoPlaceCard({
-    super.key,
-    required this.title,
-    this.subtitle,
-    this.toggleValue = false,
-    this.isPrimary = false,
-    this.geofenceId,
-    this.onTap,
-    this.onToggle,
-    this.onDelete,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isAddCard = title.contains('Add');
-
-    return GestureDetector(
-      onTap: isAddCard ? (onTap ?? _defaultNavigate) : null,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8.04),
-              height: 50,
-              width: 50,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isPrimary
-                    ? const Color(0xFF0C5391)
-                    : const Color(0xFF666363),
-              ),
-              child: Container(
-                decoration: isPrimary && !isAddCard
-                    ? null
-                    : BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2.5),
-                      ),
-                child: Icon(
-                  isPrimary && !isAddCard ? getIconByName(title) : Icons.add,
-                  color: Colors.white,
-                  size: 26,
-                ),
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  if (subtitle != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Text(
-                        subtitle!,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w500,
-                          fontSize: 14,
-                          color: Color(0xFF0070F0),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            if (!isAddCard) ...[
-              PopupMenuButton(
-                itemBuilder: (context) => [
-                  const PopupMenuItem(
-                    value: 'delete',
-                    child: Row(
-                      children: [
-                        Icon(Icons.delete, color: Colors.red, size: 20),
-                        SizedBox(width: 8),
-                        Text('Delete', style: TextStyle(color: Colors.red)),
-                      ],
-                    ),
-                  ),
-                ],
-                onSelected: (value) {
-                  if (value == 'delete' && onDelete != null) {
-                    onDelete!();
-                  }
-                },
-              ),
-              CustomToggleSwitch(
-                value: toggleValue,
-                onChanged: onToggle ?? (value) {},
-              ),
-            ],
-          ],
-        ),
+        ],
       ),
     );
-  }
-
-  void _defaultNavigate() {
-    // This won't be called if onTap is provided
-  }
-}
-
-class CustomToggleSwitch extends StatefulWidget {
-  final bool value;
-  final ValueChanged<bool> onChanged;
-
-  const CustomToggleSwitch({
-    Key? key,
-    required this.value,
-    required this.onChanged,
-  }) : super(key: key);
-
-  @override
-  State<CustomToggleSwitch> createState() => _CustomToggleSwitchState();
-}
-
-class _CustomToggleSwitchState extends State<CustomToggleSwitch> {
-  late bool isOn;
-
-  @override
-  void initState() {
-    super.initState();
-    isOn = widget.value;
-  }
-
-  void toggle() {
-    setState(() {
-      isOn = !isOn;
-    });
-    widget.onChanged(isOn);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: toggle,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
-        width: 58,
-        height: 33,
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          color: isOn ? const Color(0xFF0070F0) : Color(0xFF898C8E),
-
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: AnimatedAlign(
-          duration: const Duration(milliseconds: 250),
-          curve: Curves.easeInOut,
-          alignment: isOn ? Alignment.centerRight : Alignment.centerLeft,
-          child: Container(
-            width: 23,
-            height: 25,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-IconData getIconByName(String name) {
-  switch (name.toLowerCase()) {
-    case 'home':
-      return Icons.home;
-    case 'school':
-      return Icons.school;
-    case 'office':
-      return Icons.business;
-    case 'hospital':
-      return Icons.local_hospital;
-    case 'park':
-      return Icons.park;
-    case 'shop':
-      return Icons.store;
-    case 'gym':
-      return Icons.fitness_center;
-    case 'mosque':
-      return Icons.mosque;
-    case 'church':
-      return Icons.church;
-    default:
-      return Icons.location_on; // default fallback
   }
 }
