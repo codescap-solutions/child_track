@@ -53,7 +53,8 @@ class ChildRepo extends BaseService {
           // Multi-Child: Save to profile list
           if (token != null) {
             final profile = ChildProfile(
-              childId: childCode,
+              childCode: childCode,
+              childId: childId,
               childName: name,
               authToken: token,
               lastActiveAt: DateTime.now(),

@@ -6,9 +6,11 @@ class ChildProfile {
   final String authToken;
   final String? avatar;
   final DateTime lastActiveAt;
+  final String childCode;
 
   ChildProfile({
     required this.childId,
+    required this.childCode,
     required this.childName,
     required this.authToken,
     this.avatar,
@@ -19,6 +21,7 @@ class ChildProfile {
     return {
       'child_id': childId,
       'child_name': childName,
+      'child_code': childCode,
       'auth_token': authToken,
       'avatar': avatar,
       'last_active_at': lastActiveAt.toIso8601String(),
@@ -27,6 +30,7 @@ class ChildProfile {
 
   factory ChildProfile.fromMap(Map<String, dynamic> map) {
     return ChildProfile(
+      childCode: map['child_code'] ?? '',
       childId: map['child_id'] ?? '',
       childName: map['child_name'] ?? '',
       authToken: map['auth_token'] ?? '',
@@ -47,9 +51,11 @@ class ChildProfile {
     String? childName,
     String? authToken,
     String? avatar,
+    String? childCode,
     DateTime? lastActiveAt,
   }) {
     return ChildProfile(
+      childCode: childCode ?? this.childCode,
       childId: childId ?? this.childId,
       childName: childName ?? this.childName,
       authToken: authToken ?? this.authToken,

@@ -103,6 +103,7 @@ class AuthRepository extends BaseService {
                 if (childId != null && token != null) {
                   childProfiles.add(
                     ChildProfile(
+                      childCode: child['child_code'] as String? ?? '',
                       childId: childId,
                       childName: childName,
                       authToken: token, // Using parent token
@@ -123,6 +124,10 @@ class AuthRepository extends BaseService {
                 await _sharedPrefsService.setString(
                   'child_id',
                   childProfiles.first.childId,
+                );
+                await _sharedPrefsService.setString(
+                  'child_code',
+                  childProfiles.first.childCode,
                 );
               }
             } else if (childrenData.isNotEmpty && childrenData[0] is String) {
