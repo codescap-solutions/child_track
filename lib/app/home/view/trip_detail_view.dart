@@ -45,17 +45,8 @@ class _TripDetailViewState extends State<TripDetailView> {
   String _formatDateTime(String timeStr) {
     if (timeStr.isEmpty) return '';
     try {
-      // Input format from API seems to be "dd-MM-yyyy HH:mm:ss"
-      // or standard ISO. Try generic parse first, then specific.
-      DateTime dt;
-      try {
-        dt = DateTime.parse(timeStr);
-      } catch (_) {
-        final inputFormat = DateFormat('dd-MM-yyyy HH:mm:ss');
-        dt = inputFormat.parse(timeStr);
-      }
-
-      // Desired format: "13-01-2026 07:00pm"
+      // Parse ISO UTC string and convert to device local time
+      final dt = DateTime.parse(timeStr).toLocal();
       final outputFormat = DateFormat('dd-MM-yyyy hh:mma');
       return outputFormat.format(dt).toLowerCase();
     } catch (e) {

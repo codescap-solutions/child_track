@@ -119,7 +119,6 @@ Future<void> initializeDependencies() async {
       sharedPrefsService: injector<SharedPrefsService>(),
       deviceInfoService: injector<ChildInfoService>(),
       childRepo: injector<ChildRepo>(),
-      childLocationRepo: injector<ChildGoogleMapsRepo>(),
       screenTimeSyncService: injector<ScreenTimeSyncService>(),
     ),
   );

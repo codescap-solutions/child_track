@@ -1,13 +1,13 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
-import 'package:child_track/app/childapp/view_model/repository/child_location_repo.dart';
 import 'package:child_track/app/childapp/view_model/repository/child_repo.dart';
 import 'package:child_track/core/services/shared_prefs_service.dart';
 import 'package:child_track/core/services/dio_client.dart';
 import 'package:child_track/core/services/connectivity/bloc/connectivity_bloc.dart';
 import 'package:child_track/core/utils/structured_logger.dart';
-import 'package:child_track/core/services/location_state_machine.dart';
+import 'package:child_track/core/services/location_batch_uploader.dart';
+import 'package:child_track/core/services/location_queue.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -24,10 +24,10 @@ class BackgroundLocationService {
     final service = FlutterBackgroundService();
 
     const AndroidNotificationChannel channel = AndroidNotificationChannel(
-      'child_track_location', // id
-      'Location Tracking', // title
-      description: 'Tracking your location in background', // description
-      importance: Importance.high, // importance must be at low or higher level
+      'child_track_location',
+      'Location Tracking',
+      description: 'Tracking your location in background',
+      importance: Importance.high,
     );
 
     final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
@@ -44,13 +44,12 @@ class BackgroundLocationService {
     await service.configure(
       androidConfiguration: AndroidConfiguration(
         onStart: onStart,
-        autoStart: false, // Manual start for control
+        autoStart: false,
         isForegroundMode: true,
         notificationChannelId: 'child_track_location',
         initialNotificationTitle: 'Location Tracking',
         initialNotificationContent: 'Tracking Active',
         foregroundServiceNotificationId: 888,
-        // Crucial for foreground service type
         foregroundServiceTypes: [AndroidForegroundType.location],
       ),
       iosConfiguration: IosConfiguration(
@@ -98,9 +97,12 @@ class BackgroundLocationService {
   }
 }
 
-// Global reference for stream subscription to handle cancellation
+// ====================================================================
+// FOREGROUND SERVICE ISOLATE
+// ====================================================================
+
 StreamSubscription<Position>? _positionSubscription;
-LocationStateMachine? _stateMachine;
+LocationBatchUploader? _batchUploader;
 
 @pragma('vm:entry-point')
 void onStart(ServiceInstance service) async {
@@ -108,13 +110,12 @@ void onStart(ServiceInstance service) async {
     DartPluginRegistrant.ensureInitialized();
     StructuredLogger.log(LogTag.BG, 'Service onStart initiated');
 
-    // CRITICAL: Set foreground IMMEDIATELY to satisfy Android's timeout
-    // requirement (must call startForeground within ~10s of startForegroundService)
+    // CRITICAL: Set foreground IMMEDIATELY to satisfy Android's ~10s timeout
     if (service is AndroidServiceInstance) {
       await service.setAsForegroundService();
     }
 
-    // 1. Service Controls
+    // ── Service Controls ──────────────────────────────────────────────
     if (service is AndroidServiceInstance) {
       service.on('setAsForeground').listen((event) {
         service.setAsForegroundService();
@@ -124,58 +125,64 @@ void onStart(ServiceInstance service) async {
       });
     }
 
-    service.on('stopService').listen((event) {
+    service.on('stopService').listen((event) async {
       StructuredLogger.log(LogTag.BG, 'Stop signal received');
-      _positionSubscription?.cancel();
-      service.stopSelf();
+      await _shutdownGracefully(service);
     });
 
-    // 2. Initialize Dependencies
+    service.on('stop').listen((event) async {
+      StructuredLogger.log(LogTag.BG, 'Stop (legacy) signal received');
+      await _shutdownGracefully(service);
+    });
+
+    // ── Initialize Dependencies ───────────────────────────────────────
     await SharedPrefsService.init();
     final sharedPrefsService = SharedPrefsService();
     final connectivity = Connectivity();
     final connectivityBloc = ConnectivityBloc(connectivity: connectivity);
-    final dioClient = DioClient(connectivityBloc: connectivityBloc);
+    final dioClient = DioClient(
+      connectivityBloc: connectivityBloc,
+      sharedPrefsService: sharedPrefsService,
+    );
 
     final childRepo = ChildRepo(
       dioClient: dioClient,
       sharedPrefsService: sharedPrefsService,
     );
-    final childLocationRepo = ChildGoogleMapsRepo();
 
-    // 3. Initialize State Machine
-    _stateMachine = LocationStateMachine(
+    // ── Initialize Persistent Queue + Batch Uploader ──────────────────
+    final queue = LocationQueue(prefs: sharedPrefsService);
+
+    _batchUploader = LocationBatchUploader(
       childRepo: childRepo,
-      locationRepo: childLocationRepo,
       prefs: sharedPrefsService,
+      queue: queue,
     );
 
-    // 4. Configure Location Settings
-    // Use platform-specific settings for best performance/uptime
+    // start() loads any persisted points from a previous kill/crash
+    await _batchUploader!.start();
+
+    // ── Configure Location Settings ───────────────────────────────────
     LocationSettings locationSettings;
 
     if (Platform.isAndroid) {
       locationSettings = AndroidSettings(
         accuracy: LocationAccuracy.high,
-        distanceFilter: 10, // 10m filter to save battery
+        distanceFilter: 10,
         forceLocationManager: true,
-        intervalDuration: const Duration(
-          seconds: 30,
-        ), // Min interval to avoid bad behavior flag
+        intervalDuration: const Duration(seconds: 15),
         foregroundNotificationConfig: const ForegroundNotificationConfig(
           notificationTitle: "NaviQ Active",
           notificationText: "Tracking location...",
-          notificationIcon: AndroidResource(
-            name: 'ic_launcher',
-          ), // Ensure this icon exists
+          notificationIcon: AndroidResource(name: 'ic_launcher'),
         ),
       );
     } else if (Platform.isIOS) {
       locationSettings = AppleSettings(
         accuracy: LocationAccuracy.high,
-        activityType: ActivityType.fitness, // Helps keep alive during movement
+        activityType: ActivityType.fitness,
         distanceFilter: 10,
-        pauseLocationUpdatesAutomatically: false, // CRITICAL for background
+        pauseLocationUpdatesAutomatically: false,
         showBackgroundLocationIndicator: true,
       );
     } else {
@@ -185,19 +192,14 @@ void onStart(ServiceInstance service) async {
       );
     }
 
-    // 5. Start Stream
+    // ── Start GPS Stream ──────────────────────────────────────────────
     StructuredLogger.log(LogTag.BG, 'Subscribing to location stream');
     _positionSubscription =
         Geolocator.getPositionStream(locationSettings: locationSettings).listen(
           (Position position) {
-            // Pass to State Machine
-            _stateMachine?.processLocation(position);
+            _batchUploader?.addPoint(position);
 
-            // Update Android Notification timestamp to show aliveness
             if (service is AndroidServiceInstance) {
-              // Update notification content casually if needed,
-              // but AndroidSettings above manages the foreground notification mostly.
-              // Explicit updates can be done like:
               service.setForegroundNotificationInfo(
                 title: "NaviQ Active",
                 content: "Moving at ${position.speed.toStringAsFixed(1)} m/s",
@@ -211,6 +213,15 @@ void onStart(ServiceInstance service) async {
   } catch (e) {
     StructuredLogger.log(LogTag.BG, 'onStart Fatal Error', error: e);
   }
+}
+
+/// Graceful shutdown — flush + persist + stop
+Future<void> _shutdownGracefully(ServiceInstance service) async {
+  _positionSubscription?.cancel();
+  _positionSubscription = null;
+  await _batchUploader?.dispose();
+  _batchUploader = null;
+  service.stopSelf();
 }
 
 @pragma('vm:entry-point')

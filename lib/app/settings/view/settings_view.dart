@@ -510,10 +510,12 @@ class _SettingsViewState extends State<SettingsView> {
                         color: AppColors.textSecondary,
                       ),
                       onTap: () async {
+                        // Stop tracking service FIRST
+                        await BackgroundLocationService().stop();
                         // Remove FCM token from server before logout
                         await FirebaseNotificationService()
                             .removeTokenFromServer();
-                        injector<SharedPrefsService>().logout();
+                        await injector<SharedPrefsService>().logout();
                         Navigator.pushNamedAndRemoveUntil(
                           context,
                           RouteNames.onBoarding,

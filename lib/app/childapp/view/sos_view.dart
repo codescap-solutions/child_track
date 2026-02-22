@@ -14,6 +14,7 @@ import 'package:child_track/core/services/shared_prefs_service.dart';
 import 'package:child_track/core/services/socket_service.dart';
 import 'package:child_track/core/services/background_location_service.dart';
 import 'package:child_track/core/navigation/route_names.dart';
+import 'package:child_track/app/childapp/view/debug_log_view.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class SosView extends StatefulWidget {
@@ -286,6 +287,18 @@ class _SosViewContent extends StatelessWidget {
 
           return Scaffold(
             backgroundColor: AppColors.surfaceColor,
+            floatingActionButton: FloatingActionButton.small(
+              backgroundColor: const Color(0xFF1A1A2E),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const DebugLogView()),
+              ),
+              child: const Icon(
+                Icons.bug_report,
+                color: Colors.greenAccent,
+                size: 20,
+              ),
+            ),
             body: SafeArea(
               child: Padding(
                 padding: const EdgeInsets.symmetric(

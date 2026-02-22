@@ -171,6 +171,42 @@ class ChildRepo extends BaseService {
     return response;
   }
 
+  /// Batch upload GPS points to the backend.
+  /// Payload: { "points": [ { lat, lon, ts, accuracy, speed, bearing, provider, battery } ] }
+  Future<BaseResponse> postBatchLocations({
+    required String childId,
+    required Map<String, dynamic> data,
+  }) async {
+    try {
+      final response = await post(
+        ApiEndpoints.postBatchLocations(childId),
+        data: data,
+      );
+      return response;
+    } catch (e) {
+      return BaseResponse.error(message: e.toString());
+    }
+  }
+
+  /// Manually end an active trip (bypasses the 7-minute backend wait).
+  Future<BaseResponse> endTrip({
+    required String childId,
+    required String tripId,
+  }) async {
+    try {
+      final response = await patch(
+        ApiEndpoints.patchTrip(childId, tripId),
+        data: {
+          'status': 'ended',
+          'endedAt': DateTime.now().toUtc().toIso8601String(),
+        },
+      );
+      return response;
+    } catch (e) {
+      return BaseResponse.error(message: e.toString());
+    }
+  }
+
   // Register child FCM token with server
   Future<BaseResponse> registerChildFcmToken({
     required String childId,

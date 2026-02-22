@@ -93,17 +93,10 @@ class TripSegment {
   }
 
   static int _calculateDurationMinutes(String start, String end) {
+    if (start.isEmpty || end.isEmpty) return 0;
     try {
-      String toIso(String s) {
-        final parts = s.split(' ');
-        if (parts.length != 2) return s;
-        final dateParts = parts[0].split('-');
-        if (dateParts.length != 3) return s;
-        return "${dateParts[2]}-${dateParts[1]}-${dateParts[0]} ${parts[1]}";
-      }
-
-      final s = DateTime.parse(toIso(start));
-      final e = DateTime.parse(toIso(end));
+      final s = DateTime.parse(start);
+      final e = DateTime.parse(end);
       return e.difference(s).inMinutes;
     } catch (_) {
       return 0;

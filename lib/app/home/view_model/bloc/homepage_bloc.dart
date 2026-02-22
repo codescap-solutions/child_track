@@ -24,6 +24,7 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
   final SharedPrefsService _sharedPrefsService;
   final SocketService _socketService;
   StreamSubscription? _locationSubscription;
+  StreamSubscription? _tripSubscription;
 
   HomepageBloc({
     required HomeRepository homeRepository,
@@ -39,6 +40,7 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
     on<GetTrips>(_onGetTrips);
     on<GetTripDetail>(_onGetTripDetail);
     on<UpdateSocketLocation>(_onUpdateSocketLocation);
+    on<UpdateSocketTrip>(_onUpdateSocketTrip);
   }
 
   void _initSocketListeners(String childId) {
@@ -49,11 +51,18 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
     _locationSubscription = _socketService.locationStream.listen((data) {
       add(UpdateSocketLocation(data));
     });
+
+    // Listen for trip updates (start / end / status change)
+    _tripSubscription?.cancel();
+    _tripSubscription = _socketService.tripStream.listen((data) {
+      add(UpdateSocketTrip(data));
+    });
   }
 
   @override
   Future<void> close() {
     _locationSubscription?.cancel();
+    _tripSubscription?.cancel();
     _socketService.disconnect();
     return super.close();
   }
@@ -292,6 +301,43 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
     } catch (e, stackTrace) {
       AppLogger.error('Error handling socket location update: $e');
       AppLogger.error('Stack trace: $stackTrace');
+    }
+  }
+
+  /// Handle trip_update socket event — re-fetch trips so parent sees changes instantly.
+  Future<void> _onUpdateSocketTrip(
+    UpdateSocketTrip event,
+    Emitter<HomepageState> emit,
+  ) async {
+    final currentState = state;
+    if (currentState is! HomepageSuccess) return;
+
+    AppLogger.info(
+      '[HomepageBloc] Trip socket update received: ${event.tripData}',
+    );
+
+    // Re-fetch page 1 of trips to get the latest list
+    try {
+      final response = await _homeRepository.getTrips(
+        childId: _sharedPrefsService.getString('child_id'),
+        page: 1,
+        pageSize: currentState.tripsPageSize ?? 10,
+        includePoints: true,
+      );
+
+      if (response.isSuccess && response.data != null) {
+        final tripsData = response.data!;
+        emit(
+          currentState.copyWith(
+            trips: tripsData.trips,
+            tripsPage: 1,
+            tripsTotalItems: tripsData.totalItems,
+            hasReachedMax: tripsData.trips.length >= tripsData.totalItems,
+          ),
+        );
+      }
+    } catch (e) {
+      AppLogger.error('Error refreshing trips from socket: $e');
     }
   }
 }

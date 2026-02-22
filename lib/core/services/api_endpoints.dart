@@ -28,6 +28,16 @@ class ApiEndpoints {
   static String getTripDetail(String tripId) => 'parent/trip/$tripId';
   static String postTripLocation(String childId) =>
       'trip-tracking/$childId/locations';
+
+  // Batch location upload
+  // TODO: Switch to 'child/$childId/locations' once backend implements the new endpoint
+  static String postBatchLocations(String childId) =>
+      'trip-tracking/$childId/locations';
+
+  // Manual trip end
+  static String patchTrip(String childId, String tripId) =>
+      'child/$childId/trips/$tripId';
+
   static const String places = 'places';
   static const String getAppUsage = 'app-usage';
 

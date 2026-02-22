@@ -39,3 +39,14 @@ final class UpdateSocketLocation extends HomepageEvent {
   @override
   List<Object> get props => [locationData];
 }
+
+/// Fired when a `trip_update` websocket event arrives.
+/// Triggers a trip list refresh so the parent sees new/ended trips instantly.
+final class UpdateSocketTrip extends HomepageEvent {
+  final Map<String, dynamic> tripData;
+
+  const UpdateSocketTrip(this.tripData);
+
+  @override
+  List<Object> get props => [tripData];
+}

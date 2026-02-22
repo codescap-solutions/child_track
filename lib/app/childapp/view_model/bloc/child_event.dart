@@ -30,28 +30,3 @@ final class PostScreenTime extends ChildEvent {
   @override
   List<Object> get props => [];
 }
-
-final class GetChildLocation extends ChildEvent {}
-
-final class PostChildLocation extends ChildEvent {
-  final Position childLocation;
-  const PostChildLocation({required this.childLocation});
-  @override
-  List<Object> get props => [childLocation];
-}
-
-final class StartTripTracking extends ChildEvent {
-  final TripMode? initialMode;
-  const StartTripTracking({this.initialMode});
-  @override
-  List<Object> get props => [if (initialMode != null) initialMode!];
-}
-
-final class StopTripTracking extends ChildEvent {}
-
-final class UpdateTripLocation extends ChildEvent {
-  final Position location;
-  const UpdateTripLocation({required this.location});
-  @override
-  List<Object> get props => [location];
-}

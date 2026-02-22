@@ -10,11 +10,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:child_track/app/home/view/trip_detail_view.dart';
 import 'package:child_track/app/home/model/last_trip_model.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:intl/intl.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:child_track/core/utils/map_marker_utils.dart';
 
-/// Trips List View - Shows all trips
+/// Trips List View - Shows all trips with day group headers,
+/// pull-to-refresh, and proper UTC→local time display.
 class TripsView extends StatefulWidget {
   const TripsView({super.key});
 
@@ -54,7 +54,7 @@ class _TripsViewState extends State<TripsView> {
 
   @override
   void dispose() {
-    _scrollController.addListener(_onScroll);
+    _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     super.dispose();
   }
@@ -76,6 +76,12 @@ class _TripsViewState extends State<TripsView> {
     final maxScroll = _scrollController.position.maxScrollExtent;
     final currentScroll = _scrollController.offset;
     return currentScroll >= (maxScroll * 0.9);
+  }
+
+  Future<void> _onRefresh() async {
+    _homepageBloc.add(GetTrips(page: 1, pageSize: 10));
+    // Wait a moment for the state to update
+    await Future.delayed(const Duration(milliseconds: 800));
   }
 
   @override
@@ -105,31 +111,49 @@ class _TripsViewState extends State<TripsView> {
             }
 
             if (state.trips.isEmpty) {
-              return const Center(child: Text("No trips found"));
+              return RefreshIndicator(
+                onRefresh: _onRefresh,
+                child: ListView(
+                  children: const [
+                    SizedBox(height: 200),
+                    Center(child: Text("No trips found")),
+                  ],
+                ),
+              );
             }
 
-            return ListView.builder(
-              controller: _scrollController,
-              shrinkWrap: true,
-              padding: const EdgeInsets.all(AppSizes.paddingL),
-              // Add +1 for loader if loading more
-              itemCount: state.hasReachedMax
-                  ? state.trips.length
-                  : state.trips.length + 1,
-              itemBuilder: (context, index) {
-                if (index >= state.trips.length) {
-                  return const Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: Center(child: CircularProgressIndicator()),
+            // Build items list with day group headers
+            final items = _buildListItems(state.trips);
+
+            return RefreshIndicator(
+              onRefresh: _onRefresh,
+              child: ListView.builder(
+                controller: _scrollController,
+                padding: const EdgeInsets.all(AppSizes.paddingL),
+                itemCount: state.hasReachedMax
+                    ? items.length
+                    : items.length + 1,
+                itemBuilder: (context, index) {
+                  if (index >= items.length) {
+                    return const Padding(
+                      padding: EdgeInsets.all(16.0),
+                      child: Center(child: CircularProgressIndicator()),
+                    );
+                  }
+
+                  final item = items[index];
+                  if (item is _DayHeader) {
+                    return _buildDayHeader(item.label);
+                  }
+
+                  final trip = item as Trip;
+                  return _SimpleTripCard(
+                    trip: trip,
+                    sourceIcon: _sourceIcon,
+                    destinationIcon: _destinationIcon,
                   );
-                }
-                final trip = state.trips[index];
-                return _SimpleTripCard(
-                  trip: trip,
-                  sourceIcon: _sourceIcon,
-                  destinationIcon: _destinationIcon,
-                );
-              },
+                },
+              ),
             );
           }
           return const Center(child: CircularProgressIndicator());
@@ -137,9 +161,50 @@ class _TripsViewState extends State<TripsView> {
       ),
     );
   }
+
+  /// Build a mixed list of day headers and trip objects for the list view.
+  List<Object> _buildListItems(List<Trip> trips) {
+    final items = <Object>[];
+    String? lastDayLabel;
+
+    for (final trip in trips) {
+      final dayLabel = trip.dayGroupLabel;
+      if (dayLabel != lastDayLabel) {
+        items.add(_DayHeader(dayLabel));
+        lastDayLabel = dayLabel;
+      }
+      items.add(trip);
+    }
+
+    return items;
+  }
+
+  Widget _buildDayHeader(String label) {
+    return Padding(
+      padding: const EdgeInsets.only(
+        top: AppSizes.spacingL,
+        bottom: AppSizes.spacingM,
+      ),
+      child: Text(
+        label,
+        style: AppTextStyles.headline6.copyWith(
+          fontWeight: FontWeight.w700,
+          color: AppColors.textPrimary,
+        ),
+      ),
+    );
+  }
 }
 
-// Simplified Trip Card for List View (No Map Data)
+/// Marker class for day group headers in the list.
+class _DayHeader {
+  final String label;
+  const _DayHeader(this.label);
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Trip Card
+// ─────────────────────────────────────────────────────────────────────
 class _SimpleTripCard extends StatelessWidget {
   final Trip trip;
   final BitmapDescriptor? sourceIcon;
@@ -239,15 +304,42 @@ class _SimpleTripCard extends StatelessWidget {
       ),
       child: Column(
         children: [
+          // Active trip indicator
+          if (trip.isActive)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.green.shade600,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(AppSizes.radiusL),
+                  topRight: Radius.circular(AppSizes.radiusL),
+                ),
+              ),
+              child: const Center(
+                child: Text(
+                  'ACTIVE TRIP',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+              ),
+            ),
+
           // Map Section
           SizedBox(
             height: 150,
             width: double.infinity,
             child: ClipRRect(
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(AppSizes.radiusL),
-                topRight: Radius.circular(AppSizes.radiusL),
-              ),
+              borderRadius: trip.isActive
+                  ? BorderRadius.zero
+                  : const BorderRadius.only(
+                      topLeft: Radius.circular(AppSizes.radiusL),
+                      topRight: Radius.circular(AppSizes.radiusL),
+                    ),
               child: trip.points.isNotEmpty
                   ? GoogleMap(
                       initialCameraPosition: _getInitialCameraPosition(),
@@ -294,14 +386,13 @@ class _SimpleTripCard extends StatelessWidget {
                           children: [
                             TextSpan(
                               text:
-                                  '${_formatTime(trip.startTime)} - ${_formatTime(trip.endTime)}',
+                                  '${trip.startTimeFormatted} - ${trip.endTimeFormatted}',
                               style: const TextStyle(
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
                             TextSpan(
-                              text:
-                                  '   ${_calculateDuration(trip.startTime, trip.endTime)}',
+                              text: '   ${trip.durationFormatted}',
                               style: AppTextStyles.body2.copyWith(
                                 color: AppColors.textSecondary,
                               ),
@@ -400,7 +491,6 @@ class _SimpleTripCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                // Removed redundant SizedBox and PlaceRenderers that were here
               ],
             ),
           ),
@@ -428,58 +518,11 @@ class _SimpleTripCard extends StatelessWidget {
       northeast: LatLng(north, east),
     );
   }
-
-  String _calculateDuration(String startStr, String endStr) {
-    try {
-      final start = DateTime.parse(startStr);
-      final end = DateTime.parse(endStr);
-      final duration = end.difference(start);
-      final hours = duration.inHours;
-      final minutes = duration.inMinutes.remainder(60);
-
-      if (hours > 0) {
-        return '(${hours}hrs ${minutes > 0 ? '$minutes min' : ''})'.trim();
-      } else {
-        return '($minutes min)';
-      }
-    } catch (_) {
-      return '';
-    }
-  }
-
-  String _formatTime(String timeStr) {
-    if (timeStr.isEmpty) return '';
-    try {
-      // First try ISO 8601 directly (if model changes in future)
-      final dt = DateTime.parse(timeStr).toLocal();
-      return DateFormat('h:mm a').format(dt).toLowerCase();
-    } catch (_) {
-      try {
-        // Fallback for current model format: "dd-MM-yyyy HH:mm:ss"
-        // This format is derived from UTC string but stripped of timezone info.
-        final inputFormat = DateFormat('dd-MM-yyyy HH:mm:ss');
-        // Parse as a local DateTime (default behavior) but it holds UTC values
-        final dtParsed = inputFormat.parse(timeStr);
-        // Create a UTC DateTime with these components
-        final dtUtc = DateTime.utc(
-          dtParsed.year,
-          dtParsed.month,
-          dtParsed.day,
-          dtParsed.hour,
-          dtParsed.minute,
-          dtParsed.second,
-        );
-        // Convert to device local time
-        final dtLocal = dtUtc.toLocal();
-
-        return DateFormat('h:mm a').format(dtLocal).toLowerCase();
-      } catch (e) {
-        return timeStr;
-      }
-    }
-  }
 }
 
+// ─────────────────────────────────────────────────────────────────────
+// Place Renderer (with reverse geocoding fallback)
+// ─────────────────────────────────────────────────────────────────────
 class _PlaceRenderer extends StatefulWidget {
   final String placeName;
   final TripPoint? point;
