@@ -391,6 +391,7 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
         "network_type": event.deviceInfo.networkType,
         "sound_profile": event.deviceInfo.soundProfile,
         "is_online": event.deviceInfo.isOnline,
+
         "timestamp": DateTime.now().toUtc().toIso8601String(),
       };
       await _childRepo.postChildData(requestBody);
