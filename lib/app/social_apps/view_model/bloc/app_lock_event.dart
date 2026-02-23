@@ -11,19 +11,27 @@ class CheckAccessibilityPermission extends AppLockEvent {}
 
 class OpenAccessibilitySettings extends AppLockEvent {}
 
+/// Fetches locked apps from the backend (parent or child endpoint).
+class FetchLockedApps extends AppLockEvent {}
+
+/// Triggered by SYNC_LOCKED_APPS FCM push on the child device.
+class SyncLockedAppsFromServer extends AppLockEvent {}
+
 class ToggleAppLock extends AppLockEvent {
   final String packageName;
+  final String appName;
   final bool isLocked;
   final int durationMinutes;
 
   const ToggleAppLock({
     required this.packageName,
+    this.appName = '',
     required this.isLocked,
     this.durationMinutes = 0,
   });
 
   @override
-  List<Object> get props => [packageName, isLocked, durationMinutes];
+  List<Object> get props => [packageName, appName, isLocked, durationMinutes];
 }
 
 class UpdateLockedApps extends AppLockEvent {

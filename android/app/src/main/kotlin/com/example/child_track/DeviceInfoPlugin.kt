@@ -35,6 +35,7 @@ import java.util.concurrent.Executors
 class DeviceInfoPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
 
     private lateinit var channel: MethodChannel
+    private lateinit var lockEventChannel: MethodChannel
     private lateinit var context: Context
     private var activityBinding: ActivityPluginBinding? = null
     private val executor = Executors.newSingleThreadExecutor()
@@ -45,9 +46,11 @@ class DeviceInfoPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     }
 
     fun sendAppBlockedEvent(packageName: String) {
-        if (::channel.isInitialized) {
+        Log.d("DeviceInfoPlugin", "sendAppBlockedEvent called for: $packageName, channelInit=${::lockEventChannel.isInitialized}")
+        if (::lockEventChannel.isInitialized) {
             mainHandler.post {
-                channel.invokeMethod("appBlocked", packageName)
+                Log.d("DeviceInfoPlugin", "Invoking appBlocked on lockEventChannel for: $packageName")
+                lockEventChannel.invokeMethod("appBlocked", packageName)
             }
         }
     }
@@ -58,10 +61,14 @@ class DeviceInfoPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
         context = binding.applicationContext
         channel = MethodChannel(binding.binaryMessenger, CHANNEL_NAME)
         channel.setMethodCallHandler(this)
+        // Dedicated channel for sending lock events to Flutter
+        lockEventChannel = MethodChannel(binding.binaryMessenger, "com.truenyx.naviq/app_lock_events")
+        Log.d("DeviceInfoPlugin", "Channels initialized: device_info + app_lock_events")
     }
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         channel.setMethodCallHandler(null)
+        // lockEventChannel has no handler on native side, just nullify
     }
 
     // ─── ActivityAware Lifecycle ───

@@ -1,22 +1,40 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:child_track/app/social_apps/model/locked_app_model.dart';
+import 'package:child_track/app/social_apps/view_model/app_lock_repository.dart';
 import 'package:child_track/core/services/lock_sync_service.dart';
+import 'package:child_track/core/services/shared_prefs_service.dart';
 import 'package:child_track/core/utils/app_logger.dart';
 import 'app_lock_event.dart';
 import 'app_lock_state.dart';
 
 class AppLockBloc extends Bloc<AppLockEvent, AppLockState> {
   final LockSyncService _lockSyncService;
-  final Map<String, Timer> _unlockTimers = {};
+  final AppLockRepository _repository;
+  final SharedPrefsService _prefs;
 
-  AppLockBloc({required LockSyncService lockSyncService})
-    : _lockSyncService = lockSyncService,
-      super(AppLockInitial()) {
+  /// Keeps the full model list for parent-side PUT requests.
+  List<LockedPackageItem> _lockedItems = [];
+
+  bool get _isParent => _prefs.getString('parent_id') != null;
+
+  AppLockBloc({
+    required LockSyncService lockSyncService,
+    required AppLockRepository repository,
+    required SharedPrefsService sharedPrefsService,
+  }) : _lockSyncService = lockSyncService,
+       _repository = repository,
+       _prefs = sharedPrefsService,
+       super(AppLockInitial()) {
     on<CheckAccessibilityPermission>(_onCheckAccessibilityPermission);
     on<OpenAccessibilitySettings>(_onOpenAccessibilitySettings);
+    on<FetchLockedApps>(_onFetchLockedApps);
+    on<SyncLockedAppsFromServer>(_onSyncLockedAppsFromServer);
     on<ToggleAppLock>(_onToggleAppLock);
     on<UpdateLockedApps>(_onUpdateLockedApps);
   }
+
+  // ─── Permission Handlers ───
 
   Future<void> _onCheckAccessibilityPermission(
     CheckAccessibilityPermission event,
@@ -39,10 +57,73 @@ class AppLockBloc extends Bloc<AppLockEvent, AppLockState> {
     Emitter<AppLockState> emit,
   ) async {
     await _lockSyncService.openAccessibilitySettings();
-    // Re-check permission after returning from settings (handled by lifecycle observer in UI usually)
-    // but we can also emit a loading state or similar if needed.
-    // For now, we trust the UI to poll or check on resume.
   }
+
+  // ─── Fetch Locked Apps (initial load) ───
+
+  Future<void> _onFetchLockedApps(
+    FetchLockedApps event,
+    Emitter<AppLockState> emit,
+  ) async {
+    emit(AppLockLoading());
+    try {
+      if (_isParent) {
+        await _fetchParentLockedApps(emit);
+      } else {
+        await _fetchChildLockedApps(emit);
+      }
+    } catch (e) {
+      AppLogger.error('FetchLockedApps error: $e');
+      emit(AppLockError('Failed to fetch locked apps: $e'));
+    }
+  }
+
+  Future<void> _fetchParentLockedApps(Emitter<AppLockState> emit) async {
+    final childId =
+        _prefs.getString('selected_child_id') ??
+        _prefs.getString('child_id') ??
+        '';
+    if (childId.isEmpty) {
+      emit(const AppLockLoaded());
+      return;
+    }
+
+    final response = await _repository.getLockedApps(childId: childId);
+    if (response.isSuccess && response.data != null) {
+      _lockedItems = response.data!.lockedPackages;
+      final packageSet = _lockedItems.map((e) => e.packageName).toSet();
+      emit(AppLockLoaded(lockedPackages: packageSet));
+    } else {
+      emit(AppLockError(response.message));
+    }
+  }
+
+  Future<void> _fetchChildLockedApps(Emitter<AppLockState> emit) async {
+    final response = await _repository.getChildLockedApps();
+    if (response.isSuccess && response.data != null) {
+      _lockedItems = response.data!.lockedPackages;
+      final packageSet = _lockedItems.map((e) => e.packageName).toSet();
+
+      emit(AppLockLoaded(lockedPackages: packageSet));
+
+      // On the child device, sync to native AccessibilityService
+      await _lockSyncService.syncLockedAppsToNative(packageSet.toList());
+    } else {
+      emit(AppLockError(response.message));
+    }
+  }
+
+  // ─── FCM-triggered Sync (child only) ───
+
+  Future<void> _onSyncLockedAppsFromServer(
+    SyncLockedAppsFromServer event,
+    Emitter<AppLockState> emit,
+  ) async {
+    // Re-fetch from child endpoint and sync to native
+    await _fetchChildLockedApps(emit);
+  }
+
+  // ─── Toggle App Lock (parent side — calls PUT API) ───
 
   Future<void> _onToggleAppLock(
     ToggleAppLock event,
@@ -54,39 +135,66 @@ class AppLockBloc extends Bloc<AppLockEvent, AppLockState> {
 
     final newLockedPackages = Set<String>.from(currentState.lockedPackages);
 
+    // Optimistic UI update
     if (event.isLocked) {
       newLockedPackages.add(event.packageName);
-
-      // Handle timer if duration > 0
-      _unlockTimers[event.packageName]?.cancel(); // Cancel existing
-      if (event.durationMinutes > 0) {
-        AppLogger.info(
-          'Locking ${event.packageName} for ${event.durationMinutes} minutes',
-        );
-        _unlockTimers[event.packageName] = Timer(
-          Duration(minutes: event.durationMinutes),
-          () {
-            add(ToggleAppLock(packageName: event.packageName, isLocked: false));
-          },
-        );
-      }
+      _lockedItems.add(
+        LockedPackageItem(
+          packageName: event.packageName,
+          appName: event.appName,
+          lockDurationMinutes: event.durationMinutes,
+        ),
+      );
     } else {
       newLockedPackages.remove(event.packageName);
-      _unlockTimers[event.packageName]?.cancel();
-      _unlockTimers.remove(event.packageName);
+      _lockedItems.removeWhere((i) => i.packageName == event.packageName);
     }
 
-    // Update state
     emit(currentState.copyWith(lockedPackages: newLockedPackages));
 
-    // Sync to native
-    await _lockSyncService.syncLockedAppsToNative(newLockedPackages.toList());
+    if (_isParent) {
+      // Call PUT API — backend handles FCM push to child
+      final childId =
+          _prefs.getString('selected_child_id') ??
+          _prefs.getString('child_id') ??
+          '';
+      if (childId.isEmpty) return;
 
-    // Check permission if logic requires
-    if (state is! AppLockLoaded) {
-      add(CheckAccessibilityPermission());
+      final response = await _repository.updateLockedApps(
+        childId: childId,
+        lockedPackages: _lockedItems,
+      );
+
+      if (response.isSuccess && response.data != null) {
+        // Refresh with server-canonical data
+        _lockedItems = response.data!.lockedPackages;
+        final serverSet = _lockedItems.map((e) => e.packageName).toSet();
+        emit(currentState.copyWith(lockedPackages: serverSet));
+        AppLogger.info('Locked apps updated via API: ${serverSet.length} apps');
+      } else {
+        // Revert optimistic update
+        AppLogger.error('Failed to update locked apps: ${response.message}');
+        if (event.isLocked) {
+          newLockedPackages.remove(event.packageName);
+          _lockedItems.removeWhere((i) => i.packageName == event.packageName);
+        } else {
+          newLockedPackages.add(event.packageName);
+          _lockedItems.add(
+            LockedPackageItem(
+              packageName: event.packageName,
+              appName: event.appName,
+            ),
+          );
+        }
+        emit(currentState.copyWith(lockedPackages: newLockedPackages));
+      }
+    } else {
+      // Child device — sync directly to native (local toggle, e.g., testing)
+      await _lockSyncService.syncLockedAppsToNative(newLockedPackages.toList());
     }
   }
+
+  // ─── Bulk Update (e.g., from external push) ───
 
   Future<void> _onUpdateLockedApps(
     UpdateLockedApps event,
@@ -97,7 +205,6 @@ class AppLockBloc extends Bloc<AppLockEvent, AppLockState> {
       emit((state as AppLockLoaded).copyWith(lockedPackages: newSet));
     } else {
       emit(AppLockLoaded(lockedPackages: newSet));
-      add(CheckAccessibilityPermission());
     }
     await _lockSyncService.syncLockedAppsToNative(event.lockedPackages);
   }

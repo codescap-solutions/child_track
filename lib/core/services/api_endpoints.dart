@@ -31,6 +31,10 @@ class ApiEndpoints {
   static const String places = 'places';
   static const String getAppUsage = 'app-usage';
 
+  // App Lock Endpoints
+  static const String parentLockedApps = 'parent/locked-apps';
+  static const String childLockedApps = 'child/locked-apps';
+
   // FCM Token endpoints
   static const String parentFcmToken = 'fcm-token/parent';
   static const String childFcmToken = 'fcm-token/child';

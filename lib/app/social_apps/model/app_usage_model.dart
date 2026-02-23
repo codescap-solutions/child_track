@@ -94,6 +94,7 @@ class AppUsageItem {
   final String platform;
   final int openCount;
   final String? iconBase64;
+  final bool isLocked;
 
   AppUsageItem({
     required this.date,
@@ -104,6 +105,7 @@ class AppUsageItem {
     required this.platform,
     required this.openCount,
     this.iconBase64,
+    this.isLocked = false,
   });
 
   factory AppUsageItem.fromJson(Map<String, dynamic> json) {
@@ -117,6 +119,7 @@ class AppUsageItem {
           json['usageTimeFormatted'] ?? AppUsageResponse._formatSecs(seconds),
       platform: json['platform'] ?? 'android',
       openCount: json['openCount'] ?? 0,
+      isLocked: json['is_locked'] ?? false,
     );
   }
 }

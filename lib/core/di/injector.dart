@@ -22,6 +22,7 @@ import '../../app/social_apps/view_model/bloc/social_apps_bloc.dart';
 import '../../app/geofencing/view_model/geofence_repository.dart';
 import '../../app/geofencing/view_model/bloc/geofence_bloc.dart';
 import 'package:child_track/core/services/lock_sync_service.dart';
+import '../../app/social_apps/view_model/app_lock_repository.dart';
 import '../../app/social_apps/view_model/bloc/app_lock_bloc.dart';
 
 final GetIt injector = GetIt.instance;
@@ -144,8 +145,17 @@ Future<void> initializeDependencies() async {
   // Register LockSyncService
   injector.registerLazySingleton<LockSyncService>(() => LockSyncService());
 
+  // Register AppLockRepository
+  injector.registerLazySingleton<AppLockRepository>(
+    () => AppLockRepository(dioClient: injector<DioClient>()),
+  );
+
   // Register AppLockBloc
   injector.registerLazySingleton<AppLockBloc>(
-    () => AppLockBloc(lockSyncService: injector<LockSyncService>()),
+    () => AppLockBloc(
+      lockSyncService: injector<LockSyncService>(),
+      repository: injector<AppLockRepository>(),
+      sharedPrefsService: injector<SharedPrefsService>(),
+    ),
   );
 }

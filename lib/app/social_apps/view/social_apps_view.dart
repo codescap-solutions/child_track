@@ -84,7 +84,9 @@ class _SocialAppsViewState extends State<SocialAppsView> {
       providers: [
         BlocProvider(create: (_) => _bloc),
         BlocProvider(
-          create: (_) => _appLockBloc..add(CheckAccessibilityPermission()),
+          create: (_) => _appLockBloc
+            ..add(CheckAccessibilityPermission())
+            ..add(FetchLockedApps()),
         ),
       ],
       child: Scaffold(
@@ -241,6 +243,7 @@ class _SocialAppsViewState extends State<SocialAppsView> {
                       _appLockBloc.add(
                         ToggleAppLock(
                           packageName: app.packageName,
+                          appName: app.appName,
                           isLocked: isLocked,
                           durationMinutes: duration,
                         ),

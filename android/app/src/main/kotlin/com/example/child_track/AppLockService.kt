@@ -117,6 +117,7 @@ class AppLockService : AccessibilityService() {
 
             // 2. Launch our app with the "app_blocked" flag
             val intent = Intent(applicationContext, MainActivity::class.java).apply {
+                action = "com.truenyx.naviq.APP_BLOCKED"
                 addFlags(
                     Intent.FLAG_ACTIVITY_NEW_TASK or
                     Intent.FLAG_ACTIVITY_CLEAR_TOP or

@@ -212,7 +212,7 @@ class _LockDurationDialogState extends State<_LockDurationDialog> {
               Duration(hours: hours, minutes: minutes),
             ),
             width: 140,
-            height: 40,
+            height: 50,
           ),
         ],
       ),

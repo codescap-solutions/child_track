@@ -39,6 +39,8 @@ class _SosViewState extends State<SosView> with WidgetsBindingObserver {
       _childBloc.onInitialize();
       // Start background location service
       BackgroundLocationService().start();
+      // Fetch and sync locked apps from server to native AppLockService
+      injector<LockSyncService>().fetchAndSyncLockedApps();
     });
   }
 
