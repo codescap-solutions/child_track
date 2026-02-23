@@ -46,4 +46,7 @@ class ApiEndpoints {
   static const String geofences = 'geofences';
   static String geofenceDetail(String id) => 'geofences/$id';
   static String geofenceLock(String id) => 'geofences/$id/lock';
+  
+  // Notification Settings Endpoints
+  static const String notificationSettings = '/settings/notification';
 }

@@ -8,6 +8,8 @@ import 'package:child_track/core/services/socket_service.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../app/settings/repository/notification_repo.dart';
+import '../../app/settings/view_model/notification_bloc/notification_bloc.dart';
 import '../services/dio_client.dart';
 import 'package:child_track/core/services/screen_time_sync_service.dart';
 import '../services/shared_prefs_service.dart';
@@ -148,6 +150,14 @@ Future<void> initializeDependencies() async {
   // Register AppLockRepository
   injector.registerLazySingleton<AppLockRepository>(
     () => AppLockRepository(dioClient: injector<DioClient>()),
+  );
+
+  injector.registerLazySingleton<NotificationRepository>(
+    () => NotificationRepository(dioClient: injector<DioClient>()),
+  );
+
+  injector.registerFactory<NotificationBloc>(
+    () => NotificationBloc(injector<NotificationRepository>()),
   );
 
   // Register AppLockBloc

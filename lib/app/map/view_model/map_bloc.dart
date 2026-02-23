@@ -39,6 +39,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
       consumeTapEvents: true,
       markerId: MarkerId(event.position.toString()),
       position: event.position,
+      icon: BitmapDescriptor.defaultMarker,
       onTap: () {
         add(MarkerTapped(event.position));
       },
@@ -189,6 +190,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
       consumeTapEvents: false,
       markerId: childMarkerId,
       position: event.currentLocation,
+      icon: BitmapDescriptor.defaultMarker,
     );
 
     final updatedMarkers = [...existingMarkers, newMarker];

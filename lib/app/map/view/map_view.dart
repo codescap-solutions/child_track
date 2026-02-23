@@ -46,6 +46,7 @@ class _MapViewWidgetState extends State<MapViewWidget> {
   Map<PolylineId, Polyline> polylines = {};
   MapType currentMapType = MapType.normal;
   late CameraPosition _initialCameraPosition;
+  GoogleMapController? _mapController;
 
   @override
   void initState() {
@@ -145,10 +146,31 @@ class _MapViewWidgetState extends State<MapViewWidget> {
   @override
   void didUpdateWidget(MapViewWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Update polylines when widget markers change
-    if (widget.markers != oldWidget.markers) {
-      if (mounted) {
-        getPolylines();
+    @override
+    void didUpdateWidget(MapViewWidget oldWidget) {
+      super.didUpdateWidget(oldWidget);
+
+      // Update polylines if markers changed
+      if (widget.markers != oldWidget.markers) {
+        if (mounted) {
+          getPolylines();
+        }
+      }
+
+      // ✅ Update camera if currentPosition changed
+      if (widget.currentPosition != null &&
+          widget.currentPosition != oldWidget.currentPosition) {
+        final newCameraPosition = CameraPosition(
+          target: widget.currentPosition!,
+          zoom: 15,
+        );
+
+        _initialCameraPosition = newCameraPosition;
+
+        // Animate camera smoothly if controller is ready
+        _mapController?.animateCamera(
+          CameraUpdate.newCameraPosition(newCameraPosition),
+        );
       }
     }
   }
@@ -225,6 +247,7 @@ class _MapViewWidgetState extends State<MapViewWidget> {
                         rotateGesturesEnabled: widget.interactive,
 
                         onMapCreated: (controller) {
+                          _mapController = controller;
                           injector<MapBloc>().add(MapCreated(controller));
                           // Call custom onMapCreated callback if provided
                           widget.onMapCreated?.call(controller);
@@ -232,19 +255,30 @@ class _MapViewWidgetState extends State<MapViewWidget> {
                         polylines: Set<Polyline>.of(polylines.values),
                         initialCameraPosition: _initialCameraPosition,
                         markers: () {
-                          final markersToUse =
+                          final rawMarkers =
                               widget.markers != null &&
                                   widget.markers!.isNotEmpty
-                              ? widget.markers!.toSet()
-                              : state.markers.toSet();
+                              ? widget.markers!
+                              : state.markers;
 
-                          return markersToUse;
+                          final safeMarkers = rawMarkers.where((marker) {
+                            try {
+                              return marker.markerId.value.isNotEmpty &&
+                                  marker.position.latitude != null &&
+                                  marker.position.longitude != null;
+                            } catch (_) {
+                              return false;
+                            }
+                          }).toSet();
+
+                          return safeMarkers;
                         }(),
+
                         onCameraMove: widget.onCameraMove,
                         onCameraMoveStarted: () {},
                         onCameraIdle: () {},
-                        myLocationEnabled: widget.myLocationEnabled,
-                        myLocationButtonEnabled: widget.myLocationButtonEnabled,
+                        myLocationEnabled: false,
+                        myLocationButtonEnabled: false,
                       ),
                     ),
                   ),

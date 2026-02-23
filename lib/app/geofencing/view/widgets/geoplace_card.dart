@@ -1,6 +1,5 @@
+import 'package:child_track/app/geofencing/view/widgets/toggle_switch.dart';
 import 'package:flutter/material.dart';
-
-import 'toggle_switch.dart';
 
 class GeoPlaceCard extends StatelessWidget {
   final String title;

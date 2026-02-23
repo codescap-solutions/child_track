@@ -11,7 +11,11 @@ import 'package:flutter/material.dart';
 import 'package:child_track/core/constants/app_colors.dart';
 import 'package:child_track/core/constants/app_sizes.dart';
 import 'package:child_track/core/constants/app_text_styles.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../view_model/notification_bloc/notification_bloc.dart';
+import '../view_model/notification_bloc/notification_event.dart';
+import '../view_model/notification_bloc/notification_state.dart';
 import 'account_view.dart';
 import 'widgets/section_card.dart';
 import 'widgets/setting_tile.dart';
@@ -32,7 +36,7 @@ class _SettingsViewState extends State<SettingsView> {
   String? _childName;
   bool _restrictDeletion = false;
   bool _block18Plus = false;
-  bool _notificationSettings = true;
+  bool _initialNotificationSettings = true;
   bool _isExpanded = false;
   List<ChildProfile> _children = [];
 
@@ -48,7 +52,7 @@ class _SettingsViewState extends State<SettingsView> {
     _childName = _sharedPrefsService.getString('child_name');
     _restrictDeletion = _sharedPrefsService.getBool('restrict_deletion');
     _block18Plus = _sharedPrefsService.getBool('block_18plus');
-    _notificationSettings = _sharedPrefsService.getBool(
+    _initialNotificationSettings = _sharedPrefsService.getBool(
       'notification_settings',
       defaultValue: true,
     );
@@ -233,21 +237,52 @@ class _SettingsViewState extends State<SettingsView> {
                       trailing: Transform.scale(
                         alignment: Alignment.centerRight,
                         scale: 0.7,
-                        child: CupertinoSwitch(
-                          value: _notificationSettings,
-                          onChanged: (value) async {
-                            await _sharedPrefsService.setBool(
-                              'notification_settings',
-                              value,
-                            );
-                            setState(() => _notificationSettings = value);
+                        child: BlocBuilder<NotificationBloc, NotificationState>(
+                          builder: (context, state) {
+                            if (state is NotificationLoading) {
+                              return CupertinoSwitch(
+                                value: false,
+                                onChanged: (value) async {
+                                  context.read<NotificationBloc>().add(
+                                    ToggleMasterNotification(value),
+                                  );
+                                },
+                              );
+                            }
+
+                            if (state is NotificationError) {
+                              return CupertinoSwitch(
+                                value: _initialNotificationSettings,
+                                onChanged: (value) async {
+                                  context.read<NotificationBloc>().add(
+                                    ToggleMasterNotification(value),
+                                  );
+                                },
+                              );
+                            }
+
+                            if (state is NotificationLoaded) {
+                              return CupertinoSwitch(
+                                value: state.model.masterEnabled ?? false,
+                                onChanged: (value) async {
+                                  context.read<NotificationBloc>().add(
+                                    ToggleMasterNotification(value),
+                                  );
+                                },
+                              );
+                            }
+                            return SizedBox();
                           },
                         ),
                       ),
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const NotificationSettingsView(),
+                          builder: (_) => BlocProvider.value(
+                            value: BlocProvider.of<NotificationBloc>(context)
+                              ..add(LoadNotificationSettings()),
+                            child: const NotificationSettingsView(),
+                          ),
                         ),
                       ),
                     ),

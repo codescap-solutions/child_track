@@ -19,6 +19,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../geofencing/view/geo_fencing_view.dart';
 import '../../settings/view/settings_view.dart';
+import '../../settings/view_model/notification_bloc/notification_bloc.dart';
+import '../../settings/view_model/notification_bloc/notification_event.dart';
 import '../../social_apps/view/social_apps_view.dart';
 import '../../addplace/model/saved_place_model.dart';
 import '../../addplace/service/saved_places_service.dart';
@@ -241,10 +243,18 @@ class _HomePageState extends State<HomePage> {
               right: 16,
               child: InkWell(
                 onTap: () async {
-                  await Navigator.push(
+                  Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const SettingsView()),
+                    MaterialPageRoute(
+                      builder: (_) => BlocProvider(
+                        create: (_) =>
+                            injector<NotificationBloc>()
+                              ..add(LoadNotificationSettings()),
+                        child: const SettingsView(),
+                      ),
+                    ),
                   );
+
                   _refreshData();
                 },
                 child: CircleAvatar(
@@ -1095,18 +1105,12 @@ class _HomeMapBackgroundState extends State<_HomeMapBackground> {
 
           final markers = <Marker>{
             if (location != null) ...{
-              if (_cachedMarkerIcon != null)
-                Marker(
-                  markerId: const MarkerId('child_location'),
-                  position: location,
-                  icon: _cachedMarkerIcon!,
-                  anchor: const Offset(0.5, 1.0),
-                )
-              else
-                Marker(
-                  markerId: const MarkerId('child_location'),
-                  position: location,
-                ),
+              Marker(
+                markerId: const MarkerId('child_location'),
+                position: location,
+                icon: _cachedMarkerIcon ?? BitmapDescriptor.defaultMarker,
+                anchor: const Offset(0.5, 1.0),
+              ),
             },
           };
 
