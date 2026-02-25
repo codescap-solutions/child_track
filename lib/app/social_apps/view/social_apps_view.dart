@@ -11,6 +11,7 @@ import 'package:child_track/core/constants/app_colors.dart';
 import 'package:child_track/core/constants/app_sizes.dart';
 import 'package:child_track/core/constants/app_text_styles.dart';
 import 'package:child_track/core/widgets/common_button.dart';
+import 'package:child_track/core/widgets/social_apps_shimmer.dart';
 import 'widgets/social_app_item.dart';
 
 class SocialAppsView extends StatefulWidget {
@@ -144,7 +145,7 @@ class _SocialAppsViewState extends State<SocialAppsView> {
     return BlocBuilder<SocialAppsBloc, SocialAppsState>(
       builder: (context, state) {
         if (state is SocialAppsLoading) {
-          return const Center(child: CircularProgressIndicator());
+          return const SocialAppsShimmer();
         } else if (state is SocialAppsError) {
           return Center(
             child: Column(

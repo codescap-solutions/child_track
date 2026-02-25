@@ -74,17 +74,20 @@ class CommonButton extends StatelessWidget {
     final double resolvedRadius = borderRadius ?? AppSizes.radiusM;
 
     // Gradient filled button when enabled and not outlined
-    final bool useGradient = isEnabled && !isOutlined && backgroundColor == null;
+    final bool useGradient =
+        isEnabled && !isOutlined && backgroundColor == null;
 
     final Widget buttonChild = ElevatedButton(
       onPressed: effectiveOnPressed,
       style: ElevatedButton.styleFrom(
-        backgroundColor:
-            useGradient ? Colors.transparent : (isEnabled ? effectiveBackgroundColor : AppColors.borderColor),
+        backgroundColor: useGradient
+            ? Colors.transparent
+            : (isEnabled ? effectiveBackgroundColor : AppColors.borderColor),
         foregroundColor: effectiveTextColor,
         shadowColor: Colors.transparent,
         elevation: 0,
-        padding: padding ??
+        padding:
+            padding ??
             const EdgeInsets.symmetric(
               horizontal: AppSizes.paddingL,
               vertical: AppSizes.paddingM,
@@ -132,7 +135,7 @@ class CommonButton extends StatelessWidget {
       return SizedBox(
         height: 20,
         width: 20,
-        child: CircularProgressIndicator(
+        child: CircularProgressIndicator.adaptive(
           strokeWidth: 2,
           valueColor: AlwaysStoppedAnimation<Color>(
             isOutlined ? AppColors.primaryColor : AppColors.surfaceColor,
@@ -160,7 +163,7 @@ class CommonButton extends StatelessWidget {
     return Text(
       text,
       style: AppTextStyles.button.copyWith(
-        fontSize:fontSize ?? 14,
+        fontSize: fontSize ?? 14,
         color: isEnabled ? textColor : AppColors.textHint,
       ),
     );

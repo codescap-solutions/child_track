@@ -13,6 +13,7 @@ import 'package:child_track/core/constants/app_colors.dart';
 import 'package:child_track/core/constants/app_sizes.dart';
 import 'package:child_track/core/constants/app_text_styles.dart';
 import 'package:child_track/core/widgets/common_button.dart';
+import 'package:child_track/core/widgets/home_shimmer.dart';
 import 'package:child_track/core/utils/app_logger.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -338,11 +339,7 @@ class _HomePageState extends State<HomePage> {
         }
 
         if (state is! HomepageSuccess) {
-          // Show simplified loading or placeholder
-          return const Padding(
-            padding: EdgeInsets.all(20.0),
-            child: Center(child: CircularProgressIndicator()),
-          );
+          return const HomeShimmer();
         }
 
         // Show "no child connected" UI

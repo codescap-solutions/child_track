@@ -13,6 +13,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:child_track/core/utils/map_marker_utils.dart';
+import 'package:child_track/core/widgets/trips_shimmer.dart';
 
 /// Trips List View - Shows all trips
 class TripsView extends StatefulWidget {
@@ -101,7 +102,7 @@ class _TripsViewState extends State<TripsView> {
         builder: (context, state) {
           if (state is HomepageSuccess) {
             if (state.isLoadingTrips && state.trips.isEmpty) {
-              return const Center(child: CircularProgressIndicator());
+              return const TripsShimmer();
             }
 
             if (!state.isLoadingTrips && state.trips.isEmpty) {
@@ -118,10 +119,7 @@ class _TripsViewState extends State<TripsView> {
                   : state.trips.length + 1,
               itemBuilder: (context, index) {
                 if (index >= state.trips.length) {
-                  return const Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: Center(child: CircularProgressIndicator()),
-                  );
+                  return const TripsShimmer(itemCount: 1);
                 }
                 final trip = state.trips[index];
                 return _SimpleTripCard(
@@ -132,7 +130,7 @@ class _TripsViewState extends State<TripsView> {
               },
             );
           }
-          return const Center(child: CircularProgressIndicator());
+          return const TripsShimmer();
         },
       ),
     );
