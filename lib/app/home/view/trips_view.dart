@@ -12,6 +12,7 @@ import 'package:child_track/app/home/model/last_trip_model.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:child_track/core/utils/map_marker_utils.dart';
 
 /// Trips List View - Shows all trips
 class TripsView extends StatefulWidget {
@@ -24,6 +25,8 @@ class TripsView extends StatefulWidget {
 class _TripsViewState extends State<TripsView> {
   late HomepageBloc _homepageBloc;
   final ScrollController _scrollController = ScrollController();
+  BitmapDescriptor? _sourceIcon;
+  BitmapDescriptor? _destinationIcon;
 
   @override
   void initState() {
@@ -31,6 +34,22 @@ class _TripsViewState extends State<TripsView> {
     _homepageBloc = injector<HomepageBloc>();
     _homepageBloc.add(GetTrips(page: 1, pageSize: 10));
     _scrollController.addListener(_onScroll);
+    _loadCustomMarkers();
+  }
+
+  Future<void> _loadCustomMarkers() async {
+    try {
+      final start = await MapMarkerUtils.getStartMarker();
+      final end = await MapMarkerUtils.getEndMarker();
+      if (mounted) {
+        setState(() {
+          _sourceIcon = start;
+          _destinationIcon = end;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading custom markers: $e');
+    }
   }
 
   @override
@@ -105,7 +124,11 @@ class _TripsViewState extends State<TripsView> {
                   );
                 }
                 final trip = state.trips[index];
-                return _SimpleTripCard(trip: trip);
+                return _SimpleTripCard(
+                  trip: trip,
+                  sourceIcon: _sourceIcon,
+                  destinationIcon: _destinationIcon,
+                );
               },
             );
           }
@@ -119,8 +142,14 @@ class _TripsViewState extends State<TripsView> {
 // Simplified Trip Card for List View (No Map Data)
 class _SimpleTripCard extends StatelessWidget {
   final Trip trip;
+  final BitmapDescriptor? sourceIcon;
+  final BitmapDescriptor? destinationIcon;
 
-  const _SimpleTripCard({required this.trip});
+  const _SimpleTripCard({
+    required this.trip,
+    this.sourceIcon,
+    this.destinationIcon,
+  });
 
   IconData _getRideModeIcon(String rideMode) {
     switch (rideMode.toLowerCase()) {
@@ -147,7 +176,7 @@ class _SimpleTripCard extends StatelessWidget {
       Polyline(
         polylineId: PolylineId('trip_${trip.tripId}'),
         points: coordinates,
-        color: AppColors.primaryColor,
+        color: AppColors.tripPolyline,
         width: 3,
         startCap: Cap.roundCap,
         endCap: Cap.roundCap,
@@ -168,12 +197,16 @@ class _SimpleTripCard extends StatelessWidget {
       Marker(
         markerId: const MarkerId('start'),
         position: LatLng(startPoint.lat, startPoint.lng),
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+        icon:
+            sourceIcon ??
+            BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
       ),
       Marker(
         markerId: const MarkerId('end'),
         position: LatLng(endPoint.lat, endPoint.lng),
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+        icon:
+            destinationIcon ??
+            BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
       ),
     };
   }

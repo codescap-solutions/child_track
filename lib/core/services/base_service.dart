@@ -122,6 +122,26 @@ abstract class BaseService {
     }
   }
 
+  // PATCH Request
+  Future<BaseResponse<T>> patch<T>(
+    String path, {
+    dynamic data,
+    Map<String, dynamic>? queryParameters,
+    T Function(Map<String, dynamic>)? fromJson,
+  }) async {
+    try {
+      final response = await _dioClient.patch(
+        path,
+        data: data,
+        queryParameters: queryParameters,
+      );
+
+      return BaseResponse.fromJson(response.data);
+    } catch (e) {
+      return BaseResponse.error(message: _extractErrorMessage(e));
+    }
+  }
+
   // DELETE Request
   Future<BaseResponse<T>> delete<T>(
     String path, {

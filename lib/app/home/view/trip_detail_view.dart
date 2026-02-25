@@ -1,4 +1,5 @@
 import 'package:child_track/app/home/model/last_trip_model.dart';
+import 'package:intl/intl.dart';
 import 'package:child_track/app/map/view/map_view.dart';
 import 'package:flutter/material.dart';
 import 'package:child_track/core/constants/app_colors.dart';
@@ -25,36 +26,6 @@ class TripDetailView extends StatefulWidget {
 
 class _TripDetailViewState extends State<TripDetailView> {
   GoogleMapController? _mapController;
-  Offset? _startLabelParam;
-  Offset? _endLabelParam;
-
-  void _updateLabelPositions() async {
-    if (_mapController == null) return;
-
-    try {
-      final startScreenLoc = await _mapController!.getScreenCoordinate(
-        widget.markers.first.position,
-      );
-      final endScreenLoc = await _mapController!.getScreenCoordinate(
-        widget.markers.last.position,
-      );
-
-      if (mounted) {
-        setState(() {
-          _startLabelParam = Offset(
-            startScreenLoc.x.toDouble(),
-            startScreenLoc.y.toDouble(),
-          );
-          _endLabelParam = Offset(
-            endScreenLoc.x.toDouble(),
-            endScreenLoc.y.toDouble(),
-          );
-        });
-      }
-    } catch (e) {
-      // Handle error or ignore
-    }
-  }
 
   String _getRideModeText(String rideMode) {
     switch (rideMode.toLowerCase()) {
@@ -68,6 +39,27 @@ class _TripDetailViewState extends State<TripDetailView> {
         return 'In Vehicle';
       default:
         return 'Ride';
+    }
+  }
+
+  String _formatDateTime(String timeStr) {
+    if (timeStr.isEmpty) return '';
+    try {
+      // Input format from API seems to be "dd-MM-yyyy HH:mm:ss"
+      // or standard ISO. Try generic parse first, then specific.
+      DateTime dt;
+      try {
+        dt = DateTime.parse(timeStr);
+      } catch (_) {
+        final inputFormat = DateFormat('dd-MM-yyyy HH:mm:ss');
+        dt = inputFormat.parse(timeStr);
+      }
+
+      // Desired format: "13-01-2026 07:00pm"
+      final outputFormat = DateFormat('dd-MM-yyyy hh:mma');
+      return outputFormat.format(dt).toLowerCase();
+    } catch (e) {
+      return timeStr;
     }
   }
 
@@ -138,7 +130,7 @@ class _TripDetailViewState extends State<TripDetailView> {
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.1),
+                      color: Colors.black.withOpacity(0.1),
                       blurRadius: 10,
                       offset: const Offset(0, -4),
                     ),
@@ -169,15 +161,15 @@ class _TripDetailViewState extends State<TripDetailView> {
                               ),
                             ),
                           ),
-
                           // Trip Time Range
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 0),
                             child: Text(
-                              '${widget.trip.startTime} - ${widget.trip.endTime}',
+                              '${_formatDateTime(widget.trip.startTime)} to ${_formatDateTime(widget.trip.endTime)}',
                               textAlign: TextAlign.center,
                               style: AppTextStyles.headline6.copyWith(
                                 fontWeight: FontWeight.bold,
+                                fontSize: 16,
                               ),
                             ),
                           ),
@@ -225,20 +217,13 @@ class _TripDetailViewState extends State<TripDetailView> {
               _mapController = controller;
               // Initial fit bounds
               _fitBounds();
-              // Initial update after map is ready and layout is likely stable
-              Future.delayed(
-                const Duration(milliseconds: 300),
-                _updateLabelPositions,
-              );
             },
-            onCameraMove: (_) => _updateLabelPositions(),
             interactive: true,
-
             width: double.infinity,
             maxZoom: 15,
             height: double.infinity,
             currentPosition: markers.first.position,
-            markers: const [],
+            markers: markers,
             // Native gestures preferred for full screen map
             useEagerGestures: true,
             polylines: polylines,
@@ -253,7 +238,7 @@ class _TripDetailViewState extends State<TripDetailView> {
             onPressed: () {
               Navigator.pop(context);
             },
-            icon: Icon(Icons.arrow_back, color: AppColors.backgroundColor),
+            icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
           ),
         ),
 
@@ -281,43 +266,8 @@ class _TripDetailViewState extends State<TripDetailView> {
             ),
           ),
         ),
-
-        // Location labels overlay
-        // Location labels overlay
-        if (_startLabelParam != null)
-          Positioned(
-            left: _startLabelParam!.dx - 50, // Center horizontally (approx)
-            top: _startLabelParam!.dy - 40, // Place above point
-            child: IgnorePointer(
-              child: SizedBox(
-                width: 100, // Fixed width for centering
-                child: Center(
-                  child: _buildLocationLabel('Start', markers.first.position),
-                ),
-              ),
-            ),
-          ),
-
-        if (_endLabelParam != null)
-          Positioned(
-            left: _endLabelParam!.dx - 50,
-            top: _endLabelParam!.dy - 40,
-            child: IgnorePointer(
-              child: SizedBox(
-                width: 100,
-                child: Center(
-                  child: _buildLocationLabel('End', markers.last.position),
-                ),
-              ),
-            ),
-          ),
       ],
     );
-  }
-
-  // Location Label Widget
-  Widget _buildLocationLabel(String text, LatLng position) {
-    return _DetailPlaceRenderer(initialText: text, position: position);
   }
 
   // Timeline Item Widget

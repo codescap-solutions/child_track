@@ -11,6 +11,7 @@ import 'package:child_track/core/constants/app_text_styles.dart';
 import 'package:child_track/core/widgets/common_button.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:child_track/core/utils/map_marker_utils.dart';
 import 'package:geocoding/geocoding.dart';
 
 class ChildLocationDetailView extends StatefulWidget {
@@ -21,8 +22,33 @@ class ChildLocationDetailView extends StatefulWidget {
       _ChildLocationDetailViewState();
 }
 
+// ... other imports ...
+
 class _ChildLocationDetailViewState extends State<ChildLocationDetailView> {
   GoogleMapController? _mapController;
+  BitmapDescriptor? _sourceIcon;
+  BitmapDescriptor? _destinationIcon;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCustomMarkers();
+  }
+
+  Future<void> _loadCustomMarkers() async {
+    try {
+      final start = await MapMarkerUtils.getStartMarker();
+      final end = await MapMarkerUtils.getEndMarker();
+      if (mounted) {
+        setState(() {
+          _sourceIcon = start;
+          _destinationIcon = end;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading custom markers: $e');
+    }
+  }
 
   void _fitBounds(TripSegment trip) {
     if (_mapController == null) return;
@@ -80,6 +106,41 @@ class _ChildLocationDetailViewState extends State<ChildLocationDetailView> {
     }
   }
 
+  String _formatDate(String dateStr) {
+    try {
+      // Expected format: "dd-MM-yyyy HH:mm:ss"
+      // Example: "09-02-2025 13:04:00" -> "09-02 on 1:04 PM"
+
+      final parts = dateStr.split(' ');
+      if (parts.length != 2) return dateStr;
+
+      final dateParts = parts[0].split('-');
+      final timeParts = parts[1].split(':');
+
+      if (dateParts.length != 3 || timeParts.length != 3) return dateStr;
+
+      final day = dateParts[0];
+      final month = dateParts[1];
+      // final year = dateParts[2];
+
+      final hour = int.parse(timeParts[0]);
+      final minute = int.parse(timeParts[1]);
+
+      final period = hour >= 12 ? 'PM' : 'AM';
+      var hour12 = hour > 12
+          ? hour - 12
+          : hour == 0
+          ? 12
+          : hour;
+
+      final minuteStr = minute.toString().padLeft(2, '0');
+
+      return '$day-$month on $hour12:$minuteStr $period';
+    } catch (e) {
+      return dateStr;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocProvider.value(
@@ -109,10 +170,12 @@ class _ChildLocationDetailViewState extends State<ChildLocationDetailView> {
               }
 
               if (trip == null) {
+                if (state.isLoading) {
+                  return const Center(child: CircularProgressIndicator());
+                }
                 return const Center(child: Text('No trip data available'));
               }
 
-              final currentLocation = state.currentLocation;
               return SingleChildScrollView(
                 child: Column(
                   children: [
@@ -139,68 +202,103 @@ class _ChildLocationDetailViewState extends State<ChildLocationDetailView> {
                                   ),
                                 ),
                                 // padding: const EdgeInsets.all(AppSizes.paddingM),
-                                child: MapViewWidget(
-                                  onMapCreated: (controller) {
-                                    _mapController = controller;
-                                    // Use a post-frame callback or small delay to ensure map size is calculated
-                                    // before fitting bounds, though map is usually ready.
-                                    Future.delayed(
-                                      const Duration(milliseconds: 300),
-                                      () {
-                                        if (mounted) _fitBounds(trip!);
+                                child: Stack(
+                                  children: [
+                                    MapViewWidget(
+                                      onMapCreated: (controller) {
+                                        _mapController = controller;
+                                        // Use a post-frame callback or small delay to ensure map size is calculated
+                                        // before fitting bounds, though map is usually ready.
+                                        Future.delayed(
+                                          const Duration(milliseconds: 300),
+                                          () {
+                                            if (mounted) _fitBounds(trip!);
+                                          },
+                                        );
                                       },
-                                    );
-                                  },
-                                  interactive: true,
-                                  isPolyLines: true,
+                                      interactive: true,
+                                      isPolyLines: true,
+                                      myLocationButtonEnabled: false,
+                                      myLocationEnabled: false,
 
-                                  width: double.infinity,
-                                  height: double.infinity,
-                                  currentPosition: LatLng(
-                                    currentLocation?.lat ?? 0,
-                                    currentLocation?.lng ?? 0,
-                                  ),
-                                  markers: [
-                                    Marker(
-                                      markerId: MarkerId('start'),
-                                      position: LatLng(
-                                        trip.startLocation.latitude,
-                                        trip.startLocation.longitude,
-                                      ),
-                                      icon:
-                                          BitmapDescriptor.defaultMarkerWithHue(
-                                            BitmapDescriptor.hueGreen,
+                                      width: double.infinity,
+                                      height: double.infinity,
+
+                                      markers: [
+                                        Marker(
+                                          markerId: MarkerId('start'),
+                                          position: LatLng(
+                                            trip.startLocation.latitude,
+                                            trip.startLocation.longitude,
                                           ),
-                                    ),
-                                    Marker(
-                                      markerId: MarkerId('end'),
-                                      position: LatLng(
-                                        trip.endLocation.latitude,
-                                        trip.endLocation.longitude,
-                                      ),
-                                      icon:
-                                          BitmapDescriptor.defaultMarkerWithHue(
-                                            BitmapDescriptor.hueRed,
+                                          icon:
+                                              _sourceIcon ??
+                                              BitmapDescriptor.defaultMarkerWithHue(
+                                                BitmapDescriptor.hueGreen,
+                                              ),
+                                        ),
+                                        Marker(
+                                          markerId: MarkerId('end'),
+                                          position: LatLng(
+                                            trip.endLocation.latitude,
+                                            trip.endLocation.longitude,
                                           ),
+                                          icon:
+                                              _destinationIcon ??
+                                              BitmapDescriptor.defaultMarkerWithHue(
+                                                BitmapDescriptor.hueRed,
+                                              ),
+                                        ),
+                                      ],
+                                      polylines: [
+                                        Polyline(
+                                          polylineId: PolylineId('route'),
+                                          points: trip.polylinePoints,
+                                          color: AppColors.tripPolyline,
+                                          width: 4,
+                                          patterns:
+                                              trip.rideMode.toLowerCase() ==
+                                                  'walking'
+                                              ? [
+                                                  PatternItem.dot,
+                                                  PatternItem.gap(10),
+                                                ]
+                                              : [],
+                                        ),
+                                      ],
                                     ),
-                                  ],
-                                  polylines: [
-                                    Polyline(
-                                      polylineId: PolylineId('route'),
-                                      points: trip.polylinePoints,
-                                      color: AppColors.error,
-                                      width: 4,
+                                    // Zoom Controls
+                                    Positioned(
+                                      top: 10,
+                                      right: 10,
+                                      child: Column(
+                                        children: [
+                                          _buildZoomButton(
+                                            icon: Icons.add,
+                                            onPressed: () {
+                                              _mapController?.animateCamera(
+                                                CameraUpdate.zoomIn(),
+                                              );
+                                            },
+                                          ),
+                                          const SizedBox(height: 8),
+                                          _buildZoomButton(
+                                            icon: Icons.remove,
+                                            onPressed: () {
+                                              _mapController?.animateCamera(
+                                                CameraUpdate.zoomOut(),
+                                              );
+                                            },
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ],
                                 ),
                               ),
                             ),
                           ),
-                          // Positioned(
-                          //   top: 0,
-                          //   right: 0,
-                          //   child: _buildTripTodayCard(context)
-                          // ),
+
                           Positioned(
                             bottom: 10,
                             right: 30,
@@ -208,7 +306,6 @@ class _ChildLocationDetailViewState extends State<ChildLocationDetailView> {
                             child: _buildTripTodayCard(
                               context,
                               trip,
-                              state.tripsTotalItems ?? 0,
                               withMargin: false,
                             ),
                           ),
@@ -227,10 +324,35 @@ class _ChildLocationDetailViewState extends State<ChildLocationDetailView> {
     );
   }
 
+  Widget _buildZoomButton({
+    required IconData icon,
+    required VoidCallback onPressed,
+  }) {
+    return Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        color: AppColors.surfaceColor,
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: IconButton(
+        padding: EdgeInsets.zero,
+        icon: Icon(icon, color: AppColors.textPrimary, size: 20),
+        onPressed: onPressed,
+      ),
+    );
+  }
+
   Widget _buildTripTodayCard(
     BuildContext context,
-    TripSegment trip,
-    int eventCount, {
+    TripSegment trip, {
     bool withMargin = true,
   }) {
     return Container(
@@ -253,64 +375,60 @@ class _ChildLocationDetailViewState extends State<ChildLocationDetailView> {
       child: Row(
         children: [
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${trip.startTime} - ${trip.endTime} (${trip.durationMinutes}min)',
-                  style: AppTextStyles.overline.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                // const SizedBox(height: AppSizes.spacingXS),
-                Text(
-                  '${trip.startPlace} - ${trip.endPlace}',
-                  style: AppTextStyles.overline.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: AppSizes.spacingM),
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSizes.paddingXS,
-                        vertical: AppSizes.paddingXS,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.backgroundColor,
-                        borderRadius: BorderRadius.circular(AppSizes.radiusS),
-                      ),
-                      child: Text(
-                        '$eventCount Events',
-                        style: AppTextStyles.caption,
-                      ),
+            child: Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${_formatDate(trip.startTime)} - ${_formatDate(trip.endTime)} (${trip.durationMinutes}min)',
+                    style: AppTextStyles.overline.copyWith(
+                      color: AppColors.textSecondary,
                     ),
-                    const SizedBox(width: AppSizes.spacingS),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSizes.paddingS,
-                        vertical: AppSizes.paddingXS,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.primaryColor.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(AppSizes.radiusS),
-                      ),
-                      child: Text(
-                        'today',
-                        style: AppTextStyles.caption.copyWith(
-                          color: AppColors.primaryColor,
-                          fontWeight: FontWeight.w600,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+
+                  // const SizedBox(height: AppSizes.spacingXS),
+                  const Spacer(),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSizes.paddingXS,
+                          vertical: AppSizes.paddingXS,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.backgroundColor,
+                          borderRadius: BorderRadius.circular(AppSizes.radiusS),
+                        ),
+                        child: Text(
+                          '${trip.eventsCount} Events',
+                          style: AppTextStyles.caption,
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                      const SizedBox(width: AppSizes.spacingS),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSizes.paddingS,
+                          vertical: AppSizes.paddingXS,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryColor.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(AppSizes.radiusS),
+                        ),
+                        child: Text(
+                          _formatDate(trip.endTime),
+                          style: AppTextStyles.caption.copyWith(
+                            color: AppColors.primaryColor,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
           const SizedBox(width: AppSizes.spacingS),
@@ -388,7 +506,7 @@ class _ChildLocationDetailViewState extends State<ChildLocationDetailView> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '${trip.type.toUpperCase()} - ${trip.startTime} - ${trip.endTime}',
+            '${trip.type.toUpperCase()} - ${_formatDate(trip.startTime)} - ${_formatDate(trip.endTime)}',
             style: AppTextStyles.headline6.copyWith(
               fontWeight: FontWeight.bold,
             ),
@@ -419,7 +537,6 @@ class _ChildLocationDetailViewState extends State<ChildLocationDetailView> {
                     const SizedBox(height: AppSizes.spacingS),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
-
                       children: [
                         Expanded(
                           child: _RouteRenderer(
@@ -553,9 +670,17 @@ class _ChildLocationDetailViewState extends State<ChildLocationDetailView> {
   // Screentime Card
   Widget _buildScreentimeCard(BuildContext context, ScreenTimeCard card) {
     final double hours = card.totalSeconds / 3600;
-    final String timeText = hours >= 1
-        ? '${hours.toStringAsFixed(1)}hrs'
-        : '${(card.totalSeconds / 60).toStringAsFixed(0)}min';
+    String timeText;
+    if (hours >= 1) {
+      timeText = '${hours.toStringAsFixed(1)}hrs';
+    } else {
+      final double minutes = card.totalSeconds / 60;
+      if (card.totalSeconds > 0 && minutes < 1) {
+        timeText = '< 1 min';
+      } else {
+        timeText = '${minutes.toStringAsFixed(0)}min';
+      }
+    }
 
     return Container(
       // margin: const EdgeInsets.symmetric(horizontal: AppSizes.paddingL),

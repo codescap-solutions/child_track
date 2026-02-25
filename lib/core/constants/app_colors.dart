@@ -24,6 +24,8 @@ class AppColors {
     0xFFFFEFD5,
   ); // Light beach-sand color for map placeholder
 
+  static const Color tripPolyline = Color(0xFFAB47BC); // Purple 400
+
   // Border Colors
   static const Color borderColor = Color(0xFFE0E0E0);
   static const Color dividerColor = Color(0xFFE0E0E0);

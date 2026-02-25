@@ -19,6 +19,8 @@ import '../../app/childapp/view_model/bloc/child_bloc.dart';
 import '../../app/addplace/service/saved_places_service.dart';
 import '../../app/social_apps/view_model/social_apps_repo.dart';
 import '../../app/social_apps/view_model/bloc/social_apps_bloc.dart';
+import '../../app/geofencing/view_model/geofence_repository.dart';
+import '../../app/geofencing/view_model/bloc/geofence_bloc.dart';
 
 final GetIt injector = GetIt.instance;
 
@@ -79,6 +81,13 @@ Future<void> initializeDependencies() async {
     () => SocialAppsRepository(dioClient: injector<DioClient>()),
   );
 
+  injector.registerLazySingleton<GeofenceRepository>(
+    () => GeofenceRepository(
+      dioClient: injector<DioClient>(),
+      sharedPrefsService: injector<SharedPrefsService>(),
+    ),
+  );
+
   // Register blocs
   injector.registerLazySingleton<AuthBloc>(
     () => AuthBloc(
@@ -118,6 +127,12 @@ Future<void> initializeDependencies() async {
       repository: injector<SocialAppsRepository>(),
       sharedPrefsService: injector<SharedPrefsService>(),
       childInfoService: injector<ChildInfoService>(),
+    ),
+  );
+
+  injector.registerLazySingleton<GeofenceBloc>(
+    () => GeofenceBloc(
+      repository: injector<GeofenceRepository>(),
     ),
   );
 

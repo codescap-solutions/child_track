@@ -12,6 +12,7 @@ import 'package:child_track/core/constants/app_colors.dart';
 import 'package:child_track/core/constants/app_sizes.dart';
 import 'package:child_track/core/constants/app_text_styles.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'account_view.dart';
 import 'widgets/section_card.dart';
 import 'widgets/setting_tile.dart';
 import 'notification_settings_view.dart';
@@ -361,7 +362,6 @@ class _SettingsViewState extends State<SettingsView> {
                   ],
                 ),
               ),
-
               SectionCard(
                 child: Column(
                   children: [
@@ -393,58 +393,58 @@ class _SettingsViewState extends State<SettingsView> {
                       ),
                     ),
 
-                    // SettingTile(
-                    //   subtitle: 'Your account details',
-                    //   leading: const Icon(
-                    //     Icons.person,
-                    //     color: AppColors.textSecondary,
-                    //   ),
-                    //   title: 'Account',
-                    //   trailing: const Icon(
-                    //     Icons.arrow_forward_ios,
-                    //     size: 16,
-                    //     color: AppColors.textSecondary,
-                    //   ),
-                    //   onTap: () {
-                    //     Navigator.push(
-                    //       context,
-                    //       MaterialPageRoute(
-                    //         builder: (_) => const AccountView(),
-                    //       ),
-                    //     );
-                    //   },
-                    // ),
-                    // Padding(
-                    //   padding: const EdgeInsets.all(8.0),
-                    //   child: const Divider(
-                    //     height: 1,
-                    //     endIndent: 20,
-                    //     indent: 20,
-                    //   ),
-                    // ),
-                    // SettingTile(
-                    //   subtitle: 'Device details',
-                    //   leading: const Icon(
-                    //     Icons.person,
-                    //     color: AppColors.textSecondary,
-                    //   ),
-                    //   title: 'Device',
-                    //   trailing: const Icon(
-                    //     Icons.arrow_forward_ios,
-                    //     size: 16,
-                    //     color: AppColors.textSecondary,
-                    //   ),
-                    //   onTap: () {},
-                    // ),
+                    SettingTile(
+                      subtitle: 'Your account details',
+                      leading: const Icon(
+                        Icons.person,
+                        color: AppColors.textSecondary,
+                      ),
+                      title: 'Account',
+                      trailing: const Icon(
+                        Icons.arrow_forward_ios,
+                        size: 16,
+                        color: AppColors.textSecondary,
+                      ),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const AccountView(),
+                          ),
+                        );
+                      },
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: const Divider(
+                        height: 1,
+                        endIndent: 20,
+                        indent: 20,
+                      ),
+                    ),
+                    SettingTile(
+                      subtitle: 'Device details',
+                      leading: const Icon(
+                        Icons.person,
+                        color: AppColors.textSecondary,
+                      ),
+                      title: 'Device',
+                      trailing: const Icon(
+                        Icons.arrow_forward_ios,
+                        size: 16,
+                        color: AppColors.textSecondary,
+                      ),
+                      onTap: () {},
+                    ),
 
-                    // Padding(
-                    //   padding: const EdgeInsets.all(8.0),
-                    //   child: const Divider(
-                    //     height: 1,
-                    //     endIndent: 20,
-                    //     indent: 20,
-                    //   ),
-                    // ),
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: const Divider(
+                        height: 1,
+                        endIndent: 20,
+                        indent: 20,
+                      ),
+                    ),
                     SettingTile(
                       subtitle: 'Help and support',
                       leading: const Icon(

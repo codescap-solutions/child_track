@@ -287,6 +287,27 @@ class DioClient {
     }
   }
 
+  // PATCH Request
+  Future<Response> patch(
+    String path, {
+    dynamic data,
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+  }) async {
+    _checkConnectivity();
+    try {
+      final response = await _dio.patch(
+        path,
+        data: data,
+        queryParameters: queryParameters,
+        options: options,
+      );
+      return response;
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    }
+  }
+
   // DELETE Request
   Future<Response> delete(
     String path, {
