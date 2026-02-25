@@ -1,0 +1,53 @@
+.\gradlew : WARNING: A restricted method in java.lang.System has 
+been called
+At line:1 char:1
++ .\gradlew assembleDebug 2>&1 | Out-File -FilePath 
+"D:\Programs\child_ ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (WARNING: A rest...has b 
+   een called:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+WARNING: java.lang.System::load has been called by 
+net.rubygrapefruit.platform.internal.NativeLibraryLoader in an 
+unnamed module (file:/C:/Users/Shiva/.gradle/wrapper/dists/gradle-8.9
+-bin/90cnw93cvbtalezasaz0blq0a/gradle-8.9/lib/native-platform-0.22-mi
+lestone-26.jar)
+WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning 
+for callers in this module
+WARNING: Restricted methods will be blocked in a future release 
+unless native access is enabled
+
+> Task :gradle:checkKotlinGradlePluginConfigurationErrors
+> Task :gradle:compileKotlin UP-TO-DATE
+> Task :gradle:compileJava NO-SOURCE
+> Task :gradle:compileGroovy NO-SOURCE
+> Task :gradle:pluginDescriptors UP-TO-DATE
+> Task :gradle:processResources UP-TO-DATE
+> Task :gradle:classes UP-TO-DATE
+> Task :gradle:jar UP-TO-DATE
+
+FAILURE: Build failed with an exception.
+
+* Where:
+Build file 'D:\Programs\child_track\android\app\build.gradle.kts' 
+line: 3
+
+* What went wrong:
+An exception occurred applying plugin request [id: 
+'com.android.application']
+> Failed to apply plugin 'com.android.internal.version-check'.
+   > Minimum supported Gradle version is 8.13. Current version is 
+8.9.
+     Try updating the 'distributionUrl' property in D:\Programs\child
+_track\android\gradle\wrapper\gradle-wrapper.properties to 
+'gradle-8.13-bin.zip'.
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 1s
+5 actionable tasks: 1 executed, 4 up-to-date

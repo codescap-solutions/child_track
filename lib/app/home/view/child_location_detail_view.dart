@@ -30,8 +30,9 @@ class _ChildLocationDetailViewState extends State<ChildLocationDetailView> {
     // Safety check for empty points
     if (trip.polylinePoints.isEmpty &&
         trip.startLocation.latitude == 0 &&
-        trip.endLocation.latitude == 0)
+        trip.endLocation.latitude == 0) {
       return;
+    }
 
     double minLat = trip.startLocation.latitude;
     double maxLat = trip.startLocation.latitude;
@@ -41,10 +42,12 @@ class _ChildLocationDetailViewState extends State<ChildLocationDetailView> {
     // Check end location
     if (trip.endLocation.latitude < minLat) minLat = trip.endLocation.latitude;
     if (trip.endLocation.latitude > maxLat) maxLat = trip.endLocation.latitude;
-    if (trip.endLocation.longitude < minLng)
+    if (trip.endLocation.longitude < minLng) {
       minLng = trip.endLocation.longitude;
-    if (trip.endLocation.longitude > maxLng)
+    }
+    if (trip.endLocation.longitude > maxLng) {
       maxLng = trip.endLocation.longitude;
+    }
 
     // Check polyline points
     for (var point in trip.polylinePoints) {
