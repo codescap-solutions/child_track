@@ -31,6 +31,10 @@ class ApiEndpoints {
   static const String places = 'places';
   static const String getAppUsage = 'app-usage';
 
+  // App Lock Endpoints
+  static const String parentLockedApps = 'parent/locked-apps';
+  static const String childLockedApps = 'child/locked-apps';
+
   // FCM Token endpoints
   static const String parentFcmToken = 'fcm-token/parent';
   static const String childFcmToken = 'fcm-token/child';
@@ -39,7 +43,7 @@ class ApiEndpoints {
   static const String childSOS = 'child/sos';
 
   // Geofence Endpoints
-  static const String geofences = 'parent/geofences';
-  static String geofenceDetail(String id) => 'parent/geofences/$id';
-  static String geofenceLock(String id) => 'parent/geofences/$id/lock';
+  static const String geofences = 'geofences';
+  static String geofenceDetail(String id) => 'geofences/$id';
+  static String geofenceLock(String id) => 'geofences/$id/lock';
 }

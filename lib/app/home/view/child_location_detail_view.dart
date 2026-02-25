@@ -170,7 +170,7 @@ class _ChildLocationDetailViewState extends State<ChildLocationDetailView> {
               }
 
               if (trip == null) {
-                if (state.isLoading) {
+                if (state.isLoading || state.isLoadingTrips) {
                   return const Center(child: CircularProgressIndicator());
                 }
                 return const Center(child: Text('No trip data available'));

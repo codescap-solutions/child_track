@@ -582,10 +582,19 @@ class _HomePageState extends State<HomePage> {
                       icon: 'assets/home/geo_guard_girl.svg',
                       onTap: () {
                         // Feature implementation needed
+                        final childId = _sharedPrefsService.getString(
+                          'child_id',
+                        );
+                        final parentId = _sharedPrefsService.getString(
+                          'parent_id',
+                        );
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => const GeoFencingView(),
+                            builder: (_) => GeoFencingView(
+                              childId: childId,
+                              parentId: parentId,
+                            ),
                           ),
                         );
                       },

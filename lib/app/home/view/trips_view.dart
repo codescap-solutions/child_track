@@ -104,7 +104,7 @@ class _TripsViewState extends State<TripsView> {
               return const Center(child: CircularProgressIndicator());
             }
 
-            if (state.trips.isEmpty) {
+            if (!state.isLoadingTrips && state.trips.isEmpty) {
               return const Center(child: Text("No trips found"));
             }
 

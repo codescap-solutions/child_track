@@ -27,7 +27,8 @@ class SettingsView extends StatefulWidget {
 
 class _SettingsViewState extends State<SettingsView> {
   final _sharedPrefsService = SharedPrefsService();
-  String? _childId;
+  String? _childCode;
+  String? _currentChildId;
   String? _childName;
   bool _restrictDeletion = false;
   bool _block18Plus = false;
@@ -42,7 +43,8 @@ class _SettingsViewState extends State<SettingsView> {
   }
 
   void _loadChildData() {
-    _childId = _sharedPrefsService.getString('child_code');
+    _childCode = _sharedPrefsService.getString('child_code');
+    _currentChildId = _sharedPrefsService.getString('child_id');
     _childName = _sharedPrefsService.getString('child_name');
     _restrictDeletion = _sharedPrefsService.getBool('restrict_deletion');
     _block18Plus = _sharedPrefsService.getBool('block_18plus');
@@ -120,7 +122,9 @@ class _SettingsViewState extends State<SettingsView> {
                                     _childName ?? 'Child',
                                     style: AppTextStyles.subtitle1.copyWith(
                                       fontWeight: FontWeight.w800,
-                                      fontSize: 18,
+                                      fontSize: 16,
+
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
                                   const SizedBox(width: 8),
@@ -133,7 +137,7 @@ class _SettingsViewState extends State<SettingsView> {
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                "Child code $_childId",
+                                "Child code $_childCode",
                                 style: AppTextStyles.caption.copyWith(
                                   color: AppColors.textSecondary,
                                   letterSpacing: 0.5,
@@ -214,14 +218,6 @@ class _SettingsViewState extends State<SettingsView> {
                         );
                         setState(() => _block18Plus = value);
                       },
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: const Divider(
-                        height: 1,
-                        endIndent: 20,
-                        indent: 20,
-                      ),
                     ),
                   ],
                 ),
@@ -350,14 +346,6 @@ class _SettingsViewState extends State<SettingsView> {
                           ),
                         );
                       },
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: const Divider(
-                        height: 1,
-                        endIndent: 20,
-                        indent: 20,
-                      ),
                     ),
                   ],
                 ),
@@ -709,7 +697,7 @@ class _SettingsViewState extends State<SettingsView> {
 
   List<Widget> _buildInactiveChildTiles() {
     final inactiveChildren = _children
-        .where((e) => e.childId != _childId)
+        .where((e) => e.childId != _currentChildId)
         .toList();
 
     return inactiveChildren.map((child) {
@@ -748,7 +736,7 @@ class _SettingsViewState extends State<SettingsView> {
                         ),
                       ),
                       Text(
-                        "Code: ${child.childId}",
+                        "Code: ${child.childCode}",
                         style: AppTextStyles.caption.copyWith(
                           color: AppColors.textSecondary,
                         ),
@@ -856,7 +844,11 @@ class _SettingsViewState extends State<SettingsView> {
       if (mounted) {
         // Clear loading snackbar
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        AppSnackbar.showSuccess(context, 'Identity active: ${child.childName}');
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          RouteNames.home,
+          (route) => false,
+        );
       }
     } catch (e) {
       AppLogger.error('Switch failed: $e');

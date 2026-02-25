@@ -4,9 +4,12 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../utils/app_logger.dart';
 import 'package:child_track/core/services/background_task_service.dart';
 import 'package:child_track/core/services/shared_prefs_service.dart';
+import 'package:child_track/core/services/lock_sync_service.dart';
 import 'package:child_track/core/di/injector.dart';
 import 'package:child_track/app/auth/view_model/auth_repository.dart';
 import 'package:child_track/app/childapp/view_model/repository/child_repo.dart';
+import 'package:child_track/app/social_apps/view_model/bloc/app_lock_bloc.dart';
+import 'package:child_track/app/social_apps/view_model/bloc/app_lock_event.dart';
 import 'package:workmanager/workmanager.dart';
 
 /// Top-level function for handling background messages
@@ -27,6 +30,18 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
       AppLogger.info('SYNC_SCREEN_TIME: WorkManager task scheduled');
     } catch (e) {
       AppLogger.error('SYNC_SCREEN_TIME: Failed to schedule sync: $e');
+    }
+  }
+
+  if (message.data['type'] == 'SYNC_LOCKED_APPS') {
+    AppLogger.info('Received SYNC_LOCKED_APPS command via FCM (background)');
+    try {
+      // Initialize dependencies if needed (background isolate)
+      await initializeDependencies();
+      await LockSyncService().fetchAndSyncLockedApps();
+      AppLogger.info('SYNC_LOCKED_APPS: Lock list synced from background');
+    } catch (e) {
+      AppLogger.error('SYNC_LOCKED_APPS background sync error: $e');
     }
   }
 }
@@ -169,6 +184,18 @@ class FirebaseNotificationService {
     // Add to stream for listeners
     _messageController.add(message);
 
+    // Handle SYNC_LOCKED_APPS in foreground — dispatch to AppLockBloc
+    if (message.data['type'] == 'SYNC_LOCKED_APPS') {
+      try {
+        final appLockBloc = injector<AppLockBloc>();
+        appLockBloc.add(SyncLockedAppsFromServer());
+        AppLogger.info('SYNC_LOCKED_APPS: Dispatched to AppLockBloc');
+      } catch (e) {
+        AppLogger.error('SYNC_LOCKED_APPS foreground error: $e');
+      }
+      return; // Don't show notification
+    }
+
     // Show local notification for foreground messages
     _showLocalNotification(message);
   }
@@ -217,6 +244,7 @@ class FirebaseNotificationService {
           body = 'Device went offline. Last seen recently.';
           break;
         case 'SYNC_SCREEN_TIME':
+        case 'SYNC_LOCKED_APPS':
           // Silent — don't show a notification
           return;
         default:

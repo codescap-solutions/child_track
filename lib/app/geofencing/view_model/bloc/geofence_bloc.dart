@@ -1,8 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:geocoding/geocoding.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import '../../../../core/constants/app_strings.dart';
 import '../../model/geofence_model.dart';
 import '../geofence_repository.dart';
 import 'geofence_event.dart';
@@ -46,7 +46,12 @@ class GeofenceBloc extends Bloc<GeofenceEvent, GeofenceState> {
   ) async {
     emit(const GeofenceLoading());
     try {
-      final response = await _repository.getGeofences(event.childId);
+      final response = await _repository.getGeofences(
+        event.childId,
+        date: event.date,
+        startDate: (event.startDate),
+        endDate: (event.endDate),
+      );
 
       if (response.isSuccess && response.data != null) {
         emit(GeofencesLoaded(geofences: response.data!));
@@ -148,7 +153,7 @@ class GeofenceBloc extends Bloc<GeofenceEvent, GeofenceState> {
     }
 
     try {
-      const apiKey = "AIzaSyASaOyJsO7dp01jjv625MI9Tw9HwEeTuQg";
+      final apiKey = AppStrings.googleMapsApiKey;
 
       final uri = Uri.https(
         "maps.googleapis.com",
@@ -210,9 +215,7 @@ class GeofenceBloc extends Bloc<GeofenceEvent, GeofenceState> {
       if (coordinates != null) {
         emit(PlaceCoordinatesLoaded(coordinates: coordinates));
       } else {
-        emit(
-          const GeofenceError(message: "Could not fetch place coordinates"),
-        );
+        emit(const GeofenceError(message: "Could not fetch place coordinates"));
       }
     } catch (e) {
       emit(GeofenceError(message: e.toString()));
@@ -220,7 +223,7 @@ class GeofenceBloc extends Bloc<GeofenceEvent, GeofenceState> {
   }
 
   Future<LatLng?> getPlaceLatLng(String placeId) async {
-    const apiKey = "AIzaSyASaOyJsO7dp01jjv625MI9Tw9HwEeTuQg";
+    final apiKey = AppStrings.googleMapsApiKey;
 
     final uri = Uri.https(
       "maps.googleapis.com",

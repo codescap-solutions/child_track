@@ -1,4 +1,8 @@
+import 'package:child_track/app/social_apps/model/app_usage_model.dart';
 import 'package:child_track/app/social_apps/view_model/bloc/social_apps_bloc.dart';
+import 'package:child_track/app/social_apps/view_model/bloc/app_lock_bloc.dart';
+import 'package:child_track/app/social_apps/view_model/bloc/app_lock_state.dart';
+import 'package:child_track/app/social_apps/view_model/bloc/app_lock_event.dart';
 import 'package:child_track/core/di/injector.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -18,30 +22,54 @@ class SocialAppsView extends StatefulWidget {
 
 class _SocialAppsViewState extends State<SocialAppsView> {
   late SocialAppsBloc _bloc;
+  late AppLockBloc _appLockBloc;
   int _selectedTabIndex = 1; // Default to Today (index 1)
 
   @override
   void initState() {
     super.initState();
     _bloc = injector<SocialAppsBloc>();
+    _appLockBloc = injector<AppLockBloc>();
     _fetchDataForIndex(_selectedTabIndex);
   }
 
   void _fetchDataForIndex(int index) {
-    DateTime date;
-    if (index == 0) {
-      date = DateTime.now().subtract(const Duration(days: 1)); // Yesterday
-    } else if (index == 1) {
-      date = DateTime.now(); // Today
-    } else {
-      // Week - API doesn't seem to support range yet based on single date param, defaulting to today for now
-      // Or maybe the user wants 7 days data? The API response example shows "2026-01-05": [...]
-      // Let's assume Today for Week tab for now or handle it later.
-      date = DateTime.now();
-    }
+    final now = DateTime.now();
+    final todayStr = now.toIso8601String().split('T')[0];
 
-    final dateStr = date.toIso8601String().split('T')[0];
-    _bloc.add(FetchAppUsage(date: dateStr));
+    if (index == 0) {
+      // Yesterday
+      final yesterday = now.subtract(const Duration(days: 1));
+      final dateStr = yesterday.toIso8601String().split('T')[0];
+      _bloc.add(FetchAppUsage(date: dateStr));
+    } else if (index == 1) {
+      // Today
+      _bloc.add(FetchAppUsage(date: todayStr));
+    } else {
+      // Week — last 7 days (today to 6 days ago)
+      final weekStart = now.subtract(const Duration(days: 6));
+      final startDateStr = weekStart.toIso8601String().split('T')[0];
+      _bloc.add(
+        FetchAppUsage(
+          date: todayStr,
+          startDate: startDateStr,
+          endDate: todayStr,
+        ),
+      );
+    }
+  }
+
+  /// Format total seconds into human-readable string (e.g. "2h 36m 5s")
+  String _formatSeconds(int totalSeconds) {
+    final hours = totalSeconds ~/ 3600;
+    final minutes = (totalSeconds % 3600) ~/ 60;
+    final seconds = totalSeconds % 60;
+    if (hours > 0) {
+      return '${hours}h ${minutes}m ${seconds}s';
+    } else if (minutes > 0) {
+      return '${minutes}m ${seconds}s';
+    }
+    return '${seconds}s';
   }
 
   @override
@@ -52,8 +80,15 @@ class _SocialAppsViewState extends State<SocialAppsView> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => _bloc,
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(create: (_) => _bloc),
+        BlocProvider(
+          create: (_) => _appLockBloc
+            ..add(CheckAccessibilityPermission())
+            ..add(FetchLockedApps()),
+        ),
+      ],
       child: Scaffold(
         backgroundColor: AppColors.backgroundColor,
         appBar: AppBar(
@@ -125,12 +160,41 @@ class _SocialAppsViewState extends State<SocialAppsView> {
             ),
           );
         } else if (state is SocialAppsLoaded) {
-          final dailyData = state.data.dailyUsage[state.selectedDate] ?? [];
+          // For Week tab (index 2), merge all days into one combined list
+          List<AppUsageItem> dailyData;
+          if (_selectedTabIndex == 2) {
+            // Aggregate usage across all days by package name
+            final aggregated = <String, AppUsageItem>{};
+            for (final items in state.data.dailyUsage.values) {
+              for (final item in items) {
+                if (aggregated.containsKey(item.packageName)) {
+                  final existing = aggregated[item.packageName]!;
+                  final totalSeconds = existing.usageTime + item.usageTime;
+                  aggregated[item.packageName] = AppUsageItem(
+                    date: item.date,
+                    appName: item.appName,
+                    packageName: item.packageName,
+                    usageTime: totalSeconds,
+                    usageTimeFormatted: _formatSeconds(totalSeconds),
+                    platform: item.platform,
+                    openCount: existing.openCount + item.openCount,
+                    iconBase64: item.iconBase64 ?? existing.iconBase64,
+                  );
+                } else {
+                  aggregated[item.packageName] = item;
+                }
+              }
+            }
+            dailyData = aggregated.values.toList()
+              ..sort((a, b) => b.usageTime.compareTo(a.usageTime));
+          } else {
+            dailyData = state.data.dailyUsage[state.selectedDate] ?? [];
+          }
 
           if (dailyData.isEmpty) {
             return Center(
               child: Text(
-                'No usage data for this date',
+                'No usage data for this period',
                 style: AppTextStyles.textSecondary,
               ),
             );
@@ -141,17 +205,7 @@ class _SocialAppsViewState extends State<SocialAppsView> {
             itemBuilder: (context, index) {
               if (index == dailyData.length) {
                 return Column(
-                  children: [
-                    const SizedBox(height: AppSizes.spacingL),
-                    // CommonButton(
-                    //   text: 'Next',
-                    //   onPressed: () => Navigator.push(
-                    //     context,
-                    //     MaterialPageRoute(builder: (_) => const SettingsView()),
-                    //   ),
-                    // ),
-                    const SizedBox(height: AppSizes.spacingL),
-                  ],
+                  children: [const SizedBox(height: AppSizes.spacingL)],
                 );
               }
 
@@ -172,15 +226,31 @@ class _SocialAppsViewState extends State<SocialAppsView> {
                 );
               }
 
-              return SocialAppItem(
-                // We don't have icon path from API, native side sends it, but here we are fetching from server.
-                // The server API doesn't seem to return iconUrl.
-                // We might need to use a default icon or if we stored icons locally?
-                // For now, use default.
-                icon: iconProvider,
-                name: app.appName.isNotEmpty ? app.appName : app.packageName,
-                usage: app.usageTimeFormatted,
-                isLocked: false,
+              return BlocBuilder<AppLockBloc, AppLockState>(
+                builder: (context, lockState) {
+                  final isLocked =
+                      lockState is AppLockLoaded &&
+                      lockState.lockedPackages.contains(app.packageName);
+
+                  return SocialAppItem(
+                    icon: iconProvider,
+                    name: app.appName.isNotEmpty
+                        ? app.appName
+                        : app.packageName,
+                    usage: app.usageTimeFormatted,
+                    isLocked: isLocked,
+                    onLockToggle: (isLocked, duration) {
+                      _appLockBloc.add(
+                        ToggleAppLock(
+                          packageName: app.packageName,
+                          appName: app.appName,
+                          isLocked: isLocked,
+                          durationMinutes: duration,
+                        ),
+                      );
+                    },
+                  );
+                },
               );
             },
           );

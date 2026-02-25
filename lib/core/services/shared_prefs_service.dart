@@ -323,7 +323,7 @@ class SharedPrefsService {
 
     // Update session data
     await setAuthToken(child.authToken);
-    await setString('child_code', child.childId);
+    await setString('child_code', child.childCode);
     await setString('child_id', child.childId); // Critical for Home module
     await setUserId(
       child.childId,

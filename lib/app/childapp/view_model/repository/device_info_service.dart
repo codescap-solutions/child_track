@@ -75,23 +75,23 @@ class ChildInfoService {
         isOnline = true;
       } else if (connectivityResults.contains(ConnectivityResult.mobile)) {
         status = 'connected';
-        type = 'mobile';
+        type = 'cellular';
         isOnline = true;
       } else if (connectivityResults.contains(ConnectivityResult.ethernet)) {
         status = 'connected';
-        type = 'ethernet';
+        type = 'Ethernet';
         isOnline = true;
       } else if (connectivityResults.contains(ConnectivityResult.vpn)) {
         status = 'connected';
-        type = 'vpn';
+        type = 'cellular';
         isOnline = true;
       } else if (connectivityResults.contains(ConnectivityResult.bluetooth)) {
         status = 'connected';
-        type = 'bluetooth';
+        type = 'cellular';
         isOnline = true;
       } else if (connectivityResults.contains(ConnectivityResult.other)) {
         status = 'connected';
-        type = 'other';
+        type = 'cellular';
         isOnline = true;
       } else if (connectivityResults.contains(ConnectivityResult.none)) {
         status = 'disconnected';

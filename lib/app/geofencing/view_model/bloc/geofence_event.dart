@@ -15,11 +15,14 @@ class GeofenceInitializationRequested extends GeofenceEvent {
 
 class GetGeofencesRequested extends GeofenceEvent {
   final String childId;
+  final String? date;
+  final String? startDate;
+  final String? endDate;
 
-  const GetGeofencesRequested({required this.childId});
+  const GetGeofencesRequested({required this.childId, this.date, this.startDate, this.endDate});
 
   @override
-  List<Object?> get props => [childId];
+  List<Object?> get props => [childId, date, startDate, endDate];
 }
 
 class CreateGeofenceRequested extends GeofenceEvent {

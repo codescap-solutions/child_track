@@ -339,7 +339,7 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
         "accuracy_m": event.childLocation.accuracy,
         "speed_mps": event.childLocation.speed,
         "bearing": event.childLocation.heading,
-        "timestamp": DateTime.now().toIso8601String(),
+        "timestamp": DateTime.now().toUtc().toIso8601String(),
       };
       AppLogger.info(
         'new logic: child location posting to api: locationInfo: $locationInfo, reqest $requestBody',
@@ -391,7 +391,8 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
         "network_type": event.deviceInfo.networkType,
         "sound_profile": event.deviceInfo.soundProfile,
         "is_online": event.deviceInfo.isOnline,
-        "timestamp": DateTime.now().toIso8601String(),
+
+        "timestamp": DateTime.now().toUtc().toIso8601String(),
       };
       await _childRepo.postChildData(requestBody);
     } catch (e) {

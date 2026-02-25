@@ -2,6 +2,7 @@ import 'package:child_track/app/home/model/device_model.dart';
 import 'package:child_track/app/childapp/view_model/bloc/child_bloc.dart';
 import 'package:child_track/core/di/injector.dart';
 import 'package:child_track/core/services/firebase_notification_service.dart';
+import 'package:child_track/core/services/lock_sync_service.dart';
 import 'package:child_track/core/utils/app_logger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -24,18 +25,22 @@ class SosView extends StatefulWidget {
 
 class _SosViewState extends State<SosView> with WidgetsBindingObserver {
   late final ChildBloc _childBloc;
+  bool _hasAccessibilityPermission = false;
 
   @override
   void initState() {
     super.initState();
     _childBloc = injector<ChildBloc>();
     WidgetsBinding.instance.addObserver(this);
+    _checkAccessibilityPermission();
 
     // Defer heavy initialization until after the first frame to ensure smooth navigation
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _childBloc.onInitialize();
       // Start background location service
       BackgroundLocationService().start();
+      // Fetch and sync locked apps from server to native AppLockService
+      injector<LockSyncService>().fetchAndSyncLockedApps();
     });
   }
 
@@ -56,7 +61,18 @@ class _SosViewState extends State<SosView> with WidgetsBindingObserver {
         if (mounted) {
           AppLogger.info('SosView: Checking usage permission');
           _childBloc.add(CheckUsagePermission());
+          _checkAccessibilityPermission();
         }
+      });
+    }
+  }
+
+  Future<void> _checkAccessibilityPermission() async {
+    final hasPermission = await injector<LockSyncService>()
+        .checkAccessibilityPermission();
+    if (mounted) {
+      setState(() {
+        _hasAccessibilityPermission = hasPermission;
       });
     }
   }
@@ -65,13 +81,17 @@ class _SosViewState extends State<SosView> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     return BlocProvider.value(
       value: _childBloc,
-      child: const _SosViewContent(),
+      child: _SosViewContent(
+        hasAccessibilityPermission: _hasAccessibilityPermission,
+      ),
     );
   }
 }
 
 class _SosViewContent extends StatelessWidget {
-  const _SosViewContent();
+  final bool hasAccessibilityPermission;
+
+  const _SosViewContent({required this.hasAccessibilityPermission});
 
   void _showDeviceInfoDialog(BuildContext context, DeviceInfo deviceInfo) {
     showDialog(
@@ -353,6 +373,61 @@ class _SosViewContent extends StatelessWidget {
                                 style: AppTextStyles.button.copyWith(
                                   color: AppColors.warning,
                                 ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                    if (!hasAccessibilityPermission)
+                      Container(
+                        margin: const EdgeInsets.only(top: AppSizes.spacingM),
+                        padding: const EdgeInsets.all(AppSizes.paddingM),
+                        decoration: BoxDecoration(
+                          color: AppColors.error.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(AppSizes.radiusM),
+                          border: Border.all(color: AppColors.error),
+                        ),
+                        child: Column(
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.accessibility_new_rounded,
+                                  color: AppColors.error,
+                                ),
+                                const SizedBox(width: AppSizes.spacingS),
+                                Expanded(
+                                  child: Text(
+                                    'App Lock Service Required',
+                                    style: AppTextStyles.body2.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.error,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: AppSizes.spacingS),
+                            Text(
+                              'To enable app blocking features, please enable the Accessibility Service for NaviQ.',
+                              style: AppTextStyles.caption.copyWith(
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                            const SizedBox(height: AppSizes.spacingS),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.error,
+                                  foregroundColor: Colors.white,
+                                ),
+                                onPressed: () async {
+                                  await injector<LockSyncService>()
+                                      .openAccessibilitySettings();
+                                },
+                                child: const Text('Enable Accessibility'),
                               ),
                             ),
                           ],
