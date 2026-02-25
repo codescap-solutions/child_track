@@ -74,9 +74,23 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
         ? currentState
         : const HomepageSuccess.initial();
 
-    emit(startingState.copyWith(isLoading: true));
+    emit(
+      startingState.copyWith(
+        isLoading: true,
+        trips:
+            [], // Clear trips to prevent showing the old child's trips while loading
+        hasReachedMax: false,
+        tripsPage: 1,
+      ),
+    );
     try {
       final response = await _homeRepository.getHomeData(childId: childId);
+
+      // Get the freshest state after the async gap to prevent overwriting other events
+      final freshState = state is HomepageSuccess
+          ? state as HomepageSuccess
+          : startingState;
+
       if (response.isSuccess && response.data != null) {
         final homeData = response.data!;
 
@@ -100,7 +114,7 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
           ),
         );
         emit(
-          startingState.copyWith(
+          freshState.copyWith(
             deviceInfo: homeData.deviceInfo,
             yesterdayTrips: tripsToUse,
             yesterdayTripSummary: homeData.yesterdayTripSummary,
@@ -146,6 +160,11 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
       );
 
       if (response.isSuccess && response.data != null) {
+        // Get freshet state here too
+        final freshState = state is HomepageSuccess
+            ? state as HomepageSuccess
+            : currentState;
+
         final tripsData = response.data!;
         final newTrips = tripsData.trips;
         final totalItems = tripsData.totalItems;
@@ -154,13 +173,13 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
         if (event.page == 1) {
           allTrips = newTrips;
         } else {
-          allTrips = List.of(currentState.trips)..addAll(newTrips);
+          allTrips = List.of(freshState.trips)..addAll(newTrips);
         }
 
         final hasReachedMax = allTrips.length >= totalItems;
 
         emit(
-          currentState.copyWith(
+          freshState.copyWith(
             trips: allTrips,
             tripsPage: tripsData.page,
             tripsPageSize: tripsData.pageSize,
@@ -170,12 +189,18 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
           ),
         );
       } else {
-        emit(currentState.copyWith(isLoadingTrips: false));
+        final freshState = state is HomepageSuccess
+            ? state as HomepageSuccess
+            : currentState;
+        emit(freshState.copyWith(isLoadingTrips: false));
         AppLogger.error('Failed to fetch trips: ${response.message}');
       }
     } catch (e) {
+      final freshState = state is HomepageSuccess
+          ? state as HomepageSuccess
+          : currentState;
       AppLogger.error('Error fetching trips: ${e.toString()}');
-      emit(currentState.copyWith(isLoadingTrips: false));
+      emit(freshState.copyWith(isLoadingTrips: false));
     }
   }
 
@@ -193,20 +218,27 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
     );
     try {
       final response = await _homeRepository.getTripDetail(event.tripId);
+
+      final freshState = state is HomepageSuccess
+          ? state as HomepageSuccess
+          : currentState;
       if (response.isSuccess && response.data != null) {
         emit(
-          currentState.copyWith(
+          freshState.copyWith(
             selectedTripDetail: response.data!,
             isLoadingTripDetail: false,
           ),
         );
       } else {
-        emit(currentState.copyWith(isLoadingTripDetail: false));
+        emit(freshState.copyWith(isLoadingTripDetail: false));
         AppLogger.error('Failed to fetch trip detail: ${response.message}');
       }
     } catch (e) {
+      final freshState = state is HomepageSuccess
+          ? state as HomepageSuccess
+          : currentState;
       AppLogger.error('Error fetching trip detail: ${e.toString()}');
-      emit(currentState.copyWith(isLoadingTripDetail: false));
+      emit(freshState.copyWith(isLoadingTripDetail: false));
     }
   }
 

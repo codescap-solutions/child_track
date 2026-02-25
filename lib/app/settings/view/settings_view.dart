@@ -122,7 +122,9 @@ class _SettingsViewState extends State<SettingsView> {
                                     _childName ?? 'Child',
                                     style: AppTextStyles.subtitle1.copyWith(
                                       fontWeight: FontWeight.w800,
-                                      fontSize: 18,
+                                      fontSize: 16,
+
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
                                   const SizedBox(width: 8),
