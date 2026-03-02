@@ -2,6 +2,7 @@ import 'package:child_track/app/auth/view_model/bloc/auth_bloc.dart';
 import 'package:child_track/core/services/connectivity/bloc/connectivity_bloc.dart';
 import 'package:child_track/core/services/shared_prefs_service.dart';
 import 'package:child_track/core/services/firebase_notification_service.dart';
+import 'package:child_track/core/services/csv_file_logger.dart';
 import 'package:child_track/core/services/background_location_service.dart';
 import 'package:child_track/core/services/background_task_service.dart';
 import 'package:child_track/core/services/lock_sync_service.dart';
@@ -33,6 +34,9 @@ void main() async {
 
   // Set up background message handler
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+
+  // Initialize CSV file logger (for foreground logs)
+  await CsvFileLogger.instance.init();
 
   // Initialize dependencies
   await initializeDependencies();

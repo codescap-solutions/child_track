@@ -12,6 +12,8 @@ import 'package:child_track/core/constants/app_colors.dart';
 import 'package:child_track/core/constants/app_sizes.dart';
 import 'package:child_track/core/constants/app_text_styles.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:child_track/core/services/csv_file_logger.dart';
 import 'account_view.dart';
 import 'widgets/section_card.dart';
 import 'widgets/setting_tile.dart';
@@ -526,11 +528,59 @@ class _SettingsViewState extends State<SettingsView> {
                   ],
                 ),
               ),
+              // ── Share Background Logs ──────────────────────────
+              SectionCard(
+                child: SettingTile(
+                  subtitle: 'Export CSV logs for debugging',
+                  leading: const Icon(
+                    Icons.bug_report_outlined,
+                    color: AppColors.textSecondary,
+                  ),
+                  title: 'Share Background Logs',
+                  trailing: const Icon(
+                    Icons.share,
+                    size: 20,
+                    color: AppColors.primaryColor,
+                  ),
+                  onTap: () => _shareLogs(context),
+                ),
+              ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  Future<void> _shareLogs(BuildContext context) async {
+    try {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Preparing logs…')));
+
+      final paths = await CsvFileLogger.instance.getAllLogPaths();
+      if (paths.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          AppSnackbar.showError(context, 'No log files found yet');
+        }
+        return;
+      }
+
+      final xFiles = paths.map((p) => XFile(p)).toList();
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      }
+      await SharePlus.instance.share(
+        ShareParams(files: xFiles, subject: 'NaviQ Background Logs'),
+      );
+    } catch (e) {
+      AppLogger.error('Share logs error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        AppSnackbar.showError(context, 'Failed to share logs: $e');
+      }
+    }
   }
 
   void _showDeleteAccountDialog(BuildContext context) {

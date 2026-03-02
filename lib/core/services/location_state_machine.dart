@@ -1,250 +1,359 @@
 import 'dart:async';
+import 'package:battery_plus/battery_plus.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:child_track/core/utils/structured_logger.dart';
 import 'package:child_track/app/childapp/view_model/repository/child_repo.dart';
 import 'package:child_track/app/childapp/view_model/repository/child_location_repo.dart';
 import 'package:child_track/core/services/shared_prefs_service.dart';
 
-enum TripState { idle, candidate, confirmed }
+/// Trip mode detected from movement patterns.
+enum BgTripMode { unknown, walking, vehicle }
 
+/// Internal state of the background location state machine.
+enum BgTripState { idle, candidate, tracking }
+
+/// Mirrors the ChildBloc location-posting + trip-detection logic so that
+/// the background service behaves identically when the app is killed or
+/// minimised.
 class LocationStateMachine {
-  // Dependencies
+  // ── Dependencies ──────────────────────────────────────────────────────
   final ChildRepo _childRepo;
   final ChildGoogleMapsRepo _locationRepo;
   final SharedPrefsService _prefs;
+  final Battery _battery;
 
-  // State
-  TripState _state = TripState.idle;
-  final List<Position> _buffer = [];
-  DateTime? _candidateStartTime;
-  DateTime? _tripStartTime;
-  DateTime? _lastMovementTime;
-  Position? _lastRecordedPosition;
+  // ── Location posting state ────────────────────────────────────────────
+  Position? _lastPostedLocation;
 
-  // Thresholds (Matched to Backend)
-  static const double WAKE_UP_SPEED_MPS = 1.2;
-  static const double WAKE_UP_DISPLACEMENT_M = 30.0; // In 60s
+  // ── Trip detection state (mirrors ChildBloc._processTripStartLogic) ──
+  BgTripState _state = BgTripState.idle;
+  List<Position> _candidatePoints = [];
 
-  static const int CONFIRM_DURATION_S = 30;
-  static const double CONFIRM_DISTANCE_M = 100.0;
-
-  static const double STATIONARY_SPEED_MPS = 0.3;
-  static const int STATIONARY_TIMEOUT_S = 600; // 10 mins
+  // ── Trip tracking state (mirrors ChildBloc._onUpdateTripLocation) ────
+  bool _isTripTracking = false;
+  BgTripMode _tripMode = BgTripMode.unknown;
 
   LocationStateMachine({
     required ChildRepo childRepo,
     required ChildGoogleMapsRepo locationRepo,
     required SharedPrefsService prefs,
+    Battery? battery,
   }) : _childRepo = childRepo,
        _locationRepo = locationRepo,
-       _prefs = prefs;
+       _prefs = prefs,
+       _battery = battery ?? Battery();
 
-  /// Main entry point for location updates
+  // ════════════════════════════════════════════════════════════════════════
+  // PUBLIC: called by BackgroundLocationService on every location update
+  // ════════════════════════════════════════════════════════════════════════
+
+  /// Main entry – mirrors ChildBloc._onGetChildLocation
   Future<void> processLocation(Position position) async {
-    // 1. Basic filtering (accuracy) could happen here if needed,
-    // but we assume Geolocator settings handle most of it.
-
     StructuredLogger.log(
-      LogTag.LOCATION,
-      'Processing: ${position.latitude},${position.longitude} | Spd: ${position.speed.toStringAsFixed(2)} | Acc: ${position.accuracy}',
+      LogTag.BG,
+      'Processing: ${position.latitude},${position.longitude} '
+      '| Spd: ${position.speed.toStringAsFixed(2)} '
+      '| Acc: ${position.accuracy.toStringAsFixed(1)}',
     );
 
-    switch (_state) {
-      case TripState.idle:
-        await _handleIdle(position);
-        break;
-      case TripState.candidate:
-        await _handleCandidate(position);
-        break;
-      case TripState.confirmed:
-        await _handleConfirmed(position);
-        break;
+    final childId = _prefs.getString('child_id');
+    if (childId == null || childId.isEmpty) {
+      StructuredLogger.log(LogTag.BG, 'No child_id – skipping');
+      return;
     }
-  }
 
-  Future<void> _handleIdle(Position position) async {
-    // Check Wake-Up Triggers
-    bool speedTrigger = position.speed >= WAKE_UP_SPEED_MPS;
-    bool displacementTrigger = false;
-
-    // Check displacement if we have a previous point
-    if (_lastRecordedPosition != null) {
-      final distance = Geolocator.distanceBetween(
-        _lastRecordedPosition!.latitude,
-        _lastRecordedPosition!.longitude,
+    // ── 10 m distance gate (same as ChildBloc) ──────────────────────────
+    double distance = 0.0;
+    if (_lastPostedLocation != null) {
+      distance = Geolocator.distanceBetween(
+        _lastPostedLocation!.latitude,
+        _lastPostedLocation!.longitude,
         position.latitude,
         position.longitude,
       );
-      // Rough check for immediate displacement
-      // Real "Displacement >= 30m within 60s" requires history,
-      // but simpler check: if we moved significantly from rest.
-      if (distance >= WAKE_UP_DISPLACEMENT_M) {
-        displacementTrigger = true;
-      }
     }
 
-    if (speedTrigger || displacementTrigger) {
-      // Transition to Candidate
-      _state = TripState.candidate;
-      _candidateStartTime = DateTime.now();
-      _buffer.clear();
-      _buffer.add(position);
+    StructuredLogger.log(
+      LogTag.BG,
+      'Distance from last posted: ${distance.toStringAsFixed(1)} m',
+    );
 
-      StructuredLogger.log(
-        LogTag.STATE,
-        'Idle -> Candidate (Speed: $speedTrigger, Disp: $displacementTrigger)',
-      );
-    } else {
-      _lastRecordedPosition = position;
-    }
-  }
+    if (_lastPostedLocation == null || distance >= 10) {
+      _lastPostedLocation = position;
 
-  Future<void> _handleCandidate(Position position) async {
-    _buffer.add(position);
-    final duration = DateTime.now().difference(_candidateStartTime!).inSeconds;
+      // Post plain location (mirrors _onPostChildLocation)
+      await _postChildLocation(position, childId);
 
-    // Calculate total distance in buffer
-    double totalDistance = 0;
-    if (_buffer.length > 1) {
-      for (int i = 0; i < _buffer.length - 1; i++) {
-        totalDistance += Geolocator.distanceBetween(
-          _buffer[i].latitude,
-          _buffer[i].longitude,
-          _buffer[i + 1].latitude,
-          _buffer[i + 1].longitude,
-        );
-      }
-    }
-
-    // Check Confirmation
-    bool timeConfirmed = duration >= CONFIRM_DURATION_S; // Sustained movement
-    bool distConfirmed = totalDistance >= CONFIRM_DISTANCE_M;
-
-    if (timeConfirmed || distConfirmed) {
-      // CONFIRM TRIP
-      _state = TripState.confirmed;
-      _tripStartTime =
-          _candidateStartTime; // Trip technically started when candidate started
-      _lastMovementTime = DateTime.now();
-
-      StructuredLogger.log(
-        LogTag.STATE,
-        'Candidate -> Confirmed (Time: $timeConfirmed, Dist: ${totalDistance.toStringAsFixed(1)}m)',
-      );
-
-      // Flush buffer (Post trip start + points)
-      // Ideally post start then points
-      await _postTripStart();
-      for (var p in _buffer) {
-        await _postLocation(p);
-      }
-      _buffer.clear();
-    } else {
-      // Check for Reset (Movement Stopped?)
-      // If speed drops significantly for too long in candidate mode, reset.
-      // For simplicity: strict compliance says "If movement STOPS before confirmation... RESET"
-      // We check if current speed is clearly stationary
-      if (position.speed < STATIONARY_SPEED_MPS) {
-        // Maybe give it a small grace period?
-        // But prompt says: "RESET to Idle and DO NOT create a trip"
-        // avoiding immediate reset on one point (GPS noise),
-        // but if the buffer gets old without confirming...
-        if (duration > 60) {
-          _resetToIdle('Candidate checkout timeout / stationary');
-        }
-      }
-    }
-  }
-
-  Future<void> _handleConfirmed(Position position) async {
-    // Check if moving
-    if (position.speed > STATIONARY_SPEED_MPS) {
-      _lastMovementTime = DateTime.now();
-      await _postLocation(position);
-    } else {
-      // Stationary
-      // Check timeout
-      if (_lastMovementTime != null &&
-          DateTime.now().difference(_lastMovementTime!).inSeconds >=
-              STATIONARY_TIMEOUT_S) {
-        // End Trip
-        await _endTrip();
+      // Trip logic
+      if (_isTripTracking) {
+        await _updateTripLocation(position, childId);
       } else {
-        // Still in trip, just stationary.
-        // Optional: Post filtered "stationary" update or skip to save bandwidth?
-        // Prompt says "Stationary points ignored" usually,
-        // but often apps send heartbeat.
-        // "When NOTHING should be uploaded" -> prompt Section 3.
-        // We will skip uploading if stationary to save battery/server noise.
-        StructuredLogger.log(LogTag.PERF, 'Skipped upload (Stationary)');
+        _processTripStartLogic(position);
       }
     }
   }
 
-  Future<void> _postTripStart() async {
-    // Placeholder for Trip Start API Logic
-    StructuredLogger.log(LogTag.TRIP, 'Trip Started');
-    // Actual implementation depends on existing repo methods
-  }
+  // ════════════════════════════════════════════════════════════════════════
+  // LOCATION POSTING  (mirrors ChildBloc._onPostChildLocation)
+  // ════════════════════════════════════════════════════════════════════════
 
-  Future<void> _postLocation(Position p) async {
+  Future<void> _postChildLocation(Position pos, String childId) async {
     try {
-      final childId = _prefs.getString('child_id');
-      if (childId == null || childId.isEmpty) return;
-
-      // Get address (cached or fresh)
-      // Note: For battery, strictly reverse geocoding every point is heavy.
-      // Doing it here as per legacy code, but could be optimized.
       final locationInfo = await _locationRepo.getAddressAndPlaceName(
-        p.latitude,
-        p.longitude,
+        pos.latitude,
+        pos.longitude,
       );
-
-      if (locationInfo == null || locationInfo['address'] == 'Unknown') {
-        StructuredLogger.log(
-          LogTag.TRIP,
-          'Warning: Address lookup failed for ${p.latitude}, ${p.longitude}',
-        );
-      }
 
       final requestBody = {
-        "address": locationInfo?['address'] ?? 'Unknown',
-        "place_name": locationInfo?['place_name'] ?? 'Unknown',
+        "address": locationInfo?['address'] ?? locationInfo?.values.first,
+        "place_name": locationInfo?['place_name'] ?? locationInfo?.values.last,
         "child_id": childId,
-        "lat": p.latitude,
-        "lng": p.longitude,
-        "accuracy_m": p.accuracy,
-        "speed_mps": p.speed,
-        "bearing": p.heading,
-        "timestamp": p.timestamp.toUtc().toIso8601String(),
+        "lat": pos.latitude,
+        "lng": pos.longitude,
+        "accuracy_m": pos.accuracy,
+        "speed_mps": pos.speed,
+        "bearing": pos.heading,
+        "timestamp": DateTime.now().toUtc().toIso8601String(),
       };
 
-      // Fire and forget? Or await?
-      // Await to ensure order.
+      StructuredLogger.log(LogTag.BG, 'Posting location → $requestBody');
       await _childRepo.postChildLocation(requestBody);
-      StructuredLogger.log(LogTag.TRIP, 'Location Posted');
     } catch (e) {
-      StructuredLogger.log(LogTag.TRIP, 'Failed to post location', error: e);
+      StructuredLogger.log(LogTag.BG, 'Failed to post location', error: e);
     }
   }
 
-  Future<void> _endTrip() async {
-    StructuredLogger.log(LogTag.STATE, 'Confirmed -> Ended (Timeout)');
-    // Post Trip End (if API exists, or just stop logic)
-    // Legacy code posted "Trip Event" summary.
+  // ════════════════════════════════════════════════════════════════════════
+  // TRIP DETECTION  (mirrors ChildBloc._processTripStartLogic exactly)
+  // ════════════════════════════════════════════════════════════════════════
 
-    // ... Calculate summary ...
-    // ... _childRepo.postTripEvent(...) ...
+  void _processTripStartLogic(Position location) {
+    // 1. FILTER NOISE
+    if (location.accuracy > 30.0) {
+      StructuredLogger.log(
+        LogTag.TRIP,
+        'Ignored poor accuracy point (${location.accuracy}m)',
+      );
+      return;
+    }
 
-    _resetToIdle('Trip Ended Normal');
+    // 2. SLIDING WINDOW MANAGEMENT
+    List<Position> newWindow = List.from(_candidatePoints);
+    newWindow.add(location);
+
+    // Keep last 15 points max
+    if (newWindow.length > 15) {
+      newWindow.removeAt(0);
+    }
+
+    // 3. CHECK FOR RESET (TIMEOUT)
+    if (newWindow.isNotEmpty && newWindow.length > 1) {
+      final lastPoint = newWindow.last;
+      final prevPoint = newWindow[newWindow.length - 2];
+      final gap = lastPoint.timestamp.difference(prevPoint.timestamp).inSeconds;
+      if (gap > 300) {
+        StructuredLogger.log(
+          LogTag.TRIP,
+          'Gap too large ($gap s), resetting window',
+        );
+        newWindow = [location];
+      }
+    }
+
+    // 4. ANALYZE WINDOW SIGNALS
+    if (newWindow.length < 3) {
+      _candidatePoints = newWindow;
+      _state = BgTripState.candidate;
+      return;
+    }
+
+    // Calculate Metrics
+    double totalDistance = 0;
+    for (int i = 0; i < newWindow.length - 1; i++) {
+      totalDistance += Geolocator.distanceBetween(
+        newWindow[i].latitude,
+        newWindow[i].longitude,
+        newWindow[i + 1].latitude,
+        newWindow[i + 1].longitude,
+      );
+    }
+
+    final startPoint = newWindow.first;
+    final endPoint = newWindow.last;
+    final straightDist = Geolocator.distanceBetween(
+      startPoint.latitude,
+      startPoint.longitude,
+      endPoint.latitude,
+      endPoint.longitude,
+    );
+
+    final durationSeconds = endPoint.timestamp
+        .difference(startPoint.timestamp)
+        .inSeconds;
+
+    if (durationSeconds < 1) return;
+
+    final avgSpeed = totalDistance / durationSeconds;
+    final consistencyRatio = totalDistance > 0
+        ? straightDist / totalDistance
+        : 0.0;
+
+    StructuredLogger.log(
+      LogTag.TRIP,
+      'Window=${newWindow.length} pts, Dur=${durationSeconds}s, '
+      'Dist=${totalDistance.toStringAsFixed(1)}m, '
+      'Speed=${avgSpeed.toStringAsFixed(1)}m/s, '
+      'Consistency=${consistencyRatio.toStringAsFixed(2)}',
+    );
+
+    // 5. DETERMINE MODE & CHECK RULES
+    BgTripMode? estimatedMode;
+    bool rulesMet = false;
+
+    // Walking: > 30m, Speed 0.6-1.8 m/s, Duration > 30s
+    if (avgSpeed >= 0.6 && avgSpeed <= 1.8) {
+      if (totalDistance >= 30 && durationSeconds >= 30) {
+        estimatedMode = BgTripMode.walking;
+        rulesMet = true;
+      }
+    }
+    // Cycling/Running: > 60m, Speed 1.8-5.0 m/s
+    else if (avgSpeed > 1.8 && avgSpeed <= 5.0) {
+      if (totalDistance >= 60 && durationSeconds >= 20) {
+        estimatedMode = BgTripMode.vehicle;
+        rulesMet = true;
+      }
+    }
+    // Vehicle: > 100m, Speed > 5.0 m/s
+    else if (avgSpeed > 5.0) {
+      if (totalDistance >= 100 && durationSeconds >= 20) {
+        estimatedMode = BgTripMode.vehicle;
+        rulesMet = true;
+      }
+    }
+
+    // 6. DIRECTION CONSISTENCY CHECK
+    if (rulesMet && consistencyRatio < 0.6) {
+      StructuredLogger.log(
+        LogTag.TRIP,
+        'Rejected – low consistency ($consistencyRatio)',
+      );
+      rulesMet = false;
+    }
+
+    // 7. DECISION
+    if (rulesMet && estimatedMode != null) {
+      StructuredLogger.log(LogTag.TRIP, 'TRIP CONFIRMED! Mode: $estimatedMode');
+      _startTripTracking(estimatedMode);
+    } else {
+      _candidatePoints = newWindow;
+      _state = BgTripState.candidate;
+    }
   }
 
-  void _resetToIdle(String reason) {
-    StructuredLogger.log(LogTag.STATE, 'Resetting to Idle: $reason');
-    _state = TripState.idle;
-    _buffer.clear();
-    _candidateStartTime = null;
-    _tripStartTime = null;
-    _lastMovementTime = null;
+  // ════════════════════════════════════════════════════════════════════════
+  // TRIP TRACKING  (mirrors ChildBloc._onStartTripTracking / Stop / Update)
+  // ════════════════════════════════════════════════════════════════════════
+
+  void _startTripTracking(BgTripMode mode) {
+    _isTripTracking = true;
+    _tripMode = mode;
+    _state = BgTripState.tracking;
+    _candidatePoints = [];
+
+    StructuredLogger.log(LogTag.STATE, 'Trip tracking STARTED (mode: $mode)');
   }
+
+  void _stopTripTracking() {
+    _isTripTracking = false;
+    _tripMode = BgTripMode.unknown;
+    _state = BgTripState.idle;
+    _candidatePoints = [];
+
+    StructuredLogger.log(LogTag.STATE, 'Trip tracking STOPPED – state reset');
+  }
+
+  /// Post a trip location point – mirrors ChildBloc._onUpdateTripLocation
+  Future<void> _updateTripLocation(Position pos, String childId) async {
+    try {
+      int batteryLevel = 0;
+      try {
+        batteryLevel = await _battery.batteryLevel;
+      } catch (_) {}
+
+      final requestBody = {
+        "points": [
+          {
+            "lat": pos.latitude,
+            "lng": pos.longitude,
+            "speed": pos.speed,
+            "accuracy": pos.accuracy,
+            "ts": DateTime.now().toUtc().toIso8601String(),
+            "battery": batteryLevel,
+          },
+        ],
+      };
+
+      StructuredLogger.log(LogTag.TRIP, 'Posting trip location → $requestBody');
+
+      final response = await _childRepo.postTripLocation(
+        childId: childId,
+        data: requestBody,
+      );
+
+      StructuredLogger.log(
+        LogTag.TRIP,
+        'Trip location response: ${response.data}',
+      );
+
+      if (response.isSuccess && response.data != null) {
+        if (_shouldStopTrip(response.data)) {
+          StructuredLogger.log(
+            LogTag.TRIP,
+            'Backend requested STOP – ending trip',
+          );
+          _stopTripTracking();
+        }
+      }
+    } catch (e) {
+      StructuredLogger.log(
+        LogTag.TRIP,
+        'Failed to post trip location',
+        error: e,
+      );
+    }
+  }
+
+  /// Mirrors ChildBloc._shouldStopTrip exactly
+  bool _shouldStopTrip(dynamic responseData) {
+    if (responseData == null) return false;
+
+    try {
+      final currentState = responseData['currentState'];
+      if (currentState != 'IDLE') return false;
+
+      final transitions = responseData['stateTransitions'];
+      if (transitions is List && transitions.isNotEmpty) {
+        for (var transition in transitions) {
+          if (transition['to'] == 'ENDED' &&
+              transition['reason'] == 'STATIONARY_CONFIRMED') {
+            return true;
+          }
+        }
+      }
+    } catch (e) {
+      StructuredLogger.log(
+        LogTag.TRIP,
+        'Error parsing stop-trip response',
+        error: e,
+      );
+    }
+
+    return false;
+  }
+
+  // ── Getters for notification display ──────────────────────────────────
+  bool get isTripTracking => _isTripTracking;
+  BgTripMode get tripMode => _tripMode;
+  BgTripState get currentState => _state;
 }

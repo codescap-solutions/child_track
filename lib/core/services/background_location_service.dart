@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
+import 'package:battery_plus/battery_plus.dart';
 import 'package:child_track/app/childapp/view_model/repository/child_location_repo.dart';
+import 'package:child_track/core/services/csv_file_logger.dart';
 import 'package:child_track/app/childapp/view_model/repository/child_repo.dart';
 import 'package:child_track/core/services/shared_prefs_service.dart';
 import 'package:child_track/core/services/dio_client.dart';
@@ -106,6 +108,10 @@ LocationStateMachine? _stateMachine;
 void onStart(ServiceInstance service) async {
   try {
     DartPluginRegistrant.ensureInitialized();
+
+    // Initialize CSV file logger FIRST so all subsequent logs are captured
+    await CsvFileLogger.instance.init();
+
     StructuredLogger.log(LogTag.BG, 'Service onStart initiated');
 
     // CRITICAL: Set foreground IMMEDIATELY to satisfy Android's timeout
@@ -142,12 +148,14 @@ void onStart(ServiceInstance service) async {
       sharedPrefsService: sharedPrefsService,
     );
     final childLocationRepo = ChildGoogleMapsRepo();
+    final battery = Battery();
 
-    // 3. Initialize State Machine
+    // 3. Initialize State Machine (now with full trip + location posting logic)
     _stateMachine = LocationStateMachine(
       childRepo: childRepo,
       locationRepo: childLocationRepo,
       prefs: sharedPrefsService,
+      battery: battery,
     );
 
     // 4. Configure Location Settings
@@ -190,17 +198,26 @@ void onStart(ServiceInstance service) async {
     _positionSubscription =
         Geolocator.getPositionStream(locationSettings: locationSettings).listen(
           (Position position) {
-            // Pass to State Machine
+            // Pass to State Machine (handles location posting + trip detection)
             _stateMachine?.processLocation(position);
 
-            // Update Android Notification timestamp to show aliveness
+            // Update Android Notification to show trip/location status
             if (service is AndroidServiceInstance) {
-              // Update notification content casually if needed,
-              // but AndroidSettings above manages the foreground notification mostly.
-              // Explicit updates can be done like:
+              final sm = _stateMachine;
+              String content;
+              if (sm != null && sm.isTripTracking) {
+                final mode = sm.tripMode == BgTripMode.walking
+                    ? 'Walking'
+                    : 'Vehicle';
+                content =
+                    "Trip ($mode) • ${position.speed.toStringAsFixed(1)} m/s";
+              } else {
+                content = "Tracking • ${position.speed.toStringAsFixed(1)} m/s";
+              }
+
               service.setForegroundNotificationInfo(
                 title: "NaviQ Active",
-                content: "Moving at ${position.speed.toStringAsFixed(1)} m/s",
+                content: content,
               );
             }
           },

@@ -11,6 +11,7 @@ import 'package:child_track/app/childapp/view_model/repository/child_repo.dart';
 import 'package:child_track/app/social_apps/view_model/bloc/app_lock_bloc.dart';
 import 'package:child_track/app/social_apps/view_model/bloc/app_lock_event.dart';
 import 'package:workmanager/workmanager.dart';
+import 'package:child_track/core/services/csv_file_logger.dart';
 
 /// Top-level function for handling background messages
 /// This must be a top-level function, not a class method
@@ -18,6 +19,14 @@ import 'package:workmanager/workmanager.dart';
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   AppLogger.info('Background message received: ${message.messageId}');
   AppLogger.info('Background message data: ${message.data}');
+
+  // Log to CSV for offline analysis
+  CsvFileLogger.instance.write(
+    tag: 'FCM',
+    level: 'INFO',
+    message:
+        'BG message: type=${message.data['type']} id=${message.messageId} data=${message.data}',
+  );
 
   if (message.data['type'] == 'SYNC_SCREEN_TIME') {
     AppLogger.info('Received SYNC_SCREEN_TIME command via FCM');
@@ -181,6 +190,14 @@ class FirebaseNotificationService {
     AppLogger.info('Message data: ${message.data}');
     AppLogger.info('Message notification: ${message.notification?.title}');
 
+    // Log to CSV for offline analysis
+    CsvFileLogger.instance.write(
+      tag: 'FCM',
+      level: 'INFO',
+      message:
+          'FG message: type=${message.data['type']} title=${message.notification?.title} data=${message.data}',
+    );
+
     // Add to stream for listeners
     _messageController.add(message);
 
@@ -280,6 +297,14 @@ class FirebaseNotificationService {
   void _handleNotificationTap(RemoteMessage message) {
     AppLogger.info('Notification tapped: ${message.messageId}');
     AppLogger.info('Notification data: ${message.data}');
+
+    // Log to CSV
+    CsvFileLogger.instance.write(
+      tag: 'FCM',
+      level: 'INFO',
+      message:
+          'Notification tapped: type=${message.data['type']} data=${message.data}',
+    );
 
     // Add to stream for navigation or other actions
     _notificationTapController.add(message);

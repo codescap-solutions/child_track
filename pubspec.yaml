@@ -76,6 +76,8 @@ dependencies:
   shimmer: ^3.0.0
   flutter_secure_storage: ^10.0.0
   workmanager: ^0.9.0+3
+  path_provider: ^2.1.5
+  share_plus: ^12.0.1
 
 dependency_overrides:
   google_maps_flutter_android: ^2.19.1
