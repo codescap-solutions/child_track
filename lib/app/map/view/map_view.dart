@@ -5,6 +5,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:child_track/core/widgets/map_shimmer.dart';
 
 class MapViewWidget extends StatefulWidget {
   const MapViewWidget({
@@ -265,7 +266,7 @@ class _MapViewWidgetState extends State<MapViewWidget> {
                 ],
               );
             }
-            return const Center(child: CircularProgressIndicator());
+            return MapShimmer(width: widget.width, height: widget.height);
           },
         ),
       ),

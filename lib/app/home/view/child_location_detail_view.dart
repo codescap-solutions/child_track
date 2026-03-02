@@ -13,6 +13,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:child_track/core/utils/map_marker_utils.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:child_track/core/widgets/child_location_detail_shimmer.dart';
 
 class ChildLocationDetailView extends StatefulWidget {
   const ChildLocationDetailView({super.key});
@@ -171,7 +172,7 @@ class _ChildLocationDetailViewState extends State<ChildLocationDetailView> {
 
               if (trip == null) {
                 if (state.isLoading || state.isLoadingTrips) {
-                  return const Center(child: CircularProgressIndicator());
+                  return const ChildLocationDetailShimmer();
                 }
                 return const Center(child: Text('No trip data available'));
               }
@@ -317,7 +318,7 @@ class _ChildLocationDetailViewState extends State<ChildLocationDetailView> {
                 ),
               );
             }
-            return const Center(child: CircularProgressIndicator());
+            return const ChildLocationDetailShimmer();
           },
         ),
       ),

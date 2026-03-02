@@ -10,6 +10,7 @@ import 'package:child_track/core/constants/app_text_styles.dart';
 import 'package:child_track/core/widgets/common_button.dart';
 import 'package:child_track/core/di/injector.dart';
 import 'package:intl/intl.dart';
+import 'package:child_track/core/widgets/saved_places_shimmer.dart';
 
 class AddandSavePlace extends StatefulWidget {
   final LatLng? initialLocation;
@@ -111,7 +112,7 @@ class _AddandSavePlaceState extends State<AddandSavePlace> {
         ),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const SavedPlacesShimmer()
           : _savedPlaces.isEmpty
           ? Center(
               child: Column(

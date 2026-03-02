@@ -6,10 +6,10 @@ class LocationDisclosureDialog extends StatelessWidget {
   final VoidCallback onDeny;
 
   const LocationDisclosureDialog({
-    Key? key,
+    super.key,
     required this.onAccept,
     required this.onDeny,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

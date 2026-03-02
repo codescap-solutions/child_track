@@ -11,6 +11,7 @@ import '../view_model/bloc/geofence_event.dart';
 import '../view_model/bloc/geofence_state.dart';
 import '../model/geofence_model.dart';
 import 'widgets/geoplace_card.dart';
+import 'package:child_track/core/widgets/geo_fencing_shimmer.dart';
 
 class GeoFencingView extends StatefulWidget {
   final String? childId;
@@ -296,7 +297,7 @@ class _GeoFencingViewState extends State<GeoFencingView> {
               builder: (context, state) {
                 // Loading
                 if (state is GeofenceLoading) {
-                  return const Center(child: CircularProgressIndicator());
+                  return const GeoFencingShimmer();
                 }
 
                 // Error: show UI with retry
