@@ -1019,7 +1019,12 @@ class _HomeMapBackgroundState extends State<_HomeMapBackground> {
     if (_mapController == null) return;
 
     AppLogger.info("Moving camera to $target");
-    _mapController!.animateCamera(CameraUpdate.newLatLngZoom(target, 15.0));
+    try {
+      _mapController!.animateCamera(CameraUpdate.newLatLngZoom(target, 15.0));
+    } catch (e) {
+      AppLogger.debug('MapController animateCamera error: $e');
+      _mapController = null;
+    }
   }
 
   @override

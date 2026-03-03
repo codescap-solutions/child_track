@@ -3,6 +3,7 @@ import '../../../core/services/shared_prefs_service.dart';
 import '../../../core/services/api_endpoints.dart';
 import '../../../core/services/base_service.dart';
 import '../../../core/models/child_profile.dart';
+import '../../../core/services/background_location_service.dart';
 
 class AuthRepository extends BaseService {
   final SharedPrefsService _sharedPrefsService;
@@ -172,11 +173,13 @@ class AuthRepository extends BaseService {
 
       // Clear local storage regardless of API response
       await _sharedPrefsService.logout();
+      await BackgroundLocationService().stop(); // Ensure tracking stops
 
       return response;
     } catch (e) {
       // Clear local storage even if API call fails
       await _sharedPrefsService.logout();
+      await BackgroundLocationService().stop(); // Ensure tracking stops
       return BaseResponse.error(message: e.toString());
     }
   }

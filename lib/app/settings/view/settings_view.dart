@@ -876,9 +876,11 @@ class _SettingsViewState extends State<SettingsView> {
     try {
       AppSnackbar.showLoading(context, 'Switching child identity...');
 
-      // 1. Stop background services
-      await BackgroundLocationService().stop();
-      AppLogger.info('Multi-Child: Stopped background services');
+      // 1. Stop background services if tracking on this device (child only)
+      if (!_sharedPrefsService.isParent) {
+        await BackgroundLocationService().stop();
+        AppLogger.info('Multi-Child: Stopped background services');
+      }
 
       // 2. Perform switch in storage (Update token, IDs, last_active)
       await _sharedPrefsService.switchChild(child.childId);
@@ -887,9 +889,15 @@ class _SettingsViewState extends State<SettingsView> {
       // 3. Re-initialize state
       _loadChildData();
 
-      // 4. Restart services
-      await BackgroundLocationService().start();
-      AppLogger.info('Multi-Child: Restarted background services');
+      // 4. Restart services if tracking on this device (child only)
+      if (!_sharedPrefsService.isParent) {
+        await BackgroundLocationService().start();
+        AppLogger.info('Multi-Child: Restarted background services');
+      } else {
+        AppLogger.info(
+          'Multi-Child: Parent device, skipping background location service start',
+        );
+      }
 
       if (mounted) {
         // Clear loading snackbar

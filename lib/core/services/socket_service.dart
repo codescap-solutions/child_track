@@ -14,7 +14,7 @@ class SocketService {
   SocketService._internal();
 
   io.Socket? _socket;
-  final String _serverUrl = "wss://naviq-server.codescap.com";
+  final String _serverUrl = "https://naviq-server.codescap.com:443";
   final SharedPrefsService _sharedPrefsService = SharedPrefsService();
   String? _pendingChildIdForRoom;
 
@@ -43,10 +43,7 @@ class SocketService {
     // Get auth token for connection
     final token = _sharedPrefsService.getAuthToken();
 
-    // Convert wss to https for socket.io client if needed
-    final url = _serverUrl.startsWith('wss://')
-        ? _serverUrl.replaceFirst('wss://', 'https://')
-        : _serverUrl;
+    final url = _serverUrl;
 
     final extraHeaders = <String, dynamic>{};
     if (token != null && token.isNotEmpty) {

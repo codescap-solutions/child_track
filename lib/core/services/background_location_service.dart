@@ -14,6 +14,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class BackgroundLocationService {
   static final BackgroundLocationService _instance =
@@ -108,6 +109,7 @@ LocationStateMachine? _stateMachine;
 void onStart(ServiceInstance service) async {
   try {
     DartPluginRegistrant.ensureInitialized();
+    await dotenv.load(fileName: ".env");
 
     // Initialize CSV file logger FIRST so all subsequent logs are captured
     await CsvFileLogger.instance.init();
@@ -139,9 +141,25 @@ void onStart(ServiceInstance service) async {
     // 2. Initialize Dependencies
     await SharedPrefsService.init();
     final sharedPrefsService = SharedPrefsService();
+
+    // CRITICAL: Prevent parents from being tracked if OS restarts service!
+    if (sharedPrefsService.isParent) {
+      StructuredLogger.log(
+        LogTag.BG,
+        'Parent device detected in separate isolate. Forcing service kill.',
+      );
+      service.stopSelf();
+      return;
+    }
     final connectivity = Connectivity();
     final connectivityBloc = ConnectivityBloc(connectivity: connectivity);
-    final dioClient = DioClient(connectivityBloc: connectivityBloc);
+
+    // CRITICAL: Must pass sharedPrefsService explicitly here in background isolate
+    // otherwise DioClient falls back to GetIt (injector) which is not initialized here.
+    final dioClient = DioClient(
+      connectivityBloc: connectivityBloc,
+      sharedPrefsService: sharedPrefsService,
+    );
 
     final childRepo = ChildRepo(
       dioClient: dioClient,

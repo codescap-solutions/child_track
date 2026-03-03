@@ -501,20 +501,28 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
         final now = DateTime.now();
         final mode = event.initialMode;
 
+        final pointsToPost = currentState.candidatePoints.isNotEmpty
+            ? List<Position>.from(currentState.candidatePoints)
+            : [location];
+
         emit(
           currentState.copyWith(
             isTripTracking: true,
             tripStartTime: now,
-            tripLocations: [location],
-            lastTrackedLocation: location,
+            tripLocations: pointsToPost,
+            lastTrackedLocation: pointsToPost.last,
             childLocation: location,
             tripStatus: TripStatus.moving,
             tripMode: mode,
+            candidatePoints: [],
           ),
         );
 
-        // Immediately trigger update to log the start point
-        add(UpdateTripLocation(location: location));
+        // Immediately trigger API post with the full historical batch
+        final childId = _sharedPrefsService.getString('child_id');
+        if (childId != null && childId.isNotEmpty) {
+          await _postTripBatch(pointsToPost, childId);
+        }
       }
     } catch (e) {
       AppLogger.error('Failed to start trip tracking: ${e.toString()}');
@@ -576,27 +584,44 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
       );
 
       // Prepare API Payload
-      final requestBody = {
-        "points": [
-          {
-            "lat": newLocation.latitude,
-            "lng": newLocation.longitude,
-            "speed": newLocation.speed,
-            "accuracy": newLocation.accuracy,
-            "ts": DateTime.now().toUtc().toIso8601String(),
-            "battery": (await _deviceInfoService.getBatteryPercentage()),
-          },
-        ],
-      };
+      await _postTripBatch([newLocation], childId);
+    } catch (e) {
+      AppLogger.error('Failed to update trip location: ${e.toString()}');
+    }
+  }
 
-      AppLogger.info('Tripping... Post Trip Location Request: $requestBody');
+  Future<void> _postTripBatch(List<Position> points, String childId) async {
+    if (points.isEmpty) return;
+
+    try {
+      final batteryPercentage = await _deviceInfoService.getBatteryPercentage();
+
+      final formattedPoints = points
+          .map(
+            (pos) => {
+              "lat": pos.latitude,
+              "lng": pos.longitude,
+              "speed": pos.speed,
+              "accuracy": pos.accuracy,
+              "ts": pos.timestamp.toUtc().toIso8601String(),
+              "battery": batteryPercentage,
+            },
+          )
+          .toList();
+
+      final requestBody = {"points": formattedPoints};
+
+      AppLogger.info(
+        'Tripping... Post Trip Location Batch Request: $requestBody',
+      );
 
       final response = await _childRepo.postTripLocation(
         childId: childId,
         data: requestBody,
       );
+
       AppLogger.info(
-        'new logic:Tripping... Post Trip Location Response: ${response.data}',
+        'new logic:Tripping... Post Trip Location Batch Response: ${response.data}',
       );
 
       if (response.isSuccess && response.data != null) {
@@ -608,7 +633,7 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
         }
       }
     } catch (e) {
-      AppLogger.error('Failed to update trip location: ${e.toString()}');
+      AppLogger.error('Failed to post trip location batch: ${e.toString()}');
     }
   }
 

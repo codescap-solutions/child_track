@@ -245,6 +245,12 @@ class SharedPrefsService {
         userId.isNotEmpty;
   }
 
+  // Check if logged in user is a Parent
+  bool get isParent {
+    final parentId = getString('parent_id');
+    return parentId != null && parentId.isNotEmpty;
+  }
+
   // Logout user
   Future<bool> logout() async {
     try {

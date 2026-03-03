@@ -49,10 +49,11 @@ class _TripDetailViewState extends State<TripDetailView> {
       // or standard ISO. Try generic parse first, then specific.
       DateTime dt;
       try {
-        dt = DateTime.parse(timeStr);
+        dt = DateTime.parse(timeStr).toLocal();
       } catch (_) {
         final inputFormat = DateFormat('dd-MM-yyyy HH:mm:ss');
-        dt = inputFormat.parse(timeStr);
+        // Parse as forcing UTC, then format to Local
+        dt = inputFormat.parse(timeStr, true).toLocal();
       }
 
       // Desired format: "13-01-2026 07:00pm"

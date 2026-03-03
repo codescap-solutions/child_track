@@ -448,27 +448,15 @@ class _SimpleTripCard extends StatelessWidget {
   String _formatTime(String timeStr) {
     if (timeStr.isEmpty) return '';
     try {
-      // First try ISO 8601 directly (if model changes in future)
+      // First try ISO 8601 directly
       final dt = DateTime.parse(timeStr).toLocal();
       return DateFormat('h:mm a').format(dt).toLowerCase();
     } catch (_) {
       try {
-        // Fallback for current model format: "dd-MM-yyyy HH:mm:ss"
-        // This format is derived from UTC string but stripped of timezone info.
+        // Fallback for older model format: "dd-MM-yyyy HH:mm:ss"
         final inputFormat = DateFormat('dd-MM-yyyy HH:mm:ss');
-        // Parse as a local DateTime (default behavior) but it holds UTC values
-        final dtParsed = inputFormat.parse(timeStr);
-        // Create a UTC DateTime with these components
-        final dtUtc = DateTime.utc(
-          dtParsed.year,
-          dtParsed.month,
-          dtParsed.day,
-          dtParsed.hour,
-          dtParsed.minute,
-          dtParsed.second,
-        );
-        // Convert to device local time
-        final dtLocal = dtUtc.toLocal();
+        final dtParsed = inputFormat.parse(timeStr, true); // true = force UTC
+        final dtLocal = dtParsed.toLocal();
 
         return DateFormat('h:mm a').format(dtLocal).toLowerCase();
       } catch (e) {

@@ -88,7 +88,7 @@ class LocationStateMachine {
       if (_isTripTracking) {
         await _updateTripLocation(position, childId);
       } else {
-        _processTripStartLogic(position);
+        await _processTripStartLogic(position, childId);
       }
     }
   }
@@ -117,7 +117,11 @@ class LocationStateMachine {
       };
 
       StructuredLogger.log(LogTag.BG, 'Posting location → $requestBody');
-      await _childRepo.postChildLocation(requestBody);
+      final response = await _childRepo.postChildLocation(requestBody);
+      StructuredLogger.log(
+        LogTag.BG,
+        'Location post response: [${response.statusCode}] ${response.message}',
+      );
     } catch (e) {
       StructuredLogger.log(LogTag.BG, 'Failed to post location', error: e);
     }
@@ -127,7 +131,7 @@ class LocationStateMachine {
   // TRIP DETECTION  (mirrors ChildBloc._processTripStartLogic exactly)
   // ════════════════════════════════════════════════════════════════════════
 
-  void _processTripStartLogic(Position location) {
+  Future<void> _processTripStartLogic(Position location, String childId) async {
     // 1. FILTER NOISE
     if (location.accuracy > 30.0) {
       StructuredLogger.log(
@@ -244,7 +248,7 @@ class LocationStateMachine {
     // 7. DECISION
     if (rulesMet && estimatedMode != null) {
       StructuredLogger.log(LogTag.TRIP, 'TRIP CONFIRMED! Mode: $estimatedMode');
-      _startTripTracking(estimatedMode);
+      await _startTripTracking(estimatedMode, childId);
     } else {
       _candidatePoints = newWindow;
       _state = BgTripState.candidate;
@@ -255,13 +259,20 @@ class LocationStateMachine {
   // TRIP TRACKING  (mirrors ChildBloc._onStartTripTracking / Stop / Update)
   // ════════════════════════════════════════════════════════════════════════
 
-  void _startTripTracking(BgTripMode mode) {
+  Future<void> _startTripTracking(BgTripMode mode, String childId) async {
     _isTripTracking = true;
     _tripMode = mode;
     _state = BgTripState.tracking;
+
+    // Instead of discarding the history that built this trip, post it all as the initial trip data
+    final pointsToPost = List<Position>.from(_candidatePoints);
     _candidatePoints = [];
 
     StructuredLogger.log(LogTag.STATE, 'Trip tracking STARTED (mode: $mode)');
+
+    if (pointsToPost.isNotEmpty) {
+      await _postTripBatch(pointsToPost, childId);
+    }
   }
 
   void _stopTripTracking() {
@@ -273,28 +284,40 @@ class LocationStateMachine {
     StructuredLogger.log(LogTag.STATE, 'Trip tracking STOPPED – state reset');
   }
 
-  /// Post a trip location point – mirrors ChildBloc._onUpdateTripLocation
+  /// Post a single trip location point
   Future<void> _updateTripLocation(Position pos, String childId) async {
+    await _postTripBatch([pos], childId);
+  }
+
+  /// Bulk-post an array of locations to the backend trip tracking endpoint
+  Future<void> _postTripBatch(List<Position> points, String childId) async {
+    if (points.isEmpty) return;
+
     try {
       int batteryLevel = 0;
       try {
         batteryLevel = await _battery.batteryLevel;
       } catch (_) {}
 
-      final requestBody = {
-        "points": [
-          {
-            "lat": pos.latitude,
-            "lng": pos.longitude,
-            "speed": pos.speed,
-            "accuracy": pos.accuracy,
-            "ts": DateTime.now().toUtc().toIso8601String(),
-            "battery": batteryLevel,
-          },
-        ],
-      };
+      final formattedPoints = points
+          .map(
+            (pos) => {
+              "lat": pos.latitude,
+              "lng": pos.longitude,
+              "speed": pos.speed,
+              "accuracy": pos.accuracy,
+              "ts": pos.timestamp.toUtc().toIso8601String(),
+              "battery": batteryLevel,
+            },
+          )
+          .toList();
 
-      StructuredLogger.log(LogTag.TRIP, 'Posting trip location → $requestBody');
+      final requestBody = {"points": formattedPoints};
+
+      StructuredLogger.log(
+        LogTag.TRIP,
+        'Posting trip locations (${points.length} pts) → $requestBody',
+      );
 
       final response = await _childRepo.postTripLocation(
         childId: childId,
@@ -318,7 +341,7 @@ class LocationStateMachine {
     } catch (e) {
       StructuredLogger.log(
         LogTag.TRIP,
-        'Failed to post trip location',
+        'Failed to post trip locations',
         error: e,
       );
     }

@@ -1,5 +1,3 @@
-import 'package:intl/intl.dart';
-
 class TripPoint {
   final double lat;
   final double lng;
@@ -70,19 +68,8 @@ class Trip {
 
 String _getData(String? time) {
   if (time == null || time.isEmpty) return '';
-  try {
-    final DateTime utcTime = DateTime.parse(time);
-    final DateTime localTime = utcTime.toLocal(); // Convert to local time
-
-    // Format matches the expected format in TripsView: "dd-MM-yyyy HH:mm:ss"
-    final DateFormat formatter = DateFormat('dd-MM-yyyy HH:mm:ss');
-    return formatter.format(localTime);
-  } catch (e) {
-    // If parsing fails, fall back to original logic or return as is
-    String date = time.split('T').first.split('-').reversed.join('-');
-    String times = time.split('T').last.split('.').first;
-    return "$date $times";
-  }
+  // Pass through the raw ISO 8601 string so the UI can parse it uniformly.
+  return time;
 }
 
 class TripListResponse {

@@ -195,9 +195,14 @@ class MapBloc extends Bloc<MapEvent, MapState> {
 
     // Animate camera to new location
     if (_mapController != null) {
-      _mapController!.animateCamera(
-        CameraUpdate.newLatLngZoom(event.currentLocation, 15.0),
-      );
+      try {
+        _mapController!.animateCamera(
+          CameraUpdate.newLatLngZoom(event.currentLocation, 15.0),
+        );
+      } catch (e) {
+        AppLogger.debug('MapController animateCamera error: $e');
+        _mapController = null;
+      }
     }
 
     if (currentState is MapLoaded) {
