@@ -14,6 +14,7 @@ import 'package:child_track/core/services/shared_prefs_service.dart';
 import 'package:child_track/core/services/socket_service.dart';
 import 'package:child_track/core/services/background_location_service.dart';
 import 'package:child_track/core/navigation/route_names.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class SosView extends StatefulWidget {
@@ -26,6 +27,9 @@ class SosView extends StatefulWidget {
 class _SosViewState extends State<SosView> with WidgetsBindingObserver {
   late final ChildBloc _childBloc;
   bool _hasAccessibilityPermission = false;
+  bool _hasLocationPermission = false;
+  bool _hasNotificationPermission = false;
+  bool _hasBackgroundPermission = false;
 
   @override
   void initState() {
@@ -33,6 +37,7 @@ class _SosViewState extends State<SosView> with WidgetsBindingObserver {
     _childBloc = injector<ChildBloc>();
     WidgetsBinding.instance.addObserver(this);
     _checkAccessibilityPermission();
+    _checkOtherPermissions();
 
     // Defer heavy initialization until after the first frame to ensure smooth navigation
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -62,6 +67,7 @@ class _SosViewState extends State<SosView> with WidgetsBindingObserver {
           AppLogger.info('SosView: Checking usage permission');
           _childBloc.add(CheckUsagePermission());
           _checkAccessibilityPermission();
+          _checkOtherPermissions();
         }
       });
     }
@@ -77,12 +83,30 @@ class _SosViewState extends State<SosView> with WidgetsBindingObserver {
     }
   }
 
+  Future<void> _checkOtherPermissions() async {
+    final locStatus = await Permission.locationAlways.status;
+    final locWhenInUse = await Permission.location.status;
+    final notifStatus = await Permission.notification.status;
+    final bgStatus = await Permission.ignoreBatteryOptimizations.status;
+
+    if (mounted) {
+      setState(() {
+        _hasLocationPermission = locStatus.isGranted || locWhenInUse.isGranted;
+        _hasNotificationPermission = notifStatus.isGranted;
+        _hasBackgroundPermission = bgStatus.isGranted;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocProvider.value(
       value: _childBloc,
       child: _SosViewContent(
         hasAccessibilityPermission: _hasAccessibilityPermission,
+        hasLocationPermission: _hasLocationPermission,
+        hasNotificationPermission: _hasNotificationPermission,
+        hasBackgroundPermission: _hasBackgroundPermission,
       ),
     );
   }
@@ -90,8 +114,16 @@ class _SosViewState extends State<SosView> with WidgetsBindingObserver {
 
 class _SosViewContent extends StatelessWidget {
   final bool hasAccessibilityPermission;
+  final bool hasLocationPermission;
+  final bool hasNotificationPermission;
+  final bool hasBackgroundPermission;
 
-  const _SosViewContent({required this.hasAccessibilityPermission});
+  const _SosViewContent({
+    required this.hasAccessibilityPermission,
+    required this.hasLocationPermission,
+    required this.hasNotificationPermission,
+    required this.hasBackgroundPermission,
+  });
 
   void _showDeviceInfoDialog(BuildContext context, DeviceInfo deviceInfo) {
     showDialog(
@@ -161,6 +193,55 @@ class _SosViewContent extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildPermissionItem(
+    String title,
+    bool isGranted,
+    VoidCallback onTap,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6.0),
+      child: Row(
+        children: [
+          Icon(
+            isGranted ? Icons.check_circle : Icons.error_outline,
+            color: isGranted ? Colors.green : AppColors.error,
+            size: 20,
+          ),
+          const SizedBox(width: AppSizes.spacingS),
+          Expanded(
+            child: Text(
+              title,
+              style: AppTextStyles.body2.copyWith(
+                fontWeight: isGranted ? FontWeight.normal : FontWeight.bold,
+              ),
+            ),
+          ),
+          if (!isGranted)
+            GestureDetector(
+              onTap: onTap,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.error.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  'Enable',
+                  style: AppTextStyles.caption.copyWith(
+                    color: AppColors.error,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -289,237 +370,204 @@ class _SosViewContent extends StatelessWidget {
           return Scaffold(
             backgroundColor: AppColors.surfaceColor,
             body: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSizes.paddingL,
-                  vertical: AppSizes.paddingXL,
-                ),
-                child: Column(
-                  children: [
-                    Text(
-                      childName,
-                      style: AppTextStyles.headline5.copyWith(
-                        color: AppColors.primaryColor,
+              child: CustomScrollView(
+                slivers: [
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSizes.paddingL,
+                        vertical: AppSizes.paddingXL,
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      childCode,
-                      style: AppTextStyles.body2.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    if (state is ChildDeviceInfoLoaded &&
-                        !state.hasUsagePermission)
-                      Container(
-                        margin: const EdgeInsets.only(top: AppSizes.spacingM),
-                        padding: const EdgeInsets.all(AppSizes.paddingM),
-                        decoration: BoxDecoration(
-                          color: AppColors.warning.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(AppSizes.radiusM),
-                          border: Border.all(color: AppColors.warning),
-                        ),
-                        child: Column(
-                          children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.warning_amber_rounded,
-                                  color: AppColors.warning,
+                      child: Column(
+                        children: [
+                          Text(
+                            childName,
+                            style: AppTextStyles.headline5.copyWith(
+                              color: AppColors.primaryColor,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            childCode,
+                            style: AppTextStyles.body2.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: AppSizes.spacingM),
+                          Container(
+                            padding: const EdgeInsets.all(AppSizes.paddingL),
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceColor,
+                              borderRadius: BorderRadius.circular(
+                                AppSizes.radiusM,
+                              ),
+                              border: Border.all(
+                                color: AppColors.primaryColor.withValues(
+                                  alpha: 0.2,
                                 ),
-                                const SizedBox(width: AppSizes.spacingS),
-                                Expanded(
-                                  child: Text(
-                                    'Usage Access Required',
-                                    style: AppTextStyles.body2.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.warning,
-                                    ),
-                                  ),
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.05),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: AppSizes.spacingS),
-                            Text(
-                              'To track screen time, please enable usage access for this app.',
-                              style: AppTextStyles.caption.copyWith(
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                            const SizedBox(height: AppSizes.spacingS),
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.warning,
-                                  foregroundColor: Colors.white,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.security_rounded,
+                                      color: AppColors.primaryColor,
+                                      size: 24,
+                                    ),
+                                    const SizedBox(width: AppSizes.spacingS),
+                                    Text(
+                                      'App Permissions Check',
+                                      style: AppTextStyles.subtitle1.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.textPrimary,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                onPressed: () {
-                                  context.read<ChildBloc>().add(
+                                const SizedBox(height: AppSizes.spacingS),
+                                Divider(
+                                  color: Colors.grey.withValues(alpha: 0.2),
+                                ),
+                                const SizedBox(height: AppSizes.spacingS),
+                                _buildPermissionItem(
+                                  'Location',
+                                  hasLocationPermission,
+                                  () => Permission.locationAlways.request(),
+                                ),
+                                _buildPermissionItem(
+                                  'Background Work',
+                                  hasBackgroundPermission,
+                                  () => Permission.ignoreBatteryOptimizations
+                                      .request(),
+                                ),
+                                _buildPermissionItem(
+                                  'App Usage',
+                                  state is ChildDeviceInfoLoaded
+                                      ? state.hasUsagePermission
+                                      : false,
+                                  () => context.read<ChildBloc>().add(
                                     OpenUsageSettings(),
-                                  );
-                                },
-                                child: const Text('Enable Usage Access'),
-                              ),
-                            ),
-                            TextButton(
-                              onPressed: () {
-                                context.read<ChildBloc>().add(
-                                  CheckUsagePermission(),
-                                );
-                              },
-                              child: Text(
-                                'Check Again',
-                                style: AppTextStyles.button.copyWith(
-                                  color: AppColors.warning,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                    if (!hasAccessibilityPermission)
-                      Container(
-                        margin: const EdgeInsets.only(top: AppSizes.spacingM),
-                        padding: const EdgeInsets.all(AppSizes.paddingM),
-                        decoration: BoxDecoration(
-                          color: AppColors.error.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(AppSizes.radiusM),
-                          border: Border.all(color: AppColors.error),
-                        ),
-                        child: Column(
-                          children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.accessibility_new_rounded,
-                                  color: AppColors.error,
-                                ),
-                                const SizedBox(width: AppSizes.spacingS),
-                                Expanded(
-                                  child: Text(
-                                    'App Lock Service Required',
-                                    style: AppTextStyles.body2.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.error,
-                                    ),
                                   ),
+                                ),
+                                _buildPermissionItem(
+                                  'Accessibility',
+                                  hasAccessibilityPermission,
+                                  () => injector<LockSyncService>()
+                                      .openAccessibilitySettings(),
+                                ),
+                                _buildPermissionItem(
+                                  'Notifications',
+                                  hasNotificationPermission,
+                                  () => Permission.notification.request(),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: AppSizes.spacingS),
-                            Text(
-                              'To enable app blocking features, please enable the Accessibility Service for NaviQ.',
-                              style: AppTextStyles.caption.copyWith(
-                                color: AppColors.textSecondary,
+                          ),
+                          const Spacer(),
+                          Container(
+                            width: 220,
+                            height: 220,
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  Color(0xFF004CE8), // #004CE8
+                                  Color(0xFF6F9EFF), // #6F9EFF
+                                ],
                               ),
-                            ),
-                            const SizedBox(height: AppSizes.spacingS),
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.error,
-                                  foregroundColor: Colors.white,
+                              shape: BoxShape.circle,
+                              color: Colors.blue,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.blueAccent.withValues(
+                                    alpha: 0.3,
+                                  ),
+                                  blurRadius: 20,
+                                  spreadRadius: 40,
+                                  offset: const Offset(0, 8),
                                 ),
-                                onPressed: () async {
-                                  await injector<LockSyncService>()
-                                      .openAccessibilitySettings();
-                                },
-                                child: const Text('Enable Accessibility'),
+                              ],
+                            ),
+                            child: Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    'SOS',
+                                    style: AppTextStyles.headlineXL.copyWith(
+                                      color: AppColors.surfaceColor,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    'Press this button\n in emergency',
+                                    textAlign: TextAlign.center,
+                                    style: AppTextStyles.body2.copyWith(
+                                      color: AppColors.surfaceColor,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                ],
                               ),
                             ),
-                          ],
-                        ),
-                      ),
-                    const Spacer(),
-                    Container(
-                      width: 220,
-                      height: 220,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            Color(0xFF004CE8), // #004CE8
-                            Color(0xFF6F9EFF), // #6F9EFF
-                          ],
-                        ),
-                        shape: BoxShape.circle,
-                        color: Colors.blue,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.blueAccent.withValues(alpha: 0.3),
-                            blurRadius: 20,
-                            spreadRadius: 40,
-                            offset: const Offset(0, 8),
+                          ),
+                          const Spacer(),
+                          Text(
+                            'Parent Number',
+                            style: AppTextStyles.button.copyWith(
+                              color: Colors.black,
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () async {
+                              if (parentPhone != 'N/A') {
+                                final Uri launchUri = Uri(
+                                  scheme: 'tel',
+                                  path: parentPhone,
+                                );
+                                try {
+                                  if (!await launchUrl(launchUri)) {
+                                    AppLogger.error('Could not launch dialer');
+                                  }
+                                } catch (e) {
+                                  AppLogger.error('Error launching dialer: $e');
+                                }
+                              }
+                            },
+                            child: Text(
+                              parentPhone,
+                              style: AppTextStyles.button.copyWith(
+                                color: AppColors.primaryColor,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(
+                            height: AppSizes.spacingXL,
+                            width: double.infinity,
+                          ),
+                          CommonButton(
+                            height: 50,
+                            text: 'Logout',
+                            onPressed: () => _handleLogout(context),
                           ),
                         ],
                       ),
-                      child: Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              'SOS',
-                              style: AppTextStyles.headlineXL.copyWith(
-                                color: AppColors.surfaceColor,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              'Press this button\n in emergency',
-                              textAlign: TextAlign.center,
-                              style: AppTextStyles.body2.copyWith(
-                                color: AppColors.surfaceColor,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                          ],
-                        ),
-                      ),
                     ),
-                    const Spacer(),
-                    Text(
-                      'Parent Number',
-                      style: AppTextStyles.button.copyWith(color: Colors.black),
-                    ),
-                    GestureDetector(
-                      onTap: () async {
-                        if (parentPhone != 'N/A') {
-                          final Uri launchUri = Uri(
-                            scheme: 'tel',
-                            path: parentPhone,
-                          );
-                          try {
-                            if (!await launchUrl(launchUri)) {
-                              AppLogger.error('Could not launch dialer');
-                            }
-                          } catch (e) {
-                            AppLogger.error('Error launching dialer: $e');
-                          }
-                        }
-                      },
-                      child: Text(
-                        parentPhone,
-                        style: AppTextStyles.button.copyWith(
-                          color: AppColors.primaryColor,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(
-                      height: AppSizes.spacingXL,
-                      width: double.infinity,
-                    ),
-                    CommonButton(
-                      height: 50,
-                      text: 'Logout',
-                      onPressed: () => _handleLogout(context),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           );
