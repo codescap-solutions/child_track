@@ -687,7 +687,7 @@ class _SettingsViewState extends State<SettingsView> {
     showAboutDialog(
       context: context,
       applicationName: 'NaviQ',
-      applicationVersion: '1.0.0',
+      applicationVersion: 'Naviq Dev 1.0.3',
       applicationIcon: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(

@@ -15,9 +15,7 @@ class ApiEndpoints {
   static const String postDeviceInfo = 'child/device-status';
   static const String postLocation = 'child/location';
   static const String postActivity = 'child/activity';
-  static const String postScreenTime = 'child/screentime';
-  static const String getAvailableIcons = 'child/available-icons';
-  static const String uploadIcons = 'child/upload-icons';
+  static const String postAppUsage = 'app-usage';
 
   //parent Endpoints
   static const String getHome = 'parent/home';
@@ -28,8 +26,8 @@ class ApiEndpoints {
   static String getTripDetail(String tripId) => 'parent/trip/$tripId';
   static String postTripLocation(String childId) =>
       'trip-tracking/$childId/locations';
-  static const String places = 'places';
   static const String getAppUsage = 'app-usage';
+  static const String getAppUsageSummary = 'app-usage/summary';
 
   // App Lock Endpoints
   static const String parentLockedApps = 'parent/locked-apps';
@@ -42,8 +40,12 @@ class ApiEndpoints {
   // SOS endpoint
   static const String childSOS = 'child/sos';
 
-  // Geofence Endpoints
-  static const String geofences = 'geofences';
-  static String geofenceDetail(String id) => 'geofences/$id';
-  static String geofenceLock(String id) => 'geofences/$id/lock';
+  // Places & Geofence (Unified) Endpoints
+  static const String places = 'places';
+  static String placeDetail(String id) => 'places/$id';
+  static String assignChildToPlace(String id) => 'places/$id/assign-child';
+  static String unassignChildFromPlace(String id) =>
+      'places/$id/unassign-child';
+  static String assignAllChildrenToPlace(String id) =>
+      'places/$id/assign-all-children';
 }

@@ -47,7 +47,9 @@ class _LocationSelectionScreenState extends State<LocationSelectionScreen> {
             markerId: const MarkerId('selected_location'),
             position: LatLng(g.latitude!, g.longitude!),
             infoWindow: InfoWindow(title: g.name ?? 'Selected Location'),
-            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+            icon: BitmapDescriptor.defaultMarkerWithHue(
+              BitmapDescriptor.hueRed,
+            ),
             onTap: () async {
               setState(() {
                 _showSuggestions = false;
@@ -67,7 +69,7 @@ class _LocationSelectionScreenState extends State<LocationSelectionScreen> {
               );
               if (result != null) {
                 Navigator.pop(context, result);
-               }
+              }
             },
           ),
         );
@@ -91,6 +93,11 @@ class _LocationSelectionScreenState extends State<LocationSelectionScreen> {
           }
         });
       }
+    } else if (widget.childId != null) {
+      // If we are creating a new geofence, fetch the child's location natively
+      context.read<GeofenceBloc>().add(
+        FetchChildLocationRequested(childId: widget.childId!),
+      );
     }
   }
 
@@ -155,6 +162,21 @@ class _LocationSelectionScreenState extends State<LocationSelectionScreen> {
                 );
               });
             }
+          } else if (state is ChildLocationLoaded) {
+            if (_isMapReady) {
+              _controller.future.then((controller) {
+                controller.animateCamera(
+                  CameraUpdate.newLatLngZoom(state.coordinates, 16),
+                );
+              });
+            } else {
+              // Defer camera movement if controller hasn't completed yet
+              _controller.future.then((controller) {
+                controller.animateCamera(
+                  CameraUpdate.newLatLngZoom(state.coordinates, 16),
+                );
+              });
+            }
           }
         },
         child: Stack(
@@ -176,15 +198,23 @@ class _LocationSelectionScreenState extends State<LocationSelectionScreen> {
                     _isMapReady = true;
                   });
                   await Future.delayed(const Duration(milliseconds: 500));
+
+                  final state = context.read<GeofenceBloc>().state;
+
                   if (widget.geofence != null &&
                       widget.geofence!.latitude != null &&
                       widget.geofence!.longitude != null) {
                     controller.animateCamera(
                       CameraUpdate.newLatLngZoom(
-                        LatLng(widget.geofence!.latitude!, widget.geofence!.longitude!),
+                        LatLng(
+                          widget.geofence!.latitude!,
+                          widget.geofence!.longitude!,
+                        ),
                         16,
                       ),
                     );
+                  } else if (state is ChildLocationLoaded) {
+                    // Do nothing, listener will handle it or already did
                   } else {
                     controller.animateCamera(
                       CameraUpdate.newLatLngZoom(_initialPosition, 14),
@@ -393,18 +423,7 @@ class _GeoFenceFormSheetState extends State<GeoFenceFormSheet> {
 
   String? selectedCategory;
 
-  final List<String> categories = [
-    "Home",
-    "School",
-    "Office",
-    "Hospital",
-    "Park",
-    "Shop",
-    "Gym",
-    "Mosque",
-    "Church",
-    "Other",
-  ];
+  final List<String> categories = ["home", "school", "tuition", "other"];
 
   @override
   void dispose() {
@@ -584,7 +603,10 @@ class _GeoFenceFormSheetState extends State<GeoFenceFormSheet> {
       );
 
       context.read<GeofenceBloc>().add(
-        UpdateGeofenceRequested(id: widget.geofence!.id!, request: updateRequest),
+        UpdateGeofenceRequested(
+          id: widget.geofence!.id!,
+          request: updateRequest,
+        ),
       );
       return;
     }

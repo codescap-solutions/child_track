@@ -12,18 +12,18 @@ class SocialAppsRepository extends BaseService {
     String? startDate,
     String? endDate,
   }) async {
-    // Use parent/screentime endpoint when requesting a date range (Week tab)
+    // Use app-usage/summary endpoint when requesting a date range (Week tab)
     final endpoint = (startDate != null && endDate != null)
-        ? ApiEndpoints.getScreenTime
+        ? ApiEndpoints.getAppUsageSummary
         : ApiEndpoints.getAppUsage;
 
-    final queryParams = <String, dynamic>{'child_id': childId};
+    // The backend expects `userId` and `date`
+    final queryParams = <String, dynamic>{'userId': childId};
 
     if (startDate != null && endDate != null) {
       queryParams['startDate'] = startDate;
       queryParams['endDate'] = endDate;
     } else {
-      queryParams['userId'] = childId;
       queryParams['date'] = date;
     }
 

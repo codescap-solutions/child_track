@@ -220,8 +220,37 @@ class _SimpleTripCard extends StatelessWidget {
     );
   }
 
+  String _formatDateLabel(String timeStr) {
+    if (timeStr.isEmpty) return '';
+    try {
+      DateTime dt;
+      try {
+        dt = DateTime.parse(timeStr).toLocal();
+      } catch (_) {
+        final inputFormat = DateFormat('dd-MM-yyyy HH:mm:ss');
+        dt = inputFormat.parse(timeStr, true).toLocal();
+      }
+
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final yesterday = today.subtract(const Duration(days: 1));
+      final dateToCheck = DateTime(dt.year, dt.month, dt.day);
+
+      if (dateToCheck == today) {
+        return 'Today';
+      } else if (dateToCheck == yesterday) {
+        return 'Yesterday';
+      } else {
+        return DateFormat('d MMM').format(dt);
+      }
+    } catch (_) {
+      return '';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final dateLabel = _formatDateLabel(trip.startTime);
     return Container(
       margin: const EdgeInsets.only(bottom: AppSizes.spacingL),
       decoration: BoxDecoration(
@@ -290,6 +319,13 @@ class _SimpleTripCard extends StatelessWidget {
                             color: AppColors.textPrimary,
                           ),
                           children: [
+                            if (dateLabel.isNotEmpty)
+                              TextSpan(
+                                text: '$dateLabel, ',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             TextSpan(
                               text:
                                   '${_formatTime(trip.startTime)} - ${_formatTime(trip.endTime)}',

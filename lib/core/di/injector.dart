@@ -134,7 +134,10 @@ Future<void> initializeDependencies() async {
   );
 
   injector.registerLazySingleton<GeofenceBloc>(
-    () => GeofenceBloc(repository: injector<GeofenceRepository>()),
+    () => GeofenceBloc(
+      repository: injector<GeofenceRepository>(),
+      homeRepository: injector<HomeRepository>(),
+    ),
   );
 
   // Register Firebase Notification Service

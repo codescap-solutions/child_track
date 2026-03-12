@@ -563,6 +563,13 @@ class _SosViewContent extends StatelessWidget {
                             text: 'Logout',
                             onPressed: () => _handleLogout(context),
                           ),
+                          const SizedBox(height: AppSizes.spacingL),
+                          Text(
+                            'Naviq Dev 1.0.3',
+                            style: AppTextStyles.caption.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
                         ],
                       ),
                     ),

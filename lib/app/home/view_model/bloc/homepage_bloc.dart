@@ -140,20 +140,41 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
   }
 
   Future<void> _onGetTrips(GetTrips event, Emitter<HomepageState> emit) async {
+    AppLogger.info('💡 [_onGetTrips] Called with page: ${event.page}');
     final currentState = state;
-    if (currentState is! HomepageSuccess) return;
+
+    if (currentState is! HomepageSuccess) {
+      AppLogger.warning(
+        '💡 [_onGetTrips] Returned early: state is not HomepageSuccess (${currentState.runtimeType})',
+      );
+      return;
+    }
 
     // If we've already reached max and trying to fetch more (not refresh), return
-    if (currentState.hasReachedMax && event.page != 1) return;
+    if (currentState.hasReachedMax && event.page != 1) {
+      AppLogger.warning(
+        '💡 [_onGetTrips] Returned early: hasReachedMax is true',
+      );
+      return;
+    }
 
     // If already loading trips, avoid duplicate requests
-    if (currentState.isLoadingTrips) return;
+    if (currentState.isLoadingTrips) {
+      AppLogger.warning(
+        '💡 [_onGetTrips] Returned early: isLoadingTrips is true',
+      );
+      return;
+    }
 
+    AppLogger.info('💡 [_onGetTrips] Proceeding to fetch trips...');
     emit(currentState.copyWith(isLoadingTrips: true));
 
     try {
+      final childId = _sharedPrefsService.getString('child_id');
+      AppLogger.info('💡 [_onGetTrips] using childId: $childId');
+
       final response = await _homeRepository.getTrips(
-        childId: _sharedPrefsService.getString('child_id'),
+        childId: childId,
         page: event.page,
         pageSize: event.pageSize,
         includePoints: true,

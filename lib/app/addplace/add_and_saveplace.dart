@@ -264,6 +264,8 @@ class _AddPlaceDialogState extends State<_AddPlaceDialog> {
     13.082680,
     80.270721,
   ); // Default to Chennai
+  String _selectedPlaceType = 'home';
+  double _radius = 150.0;
   String _selectedAddress = '';
   bool _isLoadingAddress = false;
   bool _isSaving = false;
@@ -379,6 +381,8 @@ class _AddPlaceDialogState extends State<_AddPlaceDialog> {
 
     final place = SavedPlace(
       name: _nameController.text.trim(),
+      placeType: _selectedPlaceType,
+      radius: _radius.toInt(),
       latitude: _selectedLocation.latitude,
       longitude: _selectedLocation.longitude,
       address: _selectedAddress,
@@ -685,6 +689,72 @@ class _AddPlaceDialogState extends State<_AddPlaceDialog> {
                           ),
                         ),
                         style: AppTextStyles.body2,
+                      ),
+                      const SizedBox(height: AppSizes.spacingM),
+                      DropdownButtonFormField<String>(
+                        value: _selectedPlaceType,
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: AppColors.containerBackground.withValues(
+                            alpha: 0.5,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(
+                              AppSizes.radiusM,
+                            ),
+                            borderSide: BorderSide.none,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: AppSizes.paddingM,
+                            vertical: AppSizes.paddingM,
+                          ),
+                        ),
+                        items: const [
+                          DropdownMenuItem(value: 'home', child: Text('Home')),
+                          DropdownMenuItem(
+                            value: 'school',
+                            child: Text('School'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'tuition',
+                            child: Text('Tuition'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'other',
+                            child: Text('Other'),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          if (value != null) {
+                            setState(() {
+                              _selectedPlaceType = value;
+                            });
+                          }
+                        },
+                      ),
+                      const SizedBox(height: AppSizes.spacingM),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Geofence Radius', style: AppTextStyles.body2),
+                          Text(
+                            '${_radius.toInt()} m',
+                            style: AppTextStyles.subtitle2,
+                          ),
+                        ],
+                      ),
+                      Slider(
+                        value: _radius,
+                        min: 50,
+                        max: 2000,
+                        divisions: 39,
+                        label: '${_radius.toInt()} m',
+                        activeColor: AppColors.primaryColor,
+                        onChanged: (value) {
+                          setState(() {
+                            _radius = value;
+                          });
+                        },
                       ),
                       const SizedBox(height: AppSizes.spacingM),
                       Row(

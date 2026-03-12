@@ -4,6 +4,7 @@ class AppUsageResponse {
   final String totalUsageTimeFormatted;
   final int totalApps;
   final Map<String, List<AppUsageItem>> dailyUsage;
+  final List<AppUsageItem> summaryApps; // Added for the summary endpoint
 
   AppUsageResponse({
     required this.userId,
@@ -11,10 +12,12 @@ class AppUsageResponse {
     required this.totalUsageTimeFormatted,
     required this.totalApps,
     required this.dailyUsage,
+    this.summaryApps = const [],
   });
 
   /// Helper to format seconds into "Xh Ym Zs"
   static String _formatSecs(int totalSeconds) {
+    if (totalSeconds <= 0) return '0s';
     final h = totalSeconds ~/ 3600;
     final m = (totalSeconds % 3600) ~/ 60;
     final s = totalSeconds % 60;
@@ -24,63 +27,39 @@ class AppUsageResponse {
   }
 
   factory AppUsageResponse.fromJson(Map<String, dynamic> json) {
-    // BaseResponse.fromJson already extracts json['data'], so when called
-    // from the repo, json IS the inner data object (records, child_id, etc.).
-    // Fall back to json itself if json['data'] doesn't exist.
-    var rawData = json['data'] ?? json;
     Map<String, List<AppUsageItem>> dailyUsageMap = {};
-    int totalSeconds = 0;
+    List<AppUsageItem> summaryList = [];
+    int totalTime = 0;
 
-    if (rawData is Map<String, dynamic>) {
-      // ── Format 2: parent/screentime endpoint ──
-      //  data.records: [ { date, totalSeconds, apps: [{packageName, seconds}] } ]
-      if (rawData.containsKey('records') && rawData['records'] is List) {
-        final records = rawData['records'] as List;
-        totalSeconds = rawData['totalSeconds'] ?? 0;
-
-        for (final record in records) {
-          if (record is Map<String, dynamic>) {
-            // Extract date key (e.g. "2026-02-18")
-            final rawDate = record['date'] ?? '';
-            final dateKey = rawDate.toString().split('T')[0];
-            final apps = record['apps'] as List? ?? [];
-
-            dailyUsageMap[dateKey] = apps.map((app) {
-              final appMap = app as Map<String, dynamic>;
-              return AppUsageItem(
-                date: dateKey,
-                appName: appMap['appName'] ?? appMap['packageName'] ?? '',
-                packageName: appMap['packageName'] ?? '',
-                usageTime: appMap['seconds'] ?? appMap['usageTime'] ?? 0,
-                usageTimeFormatted: _formatSecs(
-                  appMap['seconds'] ?? appMap['usageTime'] ?? 0,
-                ),
-                platform: appMap['platform'] ?? 'android',
-                openCount: appMap['openCount'] ?? 0,
-              );
-            }).toList();
-          }
+    // Timeline format has "data": {"2026-03-06": [...]}
+    if (json.containsKey('data') && json['data'] is Map) {
+      final mapData = json['data'] as Map;
+      mapData.forEach((key, value) {
+        if (value is List) {
+          dailyUsageMap[key.toString()] = value
+              .map((e) => AppUsageItem.fromJson(e as Map<String, dynamic>))
+              .toList();
         }
-      } else {
-        // ── Format 1: app-usage endpoint ──
-        //  data: { "2026-02-18": [ {date, appName, usageTime, ...} ] }
-        rawData.forEach((key, value) {
-          if (value is List) {
-            dailyUsageMap[key] = value
-                .map((e) => AppUsageItem.fromJson(e as Map<String, dynamic>))
-                .toList();
-          }
-        });
-      }
+      });
     }
 
+    // Summary format has "apps": [...]
+    if (json.containsKey('apps') && json['apps'] is List) {
+      summaryList = (json['apps'] as List)
+          .map((e) => AppUsageItem.fromJson(e as Map<String, dynamic>))
+          .toList();
+    }
+
+    totalTime = json['totalUsageTime'] ?? json['totalSeconds'] ?? 0;
+
     return AppUsageResponse(
-      userId: json['userId'] ?? rawData?['child_id'] ?? '',
-      totalUsageTime: json['totalUsageTime'] ?? totalSeconds,
+      userId: json['userId'] ?? json['child_id'] ?? '',
+      totalUsageTime: totalTime,
       totalUsageTimeFormatted:
-          json['totalUsageTimeFormatted'] ?? _formatSecs(totalSeconds),
+          json['totalUsageTimeFormatted'] ?? _formatSecs(totalTime),
       totalApps: json['totalApps'] ?? 0,
       dailyUsage: dailyUsageMap,
+      summaryApps: summaryList,
     );
   }
 }
@@ -94,6 +73,7 @@ class AppUsageItem {
   final String platform;
   final int openCount;
   final String? iconBase64;
+  final String? iconUrl;
   final bool isLocked;
 
   AppUsageItem({
@@ -105,20 +85,25 @@ class AppUsageItem {
     required this.platform,
     required this.openCount,
     this.iconBase64,
+    this.iconUrl,
     this.isLocked = false,
   });
 
   factory AppUsageItem.fromJson(Map<String, dynamic> json) {
-    final seconds = json['usageTime'] ?? json['seconds'] ?? 0;
+    final seconds =
+        json['usageTime'] ?? json['totalUsageTime'] ?? json['seconds'] ?? 0;
     return AppUsageItem(
       date: json['date'] ?? '',
       appName: json['appName'] ?? json['packageName'] ?? '',
       packageName: json['packageName'] ?? '',
       usageTime: seconds,
       usageTimeFormatted:
-          json['usageTimeFormatted'] ?? AppUsageResponse._formatSecs(seconds),
+          json['usageTimeFormatted'] ??
+          json['totalUsageTimeFormatted'] ??
+          AppUsageResponse._formatSecs(seconds),
       platform: json['platform'] ?? 'android',
-      openCount: json['openCount'] ?? 0,
+      openCount: json['openCount'] ?? json['totalOpenCount'] ?? 0,
+      iconUrl: json['icon'],
       isLocked: json['is_locked'] ?? false,
     );
   }

@@ -36,16 +36,22 @@ class Geofence extends Equatable {
   });
 
   factory Geofence.fromJson(Map<String, dynamic> json) {
+    final addressData = json['address'] as Map<String, dynamic>? ?? {};
+    final childrenArray = json['children'] as List<dynamic>? ?? [];
+    final firstChild = childrenArray.isNotEmpty
+        ? childrenArray.first.toString()
+        : null;
+
     return Geofence(
       id: json['_id'] as String?,
       name: json['name'] as String?,
-      category: json['category'] as String?,
+      category: json['placeType'] as String?,
       radius: json['radius'] as int?,
-      childId: json['childId'] as String?,
-      parentId: json['parentId'] as String?,
-      latitude: (json['latitude'] as num?)?.toDouble(),
-      longitude: (json['longitude'] as num?)?.toDouble(),
-      address: json['address'] as String?,
+      childId: firstChild,
+      parentId: json['userId'] as String?,
+      latitude: (addressData['latitude'] as num?)?.toDouble(),
+      longitude: (addressData['longitude'] as num?)?.toDouble(),
+      address: addressData['place'] as String?,
       isLocked: json['isLocked'] as bool?,
       isChildInside: json['isChildInside'] as bool?,
       createdAt: json['createdAt'] as String?,
@@ -155,12 +161,10 @@ class CreateGeofenceRequest extends Equatable {
   Map<String, dynamic> toJson() {
     return {
       'name': name,
-      'category': category,
+      'placeType': category, // Replaced category with placeType
       'radius': radius,
-      'childId': childId,
-      'parent_id': parentId,
-      'latitude': latitude,
-      'longitude': longitude,
+      'children': [childId], // Passed childId inside children array
+      'address': {'latitude': latitude, 'longitude': longitude},
       'isLocked': isLocked,
     };
   }
@@ -194,13 +198,16 @@ class UpdateGeofenceRequest extends Equatable {
   });
 
   Map<String, dynamic> toJson() {
-    return {
-      if (name != null) 'name': name,
-      if (category != null) 'category': category,
-      if (radius != null) 'radius': radius,
-      if (latitude != null) 'latitude': latitude,
-      if (longitude != null) 'longitude': longitude,
-    };
+    final Map<String, dynamic> data = {};
+    if (name != null) data['name'] = name;
+    if (category != null) data['placeType'] = category;
+    if (radius != null) data['radius'] = radius;
+    if (latitude != null || longitude != null) {
+      data['address'] = {};
+      if (latitude != null) data['address']['latitude'] = latitude;
+      if (longitude != null) data['address']['longitude'] = longitude;
+    }
+    return data;
   }
 
   @override

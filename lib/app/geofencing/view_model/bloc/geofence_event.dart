@@ -19,7 +19,12 @@ class GetGeofencesRequested extends GeofenceEvent {
   final String? startDate;
   final String? endDate;
 
-  const GetGeofencesRequested({required this.childId, this.date, this.startDate, this.endDate});
+  const GetGeofencesRequested({
+    required this.childId,
+    this.date,
+    this.startDate,
+    this.endDate,
+  });
 
   @override
   List<Object?> get props => [childId, date, startDate, endDate];
@@ -38,10 +43,7 @@ class UpdateGeofenceRequested extends GeofenceEvent {
   final String id;
   final UpdateGeofenceRequest request;
 
-  const UpdateGeofenceRequested({
-    required this.id,
-    required this.request,
-  });
+  const UpdateGeofenceRequested({required this.id, required this.request});
 
   @override
   List<Object?> get props => [id, request];
@@ -60,10 +62,7 @@ class ToggleGeofenceLockRequested extends GeofenceEvent {
   final String id;
   final bool isLocked;
 
-  const ToggleGeofenceLockRequested({
-    required this.id,
-    required this.isLocked,
-  });
+  const ToggleGeofenceLockRequested({required this.id, required this.isLocked});
 
   @override
   List<Object?> get props => [id, isLocked];
@@ -85,4 +84,13 @@ class GetPlaceCoordinatesRequested extends GeofenceEvent {
 
   @override
   List<Object?> get props => [placeId];
+}
+
+class FetchChildLocationRequested extends GeofenceEvent {
+  final String childId;
+
+  const FetchChildLocationRequested({required this.childId});
+
+  @override
+  List<Object?> get props => [childId];
 }

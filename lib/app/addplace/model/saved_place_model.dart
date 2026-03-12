@@ -3,6 +3,8 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 class SavedPlace {
   final String? id;
   final String name;
+  final String placeType;
+  final int? radius;
   final double latitude;
   final double longitude;
   final String address;
@@ -13,6 +15,8 @@ class SavedPlace {
   SavedPlace({
     this.id,
     required this.name,
+    this.placeType = 'other',
+    this.radius,
     required this.latitude,
     required this.longitude,
     required this.address,
@@ -26,6 +30,8 @@ class SavedPlace {
   Map<String, dynamic> toJson() {
     return {
       'name': name,
+      'placeType': placeType,
+      if (radius != null) 'radius': radius,
       'address': {
         'latitude': latitude,
         'longitude': longitude,
@@ -41,6 +47,8 @@ class SavedPlace {
     return SavedPlace(
       id: json['_id'] ?? json['id'] ?? '',
       name: json['name'] ?? '',
+      placeType: json['placeType'] ?? 'other',
+      radius: json['radius'] as int?,
       latitude: (addressData['latitude'] ?? 0).toDouble(),
       longitude: (addressData['longitude'] ?? 0).toDouble(),
       address: addressData['place'] ?? '',

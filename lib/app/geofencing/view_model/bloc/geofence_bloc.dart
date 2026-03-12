@@ -5,16 +5,21 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../../../core/constants/app_strings.dart';
 import '../../model/geofence_model.dart';
 import '../geofence_repository.dart';
+import '../../../home/view_model/home_repo.dart';
 import 'geofence_event.dart';
 import 'geofence_state.dart';
 import 'package:http/http.dart' as http;
 
 class GeofenceBloc extends Bloc<GeofenceEvent, GeofenceState> {
   final GeofenceRepository _repository;
+  final HomeRepository _homeRepository;
 
-  GeofenceBloc({required GeofenceRepository repository})
-    : _repository = repository,
-      super(const GeofenceInitial()) {
+  GeofenceBloc({
+    required GeofenceRepository repository,
+    required HomeRepository homeRepository,
+  }) : _repository = repository,
+       _homeRepository = homeRepository,
+       super(const GeofenceInitial()) {
     on<GeofenceInitializationRequested>(_onGeofenceInitializationRequested);
     on<GetGeofencesRequested>(_onGetGeofencesRequested);
     on<CreateGeofenceRequested>(_onCreateGeofenceRequested);
@@ -25,6 +30,7 @@ class GeofenceBloc extends Bloc<GeofenceEvent, GeofenceState> {
       _onSearchLocationSuggestionsRequested,
     );
     on<GetPlaceCoordinatesRequested>(_onGetPlaceCoordinatesRequested);
+    on<FetchChildLocationRequested>(_onFetchChildLocationRequested);
   }
 
   Future<void> _onGeofenceInitializationRequested(
@@ -249,6 +255,31 @@ class GeofenceBloc extends Bloc<GeofenceEvent, GeofenceState> {
       return LatLng(location["lat"], location["lng"]);
     } catch (e) {
       return null;
+    }
+  }
+
+  Future<void> _onFetchChildLocationRequested(
+    FetchChildLocationRequested event,
+    Emitter<GeofenceState> emit,
+  ) async {
+    try {
+      final response = await _homeRepository.getHomeData(
+        childId: event.childId,
+      );
+      if (response.isSuccess && response.data != null) {
+        final loc = response.data!.currentLocation;
+        if (loc.lat != 0.0 || loc.lng != 0.0) {
+          emit(ChildLocationLoaded(coordinates: LatLng(loc.lat, loc.lng)));
+          return;
+        }
+      }
+      emit(
+        const GeofenceError(
+          message: "Could not determine child's current location",
+        ),
+      );
+    } catch (e) {
+      emit(GeofenceError(message: e.toString()));
     }
   }
 }

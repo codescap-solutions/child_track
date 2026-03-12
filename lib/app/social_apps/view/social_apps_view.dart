@@ -60,19 +60,6 @@ class _SocialAppsViewState extends State<SocialAppsView> {
     }
   }
 
-  /// Format total seconds into human-readable string (e.g. "2h 36m 5s")
-  String _formatSeconds(int totalSeconds) {
-    final hours = totalSeconds ~/ 3600;
-    final minutes = (totalSeconds % 3600) ~/ 60;
-    final seconds = totalSeconds % 60;
-    if (hours > 0) {
-      return '${hours}h ${minutes}m ${seconds}s';
-    } else if (minutes > 0) {
-      return '${minutes}m ${seconds}s';
-    }
-    return '${seconds}s';
-  }
-
   @override
   void dispose() {
     _bloc.close();
@@ -84,8 +71,8 @@ class _SocialAppsViewState extends State<SocialAppsView> {
     return MultiBlocProvider(
       providers: [
         BlocProvider(create: (_) => _bloc),
-        BlocProvider(
-          create: (_) => _appLockBloc
+        BlocProvider.value(
+          value: _appLockBloc
             ..add(CheckAccessibilityPermission())
             ..add(FetchLockedApps()),
         ),
@@ -164,30 +151,8 @@ class _SocialAppsViewState extends State<SocialAppsView> {
           // For Week tab (index 2), merge all days into one combined list
           List<AppUsageItem> dailyData;
           if (_selectedTabIndex == 2) {
-            // Aggregate usage across all days by package name
-            final aggregated = <String, AppUsageItem>{};
-            for (final items in state.data.dailyUsage.values) {
-              for (final item in items) {
-                if (aggregated.containsKey(item.packageName)) {
-                  final existing = aggregated[item.packageName]!;
-                  final totalSeconds = existing.usageTime + item.usageTime;
-                  aggregated[item.packageName] = AppUsageItem(
-                    date: item.date,
-                    appName: item.appName,
-                    packageName: item.packageName,
-                    usageTime: totalSeconds,
-                    usageTimeFormatted: _formatSeconds(totalSeconds),
-                    platform: item.platform,
-                    openCount: existing.openCount + item.openCount,
-                    iconBase64: item.iconBase64 ?? existing.iconBase64,
-                  );
-                } else {
-                  aggregated[item.packageName] = item;
-                }
-              }
-            }
-            dailyData = aggregated.values.toList()
-              ..sort((a, b) => b.usageTime.compareTo(a.usageTime));
+            // Summary is provided pre-aggregated by the backend
+            dailyData = state.data.summaryApps;
           } else {
             dailyData = state.data.dailyUsage[state.selectedDate] ?? [];
           }
@@ -213,7 +178,9 @@ class _SocialAppsViewState extends State<SocialAppsView> {
               final app = dailyData[index];
 
               ImageProvider iconProvider;
-              if (app.iconBase64 != null && app.iconBase64!.isNotEmpty) {
+              if (app.iconUrl?.isNotEmpty ?? false) {
+                iconProvider = NetworkImage(app.iconUrl!);
+              } else if (app.iconBase64?.isNotEmpty ?? false) {
                 try {
                   iconProvider = MemoryImage(base64Decode(app.iconBase64!));
                 } catch (e) {

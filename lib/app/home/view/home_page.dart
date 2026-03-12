@@ -7,7 +7,6 @@ import 'package:child_track/app/home/view_model/bloc/homepage_bloc.dart';
 import 'package:child_track/app/map/view/map_view.dart';
 import 'package:child_track/core/di/injector.dart';
 import 'package:child_track/core/services/shared_prefs_service.dart';
-import 'package:child_track/core/services/socket_service.dart';
 import 'package:flutter/material.dart';
 import 'package:child_track/core/constants/app_colors.dart';
 import 'package:child_track/core/constants/app_sizes.dart';
@@ -33,9 +32,7 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  final SocketService _socketService = SocketService();
   final SharedPrefsService _sharedPrefsService = injector<SharedPrefsService>();
-  StreamSubscription? _locationSubscription;
   final DraggableScrollableController _sheetController =
       DraggableScrollableController();
 
@@ -47,7 +44,9 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     _savedPlacesService = injector<SavedPlacesService>();
     _loadSavedPlaces();
-    _initSocket();
+
+    // Fetch home data once on initialization
+    injector<HomepageBloc>().add(GetHomepageData());
   }
 
   Future<void> _loadSavedPlaces() async {
@@ -75,28 +74,10 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  void _initSocket() {
-    final childId = _sharedPrefsService.getString('child_id');
-    if (childId != null) {
-      if (!_socketService.isConnected) {
-        _socketService.initSocket();
-      }
-      _socketService.joinRoom(childId);
-
-      _locationSubscription = _socketService.locationStream.listen((data) {
-        if (mounted) {
-          injector<HomepageBloc>().add(UpdateSocketLocation(data));
-        }
-      });
-    }
-  }
-
   void _refreshData() {
     final childId = _sharedPrefsService.getString('child_id');
     if (childId != null) {
-      // Re-init socket for new child
-      _initSocket();
-      // Fetch new home data
+      // Fetch new home data (HomepageBloc internally re-inits sockets)
       injector<HomepageBloc>().add(GetHomepageData());
       // Fetch saved places for new child
       _loadSavedPlaces();
@@ -105,7 +86,6 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
-    _locationSubscription?.cancel();
     _sheetController.dispose();
     super.dispose();
   }
@@ -212,8 +192,7 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return BlocProvider.value(
-      value: injector<HomepageBloc>()
-        ..add(GetHomepageData()), // Will get from SharedPreferences
+      value: injector<HomepageBloc>(),
       child: Scaffold(
         backgroundColor: AppColors.backgroundColor,
         body: Stack(

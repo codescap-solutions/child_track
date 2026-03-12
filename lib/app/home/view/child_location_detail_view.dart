@@ -14,6 +14,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:child_track/core/utils/map_marker_utils.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:child_track/core/widgets/child_location_detail_shimmer.dart';
+import 'package:intl/intl.dart';
 
 class ChildLocationDetailView extends StatefulWidget {
   const ChildLocationDetailView({super.key});
@@ -34,6 +35,10 @@ class _ChildLocationDetailViewState extends State<ChildLocationDetailView> {
   void initState() {
     super.initState();
     _loadCustomMarkers();
+
+    final bloc = injector<HomepageBloc>();
+    bloc.add(GetHomepageData());
+    bloc.add(GetTrips(page: 1, pageSize: 10));
   }
 
   Future<void> _loadCustomMarkers() async {
@@ -107,6 +112,34 @@ class _ChildLocationDetailViewState extends State<ChildLocationDetailView> {
     }
   }
 
+  String _formatDateLabel(String timeStr) {
+    if (timeStr.isEmpty) return '';
+    try {
+      DateTime dt;
+      try {
+        dt = DateTime.parse(timeStr).toLocal();
+      } catch (_) {
+        final inputFormat = DateFormat('dd-MM-yyyy HH:mm:ss');
+        dt = inputFormat.parse(timeStr, true).toLocal();
+      }
+
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final yesterday = today.subtract(const Duration(days: 1));
+      final dateToCheck = DateTime(dt.year, dt.month, dt.day);
+
+      if (dateToCheck == today) {
+        return 'Today';
+      } else if (dateToCheck == yesterday) {
+        return 'Yesterday';
+      } else {
+        return DateFormat('d MMM').format(dt);
+      }
+    } catch (_) {
+      return '';
+    }
+  }
+
   String _formatDate(String dateStr) {
     try {
       // Expected format: "dd-MM-yyyy HH:mm:ss"
@@ -145,9 +178,7 @@ class _ChildLocationDetailViewState extends State<ChildLocationDetailView> {
   @override
   Widget build(BuildContext context) {
     return BlocProvider.value(
-      value: injector<HomepageBloc>()
-        ..add(GetHomepageData())
-        ..add(GetTrips(page: 1, pageSize: 10)),
+      value: injector<HomepageBloc>(),
       child: Scaffold(
         backgroundColor: AppColors.backgroundColor,
         appBar: AppBar(
@@ -382,7 +413,7 @@ class _ChildLocationDetailViewState extends State<ChildLocationDetailView> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '${_formatDate(trip.startTime)} - ${_formatDate(trip.endTime)} (${trip.durationMinutes}min)',
+                    '${_formatDateLabel(trip.startTime).isNotEmpty ? '${_formatDateLabel(trip.startTime)}, ' : ''}${_formatDate(trip.startTime)} - ${_formatDate(trip.endTime)} (${trip.durationMinutes}min)',
                     style: AppTextStyles.overline.copyWith(
                       color: AppColors.textSecondary,
                     ),
@@ -507,7 +538,7 @@ class _ChildLocationDetailViewState extends State<ChildLocationDetailView> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '${trip.type.toUpperCase()} - ${_formatDate(trip.startTime)} - ${_formatDate(trip.endTime)}',
+            '${trip.type.toUpperCase()} - ${_formatDateLabel(trip.startTime).isNotEmpty ? '${_formatDateLabel(trip.startTime)}, ' : ''}${_formatDate(trip.startTime)} - ${_formatDate(trip.endTime)}',
             style: AppTextStyles.headline6.copyWith(
               fontWeight: FontWeight.bold,
             ),

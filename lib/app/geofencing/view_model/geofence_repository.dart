@@ -18,10 +18,7 @@ class GeofenceRepository extends BaseService {
   ) async {
     try {
       log('Creating geofence with data: ${request.toJson()}');
-      final response = await post(
-        ApiEndpoints.geofences,
-        data: request.toJson(),
-      );
+      final response = await post(ApiEndpoints.places, data: request.toJson());
 
       if (response.isSuccess && response.data != null) {
         final geofence = Geofence.fromJson(response.data);
@@ -54,14 +51,16 @@ class GeofenceRepository extends BaseService {
       }
 
       final response = await get(
-        ApiEndpoints.geofences,
+        ApiEndpoints.places,
         queryParameters: queryParams,
       );
       log('Response received: ${response.data}');
       if (response.isSuccess && response.data != null) {
         final List<dynamic> dataList = response.data is List
             ? response.data
-            : (response.data as Map)['data'] ?? [];
+            : (response.data as Map)['places'] ??
+                  (response.data as Map)['data']?['places'] ??
+                  []; // Map from Places array
 
         final geofences = (dataList).map((item) {
           final itemData = item is Map<String, dynamic>
@@ -86,7 +85,7 @@ class GeofenceRepository extends BaseService {
   ) async {
     try {
       final response = await put(
-        ApiEndpoints.geofenceDetail(id),
+        ApiEndpoints.placeDetail(id),
         data: request.toJson(),
       );
 
@@ -107,8 +106,9 @@ class GeofenceRepository extends BaseService {
     bool isLocked,
   ) async {
     try {
-      final response = await patch(
-        ApiEndpoints.geofenceLock(id),
+      // The new unified API updates fields exclusively via PUT places/:id
+      final response = await put(
+        ApiEndpoints.placeDetail(id),
         data: {'isLocked': isLocked},
       );
 
@@ -126,7 +126,7 @@ class GeofenceRepository extends BaseService {
   // Delete Geofence
   Future<BaseResponse<void>> deleteGeofence(String id) async {
     try {
-      final response = await delete(ApiEndpoints.geofenceDetail(id));
+      final response = await delete(ApiEndpoints.placeDetail(id));
 
       if (response.isSuccess) {
         return BaseResponse.success(data: null, message: response.message);

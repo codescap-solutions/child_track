@@ -93,3 +93,12 @@ class GeofenceError extends GeofenceState {
   @override
   List<Object?> get props => [message];
 }
+
+class ChildLocationLoaded extends GeofenceState {
+  final LatLng coordinates;
+
+  const ChildLocationLoaded({required this.coordinates});
+
+  @override
+  List<Object?> get props => [coordinates];
+}
