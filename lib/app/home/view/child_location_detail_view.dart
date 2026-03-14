@@ -133,7 +133,7 @@ class _ChildLocationDetailViewState extends State<ChildLocationDetailView> {
       } else if (dateToCheck == yesterday) {
         return 'Yesterday';
       } else {
-        return DateFormat('d MMM').format(dt);
+        return DateFormat('d MMM yyyy').format(dt);
       }
     } catch (_) {
       return '';
@@ -141,35 +141,16 @@ class _ChildLocationDetailViewState extends State<ChildLocationDetailView> {
   }
 
   String _formatDate(String dateStr) {
+    if (dateStr.isEmpty) return '';
     try {
-      // Expected format: "dd-MM-yyyy HH:mm:ss"
-      // Example: "09-02-2025 13:04:00" -> "09-02 on 1:04 PM"
-
-      final parts = dateStr.split(' ');
-      if (parts.length != 2) return dateStr;
-
-      final dateParts = parts[0].split('-');
-      final timeParts = parts[1].split(':');
-
-      if (dateParts.length != 3 || timeParts.length != 3) return dateStr;
-
-      final day = dateParts[0];
-      final month = dateParts[1];
-      // final year = dateParts[2];
-
-      final hour = int.parse(timeParts[0]);
-      final minute = int.parse(timeParts[1]);
-
-      final period = hour >= 12 ? 'PM' : 'AM';
-      var hour12 = hour > 12
-          ? hour - 12
-          : hour == 0
-          ? 12
-          : hour;
-
-      final minuteStr = minute.toString().padLeft(2, '0');
-
-      return '$day-$month on $hour12:$minuteStr $period';
+      DateTime dt;
+      try {
+        dt = DateTime.parse(dateStr).toLocal();
+      } catch (_) {
+        final inputFormat = DateFormat('dd-MM-yyyy HH:mm:ss');
+        dt = inputFormat.parse(dateStr, true).toLocal();
+      }
+      return DateFormat('h:mm a').format(dt).toLowerCase();
     } catch (e) {
       return dateStr;
     }

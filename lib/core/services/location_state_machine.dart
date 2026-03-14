@@ -90,6 +90,11 @@ class LocationStateMachine {
       } else {
         await _processTripStartLogic(position, childId);
       }
+    } else {
+      StructuredLogger.log(
+        LogTag.BG,
+        'Device has not moved sufficiently (${distance.toStringAsFixed(1)}m < 10m). Location posting skipped.',
+      );
     }
   }
 

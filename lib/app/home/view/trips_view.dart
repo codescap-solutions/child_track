@@ -241,7 +241,7 @@ class _SimpleTripCard extends StatelessWidget {
       } else if (dateToCheck == yesterday) {
         return 'Yesterday';
       } else {
-        return DateFormat('d MMM').format(dt);
+        return DateFormat('d MMM yyyy').format(dt);
       }
     } catch (_) {
       return '';

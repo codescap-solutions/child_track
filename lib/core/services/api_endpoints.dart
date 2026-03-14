@@ -48,4 +48,6 @@ class ApiEndpoints {
       'places/$id/unassign-child';
   static String assignAllChildrenToPlace(String id) =>
       'places/$id/assign-all-children';
+  static String togglePlaceNotification(String id) =>
+      'places/$id/toggle-notification';
 }

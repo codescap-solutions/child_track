@@ -13,9 +13,13 @@ import 'package:child_track/core/widgets/common_button.dart';
 import 'package:child_track/core/services/shared_prefs_service.dart';
 import 'package:child_track/core/services/socket_service.dart';
 import 'package:child_track/core/services/background_location_service.dart';
+import 'package:child_track/core/services/csv_file_logger.dart';
 import 'package:child_track/core/navigation/route_names.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:cross_file/cross_file.dart';
+import 'package:child_track/app/childapp/view/widgets/child_app_drawer.dart';
 
 class SosView extends StatefulWidget {
   const SosView({super.key});
@@ -245,6 +249,37 @@ class _SosViewContent extends StatelessWidget {
     );
   }
 
+  Future<void> _shareLogs(BuildContext context) async {
+    try {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Preparing logs…')));
+
+      final paths = await CsvFileLogger.instance.getAllLogPaths();
+      if (!context.mounted) return;
+      if (paths.isEmpty) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('No log files found yet')));
+        return;
+      }
+
+      final xFiles = paths.map((p) => XFile(p)).toList();
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      await SharePlus.instance.share(
+        ShareParams(files: xFiles, subject: 'NaviQ Background Logs'),
+      );
+    } catch (e) {
+      AppLogger.error('Share logs error: $e');
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to share logs: $e')));
+    }
+  }
+
   void _handleLogout(BuildContext context) {
     showDialog(
       context: context,
@@ -369,6 +404,10 @@ class _SosViewContent extends StatelessWidget {
 
           return Scaffold(
             backgroundColor: AppColors.surfaceColor,
+            drawer: ChildAppDrawer(
+              onLogout: () => _handleLogout(context),
+              onShareLogs: () => _shareLogs(context),
+            ),
             body: SafeArea(
               child: CustomScrollView(
                 slivers: [
@@ -381,11 +420,31 @@ class _SosViewContent extends StatelessWidget {
                       ),
                       child: Column(
                         children: [
-                          Text(
-                            childName,
-                            style: AppTextStyles.headline5.copyWith(
-                              color: AppColors.primaryColor,
-                            ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Builder(
+                                builder: (context) {
+                                  return IconButton(
+                                    icon: const Icon(
+                                      Icons.menu,
+                                      color: AppColors.primaryColor,
+                                    ),
+                                    onPressed: () =>
+                                        Scaffold.of(context).openDrawer(),
+                                  );
+                                },
+                              ),
+                              Text(
+                                childName,
+                                style: AppTextStyles.headline5.copyWith(
+                                  color: AppColors.primaryColor,
+                                ),
+                              ),
+                              const SizedBox(
+                                width: 48,
+                              ), // Balance for centering
+                            ],
                           ),
                           const SizedBox(height: 4),
                           Text(
@@ -558,14 +617,8 @@ class _SosViewContent extends StatelessWidget {
                             height: AppSizes.spacingXL,
                             width: double.infinity,
                           ),
-                          CommonButton(
-                            height: 50,
-                            text: 'Logout',
-                            onPressed: () => _handleLogout(context),
-                          ),
-                          const SizedBox(height: AppSizes.spacingL),
                           Text(
-                            'Naviq Dev 1.0.3',
+                            'Naviq Dev 1.0.4',
                             style: AppTextStyles.caption.copyWith(
                               color: AppColors.textSecondary,
                             ),

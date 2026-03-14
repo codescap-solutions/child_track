@@ -90,7 +90,14 @@ class GeofenceRepository extends BaseService {
       );
 
       if (response.isSuccess && response.data != null) {
-        final geofence = Geofence.fromJson(response.data);
+        final dataMap = response.data is Map
+            ? response.data as Map<String, dynamic>
+            : <String, dynamic>{};
+        final placeData = dataMap.containsKey('place')
+            ? dataMap['place']
+            : (dataMap.containsKey('data') ? dataMap['data'] : dataMap);
+
+        final geofence = Geofence.fromJson(placeData as Map<String, dynamic>);
         return BaseResponse.success(data: geofence, message: response.message);
       }
 
@@ -100,23 +107,34 @@ class GeofenceRepository extends BaseService {
     }
   }
 
-  // Lock/Unlock Geofence
+  // Lock/Unlock Geofence -> Toggle Notification
   Future<BaseResponse<Geofence>> toggleGeofenceLock(
     String id,
     bool isLocked,
   ) async {
     try {
-      // The new unified API updates fields exclusively via PUT places/:id
-      final response = await put(
-        ApiEndpoints.placeDetail(id),
-        data: {'isLocked': isLocked},
+      final response = await patch(
+        ApiEndpoints.togglePlaceNotification(id),
+        data: {'notifyOnArrival': isLocked},
       );
 
       if (response.isSuccess && response.data != null) {
-        final geofence = Geofence.fromJson(response.data);
+        log('💡 [toggleGeofenceLock] Response SUCCESS: ${response.data}');
+        final dataMap = response.data is Map
+            ? response.data as Map<String, dynamic>
+            : <String, dynamic>{};
+        final placeData = dataMap.containsKey('place')
+            ? dataMap['place']
+            : (dataMap.containsKey('data') ? dataMap['data'] : dataMap);
+
+        final geofence = Geofence.fromJson(placeData as Map<String, dynamic>);
+        log(
+          '💡 [toggleGeofenceLock] Parsed Geofence: isLocked=${geofence.isLocked}',
+        );
         return BaseResponse.success(data: geofence, message: response.message);
       }
 
+      log('💡 [toggleGeofenceLock] Response ERROR: ${response.message}');
       return BaseResponse.error(message: response.message);
     } catch (e) {
       return BaseResponse.error(message: e.toString());

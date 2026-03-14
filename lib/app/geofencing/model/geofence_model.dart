@@ -52,7 +52,7 @@ class Geofence extends Equatable {
       latitude: (addressData['latitude'] as num?)?.toDouble(),
       longitude: (addressData['longitude'] as num?)?.toDouble(),
       address: addressData['place'] as String?,
-      isLocked: json['isLocked'] as bool?,
+      isLocked: json['notifyOnArrival'] as bool? ?? json['isLocked'] as bool?,
       isChildInside: json['isChildInside'] as bool?,
       createdAt: json['createdAt'] as String?,
       updatedAt: json['updatedAt'] as String?,
