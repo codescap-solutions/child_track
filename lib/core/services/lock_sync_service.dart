@@ -22,10 +22,24 @@ class LockSyncService {
 
   GlobalKey<NavigatorState>? _navigatorKey;
 
+  /// Holds a blocked package that arrived before the navigator was ready.
+  String? _pendingBlockedPackage;
+
   void initialize(GlobalKey<NavigatorState> navigatorKey) {
     _navigatorKey = navigatorKey;
     _lockEventChannel.setMethodCallHandler(_handleMethodCall);
     AppLogger.info('LockSyncService: initialized with lock event channel');
+  }
+
+  /// Call this after the initial route is settled (e.g. after SplashScreen
+  /// navigates to SosView) to flush any block event that arrived too early.
+  void navigateIfPending() {
+    if (_pendingBlockedPackage != null) {
+      final pkg = _pendingBlockedPackage!;
+      _pendingBlockedPackage = null;
+      AppLogger.info('LockSyncService: flushing pending appBlocked for $pkg');
+      _pushAppBlocked(pkg);
+    }
   }
 
   Future<dynamic> _handleMethodCall(MethodCall call) async {
@@ -36,19 +50,32 @@ class LockSyncService {
       case 'appBlocked':
         final String? packageName = call.arguments as String?;
         AppLogger.info(
-          'LockSyncService: appBlocked event, package=$packageName, navigatorKey=${_navigatorKey?.currentState != null}',
+          'LockSyncService: appBlocked event, package=$packageName, navigatorReady=${_navigatorKey?.currentState != null}',
         );
-        if (packageName != null && _navigatorKey?.currentState != null) {
-          _navigatorKey!.currentState!.pushNamed(
-            RouteNames.appBlocked,
-            arguments: packageName,
-          );
-          AppLogger.info('LockSyncService: Navigated to AppBlockedScreen');
+        if (packageName != null) {
+          if (_navigatorKey?.currentState != null) {
+            _pushAppBlocked(packageName);
+          } else {
+            // Navigator not ready yet (cold launch) — buffer and retry later.
+            _pendingBlockedPackage = packageName;
+            AppLogger.info(
+              'LockSyncService: navigator not ready, buffering block for $packageName',
+            );
+          }
         }
         break;
       default:
         break;
     }
+  }
+
+  void _pushAppBlocked(String packageName) {
+    _navigatorKey!.currentState!.pushNamed(
+      RouteNames.appBlocked,
+      // Fix: pass a Map so AppRouter can read appName/packageName correctly.
+      arguments: {'packageName': packageName, 'appName': null},
+    );
+    AppLogger.info('LockSyncService: Navigated to AppBlockedScreen for $packageName');
   }
 
   /// Pushes the list of locked packages to the native AppLockService.

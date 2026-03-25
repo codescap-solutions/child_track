@@ -57,6 +57,7 @@ class ScreenTimeSyncService {
 
             await uploadScreenTimeData(mergedScreenTime, childId);
             await _syncDeviceInfo(childId);
+            await _syncAppIcons(mergedScreenTime);
 
             // Save sync time
             _prefs.setString(
@@ -96,6 +97,7 @@ class ScreenTimeSyncService {
 
       await uploadScreenTimeData(mergedScreenTime, childId);
       await _syncDeviceInfo(childId);
+      await _syncAppIcons(mergedScreenTime);
 
       // Save sync time
       _prefs.setString(
@@ -246,12 +248,44 @@ class ScreenTimeSyncService {
         'network_type': deviceInfo.networkType,
         'sound_profile': deviceInfo.soundProfile,
         'is_online': deviceInfo.isOnline,
-        'online_since': deviceInfo.onlineSince,
+        'last_update': deviceInfo.onlineSince,
       };
       await _childRepo.postChildData(data);
       AppLogger.info('ScreenTimeSyncService: Device info synced successfully');
     } catch (e) {
       AppLogger.error('ScreenTimeSyncService: Device info sync failed: $e');
+    }
+  }
+
+  /// Check which app icons are missing on backend and upload them
+  Future<void> _syncAppIcons(List<AppScreenTimeModel> mergedScreenTime) async {
+    try {
+      final response = await _childRepo.getAvailableIcons();
+      List<String> availableIcons = [];
+      if (response.isSuccess && response.data != null) {
+        if (response.data is List) {
+          availableIcons = (response.data as List)
+              .map((e) => e.toString())
+              .toList();
+        } else if (response.data is Map &&
+            (response.data as Map).containsKey('icons')) {
+          final iconsData = (response.data as Map)['icons'];
+          if (iconsData is List) {
+            availableIcons = iconsData.map((e) => e.toString()).toList();
+          }
+        }
+      }
+
+      for (var app in mergedScreenTime) {
+        if (!availableIcons.contains(app.package)) {
+          final iconBytes = await _deviceInfoService.getAppIcon(app.package);
+          if (iconBytes != null && iconBytes.isNotEmpty) {
+            await _childRepo.uploadAppIcon(app.package, iconBytes);
+          }
+        }
+      }
+    } catch (e) {
+      AppLogger.error('ScreenTimeSyncService: Icon sync failed: $e');
     }
   }
 }

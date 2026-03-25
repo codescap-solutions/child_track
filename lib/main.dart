@@ -122,6 +122,11 @@ class _SplashScreenState extends State<SplashScreen> {
       } else {
         Navigator.pushReplacementNamed(context, RouteNames.onBoarding);
       }
+      // Flush any appBlocked event that arrived before the navigator was ready.
+      // Use a post-frame callback so the replacement route is fully mounted first.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        injector<LockSyncService>().navigateIfPending();
+      });
     }
   }
 

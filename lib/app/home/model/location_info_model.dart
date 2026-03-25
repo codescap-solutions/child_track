@@ -32,7 +32,7 @@ class LocationInfo {
       lng: toDouble(json['lng']),
       address: json['address'] ?? '',
       placeName: json['place_name'] ?? '',
-      since: json['since'] ?? '',
+      since: json['last_update'] ?? '',
       durationMinutes: json['duration_minutes'] ?? 0,
     );
   }

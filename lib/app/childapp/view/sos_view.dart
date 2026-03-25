@@ -618,7 +618,7 @@ class _SosViewContent extends StatelessWidget {
                             width: double.infinity,
                           ),
                           Text(
-                            'Naviq Dev 1.0.4',
+                            'Naviq Dev 1.0.6(Mar-24)',
                             style: AppTextStyles.caption.copyWith(
                               color: AppColors.textSecondary,
                             ),

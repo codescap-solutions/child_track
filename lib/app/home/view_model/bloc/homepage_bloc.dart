@@ -302,7 +302,7 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
       // Map 'timestamp' from socket (or 'since') to the 'since' field in model
       final since =
           data['timestamp'] ??
-          data['since'] ??
+          data['last_update'] ??
           DateTime.now().toIso8601String();
       // Extract place name logic
       String finalPlaceName = 'Unknown Place';

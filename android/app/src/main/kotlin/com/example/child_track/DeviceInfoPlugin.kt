@@ -24,6 +24,11 @@ import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
 import java.util.Calendar
 import java.util.concurrent.Executors
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.Drawable
+import java.io.ByteArrayOutputStream
 
 /**
  * FlutterPlugin for device info operations (screen time, installed apps, etc.)
@@ -169,6 +174,22 @@ class DeviceInfoPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
                     result.success(true)
                 } catch (e: Exception) {
                     result.error("ERROR", e.message, null)
+                }
+            }
+
+            "getAppIcon" -> {
+                executor.execute {
+                    try {
+                        val packageName = call.argument<String>("packageName") 
+                        if (packageName != null) {
+                            val iconBytes = getAppIconNative(packageName)
+                            mainHandler.post { result.success(iconBytes) }
+                        } else {
+                            mainHandler.post { result.error("ERROR", "No packageName provided", null) }
+                        }
+                    } catch (e: Exception) {
+                        mainHandler.post { result.error("ERROR", e.message, null) }
+                    }
                 }
             }
 
@@ -382,5 +403,41 @@ class DeviceInfoPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
         }
 
         return mode == AppOpsManager.MODE_ALLOWED
+    }
+
+    // ─── App Icon Extraction ───
+
+    private fun getAppIconNative(packageName: String): ByteArray? {
+        return try {
+            val pm = context.packageManager
+            val icon: Drawable = pm.getApplicationIcon(packageName)
+            val bitmap = drawableToBitmap(icon) ?: return null
+
+            val stream = ByteArrayOutputStream()
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
+            stream.toByteArray()
+        } catch (e: Exception) {
+            Log.e("DeviceInfoPlugin", "getAppIconNative error: ${e.message}")
+            null
+        }
+    }
+
+    private fun drawableToBitmap(drawable: Drawable): Bitmap? {
+        if (drawable is BitmapDrawable) {
+            if (drawable.bitmap != null) {
+                return drawable.bitmap
+            }
+        }
+        
+        val bitmap = if (drawable.intrinsicWidth <= 0 || drawable.intrinsicHeight <= 0) {
+            Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
+        } else {
+            Bitmap.createBitmap(drawable.intrinsicWidth, drawable.intrinsicHeight, Bitmap.Config.ARGB_8888)
+        }
+        
+        val canvas = Canvas(bitmap)
+        drawable.setBounds(0, 0, canvas.width, canvas.height)
+        drawable.draw(canvas)
+        return bitmap
     }
 }

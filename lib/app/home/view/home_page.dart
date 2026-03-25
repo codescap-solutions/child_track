@@ -362,7 +362,7 @@ class _HomePageState extends State<HomePage> {
                         ),
                         const SizedBox(height: AppSizes.spacingXS),
                         Text(
-                          _formatTimeAgo(state.currentLocation?.since),
+                          _formatTimeAgo(state.deviceInfo?.onlineSince),
                           style: AppTextStyles.caption.copyWith(
                             color: AppColors.textSecondary,
                           ),
@@ -547,7 +547,7 @@ class _HomePageState extends State<HomePage> {
                         MaterialPageRoute(
                           builder: (_) => const SocialAppsView(),
                         ),
-                      ),
+                      ).then((_) => _refreshData()),
                     ),
                   ),
                   const SizedBox(width: AppSizes.spacingM),
@@ -572,7 +572,7 @@ class _HomePageState extends State<HomePage> {
                               parentId: parentId,
                             ),
                           ),
-                        );
+                        ).then((_) => _refreshData());
                       },
                     ),
                   ),
@@ -619,7 +619,7 @@ class _HomePageState extends State<HomePage> {
                       fontSize: 10,
                       text: 'View all',
                       onPressed: () {
-                        AppRouter.push(context, RouteNames.trips);
+                        AppRouter.push(context, RouteNames.trips).then((_) => _refreshData());
                       },
                     ),
                   ],
@@ -646,7 +646,7 @@ class _HomePageState extends State<HomePage> {
                     MaterialPageRoute(
                       builder: (_) => const ChildLocationDetailView(),
                     ),
-                  );
+                  ).then((_) => _refreshData());
                 },
               ),
             ],
@@ -975,6 +975,7 @@ class _HomeMapBackgroundState extends State<_HomeMapBackground> {
   BitmapDescriptor? _cachedMarkerIcon;
   int? _cachedBatteryPercentage;
   GoogleMapController? _mapController;
+  bool _isFirstLocationAfterLoad = true;
 
   @override
   void initState() {
@@ -994,15 +995,16 @@ class _HomeMapBackgroundState extends State<_HomeMapBackground> {
     });
   }
 
-  void _animateTo(LatLng target) {
+  Future<void> _animateTo(LatLng target, {double? zoom}) async {
     if (_mapController == null) return;
 
     AppLogger.info("Moving camera to $target");
     try {
-      _mapController!.animateCamera(CameraUpdate.newLatLngZoom(target, 15.0));
+      final currentZoom = zoom ?? await _mapController!.getZoomLevel();
+      _mapController!.animateCamera(CameraUpdate.newLatLngZoom(target, currentZoom));
     } catch (e) {
       AppLogger.debug('MapController animateCamera error: $e');
-      _mapController = null;
+      // Do not nullify controller on a minor animation error to allow future updates
     }
   }
 
@@ -1022,7 +1024,9 @@ class _HomeMapBackgroundState extends State<_HomeMapBackground> {
         return prev.runtimeType != curr.runtimeType;
       },
       listener: (context, state) {
-        if (state is HomepageSuccess && state.currentLocation != null) {
+        if (state is HomepageSuccess && state.isLoading) {
+           _isFirstLocationAfterLoad = true;
+        } else if (state is HomepageSuccess && state.currentLocation != null) {
           final loc = LatLng(
             state.currentLocation!.lat,
             state.currentLocation!.lng,
@@ -1037,7 +1041,8 @@ class _HomeMapBackgroundState extends State<_HomeMapBackground> {
             // Use a small delay to ensure map is ready
             Future.delayed(const Duration(milliseconds: 100), () {
               if (mounted && _mapController != null) {
-                _animateTo(loc);
+                _animateTo(loc, zoom: _isFirstLocationAfterLoad ? 15.0 : null);
+                _isFirstLocationAfterLoad = false;
               }
             });
           }

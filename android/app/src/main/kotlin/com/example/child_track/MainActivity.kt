@@ -13,7 +13,8 @@ class MainActivity : FlutterActivity() {
     }
 
     private val deviceInfoPlugin = DeviceInfoPlugin()
-
+    private val handler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var pendingBlockRunnable: Runnable? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -29,13 +30,12 @@ class MainActivity : FlutterActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        setIntent(intent) // Update the stored intent
+        setIntent(intent)
         Log.d(TAG, "onNewIntent called, action=${intent.action}, extras=${intent.extras}")
         handleBlockedIntent(intent)
     }
 
     private fun handleBlockedIntent(intent: Intent) {
-        // Check via boolean extra (always set by AppLockService)
         val isBlocked = intent.getBooleanExtra("app_blocked", false)
         val packageName = intent.getStringExtra("blocked_package")
 
@@ -43,11 +43,18 @@ class MainActivity : FlutterActivity() {
 
         if (isBlocked && packageName != null) {
             Log.d(TAG, "Sending appBlocked event to Flutter for: $packageName")
-            // Delay to ensure Flutter engine and MethodChannel are ready
-            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+
+            // Cancel any previously pending block event — prevents duplicate
+            // Flutter navigations when onNewIntent fires multiple times rapidly.
+            pendingBlockRunnable?.let { handler.removeCallbacks(it) }
+
+            val runnable = Runnable {
                 deviceInfoPlugin.sendAppBlockedEvent(packageName)
                 Log.d(TAG, "appBlocked event sent to Flutter")
-            }, 500)
+                pendingBlockRunnable = null
+            }
+            pendingBlockRunnable = runnable
+            handler.postDelayed(runnable, 1500)
 
             // Clear the extras so we don't re-trigger on config changes
             intent.removeExtra("app_blocked")

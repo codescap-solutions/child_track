@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:battery_plus/battery_plus.dart';
 import 'package:child_track/app/childapp/model/scree_time_model.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -219,6 +220,23 @@ class ChildInfoService {
     } catch (e) {
       AppLogger.error('Error opening usage settings: $e');
       return false;
+    }
+  }
+
+  /// Get app icon bytes from native platform
+  Future<List<int>?> getAppIcon(String packageName) async {
+    try {
+      if (Platform.isAndroid) {
+        final result = await _channel.invokeMethod<Uint8List>(
+          'getAppIcon',
+          {'packageName': packageName},
+        );
+        return result;
+      }
+      return null;
+    } catch (e) {
+      AppLogger.error('Error getting app icon: $e');
+      return null;
     }
   }
 }

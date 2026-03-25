@@ -22,7 +22,7 @@ class DeviceInfo {
       networkType: json['network_type'] ?? '',
       soundProfile: json['sound_profile'] ?? '',
       isOnline: json['is_online'] ?? false,
-      onlineSince: json['online_since'] ?? '',
+      onlineSince: json['last_update'] ?? '',
     );
   }
 }

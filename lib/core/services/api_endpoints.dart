@@ -16,6 +16,8 @@ class ApiEndpoints {
   static const String postLocation = 'child/location';
   static const String postActivity = 'child/activity';
   static const String postAppUsage = 'app-usage';
+  static const String childAvailableIcons = 'child/available-icons';
+  static const String childUploadAppIcons = 'child/upload-icons';
 
   //parent Endpoints
   static const String getHome = 'parent/home';

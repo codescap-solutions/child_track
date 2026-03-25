@@ -4,6 +4,7 @@ import 'package:child_track/core/services/base_service.dart';
 import 'package:child_track/core/services/dio_client.dart';
 import 'package:child_track/core/services/shared_prefs_service.dart';
 import 'package:child_track/core/models/child_profile.dart';
+import 'package:dio/dio.dart';
 import 'package:child_track/core/utils/app_logger.dart';
 
 class ChildRepo extends BaseService {
@@ -100,6 +101,22 @@ class ChildRepo extends BaseService {
 
   Future<BaseResponse> postAppUsage(Map<String, dynamic> data) async {
     final response = await post(ApiEndpoints.postAppUsage, data: data);
+    return response;
+  }
+
+  Future<BaseResponse> getAvailableIcons() async {
+    final response = await get(ApiEndpoints.childAvailableIcons);
+    return response;
+  }
+
+  Future<BaseResponse> uploadAppIcon(String packageName, List<int> iconBytes) async {
+    final formData = FormData.fromMap({
+      packageName: MultipartFile.fromBytes(iconBytes, filename: '$packageName.png'),
+    });
+    final response = await post(
+      ApiEndpoints.childUploadAppIcons,
+      data: formData,
+    );
     return response;
   }
 

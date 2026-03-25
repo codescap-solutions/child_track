@@ -47,15 +47,17 @@
 	<true/>
 	<!-- Location Permissions -->
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>This app needs access to your location to show your current position on the map.</string>
+	<string>This app tracks device location for parental safety.</string>
 	<key>NSLocationAlwaysUsageDescription</key>
-	<string>This app needs access to your location to track your position.</string>
+	<string>This app tracks device location for parental safety.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>This app needs access to your location to show your current position on the map.</string>
+	<string>This app tracks device location for parental safety.</string>
 	<!-- URL Schemes for app detection -->
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>location</string>
+		<string>fetch</string>
+		<string>processing</string>
 	</array>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>

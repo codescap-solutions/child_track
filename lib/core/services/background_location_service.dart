@@ -103,7 +103,42 @@ class BackgroundLocationService {
 
 // Global reference for stream subscription to handle cancellation
 StreamSubscription<Position>? _positionSubscription;
+StreamSubscription<ServiceStatus>? _serviceStatusSubscription;
 LocationStateMachine? _stateMachine;
+
+void _startLocationStream(ServiceInstance service, LocationSettings locationSettings) {
+  _positionSubscription?.cancel();
+  StructuredLogger.log(LogTag.BG, 'Subscribing to location stream');
+  _positionSubscription = Geolocator.getPositionStream(locationSettings: locationSettings).listen(
+    (Position position) {
+      // Pass to State Machine (handles location posting + trip detection)
+      _stateMachine?.processLocation(position);
+
+      // Update Android Notification to show trip/location status
+      if (service is AndroidServiceInstance) {
+        final sm = _stateMachine;
+        String content;
+        if (sm != null && sm.isTripTracking) {
+          final mode = sm.tripMode == BgTripMode.walking
+              ? 'Walking'
+              : 'Vehicle';
+          content =
+              "Trip ($mode) • ${position.speed.toStringAsFixed(1)} m/s";
+        } else {
+          content = "Tracking • ${position.speed.toStringAsFixed(1)} m/s";
+        }
+
+        service.setForegroundNotificationInfo(
+          title: "NaviQ Active",
+          content: content,
+        );
+      }
+    },
+    onError: (e) {
+      StructuredLogger.log(LogTag.BG, 'Stream Error', error: e);
+    },
+  );
+}
 
 @pragma('vm:entry-point')
 void onStart(ServiceInstance service) async {
@@ -135,6 +170,7 @@ void onStart(ServiceInstance service) async {
     service.on('stopService').listen((event) {
       StructuredLogger.log(LogTag.BG, 'Stop signal received');
       _positionSubscription?.cancel();
+      _serviceStatusSubscription?.cancel();
       service.stopSelf();
     });
 
@@ -212,37 +248,24 @@ void onStart(ServiceInstance service) async {
     }
 
     // 5. Start Stream
-    StructuredLogger.log(LogTag.BG, 'Subscribing to location stream');
-    _positionSubscription =
-        Geolocator.getPositionStream(locationSettings: locationSettings).listen(
-          (Position position) {
-            // Pass to State Machine (handles location posting + trip detection)
-            _stateMachine?.processLocation(position);
+    _startLocationStream(service, locationSettings);
 
-            // Update Android Notification to show trip/location status
-            if (service is AndroidServiceInstance) {
-              final sm = _stateMachine;
-              String content;
-              if (sm != null && sm.isTripTracking) {
-                final mode = sm.tripMode == BgTripMode.walking
-                    ? 'Walking'
-                    : 'Vehicle';
-                content =
-                    "Trip ($mode) • ${position.speed.toStringAsFixed(1)} m/s";
-              } else {
-                content = "Tracking • ${position.speed.toStringAsFixed(1)} m/s";
-              }
-
-              service.setForegroundNotificationInfo(
-                title: "NaviQ Active",
-                content: content,
-              );
-            }
-          },
-          onError: (e) {
-            StructuredLogger.log(LogTag.BG, 'Stream Error', error: e);
-          },
-        );
+    // 6. Listen to Service Status
+    _serviceStatusSubscription = Geolocator.getServiceStatusStream().listen(
+      (ServiceStatus status) {
+        StructuredLogger.log(LogTag.BG, 'Location Service Status changed: $status');
+        if (status == ServiceStatus.enabled) {
+          StructuredLogger.log(LogTag.BG, 'Location Service re-enabled, restarting stream');
+          _startLocationStream(service, locationSettings);
+        } else {
+          StructuredLogger.log(LogTag.BG, 'Location Service disabled, cancelling stream');
+          _positionSubscription?.cancel();
+        }
+      },
+      onError: (e) {
+        StructuredLogger.log(LogTag.BG, 'Service Status Stream Error', error: e);
+      }
+    );
   } catch (e) {
     StructuredLogger.log(LogTag.BG, 'onStart Fatal Error', error: e);
   }
