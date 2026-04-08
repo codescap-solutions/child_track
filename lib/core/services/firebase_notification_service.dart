@@ -1,15 +1,16 @@
 import 'dart:async';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/app_logger.dart';
 import 'package:child_track/core/services/background_task_service.dart';
 import 'package:child_track/core/services/shared_prefs_service.dart';
-import 'package:child_track/core/services/lock_sync_service.dart';
 import 'package:child_track/core/di/injector.dart';
 import 'package:child_track/app/auth/view_model/auth_repository.dart';
 import 'package:child_track/app/childapp/view_model/repository/child_repo.dart';
 import 'package:child_track/app/social_apps/view_model/bloc/app_lock_bloc.dart';
 import 'package:child_track/app/social_apps/view_model/bloc/app_lock_event.dart';
+import 'package:child_track/app/social_apps/view_model/app_lock_repository.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:child_track/core/services/csv_file_logger.dart';
 
@@ -45,10 +46,38 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   if (message.data['type'] == 'SYNC_LOCKED_APPS') {
     AppLogger.info('Received SYNC_LOCKED_APPS command via FCM (background)');
     try {
-      // Initialize dependencies if needed (background isolate)
-      await initializeDependencies();
-      await LockSyncService().fetchAndSyncLockedApps();
-      AppLogger.info('SYNC_LOCKED_APPS: Lock list synced from background');
+      // Background isolate can't use MethodChannel to reach native plugins.
+      // Instead, we fetch the lock list and write it to SharedPreferences,
+      // which IS shared across isolates AND readable by native Kotlin code.
+      // AppLockService reads this on every accessibility event.
+      await SharedPrefsService.init();
+      
+      // We need DioClient to call the API — initialize minimal deps
+      if (!injector.isRegistered<SharedPrefsService>()) {
+        await initializeDependencies();
+      }
+
+      final repo = injector<AppLockRepository>();
+      final response = await repo.getChildLockedApps();
+
+      if (response.isSuccess && response.data != null) {
+        final packages = response.data!.lockedPackages
+            .map((e) => e.packageName)
+            .toList();
+        
+        // Save to SharedPreferences as a comma-separated string.
+        // Flutter's setStringList uses a custom internal encoding that crashes
+        // Android's getStringSet. A simple CSV string is safer.
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('locked_packages_csv', packages.join(','));
+        AppLogger.info(
+          'SYNC_LOCKED_APPS (bg): Saved ${packages.length} packages to SharedPrefs CSV: $packages',
+        );
+      } else {
+        AppLogger.error(
+          'SYNC_LOCKED_APPS (bg): API failed: ${response.message}',
+        );
+      }
     } catch (e) {
       AppLogger.error('SYNC_LOCKED_APPS background sync error: $e');
     }

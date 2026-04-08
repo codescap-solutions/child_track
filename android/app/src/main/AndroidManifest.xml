@@ -1,6 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Network state — required for ConnectivityBloc (online/offline detection)
+         and Network Type/Status shown in the child device info dialog -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <!-- Location Permissions -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
@@ -28,8 +32,8 @@
         android:icon="@mipmap/ic_launcher">
         <!-- Declare as a monitoring tool per Google Play policy -->
         <meta-data
-            android:name="com.google.android.gms.monitoring.isMonitoringTool"
-            android:value="child_monitoring" />
+            android:name="isMonitoringTool"
+            android:value="true" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -117,6 +121,12 @@
 
          In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
     <queries>
+        <!-- Required for url_launcher to resolve the phone dialer (SOS button) on Android 11+ -->
+        <intent>
+            <action android:name="android.intent.action.DIAL" />
+            <data android:scheme="tel" />
+        </intent>
+        <!-- Required to query activities that can process text -->
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>

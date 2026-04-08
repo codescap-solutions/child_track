@@ -60,6 +60,16 @@ class DeviceInfoPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
         }
     }
 
+    fun sendClearBlockEvent() {
+        Log.d("DeviceInfoPlugin", "sendClearBlockEvent called, channelInit=${::lockEventChannel.isInitialized}")
+        if (::lockEventChannel.isInitialized) {
+            mainHandler.post {
+                Log.d("DeviceInfoPlugin", "Invoking clearBlockScreen on lockEventChannel")
+                lockEventChannel.invokeMethod("clearBlockScreen", null)
+            }
+        }
+    }
+
     // ─── FlutterPlugin Lifecycle ───
 
     override fun onAttachedToEngine(binding: FlutterPlugin.FlutterPluginBinding) {
@@ -190,6 +200,18 @@ class DeviceInfoPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
                     } catch (e: Exception) {
                         mainHandler.post { result.error("ERROR", e.message, null) }
                     }
+                }
+            }
+
+            "goHome" -> {
+                try {
+                    val intent = Intent(Intent.ACTION_MAIN)
+                    intent.addCategory(Intent.CATEGORY_HOME)
+                    intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                    context.startActivity(intent)
+                    result.success(true)
+                } catch (e: Exception) {
+                    result.error("ERROR", e.message, null)
                 }
             }
 

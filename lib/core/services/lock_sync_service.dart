@@ -64,18 +64,46 @@ class LockSyncService {
           }
         }
         break;
+      case 'clearBlockScreen':
+        AppLogger.info('LockSyncService: clearBlockScreen event received');
+        _pendingBlockedPackage = null;
+        final nav = _navigatorKey?.currentState;
+        if (nav != null) {
+          // If we are currently on the appBlocked route, pop it.
+          // Because pushNamedAndRemoveUntil was used, popping it will
+          // return to the root route (SosView).
+          nav.popUntil((route) => route.isFirst);
+          AppLogger.info('LockSyncService: Popped to root route');
+        }
+        break;
       default:
         break;
     }
   }
 
   void _pushAppBlocked(String packageName) {
-    _navigatorKey!.currentState!.pushNamed(
+    AppLogger.info(
+      '>>> LockSyncService: _pushAppBlocked called for $packageName',
+    );
+
+    final nav = _navigatorKey?.currentState;
+    if (nav == null) {
+      AppLogger.error('>>> LockSyncService: Navigator state is NULL, cannot navigate');
+      _pendingBlockedPackage = packageName;
+      return;
+    }
+
+    // Use pushNamedAndRemoveUntil to clear any existing AppBlockedScreen
+    // before pushing a new one. This prevents stacking multiple block screens.
+    // We keep the base route (SosView) and remove everything above it.
+    nav.pushNamedAndRemoveUntil(
       RouteNames.appBlocked,
-      // Fix: pass a Map so AppRouter can read appName/packageName correctly.
+      (route) => route.isFirst,  // Keep only the base route (SosView)
       arguments: {'packageName': packageName, 'appName': null},
     );
-    AppLogger.info('LockSyncService: Navigated to AppBlockedScreen for $packageName');
+    AppLogger.info(
+      '>>> LockSyncService: Navigated to AppBlockedScreen for $packageName',
+    );
   }
 
   /// Pushes the list of locked packages to the native AppLockService.

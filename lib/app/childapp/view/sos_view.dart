@@ -64,6 +64,13 @@ class _SosViewState extends State<SosView> with WidgetsBindingObserver {
     AppLogger.info('SosView: Lifecycle state changed to $state');
     if (state == AppLifecycleState.resumed) {
       AppLogger.info('SosView: App resumed, checking permission status...');
+      // Re-sync locked apps from server. This is critical because:
+      // - The FCM background handler runs in a separate Dart isolate
+      //   where MethodChannel to AppLockService doesn't work.
+      // - So if the parent unlocked an app while we were in background,
+      //   the lock list was fetched but couldn't be sent to native.
+      // - This call runs in the main isolate where the channel works.
+      injector<LockSyncService>().fetchAndSyncLockedApps();
       // Check permission once with a small delay instead of polling 5 times
       // This significantly reduces the number of expensive native calls
       Future.delayed(const Duration(milliseconds: 500), () {
@@ -534,52 +541,69 @@ class _SosViewContent extends StatelessWidget {
                             ),
                           ),
                           const Spacer(),
-                          Container(
-                            width: 220,
-                            height: 220,
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  Color(0xFF004CE8), // #004CE8
-                                  Color(0xFF6F9EFF), // #6F9EFF
+                          GestureDetector(
+                            onTap: () async {
+                              if (parentPhone != 'N/A') {
+                                final Uri launchUri = Uri(
+                                  scheme: 'tel',
+                                  path: parentPhone,
+                                );
+                                try {
+                                  if (!await launchUrl(launchUri)) {
+                                    AppLogger.error('Could not launch dialer');
+                                  }
+                                } catch (e) {
+                                  AppLogger.error('Error launching dialer: $e');
+                                }
+                              }
+                            },
+                            child: Container(
+                              width: 220,
+                              height: 220,
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    Color(0xFF004CE8), // #004CE8
+                                    Color(0xFF6F9EFF), // #6F9EFF
+                                  ],
+                                ),
+                                shape: BoxShape.circle,
+                                color: Colors.blue,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.blueAccent.withValues(
+                                      alpha: 0.3,
+                                    ),
+                                    blurRadius: 20,
+                                    spreadRadius: 40,
+                                    offset: const Offset(0, 8),
+                                  ),
                                 ],
                               ),
-                              shape: BoxShape.circle,
-                              color: Colors.blue,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.blueAccent.withValues(
-                                    alpha: 0.3,
-                                  ),
-                                  blurRadius: 20,
-                                  spreadRadius: 40,
-                                  offset: const Offset(0, 8),
+                              child: Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      'SOS',
+                                      style: AppTextStyles.headlineXL.copyWith(
+                                        color: AppColors.surfaceColor,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      'Press this button\n in emergency',
+                                      textAlign: TextAlign.center,
+                                      style: AppTextStyles.body2.copyWith(
+                                        color: AppColors.surfaceColor,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                  ],
                                 ),
-                              ],
-                            ),
-                            child: Center(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    'SOS',
-                                    style: AppTextStyles.headlineXL.copyWith(
-                                      color: AppColors.surfaceColor,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    'Press this button\n in emergency',
-                                    textAlign: TextAlign.center,
-                                    style: AppTextStyles.body2.copyWith(
-                                      color: AppColors.surfaceColor,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                ],
                               ),
                             ),
                           ),
@@ -618,7 +642,7 @@ class _SosViewContent extends StatelessWidget {
                             width: double.infinity,
                           ),
                           Text(
-                            'Naviq Dev 1.0.6(Mar-24)',
+                            'Naviq Dev 1.0.6(Apr-03)',
                             style: AppTextStyles.caption.copyWith(
                               color: AppColors.textSecondary,
                             ),
