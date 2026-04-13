@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:child_track/app/social_apps/model/locked_app_model.dart';
 import 'package:child_track/app/social_apps/view_model/app_lock_repository.dart';
+import 'package:child_track/core/services/base_service.dart';
 import 'package:child_track/core/services/lock_sync_service.dart';
 import 'package:child_track/core/services/shared_prefs_service.dart';
 import 'package:child_track/core/utils/app_logger.dart';
@@ -123,7 +124,7 @@ class AppLockBloc extends Bloc<AppLockEvent, AppLockState> {
     await _fetchChildLockedApps(emit);
   }
 
-  // ─── Toggle App Lock (parent side — calls PUT API) ───
+  // ─── Toggle App Lock (parent side — calls POST lock-apps / unlock-apps) ───
 
   Future<void> _onToggleAppLock(
     ToggleAppLock event,
@@ -138,53 +139,51 @@ class AppLockBloc extends Bloc<AppLockEvent, AppLockState> {
     // Optimistic UI update
     if (event.isLocked) {
       newLockedPackages.add(event.packageName);
-      _lockedItems.add(
-        LockedPackageItem(
-          packageName: event.packageName,
-          appName: event.appName,
-          lockDurationMinutes: event.durationMinutes,
-        ),
-      );
     } else {
       newLockedPackages.remove(event.packageName);
-      _lockedItems.removeWhere((i) => i.packageName == event.packageName);
     }
 
     emit(currentState.copyWith(lockedPackages: newLockedPackages));
 
     if (_isParent) {
-      // Call PUT API — backend handles FCM push to child
       final childId =
           _prefs.getString('selected_child_id') ??
           _prefs.getString('child_id') ??
           '';
       if (childId.isEmpty) return;
 
-      final response = await _repository.updateLockedApps(
-        childId: childId,
-        lockedPackages: _lockedItems,
-      );
+      // Determine platform from the package name pattern
+      final platform = event.packageName.startsWith('usage_cat_') ||
+              event.packageName.startsWith('usage_app_')
+          ? 'ios'
+          : 'android';
 
-      if (response.isSuccess && response.data != null) {
-        // Refresh with server-canonical data
-        _lockedItems = response.data!.lockedPackages;
-        final serverSet = _lockedItems.map((e) => e.packageName).toSet();
-        emit(currentState.copyWith(lockedPackages: serverSet));
-        AppLogger.info('Locked apps updated via API: ${serverSet.length} apps');
+      BaseResponse response;
+      if (event.isLocked) {
+        response = await _repository.lockApps(
+          childId: childId,
+          tokens: [event.packageName],
+          platform: platform,
+        );
+      } else {
+        response = await _repository.unlockApps(
+          childId: childId,
+          tokens: [event.packageName],
+          platform: platform,
+        );
+      }
+
+      if (response.isSuccess) {
+        AppLogger.info('${event.isLocked ? "Lock" : "Unlock"} API success');
+        // Re-fetch to get server-canonical state
+        await _fetchParentLockedApps(emit);
       } else {
         // Revert optimistic update
-        AppLogger.error('Failed to update locked apps: ${response.message}');
+        AppLogger.error('Failed to ${event.isLocked ? "lock" : "unlock"} apps: ${response.message}');
         if (event.isLocked) {
           newLockedPackages.remove(event.packageName);
-          _lockedItems.removeWhere((i) => i.packageName == event.packageName);
         } else {
           newLockedPackages.add(event.packageName);
-          _lockedItems.add(
-            LockedPackageItem(
-              packageName: event.packageName,
-              appName: event.appName,
-            ),
-          );
         }
         emit(currentState.copyWith(lockedPackages: newLockedPackages));
       }

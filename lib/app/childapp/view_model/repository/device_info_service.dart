@@ -135,7 +135,39 @@ class ChildInfoService {
   /// Get all installed apps (system and user apps)
   Future<List<InstalledApp>> getInstalledApps() async {
     try {
-      if (Platform.isAndroid || Platform.isIOS) {
+      if (Platform.isIOS) {
+        const iosChannel = MethodChannel('com.truenyx.naviq/parental_control');
+        final result = await iosChannel.invokeMethod<List<dynamic>>(
+          'getInstalledApps',
+        );
+        if (result != null) {
+          final apps = <InstalledApp>[];
+          for (final item in result) {
+            try {
+              final map = item as Map;
+              final convertedMap = <String, dynamic>{};
+              map.forEach((key, value) {
+                final stringKey = key.toString();
+                if (value == null) {
+                  convertedMap[stringKey] = null;
+                } else if (value is int || value is String || value is bool) {
+                  convertedMap[stringKey] = value;
+                } else {
+                  convertedMap[stringKey] = value.toString();
+                }
+              });
+              apps.add(InstalledApp.fromJson(convertedMap));
+            } catch (e) {
+              AppLogger.error('Error parsing iOS app item: $e');
+              continue;
+            }
+          }
+          return apps;
+        }
+        return [];
+      }
+
+      if (Platform.isAndroid) {
         final result = await _channel.invokeMethod<List<dynamic>>(
           'getInstalledApps',
         );
@@ -177,6 +209,18 @@ class ChildInfoService {
   //todo: aneesh get screen time and convert to list of AppScreenTimeModel
   Future<List<AppScreenTimeModel>> getScreenTime() async {
     try {
+      if (Platform.isIOS) {
+        const iosChannel = MethodChannel('com.truenyx.naviq/parental_control');
+        final result = await iosChannel.invokeMethod<List<dynamic>>('getScreenTime');
+        if (result != null) {
+          return result.map((e) {
+            final map = Map<String, dynamic>.from(e as Map);
+            return AppScreenTimeModel.fromJson(map);
+          }).toList();
+        }
+        return [];
+      }
+
       final result = await _channel.invokeMethod<List<dynamic>>(
         'getScreenTime',
       );
@@ -196,6 +240,15 @@ class ChildInfoService {
   /// Check if usage stats permission is granted
   Future<bool> checkUsagePermission() async {
     try {
+      AppLogger.info('checkUsagePermission called. Platform.isIOS: ${Platform.isIOS}');
+      if (Platform.isIOS) {
+        const iosChannel = MethodChannel('com.truenyx.naviq/parental_control');
+        AppLogger.info('Invoking checkScreenTimePermission on parental_control channel');
+        final result = await iosChannel.invokeMethod<bool>('checkScreenTimePermission');
+        AppLogger.info('Result from checkScreenTimePermission: $result');
+        return result ?? false;
+      }
+
       if (Platform.isAndroid) {
         final result = await _channel.invokeMethod<bool>(
           'checkUsagePermission',
@@ -212,10 +265,24 @@ class ChildInfoService {
   /// Open usage settings
   Future<bool> openUsageSettings() async {
     try {
+      AppLogger.info('openUsageSettings called. Platform.isIOS: ${Platform.isIOS}');
+      if (Platform.isIOS) {
+        const iosChannel = MethodChannel('com.truenyx.naviq/parental_control');
+        AppLogger.info('Invoking requestScreenTimePermission on parental_control channel');
+        final result = await iosChannel.invokeMethod<bool>('requestScreenTimePermission');
+        AppLogger.info('Result from requestScreenTimePermission: $result');
+        return result ?? false;
+      }
+
       if (Platform.isAndroid) {
         await _channel.invokeMethod<bool>('openUsageSettings');
         return true;
       }
+      return false;
+    } on PlatformException catch (e) {
+      AppLogger.error(
+        'PlatformException in openUsageSettings — code: ${e.code}, message: ${e.message}, details: ${e.details}',
+      );
       return false;
     } catch (e) {
       AppLogger.error('Error opening usage settings: $e');
@@ -226,6 +293,15 @@ class ChildInfoService {
   /// Get app icon bytes from native platform
   Future<List<int>?> getAppIcon(String packageName) async {
     try {
+      if (Platform.isIOS) {
+        const iosChannel = MethodChannel('com.truenyx.naviq/parental_control');
+        final result = await iosChannel.invokeMethod<Uint8List>(
+          'getAppIcon',
+          {'packageName': packageName},
+        );
+        return result;
+      }
+
       if (Platform.isAndroid) {
         final result = await _channel.invokeMethod<Uint8List>(
           'getAppIcon',
@@ -237,6 +313,46 @@ class ChildInfoService {
     } catch (e) {
       AppLogger.error('Error getting app icon: $e');
       return null;
+    }
+  }
+
+  /// Open native iOS Family Activity Picker to select apps for monitoring
+  /// Returns structured data: [{id: "usage_cat_XXX", type: "category", displayName: "..."}]
+  Future<List<Map<String, dynamic>>> openFamilyActivityPicker() async {
+    try {
+      if (Platform.isIOS) {
+        const iosChannel = MethodChannel('com.truenyx.naviq/parental_control');
+        AppLogger.info('💡 Invoking openFamilyActivityPicker on parental_control channel');
+        final result = await iosChannel.invokeMethod<List<dynamic>>(
+          'openFamilyActivityPicker',
+        );
+        
+        if (result != null) {
+          AppLogger.info('✅ FamilyActivityPicker returned ${result.length} items');
+          final items = result.map((e) {
+            if (e is Map) {
+              return Map<String, dynamic>.from(e);
+            }
+            // Backward compatibility: if native returns plain strings
+            return <String, dynamic>{
+              'id': e.toString(),
+              'type': e.toString().contains('_cat_') ? 'category' : 'app',
+              'displayName': e.toString(),
+            };
+          }).toList();
+          
+          for (final item in items) {
+            AppLogger.info('  📦 ${item['type']}: ${item['id']} → ${item['displayName']}');
+          }
+          return items;
+        } else {
+          AppLogger.warning('⚠️ FamilyActivityPicker returned NULL or user cancelled');
+        }
+      }
+      return [];
+    } catch (e) {
+      AppLogger.error('❌ Error opening family activity picker: $e');
+      return [];
     }
   }
 }

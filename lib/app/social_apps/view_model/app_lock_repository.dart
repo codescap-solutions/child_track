@@ -88,4 +88,48 @@ class AppLockRepository extends BaseService {
       statusCode: response.statusCode,
     );
   }
+
+  // ─── New Lock/Unlock APIs (POST /lock-apps, POST /unlock-apps) ───
+
+  /// POST /lock-apps — locks specific apps on the child device
+  Future<BaseResponse> lockApps({
+    required String childId,
+    required List<String> tokens,
+    required String platform,
+  }) async {
+    final body = {
+      'childId': childId,
+      'tokens': tokens,
+      'platform': platform,
+    };
+
+    final response = await post(
+      ApiEndpoints.lockApps,
+      data: body,
+    );
+
+    AppLogger.info('lockApps response: ${response.isSuccess}, ${response.message}');
+    return response;
+  }
+
+  /// POST /unlock-apps — unlocks specific apps on the child device
+  Future<BaseResponse> unlockApps({
+    required String childId,
+    required List<String> tokens,
+    required String platform,
+  }) async {
+    final body = {
+      'childId': childId,
+      'tokens': tokens,
+      'platform': platform,
+    };
+
+    final response = await post(
+      ApiEndpoints.unlockApps,
+      data: body,
+    );
+
+    AppLogger.info('unlockApps response: ${response.isSuccess}, ${response.message}');
+    return response;
+  }
 }

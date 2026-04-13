@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:child_track/app/childapp/view_model/repository/device_info_service.dart';
 import 'package:child_track/app/home/model/device_model.dart';
 import 'package:child_track/app/childapp/view_model/bloc/child_bloc.dart';
 import 'package:child_track/core/di/injector.dart';
@@ -537,6 +539,105 @@ class _SosViewContent extends StatelessWidget {
                                   hasNotificationPermission,
                                   () => Permission.notification.request(),
                                 ),
+                                if (Platform.isIOS) ...[
+                                  const SizedBox(height: AppSizes.spacingM),
+                                  StatefulBuilder(
+                                    builder: (context, setLocalState) {
+                                      return Column(
+                                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                                        children: [
+                                          CommonButton(
+                                            text: 'Select Apps to Track',
+                                            width: double.infinity,
+                                            height: 50,
+                                            onPressed: () async {
+                                              final scaffoldMessenger = ScaffoldMessenger.of(context);
+                                              final result = await injector<ChildInfoService>()
+                                                  .openFamilyActivityPicker();
+                                              if (result.isNotEmpty) {
+                                                final prefs = injector<SharedPrefsService>();
+                                                final Map<String, String> tokenMap = {};
+                                                for (final item in result) {
+                                                  final id = item['id'] as String? ?? '';
+                                                  final name = item['displayName'] as String? ?? '';
+                                                  if (id.isNotEmpty && name.isNotEmpty) {
+                                                    tokenMap[id] = name;
+                                                  }
+                                                }
+                                                await prefs.setString(
+                                                  'ios_token_label_map',
+                                                  tokenMap.entries.map((e) => '${e.key}::${e.value}').join('||'),
+                                                );
+                                                AppLogger.info('Saved ${tokenMap.length} token labels to SharedPrefs');
+                                                setLocalState(() {}); // Refresh chips
+                                                
+                                                scaffoldMessenger.showSnackBar(
+                                                  SnackBar(
+                                                    content: Text('✅ ${result.length} apps/categories selected for tracking'),
+                                                    backgroundColor: Colors.green,
+                                                  ),
+                                                );
+                                              }
+                                            },
+                                          ),
+                                          // Show currently tracked apps/categories
+                                          Builder(builder: (context) {
+                                            final mapStr = injector<SharedPrefsService>()
+                                                .getString('ios_token_label_map') ?? '';
+                                            if (mapStr.isEmpty) return const SizedBox.shrink();
+                                            
+                                            final entries = <MapEntry<String, String>>[];
+                                            for (final entry in mapStr.split('||')) {
+                                              final parts = entry.split('::');
+                                              if (parts.length == 2 && parts[0].isNotEmpty) {
+                                                entries.add(MapEntry(parts[0], parts[1]));
+                                              }
+                                            }
+                                            if (entries.isEmpty) return const SizedBox.shrink();
+                                            
+                                            return Padding(
+                                              padding: const EdgeInsets.only(top: AppSizes.spacingS),
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    'Tracked (${entries.length})',
+                                                    style: AppTextStyles.caption.copyWith(
+                                                      color: AppColors.textSecondary,
+                                                      fontWeight: FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 4),
+                                                  Wrap(
+                                                    spacing: 6,
+                                                    runSpacing: 4,
+                                                    children: entries.map((e) {
+                                                      final isCategory = e.key.startsWith('usage_cat_');
+                                                      return Chip(
+                                                        avatar: Icon(
+                                                          isCategory ? Icons.category : Icons.apps,
+                                                          size: 14,
+                                                          color: AppColors.primaryColor,
+                                                        ),
+                                                        label: Text(
+                                                          e.value,
+                                                          style: AppTextStyles.caption.copyWith(fontSize: 11),
+                                                        ),
+                                                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                                        visualDensity: VisualDensity.compact,
+                                                        padding: EdgeInsets.zero,
+                                                      );
+                                                    }).toList(),
+                                                  ),
+                                                ],
+                                              ),
+                                            );
+                                          }),
+                                        ],
+                                      );
+                                    },
+                                  ),
+                                ],
                               ],
                             ),
                           ),

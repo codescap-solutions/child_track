@@ -109,6 +109,23 @@ class LockSyncService {
   /// Pushes the list of locked packages to the native AppLockService.
   /// The native service will immediately start blocking these apps.
   Future<bool> syncLockedAppsToNative(List<String> packages) async {
+    if (Platform.isIOS) {
+      try {
+        const iosChannel = MethodChannel('com.truenyx.naviq/parental_control');
+        final result = await iosChannel.invokeMethod<bool>(
+          'updateLockList',
+          packages,
+        );
+        AppLogger.info(
+          'Synced ${packages.length} locked apps to iOS native: $result',
+        );
+        return result ?? false;
+      } catch (e) {
+        AppLogger.error('Error syncing locked apps to iOS native: $e');
+        return false;
+      }
+    }
+
     if (!Platform.isAndroid) return false;
     try {
       final result = await _channel.invokeMethod<bool>(
@@ -127,6 +144,19 @@ class LockSyncService {
 
   /// Checks if the Accessibility Service (AppLockService) is enabled.
   Future<bool> checkAccessibilityPermission() async {
+    if (Platform.isIOS) {
+      try {
+        const iosChannel = MethodChannel('com.truenyx.naviq/parental_control');
+        final isEnabled = await iosChannel.invokeMethod<bool>(
+          'checkScreenTimePermission',
+        );
+        return isEnabled ?? false;
+      } catch (e) {
+        AppLogger.error('Error checking iOS screen time permission: $e');
+        return false;
+      }
+    }
+
     if (!Platform.isAndroid) return false;
     try {
       final isEnabled = await _channel.invokeMethod<bool>(
@@ -141,6 +171,22 @@ class LockSyncService {
 
   /// Opens the Android Accessibility Settings page so the user can enable the service.
   Future<bool> openAccessibilitySettings() async {
+    AppLogger.info('openAccessibilitySettings called. Platform.isIOS: ${Platform.isIOS}');
+    if (Platform.isIOS) {
+      try {
+        const iosChannel = MethodChannel('com.truenyx.naviq/parental_control');
+        AppLogger.info('Invoking requestScreenTimePermission from LockSyncService');
+        final result = await iosChannel.invokeMethod<bool>(
+          'requestScreenTimePermission',
+        );
+        AppLogger.info('requestScreenTimePermission returned: $result');
+        return result ?? false;
+      } catch (e) {
+        AppLogger.error('Error requesting iOS screen time permission: $e');
+        return false;
+      }
+    }
+
     if (!Platform.isAndroid) return false;
     try {
       final result = await _channel.invokeMethod<bool>(
@@ -157,7 +203,7 @@ class LockSyncService {
   /// to the native AppLockService. Call this on child app startup
   /// and when receiving SYNC_LOCKED_APPS FCM push.
   Future<void> fetchAndSyncLockedApps() async {
-    if (!Platform.isAndroid) return;
+    if (!Platform.isAndroid && !Platform.isIOS) return;
     try {
       final repo = injector<AppLockRepository>();
       final response = await repo.getChildLockedApps();

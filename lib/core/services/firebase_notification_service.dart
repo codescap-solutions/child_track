@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -46,8 +48,8 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   if (message.data['type'] == 'SYNC_LOCKED_APPS') {
     AppLogger.info('Received SYNC_LOCKED_APPS command via FCM (background)');
     try {
-      // Background isolate can't use MethodChannel to reach native plugins.
-      // Instead, we fetch the lock list and write it to SharedPreferences,
+      // Background isolate can't use MethodChannel to reach native plugins on some setups.
+      // On Android, we fetch the lock list and write it to SharedPreferences,
       // which IS shared across isolates AND readable by native Kotlin code.
       // AppLockService reads this on every accessibility event.
       await SharedPrefsService.init();
@@ -73,6 +75,17 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
         AppLogger.info(
           'SYNC_LOCKED_APPS (bg): Saved ${packages.length} packages to SharedPrefs CSV: $packages',
         );
+
+        // Attempt to sync natively for iOS from background isolate
+        if (Platform.isIOS) {
+          try {
+            const iosChannel = MethodChannel('com.truenyx.naviq/parental_control');
+            await iosChannel.invokeMethod<bool>('updateLockList', packages);
+            AppLogger.info('SYNC_LOCKED_APPS (bg): Synced to iOS native');
+          } catch (iosErr) {
+            AppLogger.error('SYNC_LOCKED_APPS (bg): iOS sync error: $iosErr');
+          }
+        }
       } else {
         AppLogger.error(
           'SYNC_LOCKED_APPS (bg): API failed: ${response.message}',

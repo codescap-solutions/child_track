@@ -139,7 +139,40 @@ class DeviceInfoService {
     bool includeSystemApps = false,
   }) async {
     try {
-      if (Platform.isAndroid || Platform.isIOS) {
+      if (Platform.isIOS) {
+        const iosChannel = MethodChannel('com.truenyx.naviq/parental_control');
+        final result = await iosChannel.invokeMethod<List<dynamic>>(
+          'getInstalledApps',
+          {'includeSystemApps': includeSystemApps},
+        );
+        if (result != null) {
+          final apps = <InstalledApp>[];
+          for (final item in result) {
+            try {
+              final map = item as Map;
+              final convertedMap = <String, dynamic>{};
+              map.forEach((key, value) {
+                final stringKey = key.toString();
+                if (value == null) {
+                  convertedMap[stringKey] = null;
+                } else if (value is int || value is String || value is bool) {
+                  convertedMap[stringKey] = value;
+                } else {
+                  convertedMap[stringKey] = value.toString();
+                }
+              });
+              apps.add(InstalledApp.fromJson(convertedMap));
+            } catch (e) {
+              AppLogger.error('Error parsing iOS app item: $e');
+              continue;
+            }
+          }
+          return apps;
+        }
+        return [];
+      }
+
+      if (Platform.isAndroid) {
         final result = await _channel.invokeMethod<List<dynamic>>(
           'getInstalledApps',
           {'includeSystemApps': includeSystemApps},
@@ -181,6 +214,15 @@ class DeviceInfoService {
 
   Future checkUsagePermission() async {
     try {
+      if (Platform.isIOS) {
+        const iosChannel = MethodChannel('com.truenyx.naviq/parental_control');
+        final hasPermission = await iosChannel.invokeMethod<bool>('checkScreenTimePermission');
+        if (hasPermission == false) {
+          await iosChannel.invokeMethod('requestScreenTimePermission');
+        }
+        return;
+      }
+
       if (Platform.isAndroid) {
         final hasPermission = await _channel.invokeMethod<bool>(
           'checkUsagePermission',
@@ -196,6 +238,11 @@ class DeviceInfoService {
 
   Future<bool> checkAccessibilityPermission() async {
     try {
+      if (Platform.isIOS) {
+        const iosChannel = MethodChannel('com.truenyx.naviq/parental_control');
+        return await iosChannel.invokeMethod<bool>('checkScreenTimePermission') ?? false;
+      }
+
       if (Platform.isAndroid) {
         return await _channel.invokeMethod<bool>(
               'checkAccessibilityPermission',
@@ -211,6 +258,12 @@ class DeviceInfoService {
 
   Future<void> openAccessibilitySettings() async {
     try {
+      if (Platform.isIOS) {
+        const iosChannel = MethodChannel('com.truenyx.naviq/parental_control');
+        await iosChannel.invokeMethod('requestScreenTimePermission');
+        return;
+      }
+
       if (Platform.isAndroid) {
         await _channel.invokeMethod('openAccessibilitySettings');
       }
@@ -221,6 +274,12 @@ class DeviceInfoService {
 
   Future<void> updateLockList(List<String> packages) async {
     try {
+      if (Platform.isIOS) {
+        const iosChannel = MethodChannel('com.truenyx.naviq/parental_control');
+        await iosChannel.invokeMethod('updateLockList', packages);
+        return;
+      }
+
       if (Platform.isAndroid) {
         await _channel.invokeMethod('updateLockList', packages);
       }

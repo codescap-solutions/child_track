@@ -5,6 +5,10 @@ import AVFoundation
 import FirebaseCore
 import FirebaseMessaging
 import UserNotifications
+import FamilyControls
+import ManagedSettings
+import DeviceActivity
+import SwiftUI
 
 @main
 @objc class AppDelegate: FlutterAppDelegate {
@@ -41,8 +45,19 @@ import UserNotifications
     Messaging.messaging().delegate = self
     
     // Setup method channel for device info after plugins are registered
-    if let controller = window?.rootViewController as? FlutterViewController {
-      let deviceInfoChannel = FlutterMethodChannel(
+    let controller : FlutterViewController = window?.rootViewController as! FlutterViewController
+    
+    // Test App Group access immediately
+    let suiteName = "group.com.truenyx.naviq"
+    if let defaults = UserDefaults(suiteName: suiteName) {
+        defaults.set(true, forKey: "com.truenyx.naviq.app_group_test")
+        let success = defaults.bool(forKey: "com.truenyx.naviq.app_group_test")
+        print("📱 APP GROUP TEST: \(success ? "SUCCESS ✅" : "FAILED ❌")")
+    } else {
+        print("📱 APP GROUP TEST: FAILED ❌ (Could not create UserDefaults for suite)")
+    }
+
+    let deviceInfoChannel = FlutterMethodChannel(
         name: "com.truenyx.naviq/device_info",
         binaryMessenger: controller.binaryMessenger
       )
@@ -58,8 +73,105 @@ import UserNotifications
           result(FlutterMethodNotImplemented)
         }
       }
-    }
+      
+      // Setup parental control channel
+      let parentalChannel = FlutterMethodChannel(
+        name: "com.truenyx.naviq/parental_control",
+        binaryMessenger: controller.binaryMessenger
+      )
+      
+      parentalChannel.setMethodCallHandler { [weak self] (call: FlutterMethodCall, result: @escaping FlutterResult) in
+        guard let self = self else { return }
+        switch call.method {
+        case "requestScreenTimePermission":
+          self.requestScreenTimePermission(result: result)
+          
+        case "checkScreenTimePermission":
+          self.checkScreenTimePermission(result: result)
+          
+        case "updateLockList":
+          if let ids = call.arguments as? [String] {
+            self.updateLockList(ids: ids, result: result)
+          } else {
+            result(FlutterError(code: "INVALID_ARGS", message: "Expected string array", details: nil))
+          }
+          
+        case "getScreenTime":
+          self.getScreenTimeData(result: result)
+          
+        case "getInstalledApps":
+          // Family Controls does not support enumerating all apps.
+          // Returning an empty array. Parent must use FamilyActivityPicker.
+          result([])
+          
+        case "getAppIcon":
+          // Returning null as iOS opaque tokens don't allow icon extraction.
+          result(nil)
+          
+        case "openFamilyActivityPicker":
+          self.openFamilyActivityPicker(result: result)
+          
+        case "getMonitoredApps":
+          self.getMonitoredApps(result: result)
+          
+        default:
+          result(FlutterMethodNotImplemented)
+        }
+      }
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+  
+  // MARK: - Native Background Push Handler
+  // This is called by iOS when a silent push arrives (content-available: 1).
+  // It runs NATIVELY — no Flutter isolate needed. Critical for background locking.
+  override func application(
+    _ application: UIApplication,
+    didReceiveRemoteNotification userInfo: [AnyHashable: Any],
+    fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
+  ) {
+    let type = userInfo["type"] as? String ?? (userInfo["gcm.notification.type"] as? String)
+    print("AppDelegate: didReceiveRemoteNotification type=\(type ?? "nil")")
+    
+    if type == "SYNC_LOCKED_APPS" {
+      if #available(iOS 16.0, *) {
+        // Read lock tokens from the push payload
+        if let tokensStr = userInfo["tokens"] as? String, !tokensStr.isEmpty {
+          var tokens: [String] = []
+          
+          // Try parsing as JSON array first (backend uses JSON.stringify)
+          if let jsonData = tokensStr.data(using: .utf8),
+             let jsonTokens = try? JSONSerialization.jsonObject(with: jsonData) as? [String] {
+            tokens = jsonTokens
+          } else {
+            // Fallback: comma-separated string
+            tokens = tokensStr.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespaces) }
+          }
+          
+          if !tokens.isEmpty {
+            print("AppDelegate: SYNC_LOCKED_APPS — applying shields for \(tokens.count) tokens")
+            ScreenTimeManager.shared.applyShields(ids: tokens)
+            completionHandler(.newData)
+            return
+          }
+        }
+        
+        // If tokens are already in native array format
+        if let tokens = userInfo["tokens"] as? [String] {
+          print("AppDelegate: SYNC_LOCKED_APPS — applying shields for \(tokens.count) tokens (array)")
+          ScreenTimeManager.shared.applyShields(ids: tokens)
+          completionHandler(.newData)
+          return
+        }
+        
+        // If no tokens in payload, the Flutter background handler will fetch from API
+        print("AppDelegate: SYNC_LOCKED_APPS — no tokens in payload, deferring to Flutter handler")
+      }
+      completionHandler(.newData)
+      return
+    }
+    
+    // For all other push types, let Flutter handle it
+    super.application(application, didReceiveRemoteNotification: userInfo, fetchCompletionHandler: completionHandler)
   }
   
   private func getSoundProfile() -> String {
@@ -147,26 +259,621 @@ import UserNotifications
                             didFailToRegisterForRemoteNotificationsWithError error: Error) {
     print("Failed to register for remote notifications: \(error)")
   }
+  
+  // MARK: - Parental Controls (Family Controls)
+  
+  private func requestScreenTimePermission(result: @escaping FlutterResult) {
+    if #available(iOS 16.0, *) {
+      print("DEBUG: Calling AuthorizationCenter.shared.requestAuthorization(for: .individual)")
+      let center = AuthorizationCenter.shared
+      print("DEBUG: Current auth status before request: \(center.authorizationStatus)")
+      Task { @MainActor in
+        do {
+          try await center.requestAuthorization(for: .individual)
+          print("DEBUG: Screen Time permission GRANTED successfully")
+          // Start monitoring after permission is granted
+          ScreenTimeManager.shared.startMonitoring()
+          result(true)
+        } catch {
+          print("DEBUG: Family controls authorization FAILED. Error: \(error.localizedDescription)")
+          print("DEBUG: Full error: \(error)")
+          result(FlutterError(
+            code: "PERMISSION_DENIED",
+            message: error.localizedDescription,
+            details: nil
+          ))
+        }
+      }
+    } else {
+      print("DEBUG: iOS 16+ is required for Family Controls")
+      result(FlutterError(code: "UNSUPPORTED_OS", message: "iOS 16+ is required", details: nil))
+    }
+  }
+
+  private func checkScreenTimePermission(result: @escaping FlutterResult) {
+    if #available(iOS 16.0, *) {
+      let status = AuthorizationCenter.shared.authorizationStatus
+      print("DEBUG: checkScreenTimePermission - authorizationStatus: \(status)")
+      result(status == .approved)
+    } else {
+      print("DEBUG: checkScreenTimePermission - iOS < 16, returning false")
+      result(false)
+    }
+  }
+
+  private func getScreenTimeData(result: @escaping FlutterResult) {
+    if #available(iOS 16.0, *) {
+      let status = AuthorizationCenter.shared.authorizationStatus
+      guard status == .approved else {
+        print("DEBUG: getScreenTimeData called but permission not approved: \(status)")
+        result([])
+        return
+      }
+
+      // Print extension logs for debugging
+      let extLogs = ScreenTimeManager.shared.getExtensionLogs()
+      for log in extLogs {
+          print("📱 EXT LOG: \(log)")
+      }
+      
+      // Read usage data accumulated by the DeviceActivityMonitor extension
+      let records = ScreenTimeManager.shared.getAccumulatedUsage()
+      print("DEBUG: getScreenTimeData returning \(records.count) records")
+      
+      if records.isEmpty {
+        print("DEBUG: No usage records accumulated yet from DeviceActivity extension")
+        result([])
+        return
+      }
+      
+      result(records)
+    } else {
+      print("DEBUG: getScreenTimeData - iOS < 16")
+      result([])
+    }
+  }
+  
+  private func openFamilyActivityPicker(result: @escaping FlutterResult) {
+    if #available(iOS 16.0, *) {
+      let center = AuthorizationCenter.shared
+      
+      // Auto-request authorization if not already approved
+      if center.authorizationStatus != .approved {
+        print("AppDelegate: Not authorized. Requesting Screen Time permission first...")
+        Task { @MainActor in
+          do {
+            try await center.requestAuthorization(for: .individual)
+            print("AppDelegate: Authorization granted. Proceeding to picker...")
+            self.presentPicker(result: result)
+          } catch {
+            print("AppDelegate: Authorization failed: \(error.localizedDescription)")
+            result(FlutterError(code: "AUTH_FAILED", message: error.localizedDescription, details: nil))
+          }
+        }
+      } else {
+        print("AppDelegate: Already authorized. Presenting picker...")
+        DispatchQueue.main.async {
+          self.presentPicker(result: result)
+        }
+      }
+    } else {
+      result(FlutterError(code: "UNSUPPORTED_OS", message: "iOS 16.0+ required", details: nil))
+    }
+  }
+
+  @available(iOS 16.0, *)
+  private func presentPicker(result: @escaping FlutterResult) {
+    guard let controller = self.window?.rootViewController else {
+      result(FlutterError(code: "NO_CONTROLLER", message: "Root view controller not found", details: nil))
+      return
+    }
+    
+    let pickerVC = FamilyActivityPickerController()
+    pickerVC.onComplete = { tokens in
+      print("AppDelegate: Picker completed with \(tokens.count) tokens")
+      result(tokens)
+    }
+    
+    controller.present(pickerVC, animated: true)
+  }
+
+  private func updateLockList(ids: [String], result: @escaping FlutterResult) {
+    if #available(iOS 16.0, *) {
+      ScreenTimeManager.shared.applyShields(ids: ids)
+      result(true)
+    } else {
+      result(false)
+    }
+  }
+
+  private func getMonitoredApps(result: @escaping FlutterResult) {
+    if #available(iOS 16.0, *) {
+      let defaults = UserDefaults(suiteName: "group.com.truenyx.naviq")
+      guard let data = defaults?.data(forKey: "com.truenyx.naviq.token_map"),
+            let map = try? JSONSerialization.jsonObject(with: data) as? [String: [String: Any]] else {
+        result([])
+        return
+      }
+      // Return as list of {id, type, displayName}
+      let items = map.values.map { $0 }
+      result(Array(items))
+    } else {
+      result([])
+    }
+  }
+}
+
+// MARK: - ScreenTimeManager
+// Manages Screen Time monitoring and data accumulation via App Group shared storage.
+@available(iOS 16.0, *)
+class ScreenTimeManager {
+    static let shared = ScreenTimeManager()
+    private let appGroupID = "group.com.truenyx.naviq"
+    private let usageKey = "com.truenyx.naviq.screentime_data"
+    private let monitorName = DeviceActivityName("com.truenyx.naviq.daily")
+    private var sharedDefaults: UserDefaults? { UserDefaults(suiteName: appGroupID) }
+    private init() {}
+    
+    // Production thresholds: Strategic intervals for accurate tracking
+    // 12 thresholds per app/category — stays under Apple's ~100 event limit
+    private let thresholds = [
+        60,    // 1 min — first detection
+        120,   // 2 min
+        300,   // 5 min
+        600,   // 10 min
+        900,   // 15 min
+        1800,  // 30 min
+        3600,  // 1 hour
+        5400,  // 1.5 hours
+        7200,  // 2 hours
+        10800, // 3 hours
+        14400, // 4 hours
+        21600, // 6 hours
+    ]
+    
+    // Apple limits events to roughly 100 per startMonitoring call
+    private let maxEvents = 100
+    
+    func startMonitoring() {
+        // Restore any persisted shields first (survives app kill)
+        restoreShieldsIfNeeded()
+        
+        if let data = sharedDefaults?.data(forKey: "com.truenyx.naviq.selection"),
+           let selection = try? JSONDecoder().decode(FamilyActivitySelection.self, from: data) {
+            print("ScreenTimeManager: startMonitoring found existing selection. Restoring events...")
+            registerSelectedApps(selection: selection)
+        } else {
+            let center = DeviceActivityCenter()
+            let schedule = DeviceActivitySchedule(
+                intervalStart: DateComponents(hour: 0, minute: 0, second: 0),
+                intervalEnd: DateComponents(hour: 23, minute: 59, second: 59),
+                repeats: true
+            )
+            do {
+                try center.startMonitoring(monitorName, during: schedule, events: [:])
+                print("ScreenTimeManager: Started basic daily monitor (no apps selected yet)")
+            } catch {
+                print("ScreenTimeManager: Failed to start basic monitor: \(error)")
+            }
+        }
+    }
+    
+    func getAccumulatedUsage() -> [[String: Any]] {
+        guard let defaults = sharedDefaults else {
+            print("ScreenTimeManager: sharedDefaults is nil!")
+            return []
+        }
+        let records = defaults.array(forKey: usageKey) as? [[String: Any]] ?? []
+        print("ScreenTimeManager: getAccumulatedUsage returning \(records.count) records")
+        for record in records {
+            let pkg = record["package"] as? String ?? "?"
+            let sec = record["seconds"] as? Int ?? 0
+            let name = record["appName"] as? String ?? "?"
+            print("  → \(name) (\(pkg)): \(sec)s")
+        }
+        return records
+    }
+    
+    func registerSelectedApps(selection: FamilyActivitySelection) {
+        // Save selection for later use (shielding, restoring on restart)
+        if let encoded = try? JSONEncoder().encode(selection) {
+            sharedDefaults?.set(encoded, forKey: "com.truenyx.naviq.selection")
+        }
+
+        let center = DeviceActivityCenter()
+        
+        // Hard reset: stop old monitor, clear old data for clean slate
+        center.stopMonitoring([monitorName])
+        sharedDefaults?.removeObject(forKey: usageKey)
+        sharedDefaults?.synchronize()
+        
+        let totalApps = selection.applicationTokens.count
+        let totalCats = selection.categoryTokens.count
+        let totalItems = totalApps + totalCats
+        print("ScreenTimeManager: Registering \(totalApps) apps and \(totalCats) categories...")
+        logToExtension("Registering \(totalApps) apps + \(totalCats) categories")
+        
+        // Calculate how many thresholds we can afford per item
+        // Apple limits us to ~100 events total
+        var thresholdsToUse = thresholds
+        if totalItems > 0 {
+            let maxThresholdsPerItem = max(1, maxEvents / totalItems)
+            if maxThresholdsPerItem < thresholds.count {
+                thresholdsToUse = Array(thresholds.prefix(maxThresholdsPerItem))
+                print("ScreenTimeManager: ⚠️ Limiting to \(maxThresholdsPerItem) thresholds per item (event limit)")
+            }
+        }
+        
+        var events: [DeviceActivityEvent.Name: DeviceActivityEvent] = [:]
+        
+        // 1. Register individual apps
+        for token in selection.applicationTokens {
+            let baseName = "usage_app_\(token.hashValue)"
+            for seconds in thresholdsToUse {
+                let eventName = DeviceActivityEvent.Name("\(baseName)_\(seconds)")
+                events[eventName] = DeviceActivityEvent(applications: [token], threshold: DateComponents(second: seconds))
+            }
+        }
+        
+        // 2. Register categories
+        for token in selection.categoryTokens {
+            let baseName = "usage_cat_\(token.hashValue)"
+            for seconds in thresholdsToUse {
+                let eventName = DeviceActivityEvent.Name("\(baseName)_\(seconds)")
+                events[eventName] = DeviceActivityEvent(categories: [token], threshold: DateComponents(second: seconds))
+            }
+        }
+
+        let schedule = DeviceActivitySchedule(
+            intervalStart: DateComponents(hour: 0, minute: 0, second: 0),
+            intervalEnd: DateComponents(hour: 23, minute: 59, second: 59),
+            repeats: true
+        )
+
+        print("ScreenTimeManager: Total events to register: \(events.count)")
+        
+        do {
+            try center.startMonitoring(monitorName, during: schedule, events: events)
+            print("ScreenTimeManager: ✅ Successfully registered \(events.count) events")
+            logToExtension("✅ Registered \(events.count) events with \(thresholdsToUse.count) thresholds each")
+        } catch {
+            print("ScreenTimeManager: ❌ Failed to register events: \(error)")
+            logToExtension("❌ Registration failed: \(error.localizedDescription)")
+        }
+    }
+
+    private func logToExtension(_ message: String) {
+        guard let defaults = sharedDefaults else { return }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm:ss"
+        let timestamp = formatter.string(from: Date())
+        
+        var logs = defaults.stringArray(forKey: "com.truenyx.naviq.extension_logs") ?? []
+        logs.append("[\(timestamp)] Runner: \(message)")
+        if logs.count > 100 { logs.removeFirst(logs.count - 100) }
+        defaults.set(logs, forKey: "com.truenyx.naviq.extension_logs")
+    }
+
+    func getExtensionLogs() -> [String] {
+        return sharedDefaults?.stringArray(forKey: "com.truenyx.naviq.extension_logs") ?? ["No logs found"]
+    }
+
+    private let lockedIdsKey = "com.truenyx.naviq.locked_ids"
+    
+    func applyShields(ids: [String]) {
+        // Persist lock list to App Group so it survives app kill/restart
+        sharedDefaults?.set(ids, forKey: lockedIdsKey)
+        sharedDefaults?.synchronize()
+        
+        guard let data = sharedDefaults?.data(forKey: "com.truenyx.naviq.selection"),
+              let selection = try? JSONDecoder().decode(FamilyActivitySelection.self, from: data) else {
+            print("ScreenTimeManager: No valid selection found for shielding")
+            return
+        }
+
+        let store = ManagedSettingsStore()
+        
+        if ids.isEmpty {
+            store.shield.applications = nil
+            store.shield.applicationCategories = nil
+            print("ScreenTimeManager: Cleared all shields")
+            logToExtension("🔓 Cleared all shields")
+            return
+        }
+        
+        var tokensToShield = Set<ApplicationToken>()
+        for token in selection.applicationTokens {
+            let hashStr = "usage_app_\(token.hashValue)"
+            if ids.contains(hashStr) {
+                tokensToShield.insert(token)
+            }
+        }
+        
+        var categoriesToShield = Set<ActivityCategoryToken>()
+        for token in selection.categoryTokens {
+            let hashStr = "usage_cat_\(token.hashValue)"
+            if ids.contains(hashStr) {
+                categoriesToShield.insert(token)
+            }
+        }
+
+        store.shield.applications = tokensToShield.isEmpty ? nil : tokensToShield
+        store.shield.applicationCategories = categoriesToShield.isEmpty ? nil : .specific(categoriesToShield)
+        print("ScreenTimeManager: Applied shields to \(tokensToShield.count) apps and \(categoriesToShield.count) categories")
+        logToExtension("🔒 Shielded \(tokensToShield.count) apps + \(categoriesToShield.count) categories")
+    }
+    
+    /// Re-apply shields from persisted lock list (call on app launch)
+    func restoreShieldsIfNeeded() {
+        guard let ids = sharedDefaults?.stringArray(forKey: lockedIdsKey), !ids.isEmpty else {
+            print("ScreenTimeManager: No persisted lock list to restore")
+            return
+        }
+        print("ScreenTimeManager: Restoring shields for \(ids.count) items")
+        applyShields(ids: ids)
+    }
+    
+    /// Clear all shields and persisted lock state
+    func clearShields() {
+        sharedDefaults?.removeObject(forKey: lockedIdsKey)
+        sharedDefaults?.synchronize()
+        let store = ManagedSettingsStore()
+        store.shield.applications = nil
+        store.shield.applicationCategories = nil
+        print("ScreenTimeManager: All shields cleared")
+    }
+}
+
+// MARK: - FamilyActivityPicker SwiftUI Wrapper
+@available(iOS 16.0, *)
+struct FamilyActivityPickerView: View {
+    @Binding var selection: FamilyActivitySelection
+    @Binding var isPresented: Bool
+    var onConfirm: (FamilyActivitySelection) -> Void
+    var body: some View {
+        NavigationView {
+            FamilyActivityPicker(selection: $selection)
+                .navigationTitle("Select Apps to Monitor")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarLeading) { Button("Cancel") { isPresented = false } }
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("Done") { onConfirm(selection); isPresented = false }.fontWeight(.semibold)
+                    }
+                }
+        }
+    }
+}
+
+@available(iOS 16.0, *)
+class FamilyActivityPickerController: UIViewController {
+    private var selection = FamilyActivitySelection()
+    var onComplete: (([[String: Any]]) -> Void)?
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = .systemBackground
+        let isPresented = Binding<Bool>(get: { true }, set: { [weak self] shown in if !shown { self?.dismiss(animated: true) } })
+        let selectionBinding = Binding<FamilyActivitySelection>(get: { self.selection }, set: { self.selection = $0 })
+        let hostingVC = UIHostingController(rootView: AnyView(FamilyActivityPickerView(selection: selectionBinding, isPresented: isPresented, onConfirm: { [weak self] finalSelection in self?.handleSelection(finalSelection) })))
+        addChild(hostingVC)
+        view.addSubview(hostingVC.view)
+        hostingVC.view.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            hostingVC.view.topAnchor.constraint(equalTo: view.topAnchor),
+            hostingVC.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            hostingVC.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            hostingVC.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+        ])
+        hostingVC.didMove(toParent: self)
+    }
+    private func handleSelection(_ selection: FamilyActivitySelection) {
+        print("FamilyActivityPicker: User confirmed selection. Total apps: \(selection.applicationTokens.count), Total categories: \(selection.categoryTokens.count)")
+        
+        var selectedItems: [[String: Any]] = []
+        var appIndex = 1
+        var catIndex = 1
+        
+        // Process individual apps — try to resolve real names
+        for token in selection.applicationTokens {
+            let hashID = "usage_app_\(token.hashValue)"
+            let resolvedName = Self.resolveAppName(token: token) ?? "App \(appIndex)"
+            print("FamilyActivityPicker: Selected app → \(hashID) → \"\(resolvedName)\"")
+            selectedItems.append([
+                "id": hashID,
+                "type": "app",
+                "displayName": resolvedName,
+            ])
+            appIndex += 1
+        }
+        
+        // Process categories — try to resolve real names
+        for token in selection.categoryTokens {
+            let hashID = "usage_cat_\(token.hashValue)"
+            let resolvedName = Self.resolveCategoryName(token: token) ?? "Category \(catIndex)"
+            print("FamilyActivityPicker: Selected category → \(hashID) → \"\(resolvedName)\"")
+            selectedItems.append([
+                "id": hashID,
+                "type": "category",
+                "displayName": resolvedName,
+            ])
+            catIndex += 1
+        }
+        
+        // Store mapping in App Group so extension can use resolved names
+        let defaults = UserDefaults(suiteName: "group.com.truenyx.naviq")
+        var tokenMap: [String: [String: Any]] = [:]
+        for item in selectedItems {
+            if let id = item["id"] as? String {
+                tokenMap[id] = item
+            }
+        }
+        if let data = try? JSONSerialization.data(withJSONObject: tokenMap) {
+            defaults?.set(data, forKey: "com.truenyx.naviq.token_map")
+        }
+        
+        ScreenTimeManager.shared.registerSelectedApps(selection: selection)
+        onComplete?(selectedItems)
+    }
+    
+    // MARK: - Token Name Resolution (Multi-Strategy)
+    // Strategy 1: Render Label in a real window and extract text
+    // Strategy 2: Try Codable encoding for readable data
+    // Strategy 3: Use Mirror reflection on token internals
+    
+    private static func resolveAppName(token: ApplicationToken) -> String? {
+        // Strategy 1: Window-based Label rendering
+        if let name = extractNameViaWindow(AnyView(Label(token).labelStyle(.titleOnly))) {
+            return name
+        }
+        // Strategy 2: Try Codable
+        if let name = extractNameViaCodable(token) { return name }
+        // Strategy 3: Mirror
+        if let name = extractNameViaMirror(token) { return name }
+        return nil
+    }
+    
+    private static func resolveCategoryName(token: ActivityCategoryToken) -> String? {
+        // Strategy 1: Window-based Label rendering
+        if let name = extractNameViaWindow(AnyView(Label(token).labelStyle(.titleOnly))) {
+            return name
+        }
+        // Strategy 2: Try Codable
+        if let name = extractNameViaCodable(token) { return name }
+        // Strategy 3: Mirror
+        if let name = extractNameViaMirror(token) { return name }
+        return nil
+    }
+    
+    // MARK: Strategy 1 — Real window rendering
+    private static func extractNameViaWindow(_ swiftUIView: AnyView) -> String? {
+        let hostingVC = UIHostingController(rootView: swiftUIView)
+        
+        // Create a real window — SwiftUI won't actually render in a detached HostingController
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 50))
+        window.rootViewController = hostingVC
+        window.isHidden = false
+        window.layoutIfNeeded()
+        
+        // Force Core Animation to flush
+        CATransaction.flush()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        
+        hostingVC.view.layoutIfNeeded()
+        
+        // Search for text in the rendered view hierarchy
+        let result = findText(in: hostingVC.view)
+        
+        // Clean up
+        window.isHidden = true
+        window.rootViewController = nil
+        
+        return result
+    }
+    
+    private static func findText(in view: UIView) -> String? {
+        // Check accessibility elements
+        if let elements = view.accessibilityElements {
+            for element in elements {
+                if let accElement = element as? NSObject,
+                   let label = accElement.accessibilityLabel,
+                   !label.isEmpty {
+                    return label
+                }
+            }
+        }
+        
+        // Check view's own accessibility label
+        if let label = view.accessibilityLabel, !label.isEmpty,
+           label != "Label" { // Filter out SwiftUI generic "Label"
+            return label
+        }
+        
+        // Check if it's a UILabel
+        if let uiLabel = view as? UILabel, let text = uiLabel.text, !text.isEmpty {
+            return text
+        }
+        
+        // Recurse into subviews
+        for subview in view.subviews {
+            if let text = findText(in: subview) {
+                return text
+            }
+        }
+        return nil
+    }
+    
+    // MARK: Strategy 2 — Codable encoding
+    private static func extractNameViaCodable<T: Encodable>(_ token: T) -> String? {
+        guard let data = try? JSONEncoder().encode(token),
+              let str = String(data: data, encoding: .utf8) else { return nil }
+        
+        // Look for readable name patterns in the encoded JSON
+        // Tokens may encode with a name or identifier field
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            // Try common keys
+            for key in ["name", "displayName", "localizedName", "identifier", "rawValue"] {
+                if let name = json[key] as? String, !name.isEmpty {
+                    return name
+                }
+            }
+        }
+        
+        // Check if the encoded string itself is a readable name (not just numbers/hashes)
+        let cleaned = str.trimmingCharacters(in: CharacterSet(charactersIn: "\"{}[]"))
+        if cleaned.count > 2 && cleaned.count < 50 &&
+           cleaned.rangeOfCharacter(from: .letters) != nil &&
+           !cleaned.contains("\\") {
+            // Might be a simple string value
+            print("FamilyActivityPicker: Codable output: \(str)")
+        }
+        
+        return nil
+    }
+    
+    // MARK: Strategy 3 — Mirror reflection
+    private static func extractNameViaMirror(_ token: Any) -> String? {
+        let mirror = Mirror(reflecting: token)
+        for child in mirror.children {
+            if let strValue = child.value as? String, !strValue.isEmpty {
+                print("FamilyActivityPicker: Mirror found '\(child.label ?? "?")' = '\(strValue)'")
+                return strValue
+            }
+            // Check nested mirrors
+            let innerMirror = Mirror(reflecting: child.value)
+            for innerChild in innerMirror.children {
+                if let strValue = innerChild.value as? String, !strValue.isEmpty {
+                    print("FamilyActivityPicker: Inner mirror found '\(innerChild.label ?? "?")' = '\(strValue)'")
+                    return strValue
+                }
+            }
+        }
+        return nil
+    }
 }
 
 // MARK: - UNUserNotificationCenterDelegate
 @available(iOS 10, *)
 extension AppDelegate {
-  // Receive displayed notifications for iOS 10 devices
+  // Receive displayed notifications for iOS 10 devices (foreground)
   override func userNotificationCenter(_ center: UNUserNotificationCenter,
                               willPresent notification: UNNotification,
                               withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
     let userInfo = notification.request.content.userInfo
     
-    // Print message ID
     if let messageID = userInfo["gcm.message_id"] {
       print("Message ID: \(messageID)")
     }
     
-    // Print full message
-    print(userInfo)
+    // Handle SYNC_LOCKED_APPS in foreground too — apply shields immediately
+    let type = userInfo["type"] as? String ?? (userInfo["gcm.notification.type"] as? String)
+    if type == "SYNC_LOCKED_APPS" {
+      print("AppDelegate willPresent: SYNC_LOCKED_APPS received in foreground")
+      if #available(iOS 16.0, *) {
+        applyShieldsFromPayload(userInfo)
+      }
+    }
     
-    // Change this to your preferred presentation option
+    print(userInfo)
     completionHandler([[.banner, .badge, .sound]])
   }
   
@@ -176,15 +883,44 @@ extension AppDelegate {
                               withCompletionHandler completionHandler: @escaping () -> Void) {
     let userInfo = response.notification.request.content.userInfo
     
-    // Print message ID
     if let messageID = userInfo["gcm.message_id"] {
       print("Message ID: \(messageID)")
     }
     
-    // Print full message
-    print(userInfo)
+    // Also handle on tap — in case user taps the lock notification
+    let type = userInfo["type"] as? String ?? (userInfo["gcm.notification.type"] as? String)
+    if type == "SYNC_LOCKED_APPS" {
+      print("AppDelegate didReceive: SYNC_LOCKED_APPS tapped")
+      if #available(iOS 16.0, *) {
+        applyShieldsFromPayload(userInfo)
+      }
+    }
     
+    print(userInfo)
     completionHandler()
+  }
+  
+  // Shared helper to extract tokens and apply shields
+  @available(iOS 16.0, *)
+  private func applyShieldsFromPayload(_ userInfo: [AnyHashable: Any]) {
+    if let tokensStr = userInfo["tokens"] as? String, !tokensStr.isEmpty {
+      var tokens: [String] = []
+      if let jsonData = tokensStr.data(using: .utf8),
+         let jsonTokens = try? JSONSerialization.jsonObject(with: jsonData) as? [String] {
+        tokens = jsonTokens
+      } else {
+        tokens = tokensStr.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespaces) }
+      }
+      if !tokens.isEmpty {
+        print("AppDelegate: Applying shields for \(tokens.count) tokens from notification")
+        ScreenTimeManager.shared.applyShields(ids: tokens)
+        return
+      }
+    }
+    if let tokens = userInfo["tokens"] as? [String], !tokens.isEmpty {
+      print("AppDelegate: Applying shields for \(tokens.count) tokens (array) from notification")
+      ScreenTimeManager.shared.applyShields(ids: tokens)
+    }
   }
 }
 

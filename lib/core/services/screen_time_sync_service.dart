@@ -1,8 +1,10 @@
+import 'dart:io';
 import 'package:child_track/app/childapp/model/scree_time_model.dart';
 import 'package:child_track/app/childapp/view_model/repository/child_repo.dart';
 import 'package:child_track/app/childapp/view_model/repository/device_info_service.dart';
 import 'package:child_track/core/services/shared_prefs_service.dart';
 import 'package:child_track/core/utils/app_logger.dart';
+
 
 class ScreenTimeSyncService {
   final ChildInfoService _deviceInfoService;
@@ -12,7 +14,11 @@ class ScreenTimeSyncService {
   // Cache for screen time data to avoid frequent re-fetching
   List<AppScreenTimeModel>? _screenTimeCache;
   DateTime? _lastFetchTime;
-  static const Duration _cacheDuration = Duration(minutes: 5);
+  // Short cache on iOS (data changes only at threshold crossings)
+  // Longer cache on Android (continuous data available)
+  static final Duration _cacheDuration = Platform.isIOS 
+      ? const Duration(seconds: 30) 
+      : const Duration(minutes: 5);
 
   ScreenTimeSyncService(this._deviceInfoService, this._childRepo, this._prefs);
 
@@ -118,6 +124,20 @@ class ScreenTimeSyncService {
       return _screenTimeCache ?? [];
     }
 
+    // On iOS: DeviceActivity API returns usage data directly via ScreenTimeManager
+    // (App Group shared storage written by DeviceActivityMonitor extension).
+    // Skip Android-specific installed app enumeration + allowlist merge.
+    if (Platform.isIOS) {
+      AppLogger.info('ScreenTimeSyncService: iOS - fetching screen time from native');
+      final screenTimeUsage = await _deviceInfoService.getScreenTime();
+      AppLogger.info('ScreenTimeSyncService: iOS - got ${screenTimeUsage.length} records from native');
+      final nonEmpty = screenTimeUsage.where((e) => e.seconds > 0).toList();
+      nonEmpty.sort((a, b) => b.seconds.compareTo(a.seconds));
+      _screenTimeCache = nonEmpty;
+      _lastFetchTime = DateTime.now();
+      return nonEmpty;
+    }
+
     final installedApps = await _deviceInfoService.getInstalledApps();
     final screenTimeUsage = await _deviceInfoService.getScreenTime();
 
@@ -211,11 +231,37 @@ class ScreenTimeSyncService {
     List<AppScreenTimeModel> mergedScreenTime,
     String childId,
   ) async {
+    if (mergedScreenTime.isEmpty) {
+      AppLogger.info('ScreenTimeSyncService: No usage data to upload yet.');
+      return;
+    }
+
+    // On iOS, load the resolved token-to-label map from SharedPrefs
+    // This map was saved during FamilyActivityPicker selection
+    Map<String, String> tokenLabelMap = {};
+    if (Platform.isIOS) {
+      final mapStr = _prefs.getString('ios_token_label_map') ?? '';
+      if (mapStr.isNotEmpty) {
+        for (final entry in mapStr.split('||')) {
+          final parts = entry.split('::');
+          if (parts.length == 2 && parts[0].isNotEmpty) {
+            tokenLabelMap[parts[0]] = parts[1];
+          }
+        }
+      }
+    }
+
     final appsData = mergedScreenTime.map((app) {
+      // For iOS: use resolved name from token map if available
+      String appName = app.appName;
+      if (Platform.isIOS && tokenLabelMap.containsKey(app.package)) {
+        appName = tokenLabelMap[app.package]!;
+      }
       return {
         "packageName": app.package,
         "usageTime": app.seconds,
-        "appName": app.appName,
+        "appName": appName,
+        "isSystemApp": false,
       };
     }).toList();
 
@@ -231,6 +277,7 @@ class ScreenTimeSyncService {
       "date": dateString,
       "apps": appsData,
       "userId": childId,
+      "platform": Platform.isIOS ? "ios" : "android",
     };
 
     await _childRepo.postAppUsage(requestBody);

@@ -17,10 +17,10 @@ class AppScreenTimeModel {
 
   factory AppScreenTimeModel.fromJson(Map<String, dynamic> json) {
     return AppScreenTimeModel(
-      package: json['package'] ?? '',
-      appName: json['appName'] ?? '',
+      package: json['package'] ?? json['packageName'] ?? '',
+      appName: json['appName'] ?? 'Tracked App',
       isSystemApp: json['isSystemApp'] ?? false,
-      seconds: json['seconds'] ?? 0,
+      seconds: json['seconds'] ?? json['usageTime'] ?? 0,
       lastTimeUsed: json['lastTimeUsed'] ?? 0,
       iconBase64: json['icon'],
     );

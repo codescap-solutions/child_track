@@ -269,6 +269,8 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
     }
   }
 
+  DateTime? _lastStreamEventTime;
+
   void _startChildLocationStream() {
     _stopChildLocationStream();
     if (isClosed || !_isChildLoggedIn()) return;
@@ -277,6 +279,14 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
         .getPositionStream(5)
         ?.listen(
           (Position position) async {
+            // Hotfix: Throttle rapid continuous emissions on iOS
+            final now = DateTime.now();
+            if (_lastStreamEventTime != null &&
+                now.difference(_lastStreamEventTime!).inSeconds < 5) {
+              return; // Discard events hitting faster than 5 seconds apart
+            }
+            _lastStreamEventTime = now;
+
             AppLogger.debug('new logic: get child stream');
             if (isClosed || !_isChildLoggedIn()) {
               AppLogger.info('new logic: get child stream closed');

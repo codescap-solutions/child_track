@@ -176,9 +176,19 @@ class _SocialAppsViewState extends State<SocialAppsView> {
               }
 
               final app = dailyData[index];
+              
+              // Detect iOS entries: they use opaque tokens like "usage_cat_XXX"
+              final isIOSEntry = app.platform == 'ios' || 
+                  app.packageName.startsWith('usage_cat_') || 
+                  app.packageName.startsWith('usage_app_');
 
               ImageProvider iconProvider;
-              if (app.iconUrl?.isNotEmpty ?? false) {
+              if (isIOSEntry) {
+                // iOS entries can't have real icons — use default
+                iconProvider = const AssetImage(
+                  'assets/images/APK_format_icon_(2014-2019).png',
+                );
+              } else if (app.iconUrl?.isNotEmpty ?? false) {
                 iconProvider = NetworkImage(app.iconUrl!);
               } else if (app.iconBase64?.isNotEmpty ?? false) {
                 try {
@@ -193,6 +203,28 @@ class _SocialAppsViewState extends State<SocialAppsView> {
                   'assets/images/APK_format_icon_(2014-2019).png',
                 );
               }
+              
+              // Clean display name for iOS entries
+              String displayName;
+              if (isIOSEntry) {
+                // Use the resolved name from backend (written by Swift Label resolver)
+                // If it still looks like a hash placeholder, use numbered fallback
+                final backendName = app.appName;
+                if (backendName.isNotEmpty && 
+                    !backendName.startsWith('Tracked') &&
+                    !backendName.contains('(') &&
+                    backendName.length > 2) {
+                  displayName = backendName;
+                } else {
+                  // Fallback: "Category 1" / "App 1" based on type
+                  final isCategory = app.packageName.startsWith('usage_cat_');
+                  displayName = isCategory 
+                      ? 'Category ${index + 1}' 
+                      : 'App ${index + 1}';
+                }
+              } else {
+                displayName = app.appName.isNotEmpty ? app.appName : app.packageName;
+              }
 
               return BlocBuilder<AppLockBloc, AppLockState>(
                 builder: (context, lockState) {
@@ -202,16 +234,14 @@ class _SocialAppsViewState extends State<SocialAppsView> {
 
                   return SocialAppItem(
                     icon: iconProvider,
-                    name: app.appName.isNotEmpty
-                        ? app.appName
-                        : app.packageName,
+                    name: displayName,
                     usage: app.usageTimeFormatted,
                     isLocked: isLocked,
                     onLockToggle: (isLocked, duration) {
                       _appLockBloc.add(
                         ToggleAppLock(
                           packageName: app.packageName,
-                          appName: app.appName,
+                          appName: displayName,
                           isLocked: isLocked,
                           durationMinutes: duration,
                         ),
