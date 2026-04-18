@@ -130,40 +130,46 @@ import SwiftUI
     fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
   ) {
     let type = userInfo["type"] as? String ?? (userInfo["gcm.notification.type"] as? String)
-    print("AppDelegate: didReceiveRemoteNotification type=\(type ?? "nil")")
+    let action = userInfo["action"] as? String
+    print("AppDelegate: didReceiveRemoteNotification type=\(type ?? "nil") action=\(action ?? "nil")")
     
+    // Handle new backend format: action = "lock_apps" / "unlock_apps"
+    if action == "lock_apps" || action == "unlock_apps" {
+      if #available(iOS 16.0, *) {
+        let tokens = parseTokensFromPayload(userInfo)
+        if !tokens.isEmpty {
+          if action == "lock_apps" {
+            print("AppDelegate: lock_apps — adding shields for \(tokens.count) tokens")
+            // Add these tokens to existing lock list
+            let existing = ScreenTimeManager.shared.getLockedIds()
+            let merged = Array(Set(existing + tokens))
+            ScreenTimeManager.shared.applyShields(ids: merged)
+          } else {
+            print("AppDelegate: unlock_apps — removing shields for \(tokens.count) tokens")
+            // Remove these tokens from lock list
+            let existing = ScreenTimeManager.shared.getLockedIds()
+            let filtered = existing.filter { !tokens.contains($0) }
+            ScreenTimeManager.shared.applyShields(ids: filtered)
+          }
+          completionHandler(.newData)
+          return
+        }
+      }
+      // If no tokens, fetch full list from API via Dart
+      completionHandler(.newData)
+      return
+    }
+    
+    // Backward compatibility: old format type = "SYNC_LOCKED_APPS"
     if type == "SYNC_LOCKED_APPS" {
       if #available(iOS 16.0, *) {
-        // Read lock tokens from the push payload
-        if let tokensStr = userInfo["tokens"] as? String, !tokensStr.isEmpty {
-          var tokens: [String] = []
-          
-          // Try parsing as JSON array first (backend uses JSON.stringify)
-          if let jsonData = tokensStr.data(using: .utf8),
-             let jsonTokens = try? JSONSerialization.jsonObject(with: jsonData) as? [String] {
-            tokens = jsonTokens
-          } else {
-            // Fallback: comma-separated string
-            tokens = tokensStr.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespaces) }
-          }
-          
-          if !tokens.isEmpty {
-            print("AppDelegate: SYNC_LOCKED_APPS — applying shields for \(tokens.count) tokens")
-            ScreenTimeManager.shared.applyShields(ids: tokens)
-            completionHandler(.newData)
-            return
-          }
-        }
-        
-        // If tokens are already in native array format
-        if let tokens = userInfo["tokens"] as? [String] {
-          print("AppDelegate: SYNC_LOCKED_APPS — applying shields for \(tokens.count) tokens (array)")
+        let tokens = parseTokensFromPayload(userInfo)
+        if !tokens.isEmpty {
+          print("AppDelegate: SYNC_LOCKED_APPS — applying shields for \(tokens.count) tokens")
           ScreenTimeManager.shared.applyShields(ids: tokens)
           completionHandler(.newData)
           return
         }
-        
-        // If no tokens in payload, the Flutter background handler will fetch from API
         print("AppDelegate: SYNC_LOCKED_APPS — no tokens in payload, deferring to Flutter handler")
       }
       completionHandler(.newData)
@@ -172,6 +178,23 @@ import SwiftUI
     
     // For all other push types, let Flutter handle it
     super.application(application, didReceiveRemoteNotification: userInfo, fetchCompletionHandler: completionHandler)
+  }
+  
+  // Parse tokens from FCM data payload (handles JSON array string, comma-separated, or native array)
+  private func parseTokensFromPayload(_ userInfo: [AnyHashable: Any]) -> [String] {
+    if let tokensStr = userInfo["tokens"] as? String, !tokensStr.isEmpty {
+      // Try JSON array first: '["tok1","tok2"]'
+      if let jsonData = tokensStr.data(using: .utf8),
+         let jsonTokens = try? JSONSerialization.jsonObject(with: jsonData) as? [String] {
+        return jsonTokens
+      }
+      // Fallback: comma-separated
+      return tokensStr.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespaces) }
+    }
+    if let tokens = userInfo["tokens"] as? [String] {
+      return tokens
+    }
+    return []
   }
   
   private func getSoundProfile() -> String {
@@ -560,6 +583,11 @@ class ScreenTimeManager {
 
     private let lockedIdsKey = "com.truenyx.naviq.locked_ids"
     
+    /// Returns the currently persisted lock list from App Group
+    func getLockedIds() -> [String] {
+        return sharedDefaults?.stringArray(forKey: lockedIdsKey) ?? []
+    }
+    
     func applyShields(ids: [String]) {
         // Persist lock list to App Group so it survives app kill/restart
         sharedDefaults?.set(ids, forKey: lockedIdsKey)
@@ -864,13 +892,9 @@ extension AppDelegate {
       print("Message ID: \(messageID)")
     }
     
-    // Handle SYNC_LOCKED_APPS in foreground too — apply shields immediately
-    let type = userInfo["type"] as? String ?? (userInfo["gcm.notification.type"] as? String)
-    if type == "SYNC_LOCKED_APPS" {
-      print("AppDelegate willPresent: SYNC_LOCKED_APPS received in foreground")
-      if #available(iOS 16.0, *) {
-        applyShieldsFromPayload(userInfo)
-      }
+    // Handle lock/unlock in foreground
+    if #available(iOS 16.0, *) {
+      handleLockPayloadIfNeeded(userInfo)
     }
     
     print(userInfo)
@@ -887,38 +911,36 @@ extension AppDelegate {
       print("Message ID: \(messageID)")
     }
     
-    // Also handle on tap — in case user taps the lock notification
-    let type = userInfo["type"] as? String ?? (userInfo["gcm.notification.type"] as? String)
-    if type == "SYNC_LOCKED_APPS" {
-      print("AppDelegate didReceive: SYNC_LOCKED_APPS tapped")
-      if #available(iOS 16.0, *) {
-        applyShieldsFromPayload(userInfo)
-      }
+    // Handle lock/unlock on tap
+    if #available(iOS 16.0, *) {
+      handleLockPayloadIfNeeded(userInfo)
     }
     
     print(userInfo)
     completionHandler()
   }
   
-  // Shared helper to extract tokens and apply shields
+  // Shared helper — handles both old and new payload formats
   @available(iOS 16.0, *)
-  private func applyShieldsFromPayload(_ userInfo: [AnyHashable: Any]) {
-    if let tokensStr = userInfo["tokens"] as? String, !tokensStr.isEmpty {
-      var tokens: [String] = []
-      if let jsonData = tokensStr.data(using: .utf8),
-         let jsonTokens = try? JSONSerialization.jsonObject(with: jsonData) as? [String] {
-        tokens = jsonTokens
-      } else {
-        tokens = tokensStr.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespaces) }
-      }
-      if !tokens.isEmpty {
-        print("AppDelegate: Applying shields for \(tokens.count) tokens from notification")
-        ScreenTimeManager.shared.applyShields(ids: tokens)
-        return
-      }
-    }
-    if let tokens = userInfo["tokens"] as? [String], !tokens.isEmpty {
-      print("AppDelegate: Applying shields for \(tokens.count) tokens (array) from notification")
+  private func handleLockPayloadIfNeeded(_ userInfo: [AnyHashable: Any]) {
+    let type = userInfo["type"] as? String ?? (userInfo["gcm.notification.type"] as? String)
+    let action = userInfo["action"] as? String
+    
+    let tokens = parseTokensFromPayload(userInfo)
+    guard !tokens.isEmpty else { return }
+    
+    if action == "lock_apps" {
+      print("AppDelegate notification: lock_apps — \(tokens.count) tokens")
+      let existing = ScreenTimeManager.shared.getLockedIds()
+      let merged = Array(Set(existing + tokens))
+      ScreenTimeManager.shared.applyShields(ids: merged)
+    } else if action == "unlock_apps" {
+      print("AppDelegate notification: unlock_apps — \(tokens.count) tokens")
+      let existing = ScreenTimeManager.shared.getLockedIds()
+      let filtered = existing.filter { !tokens.contains($0) }
+      ScreenTimeManager.shared.applyShields(ids: filtered)
+    } else if type == "SYNC_LOCKED_APPS" {
+      print("AppDelegate notification: SYNC_LOCKED_APPS — \(tokens.count) tokens")
       ScreenTimeManager.shared.applyShields(ids: tokens)
     }
   }

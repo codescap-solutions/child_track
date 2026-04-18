@@ -45,8 +45,11 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     }
   }
 
-  if (message.data['type'] == 'SYNC_LOCKED_APPS') {
-    AppLogger.info('Received SYNC_LOCKED_APPS command via FCM (background)');
+  if (message.data['type'] == 'SYNC_LOCKED_APPS' ||
+      message.data['action'] == 'lock_apps' ||
+      message.data['action'] == 'unlock_apps') {
+    final action = message.data['action'] ?? message.data['type'] ?? 'unknown';
+    AppLogger.info('Received $action command via FCM (background)');
     try {
       // Background isolate can't use MethodChannel to reach native plugins on some setups.
       // On Android, we fetch the lock list and write it to SharedPreferences,
@@ -73,7 +76,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('locked_packages_csv', packages.join(','));
         AppLogger.info(
-          'SYNC_LOCKED_APPS (bg): Saved ${packages.length} packages to SharedPrefs CSV: $packages',
+          '$action (bg): Saved ${packages.length} packages to SharedPrefs CSV: $packages',
         );
 
         // Attempt to sync natively for iOS from background isolate
@@ -81,18 +84,18 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
           try {
             const iosChannel = MethodChannel('com.truenyx.naviq/parental_control');
             await iosChannel.invokeMethod<bool>('updateLockList', packages);
-            AppLogger.info('SYNC_LOCKED_APPS (bg): Synced to iOS native');
+            AppLogger.info('$action (bg): Synced to iOS native');
           } catch (iosErr) {
-            AppLogger.error('SYNC_LOCKED_APPS (bg): iOS sync error: $iosErr');
+            AppLogger.error('$action (bg): iOS sync error: $iosErr');
           }
         }
       } else {
         AppLogger.error(
-          'SYNC_LOCKED_APPS (bg): API failed: ${response.message}',
+          '$action (bg): API failed: ${response.message}',
         );
       }
     } catch (e) {
-      AppLogger.error('SYNC_LOCKED_APPS background sync error: $e');
+      AppLogger.error('$action background sync error: $e');
     }
   }
 }

@@ -308,7 +308,11 @@ class _ScreenTimeHeader extends StatelessWidget {
             CommonButton(
               width: double.infinity,
               text: 'Block Everything temporarily',
-              onPressed: () {},
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Processing temporary block...')),
+                );
+              },
               height: 50,
             ),
           ],

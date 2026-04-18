@@ -77,4 +77,7 @@ flutter {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+    // Play Billing Library — required to satisfy Google Play's minimum v6.0.1 requirement.
+    // Without this, Play Console flags the BILLING permission as using the legacy AIDL interface.
+    implementation("com.android.billingclient:billing:7.1.1")
 }

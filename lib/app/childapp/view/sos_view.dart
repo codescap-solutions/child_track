@@ -258,6 +258,103 @@ class _SosViewContent extends StatelessWidget {
     );
   }
 
+  // -----------------------------------------------------------------------
+  // PROMINENT DISCLOSURE — Accessibility Service (Google Play Policy)
+  // Must be shown BEFORE the user enables the Accessibility Service.
+  // -----------------------------------------------------------------------
+  static Future<void> _showAccessibilityDisclosure(BuildContext context) async {
+    final bool? agreed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppSizes.radiusL),
+        ),
+        title: Row(
+          children: [
+            const Icon(
+              Icons.accessibility_new_rounded,
+              color: AppColors.primaryColor,
+            ),
+            const SizedBox(width: AppSizes.spacingS),
+            Expanded(
+              child: Text(
+                'Accessibility Service',
+                style: AppTextStyles.headline6.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'NaviQ uses the Accessibility Service to detect which app is currently on screen.',
+                style: AppTextStyles.body2.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: AppSizes.spacingM),
+              Text(
+                'This is used exclusively to enforce the app-blocking feature set by your parent. '  
+                'When a blocked app is detected in the foreground, NaviQ will overlay a '
+                '"Blocked" screen to prevent access.',
+                style: AppTextStyles.body2,
+              ),
+              const SizedBox(height: AppSizes.spacingM),
+              Text(
+                'NaviQ does NOT read, record, or transmit any text, passwords, or other '
+                'personal content from your screen.',
+                style: AppTextStyles.body2.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: AppSizes.spacingS),
+              Text(
+                'Tap "Enable" to open Accessibility Settings and turn on "NaviQ App Lock".',
+                style: AppTextStyles.caption.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(
+              'Cancel',
+              style: AppTextStyles.button.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.primaryColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppSizes.radiusM),
+              ),
+            ),
+            child: Text(
+              'Enable',
+              style: AppTextStyles.button.copyWith(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (agreed == true && context.mounted) {
+      await injector<LockSyncService>().openAccessibilitySettings();
+    }
+  }
+
   Future<void> _shareLogs(BuildContext context) async {
     try {
       ScaffoldMessenger.of(
@@ -531,8 +628,9 @@ class _SosViewContent extends StatelessWidget {
                                 _buildPermissionItem(
                                   'Accessibility',
                                   hasAccessibilityPermission,
-                                  () => injector<LockSyncService>()
-                                      .openAccessibilitySettings(),
+                                  // Show prominent disclosure BEFORE opening Settings
+                                  // (required by Google Play Accessibility Service policy)
+                                  () => _showAccessibilityDisclosure(context),
                                 ),
                                 _buildPermissionItem(
                                   'Notifications',

@@ -424,7 +424,9 @@ class _SettingsViewState extends State<SettingsView> {
                         size: 16,
                         color: AppColors.textSecondary,
                       ),
-                      onTap: () {},
+                      onTap: () {
+                        AppSnackbar.showInfo(context, 'Device details coming soon');
+                      },
                     ),
 
                     Padding(

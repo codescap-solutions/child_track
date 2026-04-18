@@ -31,7 +31,11 @@ class SocialAppItem extends StatelessWidget {
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(AppSizes.radiusM),
-        onTap: () {},
+        onTap: () {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Usage details for $name')),
+          );
+        },
         child: Padding(
           padding: const EdgeInsets.symmetric(
             horizontal: AppSizes.paddingM,

@@ -56,7 +56,14 @@ class HelpDetailView extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: AppSizes.spacingM),
-              CommonButton(text: 'Chat With Us', onPressed: () {}),
+              CommonButton(
+                text: 'Chat With Us',
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Chat support coming soon')),
+                  );
+                },
+              ),
             ],
           ),
         ),
