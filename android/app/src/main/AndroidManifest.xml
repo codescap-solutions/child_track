@@ -31,10 +31,11 @@
         android:label="NaviQ"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
-        <!-- Declare as a monitoring tool per Google Play policy -->
+        <!-- Declare as a monitoring tool per Google Play Stalkerware & Monitoring policy.
+             Valid values: parental_control | enterprise_management | other -->
         <meta-data
             android:name="isMonitoringTool"
-            android:value="true" />
+            android:value="parental_control" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
