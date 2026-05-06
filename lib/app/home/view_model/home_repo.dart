@@ -93,4 +93,18 @@ class HomeRepository extends BaseService {
     );
     return response;
   }
+
+  Future<BaseResponse> updateChildSettings({
+    required String childId,
+    required bool webFilteringEnabled,
+  }) async {
+    final response = await put(
+      ApiEndpoints.updateChildSettings,
+      data: {
+        'child_id': childId,
+        'web_filtering_enabled': webFilteringEnabled,
+      },
+    );
+    return response;
+  }
 }

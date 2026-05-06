@@ -1,6 +1,8 @@
 import 'package:child_track/core/di/injector.dart';
 import 'package:child_track/core/navigation/route_names.dart';
+import 'package:child_track/core/services/device_info_service.dart';
 import 'package:child_track/core/services/shared_prefs_service.dart';
+import 'package:child_track/app/home/view_model/home_repo.dart';
 import 'package:child_track/core/services/firebase_notification_service.dart';
 import 'package:child_track/core/models/child_profile.dart';
 import 'package:child_track/core/services/background_location_service.dart';
@@ -18,6 +20,7 @@ import 'account_view.dart';
 import 'widgets/section_card.dart';
 import 'widgets/setting_tile.dart';
 import 'notification_settings_view.dart';
+import 'subscription_view.dart';
 import '../../addplace/add_and_saveplace.dart';
 
 class SettingsView extends StatefulWidget {
@@ -207,13 +210,21 @@ class _SettingsViewState extends State<SettingsView> {
                       context,
                       Icons.do_not_disturb_on_outlined,
                       'Block 18plus Websites',
-                      'contact details of each location',
+                      'Blocks adult content in browsers',
                       _block18Plus,
                       (value) async {
-                        if (Theme.of(context).platform == TargetPlatform.iOS) {
-                          // Redirection logic for iOS would go here
-                          // For now, just toggling and persisting
+                        debugPrint('SettingsView: Toggling Block 18plus Websites to $value');
+                        
+                        // 1. Update Server (Parent side)
+                        final childId = _sharedPrefsService.getString('child_id');
+                        if (childId != null) {
+                          await injector<HomeRepository>().updateChildSettings(
+                            childId: childId,
+                            webFilteringEnabled: value,
+                          );
                         }
+
+                        // 2. Update Shared Prefs (Local)
                         await _sharedPrefsService.setBool(
                           'block_18plus',
                           value,
@@ -331,8 +342,8 @@ class _SettingsViewState extends State<SettingsView> {
                     SettingTile(
                       subtitle: 'Manage your subscription',
                       leading: const Icon(
-                        Icons.family_restroom_rounded,
-                        color: AppColors.textSecondary,
+                        Icons.verified_user_rounded,
+                        color: AppColors.primaryColor,
                       ),
                       title: 'Subscription',
                       trailing: const Icon(
@@ -341,10 +352,10 @@ class _SettingsViewState extends State<SettingsView> {
                         color: AppColors.textSecondary,
                       ),
                       onTap: () {
-                        // Navigation to Subscription view
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Subscription management by parent'),
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const SubscriptionView(),
                           ),
                         );
                       },
@@ -425,7 +436,10 @@ class _SettingsViewState extends State<SettingsView> {
                         color: AppColors.textSecondary,
                       ),
                       onTap: () {
-                        AppSnackbar.showInfo(context, 'Device details coming soon');
+                        AppSnackbar.showInfo(
+                          context,
+                          'Device details coming soon',
+                        );
                       },
                     ),
 

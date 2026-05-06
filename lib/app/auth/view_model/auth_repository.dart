@@ -2,6 +2,7 @@ import '../../../core/services/dio_client.dart';
 import '../../../core/services/shared_prefs_service.dart';
 import '../../../core/services/api_endpoints.dart';
 import '../../../core/services/base_service.dart';
+import '../../../core/services/revenue_cat_service.dart';
 import '../../../core/models/child_profile.dart';
 import '../../../core/services/background_location_service.dart';
 
@@ -140,6 +141,12 @@ class AuthRepository extends BaseService {
             }
           }
         }
+
+        // Sync user identity with RevenueCat after successful login
+        final loggedInParentId = _sharedPrefsService.getString('parent_id');
+        if (loggedInParentId != null) {
+          await RevenueCatService.instance.logIn(loggedInParentId);
+        }
       }
 
       return response;
@@ -171,6 +178,9 @@ class AuthRepository extends BaseService {
     try {
       final response = await post(ApiEndpoints.logout);
 
+      // Sign out from RevenueCat before clearing local storage
+      await RevenueCatService.instance.logOut();
+
       // Clear local storage regardless of API response
       await _sharedPrefsService.logout();
       await BackgroundLocationService().stop(); // Ensure tracking stops
@@ -178,6 +188,7 @@ class AuthRepository extends BaseService {
       return response;
     } catch (e) {
       // Clear local storage even if API call fails
+      await RevenueCatService.instance.logOut();
       await _sharedPrefsService.logout();
       await BackgroundLocationService().stop(); // Ensure tracking stops
       return BaseResponse.error(message: e.toString());

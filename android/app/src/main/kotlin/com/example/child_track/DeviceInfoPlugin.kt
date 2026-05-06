@@ -1,4 +1,4 @@
-package com.truenyx.naviq
+package com.truenyx.naviqandroid
 
 import android.app.AppOpsManager
 import android.app.usage.UsageEvents
@@ -209,6 +209,16 @@ class DeviceInfoPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
                     intent.addCategory(Intent.CATEGORY_HOME)
                     intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
                     context.startActivity(intent)
+                    result.success(true)
+                } catch (e: Exception) {
+                    result.error("ERROR", e.message, null)
+                }
+            }
+
+            "setWebFiltering" -> {
+                try {
+                    val enabled = call.arguments<Boolean>() ?: false
+                    setWebFiltering(enabled)
                     result.success(true)
                 } catch (e: Exception) {
                     result.error("ERROR", e.message, null)
@@ -461,5 +471,12 @@ class DeviceInfoPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
         drawable.setBounds(0, 0, canvas.width, canvas.height)
         drawable.draw(canvas)
         return bitmap
+    }
+
+    private fun setWebFiltering(enabled: Boolean) {
+        Log.d("DeviceInfoPlugin", ">>> setWebFiltering called: $enabled")
+        val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+        prefs.edit().putBoolean("flutter.web_filtering_enabled", enabled).apply()
+        Log.d("DeviceInfoPlugin", ">>> Web filtering persisted to SharedPreferences")
     }
 }

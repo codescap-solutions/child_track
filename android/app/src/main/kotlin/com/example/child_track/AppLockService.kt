@@ -1,4 +1,4 @@
-package com.truenyx.naviq
+package com.truenyx.naviqandroid
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
@@ -9,6 +9,8 @@ import android.provider.Settings
 import android.text.TextUtils
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityNodeInfo
+import java.util.Locale
 
 /**
  * AccessibilityService that monitors foreground app changes and blocks
@@ -29,6 +31,21 @@ class AppLockService : AccessibilityService() {
         private const val FLUTTER_PREFS_NAME = "FlutterSharedPreferences"
         // Read the CSV string we now save from Flutter
         private const val FLUTTER_PREFS_CSV_KEY = "flutter.locked_packages_csv"
+        private const val FLUTTER_PREFS_WEB_FILTER_KEY = "flutter.web_filtering_enabled"
+
+        private val BROWSER_PACKAGES = setOf(
+            "com.android.chrome",
+            "org.mozilla.firefox",
+            "com.sec.android.app.sbrowser", // Samsung Browser
+            "com.opera.browser",
+            "com.opera.mini.native",
+            "com.microsoft.emmx", // Edge
+            "com.duckduckgo.mobile.android"
+        )
+
+        private val BLOCKED_KEYWORDS = setOf(
+            "porn", "xxx", "sex", "adult", "xvideo", "pornhub", "redtube", "brazzers", "xhamster"
+        )
 
         /**
          * Thread-safe set of package names currently blocked.
@@ -37,6 +54,10 @@ class AppLockService : AccessibilityService() {
          */
         @Volatile
         var lockedPackages: Set<String> = emptySet()
+            private set
+
+        @Volatile
+        var webFilteringEnabled: Boolean = false
             private set
 
         /**
@@ -85,7 +106,7 @@ class AppLockService : AccessibilityService() {
 
     // Track the last time we refreshed from SharedPreferences
     private var lastPrefsRefreshTime: Long = 0L
-    private val PREFS_REFRESH_INTERVAL_MS = 3000L  // refresh from prefs every 3s
+    private val PREFS_REFRESH_INTERVAL_MS = 5000L  // refresh from prefs every 5s
 
     // Track the last blocked package to avoid spamming intents.
     private var lastBlockedPackage: String? = null
@@ -99,10 +120,12 @@ class AppLockService : AccessibilityService() {
         Log.d(TAG, ">>> AppLockService connected (v7 — SharedPrefs sync)")
 
         val info = AccessibilityServiceInfo().apply {
-            eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
+            eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or 
+                         AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
             feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
             notificationTimeout = 100L
-            flags = AccessibilityServiceInfo.DEFAULT
+            flags = AccessibilityServiceInfo.DEFAULT or 
+                    AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
         }
         serviceInfo = info
 
@@ -128,6 +151,13 @@ class AppLockService : AccessibilityService() {
                     Log.d(TAG, ">>> Refreshed locked packages from SharedPrefs CSV: $savedPackages")
                 }
             }
+            
+            val webEnabled = prefs.getBoolean(FLUTTER_PREFS_WEB_FILTER_KEY, false)
+            if (webEnabled != webFilteringEnabled) {
+                webFilteringEnabled = webEnabled
+                Log.d(TAG, ">>> Web filtering status updated: $webEnabled")
+            }
+
             lastPrefsRefreshTime = System.currentTimeMillis()
         } catch (e: Exception) {
             Log.e(TAG, ">>> Failed to read locked packages from prefs: ${e.message}")
@@ -136,19 +166,21 @@ class AppLockService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
-        if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
-
+        
+        val eventType = event.eventType
         val packageName = event.packageName?.toString() ?: return
 
-        // Periodically refresh lock list from SharedPreferences.
+        // Periodically refresh settings from SharedPreferences.
         // This picks up changes written by Flutter's background FCM handler.
         val currentTime = System.currentTimeMillis()
         if (currentTime - lastPrefsRefreshTime > PREFS_REFRESH_INTERVAL_MS) {
             refreshLockedPackagesFromPrefs()
         }
 
-        // Log EVERY window change so we can trace the full flow
-        Log.d(TAG, ">>> Window changed to: $packageName (className=${event.className})")
+        // Log window changes
+        if (eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            Log.d(TAG, ">>> Window changed to: $packageName (className=${event.className})")
+        }
 
         // Skip system UI
         if (packageName == "com.android.systemui") return
@@ -162,7 +194,10 @@ class AppLockService : AccessibilityService() {
         }
 
         if (packageName !in lockedPackages) {
-            // Not a locked app — ignore silently
+            // If web filtering is enabled and it's a browser, check the URL
+            if (webFilteringEnabled && BROWSER_PACKAGES.contains(packageName)) {
+                checkWebFiltering(packageName)
+            }
             return
         }
 
@@ -185,7 +220,7 @@ class AppLockService : AccessibilityService() {
         // Launch our app immediately so it covers the blocked app
         try {
             val intent = Intent(applicationContext, MainActivity::class.java).apply {
-                action = "com.truenyx.naviq.APP_BLOCKED"
+                action = "com.truenyx.naviqandroid.APP_BLOCKED"
                 addFlags(
                     Intent.FLAG_ACTIVITY_NEW_TASK or
                     Intent.FLAG_ACTIVITY_CLEAR_TOP or
@@ -198,6 +233,75 @@ class AppLockService : AccessibilityService() {
             Log.d(TAG, ">>> Intent sent successfully for: $packageName")
         } catch (e: Exception) {
             Log.e(TAG, ">>> FAILED to launch intent: ${e.message}", e)
+        }
+    }
+
+    /**
+     * Scans the browser's node hierarchy to find and check the URL.
+     */
+    private fun checkWebFiltering(packageName: String) {
+        val rootNode = rootInActiveWindow ?: return
+        
+        // Find URL/Address bar
+        val url = findUrlInNodes(rootNode)
+        rootNode.recycle()
+
+        if (url != null) {
+            val lowerUrl = url.lowercase(Locale.ROOT)
+            for (keyword in BLOCKED_KEYWORDS) {
+                if (lowerUrl.contains(keyword)) {
+                    Log.d(TAG, ">>> WEB FILTER BLOCKED: $url (keyword: $keyword)")
+                    triggerBlock(packageName, url)
+                    break
+                }
+            }
+        }
+    }
+
+    private fun findUrlInNodes(node: AccessibilityNodeInfo): String? {
+        // Look for nodes that look like address bars (usually have some text and are editable or have specific IDs)
+        // Note: Different browsers have different resource IDs. We'll check text content for common patterns.
+        
+        val text = node.text?.toString()
+        if (text != null && (text.contains(".") || text.contains("http"))) {
+            // Heuristic: if it's an address bar, it usually doesn't have many children and is near the top
+            // This is a simplified check.
+            if (node.isEditable || node.className?.contains("EditText") == true) {
+                return text
+            }
+        }
+
+        for (i in 0 until node.childCount) {
+            val child = node.getChild(i) ?: continue
+            val result = findUrlInNodes(child)
+            child.recycle()
+            if (result != null) return result
+        }
+        return null
+    }
+
+    private fun triggerBlock(packageName: String, url: String) {
+        val now = System.currentTimeMillis()
+        if (packageName == lastBlockedPackage && (now - lastBlockedTime) < BLOCK_DEBOUNCE_MS) return
+        
+        lastBlockedPackage = packageName
+        lastBlockedTime = now
+
+        try {
+            val intent = Intent(applicationContext, MainActivity::class.java).apply {
+                action = "com.truenyx.naviqandroid.APP_BLOCKED"
+                addFlags(
+                    Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP
+                )
+                putExtra("app_blocked", true)
+                putExtra("blocked_package", packageName)
+                putExtra("blocked_url", url)
+            }
+            applicationContext.startActivity(intent)
+        } catch (e: Exception) {
+            Log.e(TAG, ">>> FAILED to launch web block intent: ${e.message}")
         }
     }
 

@@ -22,7 +22,7 @@ import SwiftUI
     // NOTE: This key should match the GOOGLE_MAPS_API_KEY in your .env file
     // For iOS, you need to manually update this key to match your .env file
     // TODO: Consider reading from Info.plist or using build configurations for better security
-    GMSServices.provideAPIKey("your_google_maps_api_key_here")
+    GMSServices.provideAPIKey("AIzaSyASaOyJsO7dp01jjv625MI9Tw9HwEeTuQg")
     
     GeneratedPluginRegistrant.register(with: self)
     
@@ -113,6 +113,13 @@ import SwiftUI
           
         case "getMonitoredApps":
           self.getMonitoredApps(result: result)
+          
+        case "setWebFiltering":
+          if let enabled = call.arguments as? Bool {
+            self.setWebFiltering(enabled: enabled, result: result)
+          } else {
+            result(FlutterError(code: "INVALID_ARGS", message: "Expected boolean", details: nil))
+          }
           
         default:
           result(FlutterMethodNotImplemented)
@@ -424,6 +431,17 @@ import SwiftUI
       result([])
     }
   }
+
+  private func setWebFiltering(enabled: Bool, result: @escaping FlutterResult) {
+    print("AppDelegate: setWebFiltering called with value: \(enabled)")
+    if #available(iOS 16.0, *) {
+      ScreenTimeManager.shared.applyWebContentFilter(enabled: enabled)
+      result(true)
+    } else {
+      print("AppDelegate: setWebFiltering FAILED - OS version too low")
+      result(FlutterError(code: "UNSUPPORTED_OS", message: "iOS 16+ required", details: nil))
+    }
+  }
 }
 
 // MARK: - ScreenTimeManager
@@ -458,8 +476,9 @@ class ScreenTimeManager {
     private let maxEvents = 100
     
     func startMonitoring() {
-        // Restore any persisted shields first (survives app kill)
+        // Restore any persisted shields and filters first (survives app kill)
         restoreShieldsIfNeeded()
+        restoreWebFilterIfNeeded()
         
         if let data = sharedDefaults?.data(forKey: "com.truenyx.naviq.selection"),
            let selection = try? JSONDecoder().decode(FamilyActivitySelection.self, from: data) {
@@ -629,6 +648,45 @@ class ScreenTimeManager {
         store.shield.applicationCategories = categoriesToShield.isEmpty ? nil : .specific(categoriesToShield)
         print("ScreenTimeManager: Applied shields to \(tokensToShield.count) apps and \(categoriesToShield.count) categories")
         logToExtension("🔒 Shielded \(tokensToShield.count) apps + \(categoriesToShield.count) categories")
+    }
+
+    private let webFilterEnabledKey = "com.truenyx.naviq.web_filter_enabled"
+
+    func applyWebContentFilter(enabled: Bool) {
+        sharedDefaults?.set(enabled, forKey: webFilterEnabledKey)
+        sharedDefaults?.synchronize()
+        
+        let store = ManagedSettingsStore()
+        if #available(iOS 16.0, *) {
+            if enabled {
+                // Since ManagedSettings doesn't have a single "Adult Content" toggle,
+                // we use .specific with a list of common adult domains as a starting point.
+                // For a more robust solution, a larger blacklist or a whitelist approach is recommended.
+                let blockedDomains: Set<WebDomain> = [
+                    WebDomain(domain: "porn.com"),
+                    WebDomain(domain: "xxx.com"),
+                    WebDomain(domain: "pornhub.com"),
+                    WebDomain(domain: "xvideos.com"),
+                    WebDomain(domain: "redtube.com"),
+                    WebDomain(domain: "xhamster.com")
+                ]
+                store.webContent.blockedByFilter = .specific(blockedDomains)
+                print("ScreenTimeManager: Web content filter ENABLED for \(blockedDomains.count) domains")
+                logToExtension("🚫 Enabled web filter for \(blockedDomains.count) domains")
+            } else {
+                store.webContent.blockedByFilter = nil
+                print("ScreenTimeManager: Web content filter DISABLED")
+                logToExtension("🔓 Disabled web filter")
+            }
+        }
+    }
+
+    func restoreWebFilterIfNeeded() {
+        let enabled = sharedDefaults?.bool(forKey: webFilterEnabledKey) ?? false
+        if enabled {
+            print("ScreenTimeManager: Restoring web filter")
+            applyWebContentFilter(enabled: true)
+        }
     }
     
     /// Re-apply shields from persisted lock list (call on app launch)

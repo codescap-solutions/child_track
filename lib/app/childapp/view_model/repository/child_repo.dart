@@ -6,6 +6,8 @@ import 'package:child_track/core/services/shared_prefs_service.dart';
 import 'package:child_track/core/models/child_profile.dart';
 import 'package:dio/dio.dart';
 import 'package:child_track/core/utils/app_logger.dart';
+import 'package:child_track/core/services/device_info_service.dart';
+import 'package:child_track/core/di/injector.dart';
 
 class ChildRepo extends BaseService {
   final SharedPrefsService _sharedPrefsService;
@@ -63,6 +65,17 @@ class ChildRepo extends BaseService {
           final parentPhone = data['child']?['parent_phone']?.toString();
           if (parentPhone != null) {
             await _sharedPrefsService.setString('parent_phone', parentPhone);
+          }
+
+          // Read and apply Web Filtering status
+          final isWebFilteringEnabled = data['child']?['web_filtering_enabled'] as bool? ?? false;
+          AppLogger.info('Child login: Web filtering status from server: $isWebFilteringEnabled');
+          await _sharedPrefsService.setBool('block_18plus', isWebFilteringEnabled);
+          
+          try {
+            await injector<DeviceInfoService>().setWebFiltering(isWebFilteringEnabled);
+          } catch (e) {
+            AppLogger.error('Child login: Failed to apply native web filtering: $e');
           }
 
           // Verify it was saved correctly

@@ -287,4 +287,24 @@ class DeviceInfoService {
       AppLogger.error('Error updating lock list: $e');
     }
   }
+
+  /// Enable or disable web filtering (18+ content)
+  Future<void> setWebFiltering(bool enabled) async {
+    try {
+      AppLogger.info('DeviceInfoService: Setting web filtering to $enabled');
+      if (Platform.isIOS) {
+        const iosChannel = MethodChannel('com.truenyx.naviq/parental_control');
+        final result = await iosChannel.invokeMethod('setWebFiltering', enabled);
+        AppLogger.info('DeviceInfoService: iOS result: $result');
+        return;
+      }
+
+      if (Platform.isAndroid) {
+        final result = await _channel.invokeMethod('setWebFiltering', enabled);
+        AppLogger.info('DeviceInfoService: Android result: $result');
+      }
+    } catch (e) {
+      AppLogger.error('DeviceInfoService: Error setting web filtering: $e');
+    }
+  }
 }

@@ -60,7 +60,7 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
             <intent-filter>
-                <action android:name="com.truenyx.naviq.APP_BLOCKED" />
+                <action android:name="com.truenyx.naviqandroid.APP_BLOCKED" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>

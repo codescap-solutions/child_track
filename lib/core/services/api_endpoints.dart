@@ -54,4 +54,6 @@ class ApiEndpoints {
       'places/$id/assign-all-children';
   static String togglePlaceNotification(String id) =>
       'places/$id/toggle-notification';
+  // Settings endpoints
+  static const String updateChildSettings = 'parent/child-settings';
 }

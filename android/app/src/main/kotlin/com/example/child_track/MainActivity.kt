@@ -1,4 +1,4 @@
-package com.truenyx.naviq
+package com.truenyx.naviqandroid
 
 import android.content.Intent
 import android.os.Bundle

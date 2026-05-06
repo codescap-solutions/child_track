@@ -28,7 +28,7 @@ This project uses Firebase Cloud Messaging (FCM) for push notifications. Follow 
 
 2. **Add Android App to Firebase**:
    - In your Firebase project, click the Android icon (or "Add app")
-   - Package name: `com.truenyx.naviq` (must match your `applicationId` in `android/app/build.gradle.kts`)
+   - Package name: `com.truenyx.naviqandroid` (must match your `applicationId` in `android/app/build.gradle.kts`)
    - App nickname: `NAVIQ Android` (optional)
    - Register app
    - Download `google-services.json`

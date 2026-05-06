@@ -51,7 +51,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyADjva7ABPEWCvLZWaJIAFihTHCwwWQ9ps',
-    appId: '1:749965493310:android:1b412c2ae7519008f5fd6f',
+    appId: '1:749965493310:android:a90f38da7fc4434af5fd6f',
     messagingSenderId: '749965493310',
     projectId: 'naviq-b6fa4',
     storageBucket: 'naviq-b6fa4.firebasestorage.app',
@@ -65,4 +65,5 @@ class DefaultFirebaseOptions {
     storageBucket: 'naviq-b6fa4.firebasestorage.app',
     iosBundleId: 'com.truenyx.naviq',
   );
+
 }

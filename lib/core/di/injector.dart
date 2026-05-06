@@ -24,6 +24,7 @@ import '../../app/geofencing/view_model/bloc/geofence_bloc.dart';
 import 'package:child_track/core/services/lock_sync_service.dart';
 import '../../app/social_apps/view_model/app_lock_repository.dart';
 import '../../app/social_apps/view_model/bloc/app_lock_bloc.dart';
+import '../services/device_info_service.dart';
 
 final GetIt injector = GetIt.instance;
 
@@ -161,4 +162,7 @@ Future<void> initializeDependencies() async {
       sharedPrefsService: injector<SharedPrefsService>(),
     ),
   );
+  
+  // Register DeviceInfoService
+  injector.registerLazySingleton<DeviceInfoService>(() => DeviceInfoService());
 }

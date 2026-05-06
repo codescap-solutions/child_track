@@ -1,4 +1,4 @@
-package com.truenyx.naviq
+package com.truenyx.naviqandroid
 
 import android.content.BroadcastReceiver
 import android.content.Context
