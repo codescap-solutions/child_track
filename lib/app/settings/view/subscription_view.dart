@@ -1,11 +1,13 @@
+import 'package:child_track/core/utils/app_snackbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 
 import 'package:child_track/core/constants/app_colors.dart';
 import 'package:child_track/core/constants/app_text_styles.dart';
-import 'package:child_track/core/utils/app_snackbar.dart';
-import '../view_model/subscription_cubit.dart';
+import '../view_model/bloc/subscription_bloc.dart';
+import '../view_model/bloc/subscription_event.dart';
+import '../view_model/bloc/subscription_state.dart';
 
 class SubscriptionView extends StatelessWidget {
   const SubscriptionView({super.key});
@@ -13,7 +15,7 @@ class SubscriptionView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) => SubscriptionCubit()..loadOfferings(),
+      create: (_) => SubscriptionBloc()..add(const LoadOfferingsEvent()),
       child: const _SubscriptionBody(),
     );
   }
@@ -26,18 +28,23 @@ class _SubscriptionBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocConsumer<SubscriptionCubit, SubscriptionState>(
+    return BlocConsumer<SubscriptionBloc, SubscriptionState>(
       listener: (context, state) {
         if (state is SubscriptionSuccess) {
           _showSuccessDialog(context, state.customerInfo);
-        } else if (state is SubscriptionError && !state.isCancelled) {
-          AppSnackbar.showError(context, state.message);
-          // Reload so the UI shows plan buttons again
-          context.read<SubscriptionCubit>().loadOfferings();
-        } else if (state is SubscriptionError && state.isCancelled) {
-          // User cancelled — just reload state silently
-          context.read<SubscriptionCubit>().loadOfferings();
+          // User cancelled native payment sheet — reload to dismiss the spinner
+          context.read<SubscriptionBloc>().add(const LoadOfferingsEvent());
+        } else if (state is SubscriptionError &&
+            !state.isLoadError &&
+            !state.isCancelled) {
+          // Purchase failed — show snackbar; the builder keeps the plan UI
+          AppSnackbar.showError(
+            context,
+            "Subscription failed. Please try again or contact support if the issue persists.",
+          );
+          context.read<SubscriptionBloc>().add(const LoadOfferingsEvent());
         }
+        // isLoadError states are handled by the builder (_ErrorView with retry)
       },
       builder: (context, state) {
         return Scaffold(
@@ -65,9 +72,7 @@ class _SubscriptionBody extends StatelessWidget {
         icon: const Icon(Icons.arrow_back_ios_new, size: 18),
         onPressed: () => Navigator.of(context).maybePop(),
       ),
-      flexibleSpace: FlexibleSpaceBar(
-        background: _HeroHeader(),
-      ),
+      flexibleSpace: FlexibleSpaceBar(background: _HeroHeader()),
     );
   }
 
@@ -78,7 +83,8 @@ class _SubscriptionBody extends StatelessWidget {
       return const _LoadingView();
     }
 
-    if (state is SubscriptionError && !state.isCancelled) {
+    // Only full-page error for offerings load failures
+    if (state is SubscriptionError && state.isLoadError) {
       return _ErrorView(message: state.message);
     }
 
@@ -126,7 +132,9 @@ class _SubscriptionBody extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               'Your subscription is active. All premium features are now unlocked.',
-              style: AppTextStyles.body2.copyWith(color: AppColors.textSecondary),
+              style: AppTextStyles.body2.copyWith(
+                color: AppColors.textSecondary,
+              ),
               textAlign: TextAlign.center,
             ),
           ],
@@ -183,9 +191,16 @@ class _HeroHeader extends StatelessWidget {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: Colors.white.withOpacity(0.15),
-                  border: Border.all(color: Colors.white.withOpacity(0.3), width: 2),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.3),
+                    width: 2,
+                  ),
                 ),
-                child: const Icon(Icons.verified_user_rounded, color: Colors.white, size: 38),
+                child: const Icon(
+                  Icons.verified_user_rounded,
+                  color: Colors.white,
+                  size: 38,
+                ),
               ),
               const SizedBox(height: 14),
               Text(
@@ -238,7 +253,9 @@ class _PlanContent extends StatelessWidget {
 
           // ── Restore ──
           TextButton(
-            onPressed: () => context.read<SubscriptionCubit>().restorePurchases(),
+            onPressed: () => context.read<SubscriptionBloc>().add(
+              const RestorePurchasesEvent(),
+            ),
             child: Text(
               'Restore Purchases',
               style: AppTextStyles.caption.copyWith(
@@ -256,7 +273,9 @@ class _PlanContent extends StatelessWidget {
           // ── Legal ──
           Text(
             'Cancel anytime · Terms & Privacy Policy\nSubscriptions auto-renew unless cancelled.',
-            style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary),
+            style: AppTextStyles.caption.copyWith(
+              color: AppColors.textSecondary,
+            ),
             textAlign: TextAlign.center,
           ),
         ],
@@ -287,8 +306,21 @@ class _PlanTabRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Expanded(child: _Tab(label: 'Monthly', index: 0, selected: selectedIndex == 0)),
-          Expanded(child: _Tab(label: 'Yearly', index: 1, selected: selectedIndex == 1, badge: 'SAVE 30%')),
+          Expanded(
+            child: _Tab(
+              label: 'Monthly',
+              index: 0,
+              selected: selectedIndex == 0,
+            ),
+          ),
+          Expanded(
+            child: _Tab(
+              label: 'Yearly',
+              index: 1,
+              selected: selectedIndex == 1,
+              badge: 'SAVE 30%',
+            ),
+          ),
         ],
       ),
     );
@@ -300,12 +332,17 @@ class _Tab extends StatelessWidget {
   final int index;
   final bool selected;
   final String? badge;
-  const _Tab({required this.label, required this.index, required this.selected, this.badge});
+  const _Tab({
+    required this.label,
+    required this.index,
+    required this.selected,
+    this.badge,
+  });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => context.read<SubscriptionCubit>().selectPlan(index),
+      onTap: () => context.read<SubscriptionBloc>().add(SelectPlanEvent(index)),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
         padding: const EdgeInsets.symmetric(vertical: 14),
@@ -332,7 +369,9 @@ class _Tab extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
-                  color: selected ? Colors.white.withOpacity(0.25) : const Color(0xFFE3F2FD),
+                  color: selected
+                      ? Colors.white.withOpacity(0.25)
+                      : const Color(0xFFE3F2FD),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
@@ -417,7 +456,10 @@ class _PriceCard extends StatelessWidget {
             if (perMonth != null) ...[
               const SizedBox(height: 6),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.18),
                   borderRadius: BorderRadius.circular(20),
@@ -456,7 +498,9 @@ class _SubscribeButton extends StatelessWidget {
       child: ElevatedButton(
         onPressed: pkg == null
             ? null
-            : () => context.read<SubscriptionCubit>().purchase(pkg),
+            : () => context.read<SubscriptionBloc>().add(
+                PurchasePackageEvent(pkg),
+              ),
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primaryColor,
           disabledBackgroundColor: AppColors.borderColor,
@@ -604,17 +648,20 @@ class _FeatureRow extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           child: Row(
             children: [
-              Expanded(
-                child: Text(name, style: AppTextStyles.body2),
+              Expanded(child: Text(name, style: AppTextStyles.body2)),
+              _CheckCell(
+                included: monthlyIncluded,
+                highlighted: monthlyHighlight,
               ),
-              _CheckCell(included: monthlyIncluded, highlighted: monthlyHighlight),
               const SizedBox(width: 16),
-              _CheckCell(included: yearlyIncluded, highlighted: yearlyHighlight),
+              _CheckCell(
+                included: yearlyIncluded,
+                highlighted: yearlyHighlight,
+              ),
             ],
           ),
         ),
-        if (showDivider)
-          const Divider(height: 1, indent: 16, endIndent: 16),
+        if (showDivider) const Divider(height: 1, indent: 16, endIndent: 16),
       ],
     );
   }
@@ -668,7 +715,11 @@ class _ErrorView extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           const SizedBox(height: 40),
-          const Icon(Icons.wifi_off_rounded, size: 60, color: AppColors.textHint),
+          const Icon(
+            Icons.wifi_off_rounded,
+            size: 60,
+            color: AppColors.textHint,
+          ),
           const SizedBox(height: 16),
           Text(
             'Could not load plans',
@@ -683,7 +734,9 @@ class _ErrorView extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           ElevatedButton.icon(
-            onPressed: () => context.read<SubscriptionCubit>().loadOfferings(),
+            onPressed: () => context.read<SubscriptionBloc>().add(
+              const LoadOfferingsEvent(),
+            ),
             icon: const Icon(Icons.refresh),
             label: const Text('Try Again'),
             style: ElevatedButton.styleFrom(
