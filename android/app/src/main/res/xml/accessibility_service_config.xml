@@ -6,4 +6,6 @@
     android:canRetrieveWindowContent="false"
     android:notificationTimeout="100"
     android:description="@string/accessibility_service_description"
+    android:isAccessibilityTool="false"
     android:settingsActivity="com.truenyx.naviqandroid.MainActivity" />
+

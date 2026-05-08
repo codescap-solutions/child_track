@@ -43,3 +43,8 @@
 -dontwarn com.google.android.play.core.tasks.OnFailureListener
 -dontwarn com.google.android.play.core.tasks.OnSuccessListener
 -dontwarn com.google.android.play.core.tasks.Task
+
+# RevenueCat / PurchasesHybridCommon
+-keep class com.revenuecat.purchases.** { *; }
+-keep class com.revenuecat.purchases.hybrid.common.** { *; }
+-dontwarn com.revenuecat.purchases.**

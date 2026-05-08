@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:child_track/core/models/base_response.dart';
 import 'package:dio/dio.dart';
 import 'package:child_track/core/di/injector.dart';
@@ -157,17 +158,18 @@ class DioClient {
       ),
     );
 
-    // Logging Interceptor
-    _dio.interceptors.add(
-      LogInterceptor(
-        requestBody: true,
-        responseBody: true,
-        requestHeader: true,
-        responseHeader: false,
-        error: true,
-        // logPrint: (obj) => AppLogger.debug(obj.toString()),
-      ),
-    );
+    // Logging Interceptor — debug builds only (avoids token leaks in logcat)
+    if (kDebugMode) {
+      _dio.interceptors.add(
+        LogInterceptor(
+          requestBody: true,
+          responseBody: true,
+          requestHeader: true,
+          responseHeader: false,
+          error: true,
+        ),
+      );
+    }
   }
 
   // Process pending requests after token refresh
