@@ -270,21 +270,18 @@ class _AppBlockedScreenState extends State<AppBlockedScreen>
       height: 56,
       child: ElevatedButton(
         onPressed: () async {
-          // Pop the block screen so it doesn't stay stuck on the stack
-          // when the user explicitly opens NaviQ next time.
-          if (mounted) {
-            Navigator.of(context).pop();
-          }
-
-          // Use native HOME intent instead of SystemNavigator.pop().
-          // pop() finishes the activity which returns to the blocked app.
-          // goHome() goes to the launcher and keeps naviq alive for instant re-block.
+          // Do NOT pop the block screen here.
+          // Popping would reveal the SplashScreen underneath (the app's
+          // initial home:), which re-runs _checkAuthStatus() and incorrectly
+          // redirects the child to the onboarding page.
+          // The block screen stays on the stack; the native goHome call
+          // sends NaviQ to the background so it's invisible to the child.
           const channel = MethodChannel('com.truenyx.naviq/device_info');
           try {
             await channel.invokeMethod('goHome');
           } catch (_) {
-            // Fallback if channel fails
-            SystemNavigator.pop();
+            // Fallback: minimise the app without finishing the activity.
+            SystemNavigator.pop(animated: true);
           }
         },
         style: ElevatedButton.styleFrom(
