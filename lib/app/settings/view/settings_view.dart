@@ -1,6 +1,5 @@
 import 'package:child_track/core/di/injector.dart';
 import 'package:child_track/core/navigation/route_names.dart';
-import 'package:child_track/core/services/device_info_service.dart';
 import 'package:child_track/core/services/shared_prefs_service.dart';
 import 'package:child_track/app/home/view_model/home_repo.dart';
 import 'package:child_track/core/services/firebase_notification_service.dart';
