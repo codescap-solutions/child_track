@@ -13,7 +13,7 @@ import 'package:child_track/core/constants/app_text_styles.dart';
 import 'package:child_track/core/widgets/common_button.dart';
 import 'package:child_track/core/widgets/social_apps_shimmer.dart';
 import 'widgets/social_app_item.dart';
-import 'widgets/accessibility_disclosure_dialog.dart';
+
 
 class SocialAppsView extends StatefulWidget {
   const SocialAppsView({super.key});
@@ -73,9 +73,7 @@ class _SocialAppsViewState extends State<SocialAppsView> {
       providers: [
         BlocProvider(create: (_) => _bloc),
         BlocProvider.value(
-          value: _appLockBloc
-            ..add(CheckAccessibilityPermission())
-            ..add(FetchLockedApps()),
+          value: _appLockBloc..add(FetchLockedApps()),
         ),
       ],
       child: Scaffold(
@@ -91,22 +89,7 @@ class _SocialAppsViewState extends State<SocialAppsView> {
           foregroundColor: AppColors.textPrimary,
           centerTitle: true,
         ),
-        body: BlocListener<AppLockBloc, AppLockState>(
-          // Show prominent disclosure when user tries to lock an app
-          // but hasn't granted Accessibility permission yet.
-          listenWhen: (previous, current) {
-            if (current is AppLockLoaded && previous is AppLockLoaded) {
-              // Fired when a new lock was toggled but permission is missing
-              return !current.hasAccessibilityPermission &&
-                  current.lockedPackages.length >
-                      previous.lockedPackages.length;
-            }
-            return false;
-          },
-          listener: (context, state) {
-            AccessibilityDisclosureDialog.show(context);
-          },
-          child: SafeArea(
+        body: SafeArea(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingM),
             child: Column(
@@ -139,8 +122,7 @@ class _SocialAppsViewState extends State<SocialAppsView> {
               ],
             ),
           ),
-          ),  // SafeArea
-        ),    // BlocListener
+        ),
       ),
     );
   }
