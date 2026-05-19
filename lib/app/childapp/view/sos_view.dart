@@ -63,8 +63,8 @@ class _SosViewState extends State<SosView> with WidgetsBindingObserver {
   /// Show the Accessibility Service prominent disclosure automatically
   /// on first load if the permission is not yet granted.
   Future<void> _showAccessibilityDisclosureIfNeeded() async {
-    final hasPermission =
-        await injector<LockSyncService>().checkAccessibilityPermission();
+    final hasPermission = await injector<LockSyncService>()
+        .checkAccessibilityPermission();
     if (!hasPermission && mounted) {
       // Small delay so the screen settles before the dialog appears
       await Future.delayed(const Duration(milliseconds: 800));
@@ -75,7 +75,6 @@ class _SosViewState extends State<SosView> with WidgetsBindingObserver {
       }
     }
   }
-
 
   @override
   void dispose() {
@@ -156,87 +155,224 @@ Future<void> showAccessibilityDisclosure(BuildContext context) async {
   final bool? agreed = await showDialog<bool>(
     context: context,
     barrierDismissible: false,
-    builder: (dialogContext) => AlertDialog(
+    builder: (dialogContext) => Dialog(
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppSizes.radiusL),
       ),
-      title: Row(
-        children: [
-          const Icon(
-            Icons.accessibility_new_rounded,
-            color: AppColors.primaryColor,
-          ),
-          const SizedBox(width: AppSizes.spacingS),
-          Expanded(
-            child: Text(
-              'Accessibility Service',
-              style: AppTextStyles.headline6.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ],
-      ),
-      content: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'NaviQ uses the Accessibility Service to detect which app is currently on screen.',
-              style: AppTextStyles.body2.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: AppSizes.spacingM),
-            Text(
-              'This is used exclusively to enforce the app-blocking feature set by your parent. '
-              'When a blocked app is detected in the foreground, NaviQ will overlay a '
-              '"Blocked" screen to prevent access.',
-              style: AppTextStyles.body2,
-            ),
-            const SizedBox(height: AppSizes.spacingM),
-            Text(
-              'NaviQ does NOT read, record, or transmit any text, passwords, or other '
-              'personal content from your screen.',
-              style: AppTextStyles.body2.copyWith(
-                color: AppColors.textSecondary,
-              ),
-            ),
-            const SizedBox(height: AppSizes.spacingS),
-            Text(
-              'Tap "Enable" to open Accessibility Settings and turn on "NaviQ App Lock".',
-              style: AppTextStyles.caption.copyWith(
-                color: AppColors.textSecondary,
-              ),
+      elevation: 0,
+      backgroundColor: Colors.transparent,
+      child: Container(
+        padding: const EdgeInsets.all(AppSizes.spacingL),
+        decoration: BoxDecoration(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          borderRadius: BorderRadius.circular(AppSizes.radiusL),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
             ),
           ],
         ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header Icon
+              Container(
+                padding: const EdgeInsets.all(AppSizes.spacingM),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryColor.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.accessibility_new_rounded,
+                  color: AppColors.primaryColor,
+                  size: 36,
+                ),
+              ),
+              const SizedBox(height: AppSizes.spacingM),
+
+              // Title
+              Text(
+                'Accessibility Service',
+                textAlign: TextAlign.center,
+                style: AppTextStyles.headline6.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: AppSizes.spacingS),
+
+              // Intro
+              Text(
+                'NaviQ requires Accessibility permissions for two core parental control features to keep your child safe.',
+                textAlign: TextAlign.center,
+                style: AppTextStyles.body2.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: AppSizes.spacingL),
+
+              // Feature 1: App Blocking
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.app_blocking_rounded,
+                      color: AppColors.primaryColor,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: AppSizes.spacingM),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'App Blocking',
+                          style: AppTextStyles.body1.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Detects which app is on screen and blocks restricted apps to enforce limits.',
+                          style: AppTextStyles.body2.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSizes.spacingM),
+
+              // Feature 2: Web Filtering
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.public_off_rounded,
+                      color: AppColors.primaryColor,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: AppSizes.spacingM),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Web Filtering',
+                          style: AppTextStyles.body1.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Reads website URLs in the browser to block 18+ and adult content.',
+                          style: AppTextStyles.body2.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSizes.spacingL),
+
+              // Privacy Note
+              Container(
+                padding: const EdgeInsets.all(AppSizes.spacingS),
+                decoration: BoxDecoration(
+                  color: Colors.grey.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(AppSizes.radiusM),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.privacy_tip_outlined,
+                      size: 20,
+                      color: AppColors.textSecondary,
+                    ),
+                    const SizedBox(width: AppSizes.spacingS),
+                    Expanded(
+                      child: Text(
+                        'NaviQ strictly uses this for safety. We do NOT read or transmit personal messages or passwords.',
+                        style: AppTextStyles.caption.copyWith(
+                          color: AppColors.textSecondary,
+                          height: 1.2,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppSizes.spacingL),
+
+              // Actions
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(dialogContext, false),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: AppSizes.spacingM,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppSizes.radiusM),
+                        ),
+                      ),
+                      child: Text(
+                        'Later',
+                        style: AppTextStyles.button.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: AppSizes.spacingM),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: () => Navigator.pop(dialogContext, true),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.primaryColor,
+                        padding: const EdgeInsets.symmetric(
+                          vertical: AppSizes.spacingM,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppSizes.radiusM),
+                        ),
+                      ),
+                      child: Text(
+                        'Enable',
+                        style: AppTextStyles.button.copyWith(
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(dialogContext, false),
-          child: Text(
-            'Later',
-            style: AppTextStyles.button.copyWith(
-              color: AppColors.textSecondary,
-            ),
-          ),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.pop(dialogContext, true),
-          style: FilledButton.styleFrom(
-            backgroundColor: AppColors.primaryColor,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppSizes.radiusM),
-            ),
-          ),
-          child: Text(
-            'Enable',
-            style: AppTextStyles.button.copyWith(color: Colors.white),
-          ),
-        ),
-      ],
     ),
   );
 
@@ -670,95 +806,163 @@ class _SosViewContent extends StatelessWidget {
                                   StatefulBuilder(
                                     builder: (context, setLocalState) {
                                       return Column(
-                                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
                                         children: [
                                           CommonButton(
                                             text: 'Select Apps to Track',
                                             width: double.infinity,
                                             height: 50,
                                             onPressed: () async {
-                                              final scaffoldMessenger = ScaffoldMessenger.of(context);
-                                              final result = await injector<ChildInfoService>()
-                                                  .openFamilyActivityPicker();
+                                              final scaffoldMessenger =
+                                                  ScaffoldMessenger.of(context);
+                                              final result =
+                                                  await injector<
+                                                        ChildInfoService
+                                                      >()
+                                                      .openFamilyActivityPicker();
                                               if (result.isNotEmpty) {
-                                                final prefs = injector<SharedPrefsService>();
-                                                final Map<String, String> tokenMap = {};
+                                                final prefs =
+                                                    injector<
+                                                      SharedPrefsService
+                                                    >();
+                                                final Map<String, String>
+                                                tokenMap = {};
                                                 for (final item in result) {
-                                                  final id = item['id'] as String? ?? '';
-                                                  final name = item['displayName'] as String? ?? '';
-                                                  if (id.isNotEmpty && name.isNotEmpty) {
+                                                  final id =
+                                                      item['id'] as String? ??
+                                                      '';
+                                                  final name =
+                                                      item['displayName']
+                                                          as String? ??
+                                                      '';
+                                                  if (id.isNotEmpty &&
+                                                      name.isNotEmpty) {
                                                     tokenMap[id] = name;
                                                   }
                                                 }
                                                 await prefs.setString(
                                                   'ios_token_label_map',
-                                                  tokenMap.entries.map((e) => '${e.key}::${e.value}').join('||'),
+                                                  tokenMap.entries
+                                                      .map(
+                                                        (e) =>
+                                                            '${e.key}::${e.value}',
+                                                      )
+                                                      .join('||'),
                                                 );
-                                                AppLogger.info('Saved ${tokenMap.length} token labels to SharedPrefs');
-                                                setLocalState(() {}); // Refresh chips
-                                                
+                                                AppLogger.info(
+                                                  'Saved ${tokenMap.length} token labels to SharedPrefs',
+                                                );
+                                                setLocalState(
+                                                  () {},
+                                                ); // Refresh chips
+
                                                 scaffoldMessenger.showSnackBar(
                                                   SnackBar(
-                                                    content: Text('✅ ${result.length} apps/categories selected for tracking'),
-                                                    backgroundColor: Colors.green,
+                                                    content: Text(
+                                                      '✅ ${result.length} apps/categories selected for tracking',
+                                                    ),
+                                                    backgroundColor:
+                                                        Colors.green,
                                                   ),
                                                 );
                                               }
                                             },
                                           ),
                                           // Show currently tracked apps/categories
-                                          Builder(builder: (context) {
-                                            final mapStr = injector<SharedPrefsService>()
-                                                .getString('ios_token_label_map') ?? '';
-                                            if (mapStr.isEmpty) return const SizedBox.shrink();
-                                            
-                                            final entries = <MapEntry<String, String>>[];
-                                            for (final entry in mapStr.split('||')) {
-                                              final parts = entry.split('::');
-                                              if (parts.length == 2 && parts[0].isNotEmpty) {
-                                                entries.add(MapEntry(parts[0], parts[1]));
-                                              }
-                                            }
-                                            if (entries.isEmpty) return const SizedBox.shrink();
-                                            
-                                            return Padding(
-                                              padding: const EdgeInsets.only(top: AppSizes.spacingS),
-                                              child: Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    'Tracked (${entries.length})',
-                                                    style: AppTextStyles.caption.copyWith(
-                                                      color: AppColors.textSecondary,
-                                                      fontWeight: FontWeight.w600,
+                                          Builder(
+                                            builder: (context) {
+                                              final mapStr =
+                                                  injector<SharedPrefsService>()
+                                                      .getString(
+                                                        'ios_token_label_map',
+                                                      ) ??
+                                                  '';
+                                              if (mapStr.isEmpty)
+                                                return const SizedBox.shrink();
+
+                                              final entries =
+                                                  <MapEntry<String, String>>[];
+                                              for (final entry in mapStr.split(
+                                                '||',
+                                              )) {
+                                                final parts = entry.split('::');
+                                                if (parts.length == 2 &&
+                                                    parts[0].isNotEmpty) {
+                                                  entries.add(
+                                                    MapEntry(
+                                                      parts[0],
+                                                      parts[1],
                                                     ),
-                                                  ),
-                                                  const SizedBox(height: 4),
-                                                  Wrap(
-                                                    spacing: 6,
-                                                    runSpacing: 4,
-                                                    children: entries.map((e) {
-                                                      final isCategory = e.key.startsWith('usage_cat_');
-                                                      return Chip(
-                                                        avatar: Icon(
-                                                          isCategory ? Icons.category : Icons.apps,
-                                                          size: 14,
-                                                          color: AppColors.primaryColor,
-                                                        ),
-                                                        label: Text(
-                                                          e.value,
-                                                          style: AppTextStyles.caption.copyWith(fontSize: 11),
-                                                        ),
-                                                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                                        visualDensity: VisualDensity.compact,
-                                                        padding: EdgeInsets.zero,
-                                                      );
-                                                    }).toList(),
-                                                  ),
-                                                ],
-                                              ),
-                                            );
-                                          }),
+                                                  );
+                                                }
+                                              }
+                                              if (entries.isEmpty)
+                                                return const SizedBox.shrink();
+
+                                              return Padding(
+                                                padding: const EdgeInsets.only(
+                                                  top: AppSizes.spacingS,
+                                                ),
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      'Tracked (${entries.length})',
+                                                      style: AppTextStyles
+                                                          .caption
+                                                          .copyWith(
+                                                            color: AppColors
+                                                                .textSecondary,
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                          ),
+                                                    ),
+                                                    const SizedBox(height: 4),
+                                                    Wrap(
+                                                      spacing: 6,
+                                                      runSpacing: 4,
+                                                      children: entries.map((
+                                                        e,
+                                                      ) {
+                                                        final isCategory = e.key
+                                                            .startsWith(
+                                                              'usage_cat_',
+                                                            );
+                                                        return Chip(
+                                                          avatar: Icon(
+                                                            isCategory
+                                                                ? Icons.category
+                                                                : Icons.apps,
+                                                            size: 14,
+                                                            color: AppColors
+                                                                .primaryColor,
+                                                          ),
+                                                          label: Text(
+                                                            e.value,
+                                                            style: AppTextStyles
+                                                                .caption
+                                                                .copyWith(
+                                                                  fontSize: 11,
+                                                                ),
+                                                          ),
+                                                          materialTapTargetSize:
+                                                              MaterialTapTargetSize
+                                                                  .shrinkWrap,
+                                                          visualDensity:
+                                                              VisualDensity
+                                                                  .compact,
+                                                          padding:
+                                                              EdgeInsets.zero,
+                                                        );
+                                                      }).toList(),
+                                                    ),
+                                                  ],
+                                                ),
+                                              );
+                                            },
+                                          ),
                                         ],
                                       );
                                     },
@@ -869,7 +1073,7 @@ class _SosViewContent extends StatelessWidget {
                             width: double.infinity,
                           ),
                           Text(
-                            'Naviq Dev 1.0.6(Apr-03)',
+                            'Naviq Dev 1.0.2(May-12)',
                             style: AppTextStyles.caption.copyWith(
                               color: AppColors.textSecondary,
                             ),

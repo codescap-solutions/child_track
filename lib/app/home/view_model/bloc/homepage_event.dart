@@ -39,3 +39,11 @@ final class UpdateSocketLocation extends HomepageEvent {
   @override
   List<Object> get props => [locationData];
 }
+final class UpdateSocketStatus extends HomepageEvent {
+  final Map<String, dynamic> statusData;
+
+  const UpdateSocketStatus(this.statusData);
+
+  @override
+  List<Object> get props => [statusData];
+}

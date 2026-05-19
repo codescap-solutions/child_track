@@ -30,7 +30,8 @@ class BackgroundLocationService {
       'child_track_location', // id
       'Location Tracking', // title
       description: 'Tracking your location in background', // description
-      importance: Importance.high, // importance must be at low or higher level
+      importance: Importance.low, // Lower importance to be less intrusive
+      showBadge: false, // This removes the badge from the app icon
     );
 
     final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =

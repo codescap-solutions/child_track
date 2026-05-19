@@ -47,6 +47,7 @@ void main() async {
 
   // Initialize Firebase Notification Service
   await injector<FirebaseNotificationService>().initialize();
+  injector<FirebaseNotificationService>().setNavigatorKey(navigatorKey);
 
   // Initialize LockSyncService for handling app blocking navigation
   injector<LockSyncService>().initialize(navigatorKey);

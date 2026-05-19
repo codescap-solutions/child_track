@@ -28,6 +28,7 @@ class ChildInfoService {
       final soundProfile = await _getSoundProfile();
 
       return DeviceInfo(
+        isCharging: networkInfo['isCharging'] ?? false,
         batteryPercentage: batteryPercentage,
         networkStatus: networkInfo['status'] ?? 'unknown',
         networkType: networkInfo['type'] ?? 'unknown',
@@ -39,6 +40,7 @@ class ChildInfoService {
       AppLogger.error('Error getting device info: $e');
       // Return default values on error
       return DeviceInfo(
+        isCharging: false,
         batteryPercentage: 0,
         networkStatus: 'unknown',
         networkType: 'unknown',
@@ -211,7 +213,9 @@ class ChildInfoService {
     try {
       if (Platform.isIOS) {
         const iosChannel = MethodChannel('com.truenyx.naviq/parental_control');
-        final result = await iosChannel.invokeMethod<List<dynamic>>('getScreenTime');
+        final result = await iosChannel.invokeMethod<List<dynamic>>(
+          'getScreenTime',
+        );
         if (result != null) {
           return result.map((e) {
             final map = Map<String, dynamic>.from(e as Map);
@@ -240,11 +244,17 @@ class ChildInfoService {
   /// Check if usage stats permission is granted
   Future<bool> checkUsagePermission() async {
     try {
-      AppLogger.info('checkUsagePermission called. Platform.isIOS: ${Platform.isIOS}');
+      AppLogger.info(
+        'checkUsagePermission called. Platform.isIOS: ${Platform.isIOS}',
+      );
       if (Platform.isIOS) {
         const iosChannel = MethodChannel('com.truenyx.naviq/parental_control');
-        AppLogger.info('Invoking checkScreenTimePermission on parental_control channel');
-        final result = await iosChannel.invokeMethod<bool>('checkScreenTimePermission');
+        AppLogger.info(
+          'Invoking checkScreenTimePermission on parental_control channel',
+        );
+        final result = await iosChannel.invokeMethod<bool>(
+          'checkScreenTimePermission',
+        );
         AppLogger.info('Result from checkScreenTimePermission: $result');
         return result ?? false;
       }
@@ -265,11 +275,17 @@ class ChildInfoService {
   /// Open usage settings
   Future<bool> openUsageSettings() async {
     try {
-      AppLogger.info('openUsageSettings called. Platform.isIOS: ${Platform.isIOS}');
+      AppLogger.info(
+        'openUsageSettings called. Platform.isIOS: ${Platform.isIOS}',
+      );
       if (Platform.isIOS) {
         const iosChannel = MethodChannel('com.truenyx.naviq/parental_control');
-        AppLogger.info('Invoking requestScreenTimePermission on parental_control channel');
-        final result = await iosChannel.invokeMethod<bool>('requestScreenTimePermission');
+        AppLogger.info(
+          'Invoking requestScreenTimePermission on parental_control channel',
+        );
+        final result = await iosChannel.invokeMethod<bool>(
+          'requestScreenTimePermission',
+        );
         AppLogger.info('Result from requestScreenTimePermission: $result');
         return result ?? false;
       }
@@ -295,18 +311,16 @@ class ChildInfoService {
     try {
       if (Platform.isIOS) {
         const iosChannel = MethodChannel('com.truenyx.naviq/parental_control');
-        final result = await iosChannel.invokeMethod<Uint8List>(
-          'getAppIcon',
-          {'packageName': packageName},
-        );
+        final result = await iosChannel.invokeMethod<Uint8List>('getAppIcon', {
+          'packageName': packageName,
+        });
         return result;
       }
 
       if (Platform.isAndroid) {
-        final result = await _channel.invokeMethod<Uint8List>(
-          'getAppIcon',
-          {'packageName': packageName},
-        );
+        final result = await _channel.invokeMethod<Uint8List>('getAppIcon', {
+          'packageName': packageName,
+        });
         return result;
       }
       return null;
@@ -322,13 +336,17 @@ class ChildInfoService {
     try {
       if (Platform.isIOS) {
         const iosChannel = MethodChannel('com.truenyx.naviq/parental_control');
-        AppLogger.info('💡 Invoking openFamilyActivityPicker on parental_control channel');
+        AppLogger.info(
+          '💡 Invoking openFamilyActivityPicker on parental_control channel',
+        );
         final result = await iosChannel.invokeMethod<List<dynamic>>(
           'openFamilyActivityPicker',
         );
-        
+
         if (result != null) {
-          AppLogger.info('✅ FamilyActivityPicker returned ${result.length} items');
+          AppLogger.info(
+            '✅ FamilyActivityPicker returned ${result.length} items',
+          );
           final items = result.map((e) {
             if (e is Map) {
               return Map<String, dynamic>.from(e);
@@ -340,13 +358,17 @@ class ChildInfoService {
               'displayName': e.toString(),
             };
           }).toList();
-          
+
           for (final item in items) {
-            AppLogger.info('  📦 ${item['type']}: ${item['id']} → ${item['displayName']}');
+            AppLogger.info(
+              '  📦 ${item['type']}: ${item['id']} → ${item['displayName']}',
+            );
           }
           return items;
         } else {
-          AppLogger.warning('⚠️ FamilyActivityPicker returned NULL or user cancelled');
+          AppLogger.warning(
+            '⚠️ FamilyActivityPicker returned NULL or user cancelled',
+          );
         }
       }
       return [];

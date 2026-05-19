@@ -162,7 +162,9 @@ class DeviceInfoPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
                 try {
                     val packages = call.arguments<List<String>>()
                     if (packages != null) {
-                        AppLockService.updateLockedPackages(packages.toSet())
+                        // Pass context so the lock list is also persisted to SharedPreferences.
+                        // This ensures AppLockService can reload it after a restart.
+                        AppLockService.updateLockedPackages(packages.toSet(), context)
                         result.success(true)
                     } else {
                         result.error("INVALID_ARGS", "Expected List<String>", null)
@@ -476,7 +478,7 @@ class DeviceInfoPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     private fun setWebFiltering(enabled: Boolean) {
         Log.d("DeviceInfoPlugin", ">>> setWebFiltering called: $enabled")
         val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-        prefs.edit().putBoolean("flutter.web_filtering_enabled", enabled).apply()
+        prefs.edit().putBoolean("flutter.block_18plus", enabled).apply()
         Log.d("DeviceInfoPlugin", ">>> Web filtering persisted to SharedPreferences")
     }
 }

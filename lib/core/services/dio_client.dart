@@ -107,42 +107,79 @@ class DioClient {
             AppLogger.info('Attempting to refresh token...');
 
             try {
-              final refreshResponse = BaseResponse.success(
-                data: {'token': 'new_token'},
-              );
+              // 1. Try to reload token from storage first (isolate sync)
+              // In background isolates, the token might have been refreshed by the UI
+              await _sharedPrefsService.reloadAuthToken();
+              final latestToken = _sharedPrefsService.getAuthToken();
 
-              if (refreshResponse.isSuccess) {
+              final usedToken = requestOptions.headers['Authorization']
+                  ?.toString()
+                  .replaceFirst('Bearer ', '');
+
+              if (latestToken != null &&
+                  latestToken.isNotEmpty &&
+                  latestToken != usedToken) {
                 AppLogger.info(
-                  'Token refreshed successfully, retrying request',
+                  'Token was updated elsewhere, retrying with new token',
                 );
-
-                // Update token in request
-                final newToken = _sharedPrefsService.getAuthToken();
-                if (newToken != null && newToken.isNotEmpty) {
-                  requestOptions.headers['Authorization'] = 'Bearer $newToken';
-                }
-
-                // Retry the original request
-                try {
-                  final response = await _dio.fetch(requestOptions);
-                  handler.resolve(response);
-
-                  // Process pending requests
-                  await _processPendingRequests();
-                } catch (e) {
-                  // If retry fails, pass the new error
-                  final dioError = e is DioException
-                      ? e
-                      : DioException(requestOptions: requestOptions, error: e);
-                  handler.reject(dioError);
-                  await _processPendingRequests();
-                }
+                // Token was updated by another isolate/process, just retry with it
               } else {
-                AppLogger.error(
-                  'Token refresh failed: ${refreshResponse.message}',
-                );
-                handler.next(error);
-                await _rejectPendingRequests(error);
+                // 2. Token is still the same, try to refresh via API
+                AppLogger.info('Token is truly expired, calling refresh API');
+
+                // Note: ApiEndpoints.refreshToken should be called using _dio directly.
+                // The interceptor already handles recursion by checking for 'refresh-token' path.
+                final response = await _dio.post(ApiEndpoints.refreshToken);
+
+                if (response.statusCode == 200 || response.statusCode == 201) {
+                  // Structure based on AuthRepository usage: response.data!['token']
+                  // But we use Dio directly so it's response.data['data']['token'] 
+                  // or response.data['token'] depending on server wrapper.
+                  final responseData = response.data;
+                  dynamic newToken;
+
+                  if (responseData is Map) {
+                    if (responseData.containsKey('data') &&
+                        responseData['data'] is Map) {
+                      newToken = responseData['data']['token'];
+                    } else {
+                      newToken = responseData['token'];
+                    }
+                  }
+
+                  if (newToken != null && newToken is String) {
+                    await _sharedPrefsService.setAuthToken(newToken);
+                    AppLogger.info('Token refreshed successfully via API');
+                  } else {
+                    throw Exception('Token not found in refresh response');
+                  }
+                } else {
+                  throw Exception(
+                    'Refresh API returned ${response.statusCode}',
+                  );
+                }
+              }
+
+              // Update token in request for retry
+              final finalToken = _sharedPrefsService.getAuthToken();
+              if (finalToken != null && finalToken.isNotEmpty) {
+                requestOptions.headers['Authorization'] = 'Bearer $finalToken';
+              }
+
+              // Retry the original request
+              try {
+                final response = await _dio.fetch(requestOptions);
+                handler.resolve(response);
+
+                // Process pending requests
+                await _processPendingRequests();
+              } catch (e) {
+                // If retry fails, pass the new error
+                final dioError = e is DioException
+                    ? e
+                    : DioException(requestOptions: requestOptions, error: e);
+                handler.reject(dioError);
+                await _processPendingRequests();
               }
             } catch (e) {
               AppLogger.error('Error during token refresh: $e');

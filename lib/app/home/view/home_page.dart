@@ -428,8 +428,10 @@ class _HomePageState extends State<HomePage> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(
-                          Icons.battery_full,
+                        Icon(
+                          state.deviceInfo?.isCharging == true
+                              ? Icons.battery_charging_full
+                              : Icons.battery_full,
                           color: AppColors.success,
                           size: 16,
                         ),
@@ -539,7 +541,9 @@ class _HomePageState extends State<HomePage> {
                   // Scroll card
                   Expanded(
                     child: _buildFeatureCard(
-                      title: 'Scroll',
+                      title: state.webFilteringEnabled
+                          ? 'Scroll (Active)'
+                          : 'Scroll',
                       subtitle: 'Social Media &\nApp control',
                       icon: 'assets/home/scroll_girl.svg',
                       onTap: () => Navigator.push(

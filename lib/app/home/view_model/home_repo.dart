@@ -107,4 +107,31 @@ class HomeRepository extends BaseService {
     );
     return response;
   }
+
+  Future<BaseResponse> updateWebFilter({
+    required String childId,
+    required bool enabled,
+  }) async {
+    final response = await post(
+      ApiEndpoints.webFilter,
+      data: {
+        'childId': childId,
+        'enabled': enabled,
+      },
+    );
+    return response;
+  }
+
+  Future<BaseResponse<bool>> getWebFilterStatus({required String childId}) async {
+    final response = await get(
+      ApiEndpoints.webFilter,
+      queryParameters: {'childId': childId},
+    );
+
+    if (response.isSuccess && response.data != null) {
+      final isEnabled = response.data['web_filtering_enabled'] ?? false;
+      return BaseResponse.success(data: isEnabled, message: response.message);
+    }
+    return BaseResponse.error(message: response.message);
+  }
 }

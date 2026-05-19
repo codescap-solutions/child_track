@@ -15,6 +15,7 @@ final class HomepageSuccess extends HomepageState {
   final Cards? cards;
   final bool isLoading;
   final bool hasNoChild;
+  final bool webFilteringEnabled;
   // Trips data
   final List<Trip> trips;
   final int? tripsPage;
@@ -35,6 +36,7 @@ final class HomepageSuccess extends HomepageState {
     this.cards,
     this.isLoading = false,
     this.hasNoChild = false,
+    this.webFilteringEnabled = false,
     this.trips = const [],
     this.tripsPage,
     this.tripsPageSize,
@@ -55,6 +57,7 @@ final class HomepageSuccess extends HomepageState {
         cards: null,
         isLoading: false,
         hasNoChild: false,
+        webFilteringEnabled: false,
         trips: const [],
         tripsPage: null,
         tripsPageSize: null,
@@ -74,6 +77,7 @@ final class HomepageSuccess extends HomepageState {
     if (cards != null) cards!,
     isLoading,
     hasNoChild,
+    webFilteringEnabled,
     trips,
     if (tripsPage != null) tripsPage!,
     if (tripsPageSize != null) tripsPageSize!,
@@ -92,6 +96,7 @@ final class HomepageSuccess extends HomepageState {
     Cards? cards,
     bool? isLoading,
     bool? hasNoChild,
+    bool? webFilteringEnabled,
     List<Trip>? trips,
     int? tripsPage,
     int? tripsPageSize,
@@ -110,6 +115,7 @@ final class HomepageSuccess extends HomepageState {
       cards: cards ?? this.cards,
       isLoading: isLoading ?? this.isLoading,
       hasNoChild: hasNoChild ?? this.hasNoChild,
+      webFilteringEnabled: webFilteringEnabled ?? this.webFilteringEnabled,
       trips: trips ?? this.trips,
       tripsPage: tripsPage ?? this.tripsPage,
       tripsPageSize: tripsPageSize ?? this.tripsPageSize,

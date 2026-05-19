@@ -96,11 +96,13 @@ class AppLockRepository extends BaseService {
     required String childId,
     required List<String> tokens,
     required String platform,
+    int durationMinutes = 0,
   }) async {
     final body = {
       'childId': childId,
       'tokens': tokens,
       'platform': platform,
+      'durationMinutes': durationMinutes,
     };
 
     final response = await post(

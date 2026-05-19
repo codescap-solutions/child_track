@@ -60,6 +60,9 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
       add(LoadDeviceInfo());
       add(CheckUsagePermission());
       add(GetChildLocation());
+      
+      // Initialize Socket for real-time updates
+      _childRepo.initializeSocket(childId);
 
       // Schedule background sync
       BackgroundTaskService.schedulePeriodicSync();

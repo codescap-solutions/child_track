@@ -33,6 +33,7 @@ class AppLockBloc extends Bloc<AppLockEvent, AppLockState> {
     on<SyncLockedAppsFromServer>(_onSyncLockedAppsFromServer);
     on<ToggleAppLock>(_onToggleAppLock);
     on<UpdateLockedApps>(_onUpdateLockedApps);
+    on<BlockAllApps>(_onBlockAllApps);
   }
 
   // ─── Permission Handlers ───
@@ -164,6 +165,7 @@ class AppLockBloc extends Bloc<AppLockEvent, AppLockState> {
           childId: childId,
           tokens: [event.packageName],
           platform: platform,
+          durationMinutes: event.durationMinutes,
         );
       } else {
         response = await _repository.unlockApps(
@@ -206,5 +208,61 @@ class AppLockBloc extends Bloc<AppLockEvent, AppLockState> {
       emit(AppLockLoaded(lockedPackages: newSet));
     }
     await _lockSyncService.syncLockedAppsToNative(event.lockedPackages);
+  }
+
+  // ─── Block All Apps (parent side) ───
+
+  Future<void> _onBlockAllApps(
+    BlockAllApps event,
+    Emitter<AppLockState> emit,
+  ) async {
+    if (!_isParent) return;
+    final childId =
+        _prefs.getString('selected_child_id') ??
+        _prefs.getString('child_id') ??
+        '';
+    if (childId.isEmpty || event.packageNames.isEmpty) return;
+
+    // Optimistically mark all as locked
+    final currentState = state is AppLockLoaded
+        ? state as AppLockLoaded
+        : const AppLockLoaded();
+    final optimistic = Set<String>.from(currentState.lockedPackages)
+      ..addAll(event.packageNames);
+    emit(currentState.copyWith(lockedPackages: optimistic));
+
+    // Split by platform (Android vs iOS tokens)
+    final androidPkgs = event.packageNames
+        .where((p) => !p.startsWith('usage_cat_') && !p.startsWith('usage_app_'))
+        .toList();
+    final iosPkgs = event.packageNames
+        .where((p) => p.startsWith('usage_cat_') || p.startsWith('usage_app_'))
+        .toList();
+
+    try {
+      if (androidPkgs.isNotEmpty) {
+        await _repository.lockApps(
+          childId: childId,
+          tokens: androidPkgs,
+          platform: 'android',
+          durationMinutes: event.durationMinutes,
+        );
+        AppLogger.info('BlockAll: locked ${androidPkgs.length} Android apps');
+      }
+      if (iosPkgs.isNotEmpty) {
+        await _repository.lockApps(
+          childId: childId,
+          tokens: iosPkgs,
+          platform: 'ios',
+          durationMinutes: event.durationMinutes,
+        );
+        AppLogger.info('BlockAll: locked ${iosPkgs.length} iOS apps');
+      }
+    } catch (e) {
+      AppLogger.error('BlockAll error: $e');
+    }
+
+    // Re-fetch canonical server state
+    await _fetchParentLockedApps(emit);
   }
 }

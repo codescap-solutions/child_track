@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -15,11 +16,25 @@ import 'package:child_track/app/social_apps/view_model/bloc/app_lock_event.dart'
 import 'package:child_track/app/social_apps/view_model/app_lock_repository.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:child_track/core/services/csv_file_logger.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:battery_plus/battery_plus.dart';
+import 'package:child_track/app/childapp/view_model/repository/child_location_repo.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter/material.dart' show GlobalKey, NavigatorState, MaterialPageRoute;
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:child_track/app/chat/view/chat_screen.dart';
+import 'package:child_track/app/chat/view_model/bloc/chat_bloc.dart';
 
 /// Top-level function for handling background messages
 /// This must be a top-level function, not a class method
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+  await dotenv.load(fileName: ".env");
+  
+  // Initialize CSV Logger for background isolates
+  await CsvFileLogger.instance.init();
+  
   AppLogger.info('Background message received: ${message.messageId}');
   AppLogger.info('Background message data: ${message.data}');
 
@@ -54,9 +69,9 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
       // Background isolate can't use MethodChannel to reach native plugins on some setups.
       // On Android, we fetch the lock list and write it to SharedPreferences,
       // which IS shared across isolates AND readable by native Kotlin code.
-      // AppLockService reads this on every accessibility event.
+      // AppLockService reads 'flutter.locked_packages_csv' from FlutterSharedPreferences.
       await SharedPrefsService.init();
-      
+
       // We need DioClient to call the API — initialize minimal deps
       if (!injector.isRegistered<SharedPrefsService>()) {
         await initializeDependencies();
@@ -69,10 +84,11 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
         final packages = response.data!.lockedPackages
             .map((e) => e.packageName)
             .toList();
-        
-        // Save to SharedPreferences as a comma-separated string.
-        // Flutter's setStringList uses a custom internal encoding that crashes
-        // Android's getStringSet. A simple CSV string is safer.
+
+        // CRITICAL: Write using the EXACT key that AppLockService.kt reads.
+        // AppLockService reads from FlutterSharedPreferences with key "flutter.locked_packages_csv".
+        // Flutter's SharedPreferences plugin automatically prepends "flutter." to all keys,
+        // so calling prefs.setString('locked_packages_csv', ...) writes "flutter.locked_packages_csv".
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('locked_packages_csv', packages.join(','));
         AppLogger.info(
@@ -97,6 +113,133 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     } catch (e) {
       AppLogger.error('$action background sync error: $e');
     }
+  }
+
+  if (message.data['type'] == 'FORCE_REFRESH_DATA') {
+    AppLogger.info('Received FORCE_REFRESH_DATA command via FCM (background)');
+    try {
+      await SharedPrefsService.init();
+      final prefs = SharedPrefsService();
+      final childId = prefs.getString('child_id');
+
+      if (childId == null || childId.isEmpty) {
+        AppLogger.warning('FORCE_REFRESH_DATA (bg): No child_id found');
+        return;
+      }
+
+      // Initialize minimal dependencies for API calls
+      if (!injector.isRegistered<SharedPrefsService>()) {
+        await initializeDependencies();
+      }
+
+      await _performForceRefresh(childId);
+      AppLogger.info('FORCE_REFRESH_DATA (bg): Sync completed successfully');
+    } catch (e) {
+      AppLogger.error('FORCE_REFRESH_DATA background error: $e');
+    }
+  }
+
+  // Handle WEB_FILTER_UPDATE in background
+  if (message.data['type'] == 'WEB_FILTER_UPDATE') {
+    AppLogger.info('Received WEB_FILTER_UPDATE command via FCM (background)');
+    try {
+      final enabledStr = message.data['enabled']?.toString();
+      final enabled = enabledStr == 'true';
+
+      await SharedPrefsService.init();
+      final prefs = SharedPrefsService();
+      await prefs.setBool('block_18plus', enabled);
+
+      AppLogger.info('WEB_FILTER_UPDATE (bg): Updated block_18plus to $enabled');
+    } catch (e) {
+      AppLogger.error('WEB_FILTER_UPDATE background error: $e');
+    }
+  }
+}
+
+/// Helper function to perform the actual data refresh and upload.
+/// This is used by both foreground and background handlers.
+Future<void> _performForceRefresh(String childId) async {
+  try {
+    AppLogger.info('🚀 Executing FORCE_REFRESH_DATA for $childId');
+
+    // 1. Get Location
+    Position? position;
+    try {
+      position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 15),
+      );
+    } catch (e) {
+      AppLogger.error('Force Refresh: Failed to get location: $e');
+    }
+
+    // 2. Get Device Status
+    int batteryLevel = 0;
+    String batteryStatus = 'unknown';
+    try {
+      final battery = Battery();
+      batteryLevel = await battery.batteryLevel;
+      final state = await battery.batteryState;
+      batteryStatus = state.toString().split('.').last;
+    } catch (e) {
+      AppLogger.error('Force Refresh: Failed to get battery: $e');
+    }
+
+    final childRepo = injector<ChildRepo>();
+
+    // 3. Post Device Status
+    final statusData = {
+      "child_id": childId,
+      "battery_level": batteryLevel,
+      "battery_status": batteryStatus,
+      "is_charging": batteryStatus == 'charging',
+      "timestamp": DateTime.now().toUtc().toIso8601String(),
+    };
+    final statusResponse = await childRepo.postChildData(statusData);
+    if (statusResponse.isSuccess) {
+      AppLogger.info('✅ Force Refresh: Device status synced');
+    } else {
+      AppLogger.error(
+        '❌ Force Refresh: Device status failed: ${statusResponse.message}',
+      );
+    }
+
+    // 4. Post Location (if available)
+    if (position != null) {
+      final locationRepo = injector<ChildGoogleMapsRepo>();
+      final locationInfo = await locationRepo.getAddressAndPlaceName(
+        position.latitude,
+        position.longitude,
+      );
+
+      final locationData = {
+        "address": locationInfo?['address'] ?? 'Unknown Address',
+        "place_name": locationInfo?['place_name'] ?? 'Unknown Place',
+        "child_id": childId,
+        "lat": position.latitude,
+        "lng": position.longitude,
+        "accuracy_m": position.accuracy,
+        "speed_mps": position.speed,
+        "bearing": position.heading,
+        "timestamp": DateTime.now().toUtc().toIso8601String(),
+      };
+      final locationResponse = await childRepo.postChildLocation(locationData);
+      if (locationResponse.isSuccess) {
+        AppLogger.info('✅ Force Refresh: Location synced');
+      } else {
+        AppLogger.error(
+          '❌ Force Refresh: Location failed: ${locationResponse.message}',
+        );
+      }
+    } else {
+      AppLogger.warning('⚠️ Force Refresh: Skipping location (not available)');
+    }
+
+    AppLogger.info('🚀 FORCE_REFRESH_DATA: Sync operation finished');
+  } catch (e) {
+    AppLogger.error('Error during _performForceRefresh: $e');
+    rethrow;
   }
 }
 
@@ -129,6 +272,9 @@ class FirebaseNotificationService {
   Stream<RemoteMessage> get messageStream => _messageController.stream;
   Stream<RemoteMessage> get notificationTapStream =>
       _notificationTapController.stream;
+
+  GlobalKey<NavigatorState>? _navigatorKey;
+  void setNavigatorKey(GlobalKey<NavigatorState> key) => _navigatorKey = key;
 
   String? _fcmToken;
 
@@ -230,7 +376,7 @@ class FirebaseNotificationService {
   }
 
   /// Handle foreground messages
-  void _handleForegroundMessage(RemoteMessage message) {
+  Future<void> _handleForegroundMessage(RemoteMessage message) async {
     AppLogger.info('Foreground message received: ${message.messageId}');
     AppLogger.info('Message data: ${message.data}');
     AppLogger.info('Message notification: ${message.notification?.title}');
@@ -254,6 +400,36 @@ class FirebaseNotificationService {
         AppLogger.info('SYNC_LOCKED_APPS: Dispatched to AppLockBloc');
       } catch (e) {
         AppLogger.error('SYNC_LOCKED_APPS foreground error: $e');
+      }
+      return; // Don't show notification
+    }
+
+    // Handle FORCE_REFRESH_DATA in foreground
+    if (message.data['type'] == 'FORCE_REFRESH_DATA') {
+      try {
+        final prefs = injector<SharedPrefsService>();
+        final childId = prefs.getString('child_id');
+        if (childId != null && childId.isNotEmpty) {
+          await _performForceRefresh(childId);
+          AppLogger.info('FORCE_REFRESH_DATA (fg): Sync triggered');
+        }
+      } catch (e) {
+        AppLogger.error('FORCE_REFRESH_DATA foreground error: $e');
+      }
+      return; // Don't show notification
+    }
+
+    // Handle WEB_FILTER_UPDATE in foreground
+    if (message.data['type'] == 'WEB_FILTER_UPDATE') {
+      try {
+        final enabledStr = message.data['enabled']?.toString();
+        final enabled = enabledStr == 'true';
+
+        final prefs = injector<SharedPrefsService>();
+        await prefs.setBool('block_18plus', enabled);
+        AppLogger.info('WEB_FILTER_UPDATE (fg): Updated block_18plus to $enabled');
+      } catch (e) {
+        AppLogger.error('WEB_FILTER_UPDATE foreground error: $e');
       }
       return; // Don't show notification
     }
@@ -305,6 +481,10 @@ class FirebaseNotificationService {
           title = '$childName\'s device is offline';
           body = 'Device went offline. Last seen recently.';
           break;
+        case 'CHAT_MESSAGE':
+          title = data['sender_name'] ?? 'New Message';
+          body = data['text'] ?? 'Tap to view';
+          break;
         case 'SYNC_SCREEN_TIME':
         case 'SYNC_LOCKED_APPS':
           // Silent — don't show a notification
@@ -353,6 +533,28 @@ class FirebaseNotificationService {
 
     // Add to stream for navigation or other actions
     _notificationTapController.add(message);
+
+    // Automatic navigation for CHAT_MESSAGE
+    if (message.data['type'] == 'CHAT_MESSAGE' && _navigatorKey?.currentState != null) {
+      final chatId = message.data['chat_id'];
+      final senderId = message.data['sender_id'];
+      final senderName = message.data['sender_name'] ?? 'Support';
+
+      if (senderId != null) {
+        _navigatorKey!.currentState!.push(
+          MaterialPageRoute(
+            builder: (_) => BlocProvider.value(
+              value: injector<ChatBloc>(),
+              child: ChatScreen(
+                chatId: chatId,
+                recipientId: senderId,
+                recipientName: senderName,
+              ),
+            ),
+          ),
+        );
+      }
+    }
   }
 
   /// Subscribe to a topic

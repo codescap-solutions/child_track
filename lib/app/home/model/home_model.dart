@@ -7,6 +7,7 @@ import 'package:child_track/app/home/model/cards_model.dart';
 class HomeResponse {
   final String? childName;
   final String? childCode;
+  final bool webFilteringEnabled;
   final DeviceInfo deviceInfo;
   final LocationInfo currentLocation;
   final YesterdayTripSummary? yesterdayTripSummary;
@@ -16,6 +17,7 @@ class HomeResponse {
   HomeResponse({
     this.childName,
     this.childCode,
+    this.webFilteringEnabled = false,
     required this.deviceInfo,
     required this.currentLocation,
     this.yesterdayTripSummary,
@@ -27,6 +29,7 @@ class HomeResponse {
     return HomeResponse(
       childName: json['child_name'] as String?,
       childCode: json['child_code'] as String?,
+      webFilteringEnabled: json['web_filtering_enabled'] ?? false,
       deviceInfo: DeviceInfo.fromJson(json['device_info'] ?? {}),
       currentLocation: LocationInfo.fromJson(json['current_location'] ?? {}),
       yesterdayTripSummary: json['yesterday_trip_summary'] != null

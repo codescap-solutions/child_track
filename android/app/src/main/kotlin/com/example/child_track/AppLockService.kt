@@ -31,7 +31,7 @@ class AppLockService : AccessibilityService() {
         private const val FLUTTER_PREFS_NAME = "FlutterSharedPreferences"
         // Read the CSV string we now save from Flutter
         private const val FLUTTER_PREFS_CSV_KEY = "flutter.locked_packages_csv"
-        private const val FLUTTER_PREFS_WEB_FILTER_KEY = "flutter.web_filtering_enabled"
+        private const val FLUTTER_PREFS_WEB_FILTER_KEY = "flutter.block_18plus"
 
         private val BROWSER_PACKAGES = setOf(
             "com.android.chrome",
@@ -106,7 +106,7 @@ class AppLockService : AccessibilityService() {
 
     // Track the last time we refreshed from SharedPreferences
     private var lastPrefsRefreshTime: Long = 0L
-    private val PREFS_REFRESH_INTERVAL_MS = 5000L  // refresh from prefs every 5s
+    private val PREFS_REFRESH_INTERVAL_MS = 1000L  // refresh every 1s for near-instant lock enforcement
 
     // Track the last blocked package to avoid spamming intents.
     private var lastBlockedPackage: String? = null
@@ -171,10 +171,14 @@ class AppLockService : AccessibilityService() {
         val packageName = event.packageName?.toString() ?: return
 
         // Periodically refresh settings from SharedPreferences.
-        // This picks up changes written by Flutter's background FCM handler.
         val currentTime = System.currentTimeMillis()
         if (currentTime - lastPrefsRefreshTime > PREFS_REFRESH_INTERVAL_MS) {
             refreshLockedPackagesFromPrefs()
+        }
+
+        // Web Filtering Debug
+        if (BROWSER_PACKAGES.contains(packageName)) {
+            Log.d(TAG, ">>> BROWSER DETECTED: $packageName (FilteringEnabled=$webFilteringEnabled)")
         }
 
         // Log window changes
@@ -196,7 +200,7 @@ class AppLockService : AccessibilityService() {
         if (packageName !in lockedPackages) {
             // If web filtering is enabled and it's a browser, check the URL
             if (webFilteringEnabled && BROWSER_PACKAGES.contains(packageName)) {
-                checkWebFiltering(packageName)
+                checkWebFiltering(packageName, event)
             }
             return
         }
@@ -239,41 +243,67 @@ class AppLockService : AccessibilityService() {
     /**
      * Scans the browser's node hierarchy to find and check the URL.
      */
-    private fun checkWebFiltering(packageName: String) {
-        val rootNode = rootInActiveWindow ?: return
+    private fun checkWebFiltering(packageName: String, event: AccessibilityEvent) {
+        // Try getting the node from the event source first (more efficient)
+        var rootNode = event.source
         
-        // Find URL/Address bar
+        if (rootNode == null) {
+            // Fallback to root in active window
+            rootNode = rootInActiveWindow
+        }
+
+        if (rootNode == null) {
+            Log.w(TAG, ">>> WebFilter: BOTH event.source and rootInActiveWindow are NULL for $packageName")
+            return
+        }
+        
+        Log.d(TAG, ">>> WebFilter: Scanning nodes for $packageName (Event: ${AccessibilityEvent.eventTypeToString(event.eventType)})...")
         val url = findUrlInNodes(rootNode)
+        
+        // Don't recycle if it's the event source, only if we got it from rootInActiveWindow
+        // Actually, the documentation says we SHOULD recycle if we are done.
         rootNode.recycle()
 
         if (url != null) {
+            Log.d(TAG, ">>> WebFilter: URL FOUND: $url")
             val lowerUrl = url.lowercase(Locale.ROOT)
             for (keyword in BLOCKED_KEYWORDS) {
                 if (lowerUrl.contains(keyword)) {
-                    Log.d(TAG, ">>> WEB FILTER BLOCKED: $url (keyword: $keyword)")
+                    Log.d(TAG, ">>> WebFilter: BLOCKED keyword found: $keyword in $url")
                     triggerBlock(packageName, url)
                     break
                 }
             }
+        } else {
+            // Optional: Log once every few seconds to avoid flood
+            // Log.v(TAG, ">>> WebFilter: No URL found in current view for $packageName")
         }
     }
 
-    private fun findUrlInNodes(node: AccessibilityNodeInfo): String? {
-        // Look for nodes that look like address bars (usually have some text and are editable or have specific IDs)
-        // Note: Different browsers have different resource IDs. We'll check text content for common patterns.
-        
+    private fun findUrlInNodes(node: AccessibilityNodeInfo, depth: Int = 0): String? {
         val text = node.text?.toString()
-        if (text != null && (text.contains(".") || text.contains("http"))) {
-            // Heuristic: if it's an address bar, it usually doesn't have many children and is near the top
-            // This is a simplified check.
-            if (node.isEditable || node.className?.contains("EditText") == true) {
+        val className = node.className?.toString() ?: ""
+        val resourceId = node.viewIdResourceName ?: ""
+        
+        // Debug log for every node (limited to avoid log flood, only if it looks interesting)
+        if (text != null && text.length > 3) {
+            // Log.v(TAG, "Node[d=$depth]: class=$className, id=$resourceId, text=$text")
+        }
+
+        // Patterns for address bars
+        if (text != null && (text.contains(".") || text.contains("http") || text.contains("www"))) {
+            // Many browsers use specific IDs for address bars
+            // Chrome: com.android.chrome:id/url_bar
+            // Firefox: org.mozilla.firefox:id/url_bar_title
+            if (resourceId.contains("url") || resourceId.contains("address") || node.isEditable) {
+                Log.i(TAG, ">>> WebFilter: Potential URL found in node: $text (ID: $resourceId)")
                 return text
             }
         }
 
         for (i in 0 until node.childCount) {
             val child = node.getChild(i) ?: continue
-            val result = findUrlInNodes(child)
+            val result = findUrlInNodes(child, depth + 1)
             child.recycle()
             if (result != null) return result
         }

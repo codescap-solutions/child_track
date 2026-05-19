@@ -1,6 +1,5 @@
 import 'package:child_track/core/di/injector.dart';
 import 'package:child_track/core/navigation/route_names.dart';
-import 'package:child_track/core/services/device_info_service.dart';
 import 'package:child_track/core/services/shared_prefs_service.dart';
 import 'package:child_track/app/home/view_model/home_repo.dart';
 import 'package:child_track/core/services/firebase_notification_service.dart';
@@ -22,6 +21,10 @@ import 'widgets/setting_tile.dart';
 import 'notification_settings_view.dart';
 import 'subscription_view.dart';
 import '../../addplace/add_and_saveplace.dart';
+import '../../chat/view/chat_screen.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../chat/view_model/bloc/chat_bloc.dart';
+import '../../chat/view_model/bloc/chat_event.dart';
 
 class SettingsView extends StatefulWidget {
   const SettingsView({super.key});
@@ -59,6 +62,19 @@ class _SettingsViewState extends State<SettingsView> {
     );
     _children = _sharedPrefsService.getChildren();
     setState(() {});
+    _fetchServerSettings();
+  }
+
+  Future<void> _fetchServerSettings() async {
+    if (_currentChildId != null) {
+      final response = await injector<HomeRepository>().getWebFilterStatus(
+        childId: _currentChildId!,
+      );
+      if (response.isSuccess && response.data != null) {
+        setState(() => _block18Plus = response.data!);
+        await _sharedPrefsService.setBool('block_18plus', response.data!);
+      }
+    }
   }
 
   @override
@@ -213,15 +229,25 @@ class _SettingsViewState extends State<SettingsView> {
                       'Blocks adult content in browsers',
                       _block18Plus,
                       (value) async {
-                        debugPrint('SettingsView: Toggling Block 18plus Websites to $value');
-                        
+                        debugPrint(
+                          'SettingsView: Toggling Block 18plus Websites to $value',
+                        );
+
                         // 1. Update Server (Parent side)
-                        final childId = _sharedPrefsService.getString('child_id');
-                        if (childId != null) {
-                          await injector<HomeRepository>().updateChildSettings(
-                            childId: childId,
-                            webFilteringEnabled: value,
-                          );
+                        if (_currentChildId != null) {
+                          final response = await injector<HomeRepository>()
+                              .updateWebFilter(
+                                childId: _currentChildId!,
+                                enabled: value,
+                              );
+
+                          if (!response.isSuccess) {
+                            AppSnackbar.showError(
+                              context,
+                              'Failed to update filter: ${response.message}',
+                            );
+                            return;
+                          }
                         }
 
                         // 2. Update Shared Prefs (Local)
@@ -666,6 +692,31 @@ class _SettingsViewState extends State<SettingsView> {
               const SizedBox(height: 20),
               ListTile(
                 leading: const CircleAvatar(
+                  backgroundColor: Color(0xFFFFF3E0),
+                  child: Icon(Icons.chat, color: Color(0xFFEF6C00)),
+                ),
+                title: const Text('Chat with Support'),
+                subtitle: const Text('Real-time assistance'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => BlocProvider.value(
+                        value: injector<ChatBloc>(),
+                        child: const ChatScreen(
+                          recipientId:
+                              '65b2a3f7e1b2c3d4e5f67890', // Placeholder Admin ID
+                          recipientName: 'NaviQ Support',
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+              const Divider(),
+              ListTile(
+                leading: const CircleAvatar(
                   backgroundColor: Color(0xFFE8F5E9),
                   child: Icon(Icons.email, color: Color(0xFF2E7D32)),
                 ),
@@ -703,7 +754,7 @@ class _SettingsViewState extends State<SettingsView> {
     showAboutDialog(
       context: context,
       applicationName: 'NaviQ',
-      applicationVersion: 'Naviq Dev 1.0.6(Apr-03)',
+      applicationVersion: 'Naviq Dev 1.0.2(May-12)',
       applicationIcon: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(

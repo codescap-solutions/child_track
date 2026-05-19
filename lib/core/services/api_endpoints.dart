@@ -6,8 +6,8 @@ class ApiEndpoints {
   static const String sendOtp = 'users/request-otp';
   static const String verifyOtp = 'users/verify-otp';
   static const String registerUser = 'users';
-  static const String refreshToken = '/auth/refresh-token';
-  static const String logout = '/auth/logout';
+  static const String refreshToken = 'auth/refresh-token';
+  static const String logout = 'auth/logout';
 
   //child Endpoints
   static const String childLogin = 'child/login';
@@ -56,4 +56,10 @@ class ApiEndpoints {
       'places/$id/toggle-notification';
   // Settings endpoints
   static const String updateChildSettings = 'parent/child-settings';
+  static const String webFilter = 'parent/web-filter';
+
+  // Chat Endpoints
+  static const String chat = 'chat';
+  static String chatMessages(String chatId) => 'chat/$chatId/messages';
+  static String markChatRead(String chatId) => 'chat/$chatId/read';
 }

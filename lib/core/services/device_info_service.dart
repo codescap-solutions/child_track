@@ -36,11 +36,13 @@ class DeviceInfoService {
         soundProfile: soundProfile,
         isOnline: networkInfo['isOnline'] ?? false,
         onlineSince: _getCurrentTime(),
+        isCharging: networkInfo['isCharging'] ?? false,
       );
     } catch (e) {
       AppLogger.error('Error getting device info: $e');
       // Return default values on error
       return DeviceInfo(
+        isCharging: false,
         batteryPercentage: 0,
         networkStatus: 'unknown',
         networkType: 'unknown',
@@ -216,7 +218,9 @@ class DeviceInfoService {
     try {
       if (Platform.isIOS) {
         const iosChannel = MethodChannel('com.truenyx.naviq/parental_control');
-        final hasPermission = await iosChannel.invokeMethod<bool>('checkScreenTimePermission');
+        final hasPermission = await iosChannel.invokeMethod<bool>(
+          'checkScreenTimePermission',
+        );
         if (hasPermission == false) {
           await iosChannel.invokeMethod('requestScreenTimePermission');
         }
@@ -240,7 +244,10 @@ class DeviceInfoService {
     try {
       if (Platform.isIOS) {
         const iosChannel = MethodChannel('com.truenyx.naviq/parental_control');
-        return await iosChannel.invokeMethod<bool>('checkScreenTimePermission') ?? false;
+        return await iosChannel.invokeMethod<bool>(
+              'checkScreenTimePermission',
+            ) ??
+            false;
       }
 
       if (Platform.isAndroid) {
@@ -294,7 +301,10 @@ class DeviceInfoService {
       AppLogger.info('DeviceInfoService: Setting web filtering to $enabled');
       if (Platform.isIOS) {
         const iosChannel = MethodChannel('com.truenyx.naviq/parental_control');
-        final result = await iosChannel.invokeMethod('setWebFiltering', enabled);
+        final result = await iosChannel.invokeMethod(
+          'setWebFiltering',
+          enabled,
+        );
         AppLogger.info('DeviceInfoService: iOS result: $result');
         return;
       }

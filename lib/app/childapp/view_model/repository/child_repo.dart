@@ -4,6 +4,7 @@ import 'package:child_track/core/services/base_service.dart';
 import 'package:child_track/core/services/dio_client.dart';
 import 'package:child_track/core/services/shared_prefs_service.dart';
 import 'package:child_track/core/models/child_profile.dart';
+import 'package:child_track/core/services/socket_service.dart';
 import 'package:dio/dio.dart';
 import 'package:child_track/core/utils/app_logger.dart';
 import 'package:child_track/core/services/device_info_service.dart';
@@ -11,7 +12,7 @@ import 'package:child_track/core/di/injector.dart';
 
 class ChildRepo extends BaseService {
   final SharedPrefsService _sharedPrefsService;
-  // final SocketService _socketService = SocketService();
+  final SocketService _socketService = SocketService();
 
   ChildRepo({
     required DioClient dioClient,
@@ -19,10 +20,10 @@ class ChildRepo extends BaseService {
   }) : _sharedPrefsService = sharedPrefsService ?? SharedPrefsService(),
        super(dioClient);
 
-  // void initializeSocket(String childId) {
-  //   _socketService.initSocket();
-  //   _socketService.joinRoom(childId);
-  // }
+  void initializeSocket(String childId) {
+    _socketService.initSocket();
+    _socketService.joinRoom(childId);
+  }
 
   Future<BaseResponse> childLogin({required String childCode}) async {
     try {
@@ -67,24 +68,16 @@ class ChildRepo extends BaseService {
             await _sharedPrefsService.setString('parent_phone', parentPhone);
           }
 
-          // Read and apply Web Filtering status
-          final isWebFilteringEnabled = data['child']?['web_filtering_enabled'] as bool? ?? false;
-          AppLogger.info('Child login: Web filtering status from server: $isWebFilteringEnabled');
-          await _sharedPrefsService.setBool('block_18plus', isWebFilteringEnabled);
-          
-          try {
-            await injector<DeviceInfoService>().setWebFiltering(isWebFilteringEnabled);
-          } catch (e) {
-            AppLogger.error('Child login: Failed to apply native web filtering: $e');
-          }
+          // Apply Web Filtering settings
+          await _applyWebFiltering(data['child']);
 
           // Verify it was saved correctly
           final savedChildId = _sharedPrefsService.getString('child_id');
           AppLogger.info('Child login: Verified saved child_id: $savedChildId');
 
           // Initialize Socket
-          // _socketService.initSocket();
-          // _socketService.joinRoom(childId);
+          _socketService.initSocket();
+          _socketService.joinRoom(childId);
         } else {
           AppLogger.warning('Child login: Child ID not found in response');
         }
@@ -104,10 +97,39 @@ class ChildRepo extends BaseService {
       ApiEndpoints.createChild,
       data: {'name': name, 'age': age},
     );
+
+    if (response.isSuccess && response.data != null) {
+      final data = response.data!;
+      // Apply Web Filtering settings
+      await _applyWebFiltering(data['child']);
+    }
+
     return response;
   }
 
+  /// Helper to extract and apply web filtering status from child data object
+  Future<void> _applyWebFiltering(dynamic childData) async {
+    if (childData is! Map) return;
+
+    final isWebFilteringEnabled =
+        childData['web_filtering_enabled'] as bool? ?? false;
+    AppLogger.info('Applying web filtering status: $isWebFilteringEnabled');
+
+    await _sharedPrefsService.setBool('block_18plus', isWebFilteringEnabled);
+
+    try {
+      await injector<DeviceInfoService>().setWebFiltering(
+        isWebFilteringEnabled,
+      );
+    } catch (e) {
+      AppLogger.error('Failed to apply native web filtering: $e');
+    }
+  }
+
   Future<BaseResponse> postChildData(Map<String, dynamic> data) async {
+    if (_socketService.isConnected) {
+      _socketService.sendStatus(data);
+    }
     final response = await post(ApiEndpoints.postDeviceInfo, data: data);
     return response;
   }
@@ -122,9 +144,15 @@ class ChildRepo extends BaseService {
     return response;
   }
 
-  Future<BaseResponse> uploadAppIcon(String packageName, List<int> iconBytes) async {
+  Future<BaseResponse> uploadAppIcon(
+    String packageName,
+    List<int> iconBytes,
+  ) async {
     final formData = FormData.fromMap({
-      packageName: MultipartFile.fromBytes(iconBytes, filename: '$packageName.png'),
+      packageName: MultipartFile.fromBytes(
+        iconBytes,
+        filename: '$packageName.png',
+      ),
     });
     final response = await post(
       ApiEndpoints.childUploadAppIcons,
@@ -134,13 +162,9 @@ class ChildRepo extends BaseService {
   }
 
   Future<BaseResponse> postChildLocation(Map<String, dynamic> data) async {
-    // if (_socketService.isConnected) {
-    //   _socketService.sendLocation(data);
-    //   return BaseResponse.success(
-    //     data: null,
-    //     message: "Location sent via Socket",
-    //   );
-    // }
+    if (_socketService.isConnected) {
+      _socketService.sendLocation(data);
+    }
     final response = await post(ApiEndpoints.postLocation, data: data);
     return response;
   }

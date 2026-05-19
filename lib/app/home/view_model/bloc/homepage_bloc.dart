@@ -24,6 +24,7 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
   final SharedPrefsService _sharedPrefsService;
   final SocketService _socketService;
   StreamSubscription? _locationSubscription;
+  StreamSubscription? _statusSubscription;
 
   HomepageBloc({
     required HomeRepository homeRepository,
@@ -39,6 +40,7 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
     on<GetTrips>(_onGetTrips);
     on<GetTripDetail>(_onGetTripDetail);
     on<UpdateSocketLocation>(_onUpdateSocketLocation);
+    on<UpdateSocketStatus>(_onUpdateSocketStatus);
   }
 
   void _initSocketListeners(String childId) {
@@ -49,11 +51,17 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
     _locationSubscription = _socketService.locationStream.listen((data) {
       add(UpdateSocketLocation(data));
     });
+
+    _statusSubscription?.cancel();
+    _statusSubscription = _socketService.statusStream.listen((data) {
+      add(UpdateSocketStatus(data));
+    });
   }
 
   @override
   Future<void> close() {
     _locationSubscription?.cancel();
+    _statusSubscription?.cancel();
     _socketService.disconnect();
     return super.close();
   }
@@ -120,6 +128,7 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
             yesterdayTripSummary: homeData.yesterdayTripSummary,
             cards: homeData.cards,
             currentLocation: homeData.currentLocation,
+            webFilteringEnabled: homeData.webFilteringEnabled,
             isLoading: false,
             hasNoChild: false,
           ),
@@ -345,6 +354,36 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
     } catch (e, stackTrace) {
       AppLogger.error('Error handling socket location update: $e');
       AppLogger.error('Stack trace: $stackTrace');
+    }
+  }
+
+  Future<void> _onUpdateSocketStatus(
+    UpdateSocketStatus event,
+    Emitter<HomepageState> emit,
+  ) async {
+    final currentState = state;
+    if (currentState is! HomepageSuccess) return;
+
+    try {
+      final data = event.statusData;
+      AppLogger.info('[HomepageBloc] Processing socket status update: $data');
+
+      final deviceInfo = currentState.deviceInfo;
+      if (deviceInfo == null) return;
+
+      final updatedDeviceInfo = deviceInfo.copyWith(
+        batteryPercentage: data['battery_percentage'] as int?,
+        networkStatus: data['network_status'] as String?,
+        networkType: data['network_type'] as String?,
+        soundProfile: data['sound_profile'] as String?,
+        isOnline: data['is_online'] as bool?,
+        isCharging: data['is_charging'] as bool?,
+        onlineSince: data['last_update'] as String?,
+      );
+
+      emit(currentState.copyWith(deviceInfo: updatedDeviceInfo));
+    } catch (e) {
+      AppLogger.error('Error handling socket status update: $e');
     }
   }
 }

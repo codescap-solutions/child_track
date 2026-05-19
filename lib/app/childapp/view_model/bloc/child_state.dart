@@ -90,6 +90,7 @@ final class ChildDeviceInfoLoaded extends ChildState {
   static ChildDeviceInfoLoaded initial() {
     return ChildDeviceInfoLoaded(
       deviceInfo: DeviceInfo(
+        isCharging: false,
         batteryPercentage: 0,
         networkStatus: '',
         networkType: '',

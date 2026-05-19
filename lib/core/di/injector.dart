@@ -25,6 +25,9 @@ import 'package:child_track/core/services/lock_sync_service.dart';
 import '../../app/social_apps/view_model/app_lock_repository.dart';
 import '../../app/social_apps/view_model/bloc/app_lock_bloc.dart';
 import '../services/device_info_service.dart';
+import 'package:child_track/core/services/chat_socket_service.dart';
+import 'package:child_track/app/chat/view_model/chat_repository.dart';
+import 'package:child_track/app/chat/view_model/bloc/chat_bloc.dart';
 
 final GetIt injector = GetIt.instance;
 
@@ -165,4 +168,17 @@ Future<void> initializeDependencies() async {
   
   // Register DeviceInfoService
   injector.registerLazySingleton<DeviceInfoService>(() => DeviceInfoService());
+
+  // Register Chat Services
+  injector.registerLazySingleton<ChatSocketService>(() => ChatSocketService());
+  injector.registerLazySingleton<ChatRepository>(
+    () => ChatRepository(dioClient: injector<DioClient>()),
+  );
+  injector.registerLazySingleton<ChatBloc>(
+    () => ChatBloc(
+      chatRepository: injector<ChatRepository>(),
+      chatSocketService: injector<ChatSocketService>(),
+      sharedPrefsService: injector<SharedPrefsService>(),
+    ),
+  );
 }

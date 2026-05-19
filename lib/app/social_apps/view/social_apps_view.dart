@@ -25,6 +25,7 @@ class _SocialAppsViewState extends State<SocialAppsView> {
   late SocialAppsBloc _bloc;
   late AppLockBloc _appLockBloc;
   int _selectedTabIndex = 1; // Default to Today (index 1)
+  int _selectedFilterIndex = 0; // Default to All (index 0)
 
   @override
   void initState() {
@@ -71,11 +72,7 @@ class _SocialAppsViewState extends State<SocialAppsView> {
     return MultiBlocProvider(
       providers: [
         BlocProvider(create: (_) => _bloc),
-        BlocProvider.value(
-          value: _appLockBloc
-            ..add(CheckAccessibilityPermission())
-            ..add(FetchLockedApps()),
-        ),
+        BlocProvider.value(value: _appLockBloc..add(FetchLockedApps())),
       ],
       child: Scaffold(
         backgroundColor: AppColors.backgroundColor,
@@ -106,18 +103,63 @@ class _SocialAppsViewState extends State<SocialAppsView> {
                   },
                 ),
                 const SizedBox(height: AppSizes.spacingM),
-                BlocBuilder<SocialAppsBloc, SocialAppsState>(
-                  builder: (context, state) {
-                    if (state is SocialAppsLoaded) {
-                      return _ScreenTimeHeader(
-                        totalTime: state.data.totalUsageTimeFormatted,
-                      );
-                    }
-                    return const _ScreenTimeHeader(totalTime: '--');
+                BlocBuilder<AppLockBloc, AppLockState>(
+                  builder: (context, lockState) {
+                    final lockedPackages = lockState is AppLockLoaded
+                        ? lockState.lockedPackages
+                        : const <String>{};
+                    return BlocBuilder<SocialAppsBloc, SocialAppsState>(
+                      builder: (context, state) {
+                        // Collect all package names visible right now
+                        List<String> allPackages = [];
+                        if (state is SocialAppsLoaded) {
+                          final data = _selectedTabIndex == 2
+                              ? state.data.summaryApps
+                              : state.data.dailyUsage[state.selectedDate] ?? [];
+                          allPackages = data.map((a) => a.packageName).toList();
+                        }
+                        return _ScreenTimeHeader(
+                          totalTime: state is SocialAppsLoaded
+                              ? state.data.totalUsageTimeFormatted
+                              : '--',
+                          allPackages: allPackages,
+                          lockedPackages: lockedPackages,
+                          appLockBloc: _appLockBloc,
+                        );
+                      },
+                    );
                   },
                 ),
                 const SizedBox(height: AppSizes.spacingM),
-                const FilterTabs(),
+                BlocBuilder<AppLockBloc, AppLockState>(
+                  builder: (context, lockState) {
+                    final lockedPackages = lockState is AppLockLoaded
+                        ? lockState.lockedPackages
+                        : const <String>{};
+                    
+                    return BlocBuilder<SocialAppsBloc, SocialAppsState>(
+                      builder: (context, state) {
+                        int blockedCount = 0;
+                        if (state is SocialAppsLoaded) {
+                          final data = _selectedTabIndex == 2
+                              ? state.data.summaryApps
+                              : state.data.dailyUsage[state.selectedDate] ?? [];
+                          blockedCount = data.where((a) => lockedPackages.contains(a.packageName)).length;
+                        }
+
+                        return FilterTabs(
+                          selectedIndex: _selectedFilterIndex,
+                          blockedCount: blockedCount,
+                          onFilterChanged: (index) {
+                            setState(() {
+                              _selectedFilterIndex = index;
+                            });
+                          },
+                        );
+                      },
+                    );
+                  },
+                ),
                 const SizedBox(height: AppSizes.spacingS),
                 Expanded(child: _buildAppsList()),
               ],
@@ -166,20 +208,49 @@ class _SocialAppsViewState extends State<SocialAppsView> {
             );
           }
 
-          return ListView.builder(
-            itemCount: dailyData.length + 1, // +1 for Next button
-            itemBuilder: (context, index) {
-              if (index == dailyData.length) {
-                return Column(
-                  children: [const SizedBox(height: AppSizes.spacingL)],
+          // Apply Filter
+          return BlocBuilder<AppLockBloc, AppLockState>(
+            builder: (context, lockState) {
+              final lockedPackages = lockState is AppLockLoaded
+                  ? lockState.lockedPackages
+                  : const <String>{};
+
+              final filteredData = dailyData.where((app) {
+                if (_selectedFilterIndex == 0) return true; // All
+                final isLocked = lockedPackages.contains(app.packageName);
+                if (_selectedFilterIndex == 1) return !isLocked; // Active
+                if (_selectedFilterIndex == 2) return isLocked; // Blocked
+                return true;
+              }).toList();
+
+              if (filteredData.isEmpty) {
+                return Center(
+                  child: Text(
+                    _selectedFilterIndex == 1
+                        ? 'No active apps'
+                        : _selectedFilterIndex == 2
+                            ? 'No blocked apps'
+                            : 'No apps found',
+                    style: AppTextStyles.textSecondary,
+                  ),
                 );
               }
 
-              final app = dailyData[index];
-              
+              return ListView.builder(
+                itemCount: filteredData.length + 1, // +1 for spacing
+                itemBuilder: (context, index) {
+                  if (index == filteredData.length) {
+                    return Column(
+                      children: [const SizedBox(height: AppSizes.spacingL)],
+                    );
+                  }
+
+                  final app = filteredData[index];
+
               // Detect iOS entries: they use opaque tokens like "usage_cat_XXX"
-              final isIOSEntry = app.platform == 'ios' || 
-                  app.packageName.startsWith('usage_cat_') || 
+              final isIOSEntry =
+                  app.platform == 'ios' ||
+                  app.packageName.startsWith('usage_cat_') ||
                   app.packageName.startsWith('usage_app_');
 
               ImageProvider iconProvider;
@@ -203,14 +274,14 @@ class _SocialAppsViewState extends State<SocialAppsView> {
                   'assets/images/APK_format_icon_(2014-2019).png',
                 );
               }
-              
+
               // Clean display name for iOS entries
               String displayName;
               if (isIOSEntry) {
                 // Use the resolved name from backend (written by Swift Label resolver)
                 // If it still looks like a hash placeholder, use numbered fallback
                 final backendName = app.appName;
-                if (backendName.isNotEmpty && 
+                if (backendName.isNotEmpty &&
                     !backendName.startsWith('Tracked') &&
                     !backendName.contains('(') &&
                     backendName.length > 2) {
@@ -218,12 +289,14 @@ class _SocialAppsViewState extends State<SocialAppsView> {
                 } else {
                   // Fallback: "Category 1" / "App 1" based on type
                   final isCategory = app.packageName.startsWith('usage_cat_');
-                  displayName = isCategory 
-                      ? 'Category ${index + 1}' 
+                  displayName = isCategory
+                      ? 'Category ${index + 1}'
                       : 'App ${index + 1}';
                 }
               } else {
-                displayName = app.appName.isNotEmpty ? app.appName : app.packageName;
+                displayName = app.appName.isNotEmpty
+                    ? app.appName
+                    : app.packageName;
               }
 
               return BlocBuilder<AppLockBloc, AppLockState>(
@@ -252,19 +325,86 @@ class _SocialAppsViewState extends State<SocialAppsView> {
               );
             },
           );
-        }
-        return const SizedBox.shrink();
-      },
-    );
-  }
+        },
+      );
+    }
+    return const SizedBox.shrink();
+  },
+);
+}
 }
 
 class _ScreenTimeHeader extends StatelessWidget {
   final String totalTime;
-  const _ScreenTimeHeader({required this.totalTime});
+  final List<String> allPackages;
+  final Set<String> lockedPackages;
+  final AppLockBloc? appLockBloc;
+
+  const _ScreenTimeHeader({
+    required this.totalTime,
+    this.allPackages = const [],
+    this.lockedPackages = const {},
+    this.appLockBloc,
+  });
+
+  /// True when every visible app is already locked
+  bool get _allBlocked =>
+      allPackages.isNotEmpty &&
+      allPackages.every((p) => lockedPackages.contains(p));
+
+  Future<void> _onBlockAll(BuildContext context) async {
+    if (allPackages.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No apps to block')),
+      );
+      return;
+    }
+
+    // Show duration picker dialog
+    final Duration? duration = await showDialog<Duration>(
+      context: context,
+      builder: (ctx) => _BlockAllDurationDialog(appCount: allPackages.length),
+    );
+    if (duration == null) return; // user cancelled
+
+    appLockBloc?.add(
+      BlockAllApps(
+        packageNames: allPackages,
+        durationMinutes: duration.inMinutes,
+      ),
+    );
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Blocking ${allPackages.length} apps'
+            '${duration.inMinutes > 0 ? ' for ${duration.inMinutes} min' : ''}...',
+          ),
+        ),
+      );
+    }
+  }
+
+  void _onUnblockAll(BuildContext context) {
+    for (final pkg in allPackages) {
+      if (lockedPackages.contains(pkg)) {
+        appLockBloc?.add(
+          ToggleAppLock(packageName: pkg, isLocked: false),
+        );
+      }
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Unblocking ${allPackages.length} apps...'),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final allBlocked = _allBlocked;
+
     return Card(
       margin: EdgeInsets.zero,
       elevation: 0,
@@ -305,15 +445,42 @@ class _ScreenTimeHeader extends StatelessWidget {
               ],
             ),
             const SizedBox(height: AppSizes.spacingM),
-            CommonButton(
-              width: double.infinity,
-              text: 'Block Everything temporarily',
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Processing temporary block...')),
-                );
-              },
-              height: 50,
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 250),
+              child: allBlocked
+                  ? SizedBox(
+                      key: const ValueKey('unblock'),
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.error,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(AppSizes.radiusM),
+                          ),
+                          elevation: 0,
+                        ),
+                        icon: const Icon(Icons.lock_open_rounded, size: 20),
+                        label: Text(
+                          'Unblock All Apps',
+                          style: AppTextStyles.button,
+                        ),
+                        onPressed: () => _onUnblockAll(context),
+                      ),
+                    )
+                  : SizedBox(
+                      key: const ValueKey('block'),
+                      width: double.infinity,
+                      child: CommonButton(
+                        width: double.infinity,
+                        text: 'Block Everything temporarily',
+                        onPressed: allPackages.isEmpty
+                            ? null
+                            : () => _onBlockAll(context),
+                        height: 50,
+                      ),
+                    ),
             ),
           ],
         ),
@@ -322,20 +489,290 @@ class _ScreenTimeHeader extends StatelessWidget {
   }
 }
 
-class FilterTabs extends StatefulWidget {
-  const FilterTabs({super.key});
+// ─── Duration picker dialog for Block All ───
+
+class _BlockAllDurationDialog extends StatefulWidget {
+  final int appCount;
+  const _BlockAllDurationDialog({required this.appCount});
 
   @override
-  State<FilterTabs> createState() => _FilterTabsState();
+  State<_BlockAllDurationDialog> createState() => _BlockAllDurationDialogState();
 }
 
-class _FilterTabsState extends State<FilterTabs> {
-  int selectedIndex = 0;
+class _BlockAllDurationDialogState extends State<_BlockAllDurationDialog> {
+  int _hours = 0;
+  int _minutes = 30;
 
-  final tabs = ["All", "Active", "Blocked (0)"];
+  late FixedExtentScrollController _hourCtrl;
+  late FixedExtentScrollController _minCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _hourCtrl = FixedExtentScrollController(initialItem: _hours);
+    _minCtrl = FixedExtentScrollController(initialItem: _minutes ~/ 5);
+  }
+
+  @override
+  void dispose() {
+    _hourCtrl.dispose();
+    _minCtrl.dispose();
+    super.dispose();
+  }
+
+  String get _description {
+    if (_hours == 0 && _minutes == 0) return 'Select a duration';
+    if (_hours == 0) return '${widget.appCount} apps will be locked for $_minutes min';
+    if (_minutes == 0) return '${widget.appCount} apps will be locked for $_hours hr';
+    return '${widget.appCount} apps will be locked for $_hours hr $_minutes min';
+  }
 
   @override
   Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 32),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.surfaceColor,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.12),
+              blurRadius: 24,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Header
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 20),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    AppColors.primaryColor,
+                    AppColors.primaryColor.withOpacity(0.75),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(24),
+                  topRight: Radius.circular(24),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.lock_outline_rounded, color: Colors.white, size: 22),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Block All ${widget.appCount} Apps',
+                      style: AppTextStyles.headline6.copyWith(color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+              child: Column(
+                children: [
+                  // Description chip
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryColor.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AppColors.primaryColor.withOpacity(0.25),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.info_outline_rounded, size: 16, color: AppColors.primaryColor),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            _description,
+                            style: AppTextStyles.caption.copyWith(
+                              color: AppColors.primaryColor,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Scroll pickers
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _buildWheel(
+                        label: 'Hrs',
+                        count: 24,
+                        selected: _hours,
+                        controller: _hourCtrl,
+                        onChanged: (i) => setState(() => _hours = i),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 20),
+                        child: Text(
+                          ' : ',
+                          style: AppTextStyles.headline4.copyWith(
+                            color: AppColors.textSecondary,
+                            fontWeight: FontWeight.w300,
+                          ),
+                        ),
+                      ),
+                      _buildWheel(
+                        label: 'Min',
+                        count: 12,
+                        selected: _minutes ~/ 5,
+                        controller: _minCtrl,
+                        valueLabel: (i) => (i * 5).toString().padLeft(2, '0'),
+                        onChanged: (i) => setState(() => _minutes = i * 5),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  CommonButton(
+                    text: 'Block All Apps',
+                    onPressed: (_hours == 0 && _minutes == 0)
+                        ? null
+                        : () => Navigator.pop(
+                              context,
+                              Duration(hours: _hours, minutes: _minutes),
+                            ),
+                    width: double.infinity,
+                    height: 50,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWheel({
+    required String label,
+    required int count,
+    required int selected,
+    required FixedExtentScrollController controller,
+    required ValueChanged<int> onChanged,
+    String Function(int)? valueLabel,
+  }) {
+    const itemH = 52.0;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          label,
+          style: AppTextStyles.overline.copyWith(
+            color: AppColors.primaryColor,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.5,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Container(
+          width: 90,
+          height: itemH * 3,
+          decoration: BoxDecoration(
+            color: AppColors.backgroundColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.borderColor),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(15),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Positioned(
+                  top: itemH,
+                  left: 0,
+                  right: 0,
+                  child: Container(
+                    height: itemH,
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryColor.withOpacity(0.10),
+                      border: Border.symmetric(
+                        horizontal: BorderSide(
+                          color: AppColors.primaryColor.withOpacity(0.25),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                ListWheelScrollView.useDelegate(
+                  controller: controller,
+                  itemExtent: itemH,
+                  diameterRatio: 1.4,
+                  physics: const FixedExtentScrollPhysics(),
+                  onSelectedItemChanged: onChanged,
+                  childDelegate: ListWheelChildBuilderDelegate(
+                    builder: (ctx, i) {
+                      if (i < 0 || i >= count) return null;
+                      final isSel = i == selected;
+                      final lbl = valueLabel != null
+                          ? valueLabel(i)
+                          : i.toString().padLeft(2, '0');
+                      return Center(
+                        child: Text(
+                          lbl,
+                          style: isSel
+                              ? AppTextStyles.headline4.copyWith(
+                                  color: AppColors.textPrimary,
+                                  fontWeight: FontWeight.w700,
+                                )
+                              : AppTextStyles.body1.copyWith(
+                                  color: AppColors.textHint,
+                                ),
+                        ),
+                      );
+                    },
+                    childCount: count,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class FilterTabs extends StatelessWidget {
+  final int selectedIndex;
+  final int blockedCount;
+  final ValueChanged<int> onFilterChanged;
+
+  const FilterTabs({
+    super.key,
+    required this.selectedIndex,
+    required this.blockedCount,
+    required this.onFilterChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final tabs = ["All", "Active", "Blocked ($blockedCount)"];
+
     return Row(
       children: List.generate(tabs.length, (index) {
         final isSelected = index == selectedIndex;
@@ -343,22 +780,23 @@ class _FilterTabsState extends State<FilterTabs> {
         return Padding(
           padding: const EdgeInsets.only(right: 8.0),
           child: GestureDetector(
-            onTap: () => setState(() => selectedIndex = index),
+            onTap: () => onFilterChanged(index),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 250),
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               decoration: BoxDecoration(
-                color: isSelected
-                    ? const Color(0xffE8EEFF)
-                    : const Color.fromARGB(255, 255, 255, 255),
+                color: isSelected ? const Color(0xffE8EEFF) : Colors.white,
                 borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isSelected ? AppColors.primaryColor.withOpacity(0.3) : Colors.transparent,
+                ),
               ),
               child: Text(
                 tabs[index],
                 style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
+                  fontSize: 14,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                  color: isSelected ? AppColors.primaryColor : Colors.black87,
                 ),
               ),
             ),
