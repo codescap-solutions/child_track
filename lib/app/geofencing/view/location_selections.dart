@@ -27,10 +27,10 @@ class LocationSelectionScreen extends StatefulWidget {
 }
 
 class _LocationSelectionScreenState extends State<LocationSelectionScreen> {
-  Completer<GoogleMapController> _controller = Completer();
+  final Completer<GoogleMapController> _controller = Completer();
   final TextEditingController _searchController = TextEditingController();
   bool _showSuggestions = false;
-  Set<Marker> _markers = {};
+  final Set<Marker> _markers = {};
   bool _isMapReady = false;
 
   static const LatLng _initialPosition = LatLng(12.9716, 77.5946); // Bengaluru
@@ -403,13 +403,13 @@ class GeoFenceFormSheet extends StatefulWidget {
   final Geofence? geofence;
 
   const GeoFenceFormSheet({
-    Key? key,
+    super.key,
     required this.latitude,
     required this.longitude,
     required this.childId,
     required this.parentId,
     this.geofence,
-  }) : super(key: key);
+  });
 
   @override
   State<GeoFenceFormSheet> createState() => _GeoFenceFormSheetState();
@@ -502,7 +502,7 @@ class _GeoFenceFormSheetState extends State<GeoFenceFormSheet> {
 
               /// Category Dropdown
               DropdownButtonFormField<String>(
-                value: selectedCategory,
+                initialValue: selectedCategory,
                 decoration: InputDecoration(
                   hintText: "Category",
                   hintStyle: const TextStyle(color: Colors.grey),

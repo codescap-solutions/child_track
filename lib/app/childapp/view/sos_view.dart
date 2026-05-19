@@ -20,7 +20,6 @@ import 'package:child_track/core/navigation/route_names.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:cross_file/cross_file.dart';
 import 'package:child_track/app/childapp/view/widgets/child_app_drawer.dart';
 
 class SosView extends StatefulWidget {
@@ -878,8 +877,9 @@ class _SosViewContent extends StatelessWidget {
                                                         'ios_token_label_map',
                                                       ) ??
                                                   '';
-                                              if (mapStr.isEmpty)
+                                              if (mapStr.isEmpty) {
                                                 return const SizedBox.shrink();
+                                              }
 
                                               final entries =
                                                   <MapEntry<String, String>>[];
@@ -897,8 +897,9 @@ class _SosViewContent extends StatelessWidget {
                                                   );
                                                 }
                                               }
-                                              if (entries.isEmpty)
+                                              if (entries.isEmpty) {
                                                 return const SizedBox.shrink();
+                                              }
 
                                               return Padding(
                                                 padding: const EdgeInsets.only(

@@ -24,7 +24,6 @@ import '../../addplace/add_and_saveplace.dart';
 import '../../chat/view/chat_screen.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../chat/view_model/bloc/chat_bloc.dart';
-import '../../chat/view_model/bloc/chat_event.dart';
 
 class SettingsView extends StatefulWidget {
   const SettingsView({super.key});

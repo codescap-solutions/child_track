@@ -1,5 +1,4 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
 
 class CustomToggleSwitch extends StatelessWidget {
   final bool value;
@@ -18,7 +17,7 @@ class CustomToggleSwitch extends StatelessWidget {
       child: CupertinoSwitch(
         value: value,
         onChanged: onChanged,
-        activeColor: const Color(0xFF0C5391),
+        activeTrackColor: const Color(0xFF0C5391),
       ),
     );
   }

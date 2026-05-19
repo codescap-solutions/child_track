@@ -692,7 +692,7 @@ class _AddPlaceDialogState extends State<_AddPlaceDialog> {
                       ),
                       const SizedBox(height: AppSizes.spacingM),
                       DropdownButtonFormField<String>(
-                        value: _selectedPlaceType,
+                        initialValue: _selectedPlaceType,
                         decoration: InputDecoration(
                           filled: true,
                           fillColor: AppColors.containerBackground.withValues(

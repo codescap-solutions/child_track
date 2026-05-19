@@ -55,7 +55,7 @@ void main() {
     );
   });
 
-  Position _createPosition(
+  Position createPosition(
     double lat,
     double lng,
     DateTime time,
@@ -81,11 +81,11 @@ void main() {
     final t1 = DateTime.now();
 
     // First location (Should post API) - using real coordinates near equator (1 degree ~ 111km)
-    final p1 = _createPosition(10.0000000, 20.0000000, t1, 0, 5);
+    final p1 = createPosition(10.0000000, 20.0000000, t1, 0, 5);
     await stateMachine.processLocation(p1);
 
     // Second location 2m away (Should ignore) - ~0.000018 degrees
-    final p2 = _createPosition(
+    final p2 = createPosition(
       10.0000001,
       20.0000001,
       t1.add(const Duration(seconds: 30)),
@@ -105,12 +105,12 @@ void main() {
 
       // Point 1 - Origin
       await stateMachine.processLocation(
-        _createPosition(10.0, 20.0, baseTime, 1.2, 5),
+        createPosition(10.0, 20.0, baseTime, 1.2, 5),
       );
 
       // Point 2 - 15m away, 15s later
       await stateMachine.processLocation(
-        _createPosition(
+        createPosition(
           10.000135,
           20.0,
           baseTime.add(const Duration(seconds: 15)),
@@ -122,7 +122,7 @@ void main() {
 
       // Point 3 - 35m total distance, 35s total elapsed
       await stateMachine.processLocation(
-        _createPosition(
+        createPosition(
           10.000315,
           20.0,
           baseTime.add(const Duration(seconds: 35)),
@@ -143,12 +143,12 @@ void main() {
       final baseTime = DateTime.parse('2026-03-01T10:00:00Z');
 
       await stateMachine.processLocation(
-        _createPosition(10.0, 20.0, baseTime, 15.0, 5),
+        createPosition(10.0, 20.0, baseTime, 15.0, 5),
       );
 
       // 15 seconds later, 225m away -> Candidate
       await stateMachine.processLocation(
-        _createPosition(
+        createPosition(
           10.00202,
           20.0,
           baseTime.add(const Duration(seconds: 15)),
@@ -160,7 +160,7 @@ void main() {
 
       // 25 seconds later, 375m total away -> Confirmed Vehicle Trip
       await stateMachine.processLocation(
-        _createPosition(
+        createPosition(
           10.00337,
           20.0,
           baseTime.add(const Duration(seconds: 25)),
@@ -177,7 +177,7 @@ void main() {
   test('Scenario 4: Poor Accuracy Filter', () async {
     final baseTime = DateTime.now();
     await stateMachine.processLocation(
-      _createPosition(10.0, 20.0, baseTime, 5.0, 50.0),
+      createPosition(10.0, 20.0, baseTime, 5.0, 50.0),
     ); // 50m accuracy is bad
 
     // Shouldn't even become a candidate
@@ -189,10 +189,10 @@ void main() {
 
     // Fast-track a vehicle trip
     await stateMachine.processLocation(
-      _createPosition(10.0, 20.0, baseTime, 15.0, 5),
+      createPosition(10.0, 20.0, baseTime, 15.0, 5),
     );
     await stateMachine.processLocation(
-      _createPosition(
+      createPosition(
         10.00202,
         20.0,
         baseTime.add(const Duration(seconds: 15)),
@@ -201,7 +201,7 @@ void main() {
       ),
     );
     await stateMachine.processLocation(
-      _createPosition(
+      createPosition(
         10.00337,
         20.0,
         baseTime.add(const Duration(seconds: 25)),
@@ -233,7 +233,7 @@ void main() {
 
     // Send one more point (which will trigger the stop logic after it posts)
     await stateMachine.processLocation(
-      _createPosition(
+      createPosition(
         10.00400,
         20.0,
         baseTime.add(const Duration(seconds: 40)),

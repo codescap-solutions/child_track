@@ -7,7 +7,6 @@ import 'package:child_track/core/constants/app_colors.dart';
 import 'package:child_track/core/constants/app_sizes.dart';
 import 'package:child_track/core/constants/app_text_styles.dart';
 import 'package:child_track/core/models/chat_models.dart';
-import 'package:child_track/core/di/injector.dart';
 import 'package:child_track/app/chat/view/chat_screen.dart';
 import 'package:intl/intl.dart';
 

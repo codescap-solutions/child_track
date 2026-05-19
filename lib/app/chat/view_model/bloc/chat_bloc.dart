@@ -6,7 +6,6 @@ import 'package:child_track/app/chat/view_model/bloc/chat_state.dart';
 import 'package:child_track/app/chat/view_model/chat_repository.dart';
 import 'package:child_track/core/services/chat_socket_service.dart';
 import 'package:child_track/core/services/shared_prefs_service.dart';
-import 'package:child_track/core/utils/app_logger.dart';
 
 class ChatBloc extends Bloc<ChatEvent, ChatState> {
   final ChatRepository _chatRepository;

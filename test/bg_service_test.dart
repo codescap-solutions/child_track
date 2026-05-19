@@ -1,5 +1,3 @@
-import 'package:geolocator/geolocator.dart';
-import 'package:child_track/core/services/location_state_machine.dart';
 
 void main() async {
   print('Starting LocationStateMachine Tests...');
