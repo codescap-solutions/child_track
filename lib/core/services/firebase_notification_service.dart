@@ -24,6 +24,8 @@ import 'package:flutter/material.dart' show GlobalKey, NavigatorState, MaterialP
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:child_track/app/chat/view/chat_screen.dart';
 import 'package:child_track/app/chat/view_model/bloc/chat_bloc.dart';
+import 'package:child_track/core/services/screen_time_sync_service.dart';
+import 'package:child_track/app/childapp/view_model/repository/device_info_service.dart';
 
 /// Top-level function for handling background messages
 /// This must be a top-level function, not a class method
@@ -175,26 +177,21 @@ Future<void> _performForceRefresh(String childId) async {
     }
 
     // 2. Get Device Status
-    int batteryLevel = 0;
-    String batteryStatus = 'unknown';
-    try {
-      final battery = Battery();
-      batteryLevel = await battery.batteryLevel;
-      final state = await battery.batteryState;
-      batteryStatus = state.toString().split('.').last;
-    } catch (e) {
-      AppLogger.error('Force Refresh: Failed to get battery: $e');
-    }
+    final childInfoService = injector<ChildInfoService>();
+    final deviceInfo = await childInfoService.getDeviceInfo();
 
     final childRepo = injector<ChildRepo>();
 
     // 3. Post Device Status
     final statusData = {
-      "child_id": childId,
-      "battery_level": batteryLevel,
-      "battery_status": batteryStatus,
-      "is_charging": batteryStatus == 'charging',
-      "timestamp": DateTime.now().toUtc().toIso8601String(),
+      'child_id': childId,
+      'battery_percentage': deviceInfo.batteryPercentage,
+      'network_status': deviceInfo.networkStatus,
+      'network_type': deviceInfo.networkType,
+      'sound_profile': deviceInfo.soundProfile,
+      'is_online': deviceInfo.isOnline,
+      'is_charging': deviceInfo.isCharging,
+      'last_update': deviceInfo.onlineSince,
     };
     final statusResponse = await childRepo.postChildData(statusData);
     if (statusResponse.isSuccess) {
@@ -234,6 +231,19 @@ Future<void> _performForceRefresh(String childId) async {
       }
     } else {
       AppLogger.warning('⚠️ Force Refresh: Skipping location (not available)');
+    }
+
+    // 5. Post Screen Time
+    try {
+      if (!injector.isRegistered<ScreenTimeSyncService>()) {
+         AppLogger.warning('Force Refresh: ScreenTimeSyncService not registered in injector yet');
+      } else {
+         final screenTimeService = injector<ScreenTimeSyncService>();
+         await screenTimeService.syncScreenTime();
+         AppLogger.info('✅ Force Refresh: Screen time synced');
+      }
+    } catch (e) {
+      AppLogger.error('❌ Force Refresh: Screen time sync failed: $e');
     }
 
     AppLogger.info('🚀 FORCE_REFRESH_DATA: Sync operation finished');
@@ -645,9 +655,15 @@ class FirebaseNotificationService {
       final parentId = prefs.getString('parent_id');
       final childId = prefs.getString('child_id');
 
+      final token = _fcmToken ?? await _firebaseMessaging.getToken();
+      if (token == null || token.isEmpty) {
+        AppLogger.warning('FCM token is null, cannot remove from server');
+        return;
+      }
+
       if (parentId != null && parentId.isNotEmpty) {
         final authRepo = injector<AuthRepository>();
-        final response = await authRepo.removeParentFcmToken();
+        final response = await authRepo.removeParentFcmToken(token);
         if (response.isSuccess) {
           AppLogger.info('Parent FCM token removed from server');
         } else {
@@ -657,7 +673,10 @@ class FirebaseNotificationService {
         }
       } else if (childId != null && childId.isNotEmpty) {
         final childRepo = injector<ChildRepo>();
-        final response = await childRepo.removeChildFcmToken(childId: childId);
+        final response = await childRepo.removeChildFcmToken(
+          childId: childId,
+          fcmToken: token,
+        );
         if (response.isSuccess) {
           AppLogger.info('Child FCM token removed from server');
         } else {

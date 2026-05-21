@@ -258,9 +258,12 @@ class AuthRepository extends BaseService {
   }
 
   // Remove parent FCM token from server (on logout)
-  Future<BaseResponse> removeParentFcmToken() async {
+  Future<BaseResponse> removeParentFcmToken(String fcmToken) async {
     try {
-      final response = await delete(ApiEndpoints.parentFcmToken);
+      final response = await delete(
+        ApiEndpoints.parentFcmToken,
+        data: {'fcm_token': fcmToken},
+      );
       return response;
     } catch (e) {
       return BaseResponse.error(message: e.toString());

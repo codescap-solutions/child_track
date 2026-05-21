@@ -72,76 +72,93 @@ class _SignInViewState extends State<SignInView> {
             ),
           ),
           body: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(AppSizes.paddingL),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const SizedBox(height: AppSizes.spacingL),
-                    Text(
-                      'Complete Registration',
-                      style: AppTextStyles.headline3.copyWith(
-                        color: AppColors.primaryColor,
+            child: GestureDetector(
+              onTap: () => FocusScope.of(context).unfocus(),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return SingleChildScrollView(
+                    physics: const ClampingScrollPhysics(),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: constraints.maxHeight,
                       ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: AppSizes.spacingS),
-                    Text(
-                      'Please provide your details to complete the registration.',
-                      style: AppTextStyles.caption.copyWith(
-                        color: AppColors.textSecondary,
+                      child: IntrinsicHeight(
+                        child: Padding(
+                          padding: const EdgeInsets.all(AppSizes.paddingL),
+                          child: Form(
+                            key: _formKey,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                const SizedBox(height: AppSizes.spacingL),
+                                Text(
+                                  'Complete Registration',
+                                  style: AppTextStyles.headline3.copyWith(
+                                    color: AppColors.primaryColor,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: AppSizes.spacingS),
+                                Text(
+                                  'Please provide your details to complete the registration.',
+                                  style: AppTextStyles.caption.copyWith(
+                                    color: AppColors.textSecondary,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: AppSizes.spacingXL),
+                                CommonTextField(
+                                  fillColor: AppColors.containerBackground,
+                                  controller: _phoneController,
+                                  hintText: 'Phone Number',
+                                  labelText: 'Phone Number',
+                                  keyboardType: TextInputType.phone,
+                                  enabled: false, // Disable editing since it's pre-filled
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                  ],
+                                  validator: (value) {
+                                    if (value == null || value.isEmpty) {
+                                      return 'Phone number is required';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                                const SizedBox(height: AppSizes.spacingM),
+                                CommonTextField(
+                                  fillColor: AppColors.containerBackground,
+                                  controller: _nameController,
+                                  hintText: 'Enter your name',
+                                  labelText: 'Name',
+                                  validator: (value) {
+                                    if (value == null || value.isEmpty) {
+                                      return 'Please enter your name';
+                                    }
+                                    if (value.length < 2) {
+                                      return 'Name must be at least 2 characters';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                                const Spacer(),
+                                BlocBuilder<AuthBloc, AuthState>(
+                                  builder: (context, state) {
+                                    final isLoading = state is AuthLoading;
+                                    return CommonButton(
+                                      text: 'Register',
+                                      onPressed: isLoading ? null : _register,
+                                      isLoading: isLoading,
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                       ),
-                      textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: AppSizes.spacingXL),
-                    CommonTextField(
-                      fillColor: AppColors.containerBackground,
-                      controller: _phoneController,
-                      hintText: 'Phone Number',
-                      labelText: 'Phone Number',
-                      keyboardType: TextInputType.phone,
-                      enabled: false, // Disable editing since it's pre-filled
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                      ],
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Phone number is required';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: AppSizes.spacingM),
-                    CommonTextField(
-                      fillColor: AppColors.containerBackground,
-                      controller: _nameController,
-                      hintText: 'Enter your name',
-                      labelText: 'Name',
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter your name';
-                        }
-                        if (value.length < 2) {
-                          return 'Name must be at least 2 characters';
-                        }
-                        return null;
-                      },
-                    ),
-                    const Spacer(),
-                    BlocBuilder<AuthBloc, AuthState>(
-                      builder: (context, state) {
-                        final isLoading = state is AuthLoading;
-                        return CommonButton(
-                          text: 'Register',
-                          onPressed: isLoading ? null : _register,
-                          isLoading: isLoading,
-                        );
-                      },
-                    ),
-                  ],
-                ),
+                  );
+                },
               ),
             ),
           ),

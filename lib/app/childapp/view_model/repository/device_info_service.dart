@@ -376,4 +376,35 @@ class ChildInfoService {
       return [];
     }
   }
+
+  /// Get the list of currently monitored apps on iOS
+  /// Returns structured data: [{id: "usage_cat_XXX", type: "category", displayName: "..."}]
+  Future<List<Map<String, dynamic>>> getMonitoredApps() async {
+    try {
+      if (Platform.isIOS) {
+        const iosChannel = MethodChannel('com.truenyx.naviq/parental_control');
+        final result = await iosChannel.invokeMethod<List<dynamic>>(
+          'getMonitoredApps',
+        );
+
+        if (result != null) {
+          final items = result.map((e) {
+            if (e is Map) {
+              return Map<String, dynamic>.from(e);
+            }
+            return <String, dynamic>{
+              'id': e.toString(),
+              'type': e.toString().contains('_cat_') ? 'category' : 'app',
+              'displayName': e.toString(),
+            };
+          }).toList();
+          return items;
+        }
+      }
+      return [];
+    } catch (e) {
+      AppLogger.error('Error getting monitored apps: $e');
+      return [];
+    }
+  }
 }

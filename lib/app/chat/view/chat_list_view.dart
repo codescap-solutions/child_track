@@ -9,6 +9,8 @@ import 'package:child_track/core/constants/app_text_styles.dart';
 import 'package:child_track/core/models/chat_models.dart';
 import 'package:child_track/app/chat/view/chat_screen.dart';
 import 'package:intl/intl.dart';
+import 'package:child_track/core/di/injector.dart';
+import 'package:child_track/core/services/shared_prefs_service.dart';
 
 class ChatListView extends StatefulWidget {
   const ChatListView({super.key});
@@ -72,9 +74,18 @@ class _ChatListViewState extends State<ChatListView> {
 
   Widget _buildConversationTile(ChatConversation conversation) {
     // Determine the other participant (not me)
+    final currentUserId = injector<SharedPrefsService>().getString('parent_id') ??
+        injector<SharedPrefsService>().getString('child_id') ??
+        '';
+
     final otherParticipant = conversation.participants.firstWhere(
-      (p) => p.role == 'admin' || p.role == 'support', // Or check ID
-      orElse: () => conversation.participants.first,
+      (p) => p.id != currentUserId,
+      orElse: () => conversation.participants.firstWhere(
+        (p) => p.role == 'admin' || p.role == 'support' || p.role == '2',
+        orElse: () => conversation.participants.isNotEmpty
+            ? conversation.participants.first
+            : ChatParticipant(id: '', name: 'Support', role: ''),
+      ),
     );
 
     return ListTile(
@@ -90,7 +101,11 @@ class _ChatListViewState extends State<ChatListView> {
         style: AppTextStyles.subtitle1.copyWith(fontWeight: FontWeight.w600),
       ),
       subtitle: Text(
-        conversation.lastMessage?.text ?? 'No messages yet',
+        conversation.lastMessage == null
+            ? 'No messages yet'
+            : (conversation.lastMessage!.text.isEmpty
+                ? 'Tap to view conversation'
+                : conversation.lastMessage!.text),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary),

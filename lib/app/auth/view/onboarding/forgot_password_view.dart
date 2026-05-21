@@ -38,37 +38,54 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
         ),
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSizes.paddingL),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Forget Password',
-                  style: AppTextStyles.headline3.copyWith(
-                    color: AppColors.primaryColor,
+        child: GestureDetector(
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                physics: const ClampingScrollPhysics(),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: constraints.maxHeight,
+                  ),
+                  child: IntrinsicHeight(
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppSizes.paddingL),
+                      child: Form(
+                        key: _formKey,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              'Forget Password',
+                              style: AppTextStyles.headline3.copyWith(
+                                color: AppColors.primaryColor,
+                              ),
+                            ),
+                            const SizedBox(height: AppSizes.spacingS),
+                            Text(
+                              'Enter your email address or mobile number to receive a verification code to reset your password.',
+                              style: AppTextStyles.caption.copyWith(
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                            const SizedBox(height: AppSizes.spacingXL),
+                            CommonTextField(
+                              controller: _userController,
+                              hintText: 'Email ID/ Mobile Number',
+                            ),
+                            const SizedBox(height: AppSizes.spacingM),
+                            CommonTextField(controller: _otpController, hintText: 'OTP'),
+                            const Spacer(),
+                            CommonButton(text: 'Continue', onPressed: _submit),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-                const SizedBox(height: AppSizes.spacingS),
-                Text(
-                  'It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum.',
-                  style: AppTextStyles.caption.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: AppSizes.spacingXL),
-                CommonTextField(
-                  controller: _userController,
-                  hintText: 'Email ID/ Mobile Number',
-                ),
-                const SizedBox(height: AppSizes.spacingM),
-                CommonTextField(controller: _otpController, hintText: 'OTP'),
-                const Spacer(),
-                CommonButton(text: 'Continue', onPressed: _submit),
-              ],
-            ),
+              );
+            },
           ),
         ),
       ),

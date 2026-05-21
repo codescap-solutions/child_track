@@ -40,54 +40,71 @@ class _ResetPasswordViewState extends State<ResetPasswordView> {
         ),
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSizes.paddingL),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Reset Password',
-                  style: AppTextStyles.headline3.copyWith(
-                    color: AppColors.primaryColor,
+        child: GestureDetector(
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                physics: const ClampingScrollPhysics(),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: constraints.maxHeight,
                   ),
-                ),
-                const SizedBox(height: AppSizes.spacingS),
-                Text(
-                  'It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum.',
-                  style: AppTextStyles.caption.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: AppSizes.spacingXL),
-                CommonTextField(
-                  controller: _pass1,
-                  hintText: 'New Password',
-                  obscureText: _hide1,
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _hide1 ? Icons.visibility_off : Icons.visibility,
+                  child: IntrinsicHeight(
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppSizes.paddingL),
+                      child: Form(
+                        key: _formKey,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              'Reset Password',
+                              style: AppTextStyles.headline3.copyWith(
+                                color: AppColors.primaryColor,
+                              ),
+                            ),
+                            const SizedBox(height: AppSizes.spacingS),
+                            Text(
+                              'Please enter your new password to secure your account.',
+                              style: AppTextStyles.caption.copyWith(
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                            const SizedBox(height: AppSizes.spacingXL),
+                            CommonTextField(
+                              controller: _pass1,
+                              hintText: 'New Password',
+                              obscureText: _hide1,
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _hide1 ? Icons.visibility_off : Icons.visibility,
+                                ),
+                                onPressed: () => setState(() => _hide1 = !_hide1),
+                              ),
+                            ),
+                            const SizedBox(height: AppSizes.spacingM),
+                            CommonTextField(
+                              controller: _pass2,
+                              hintText: 'Confirm Password',
+                              obscureText: _hide2,
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _hide2 ? Icons.visibility_off : Icons.visibility,
+                                ),
+                                onPressed: () => setState(() => _hide2 = !_hide2),
+                              ),
+                            ),
+                            const Spacer(),
+                            CommonButton(text: 'Submitting...', onPressed: _submit),
+                          ],
+                        ),
+                      ),
                     ),
-                    onPressed: () => setState(() => _hide1 = !_hide1),
                   ),
                 ),
-                const SizedBox(height: AppSizes.spacingM),
-                CommonTextField(
-                  controller: _pass2,
-                  hintText: 'Confirm Password',
-                  obscureText: _hide2,
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _hide2 ? Icons.visibility_off : Icons.visibility,
-                    ),
-                    onPressed: () => setState(() => _hide2 = !_hide2),
-                  ),
-                ),
-                const Spacer(),
-                CommonButton(text: 'Submitting...', onPressed: _submit),
-              ],
-            ),
+              );
+            },
           ),
         ),
       ),

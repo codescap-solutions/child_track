@@ -60,7 +60,7 @@ class _SignUpViewState extends State<SignUpView> {
                 ),
                 const SizedBox(height: AppSizes.spacingS),
                 Text(
-                  'It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum.',
+                  'Create an account to start keeping your children safe and tracking their locations in real-time.',
                   style: AppTextStyles.caption.copyWith(
                     color: AppColors.textSecondary,
                   ),

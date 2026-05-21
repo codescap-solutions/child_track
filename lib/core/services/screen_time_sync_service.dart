@@ -130,12 +130,35 @@ class ScreenTimeSyncService {
     if (Platform.isIOS) {
       AppLogger.info('ScreenTimeSyncService: iOS - fetching screen time from native');
       final screenTimeUsage = await _deviceInfoService.getScreenTime();
-      AppLogger.info('ScreenTimeSyncService: iOS - got ${screenTimeUsage.length} records from native');
-      final nonEmpty = screenTimeUsage.where((e) => e.seconds > 0).toList();
-      nonEmpty.sort((a, b) => b.seconds.compareTo(a.seconds));
-      _screenTimeCache = nonEmpty;
+      final monitoredApps = await _deviceInfoService.getMonitoredApps();
+
+      final usageMap = {for (var app in screenTimeUsage) app.package: app};
+      final List<AppScreenTimeModel> mergedList = [];
+
+      for (var monitoredApp in monitoredApps) {
+        final id = monitoredApp['id'] as String;
+        final displayName = monitoredApp['displayName'] as String? ?? id;
+
+        if (usageMap.containsKey(id)) {
+          mergedList.add(usageMap[id]!);
+          usageMap.remove(id);
+        } else {
+          mergedList.add(AppScreenTimeModel(
+            package: id,
+            appName: displayName,
+            seconds: 0,
+            isSystemApp: false,
+            lastTimeUsed: 0,
+          ));
+        }
+      }
+
+      mergedList.addAll(usageMap.values);
+      mergedList.sort((a, b) => b.seconds.compareTo(a.seconds));
+      
+      _screenTimeCache = mergedList;
       _lastFetchTime = DateTime.now();
-      return nonEmpty;
+      return mergedList;
     }
 
     final installedApps = await _deviceInfoService.getInstalledApps();
@@ -190,33 +213,29 @@ class ScreenTimeSyncService {
         final seconds = usageModel?.seconds ?? 0;
         final lastTimeUsed = usageModel?.lastTimeUsed ?? 0;
 
-        if (seconds > 0) {
-          mergedScreenTime.add(
-            AppScreenTimeModel(
-              package: app.packageName,
-              appName: app.appName,
-              isSystemApp: app.isSystemApp,
-              seconds: seconds,
-              lastTimeUsed: lastTimeUsed,
-              iconBase64: usageModel?.iconBase64,
-            ),
-          );
-        }
+        mergedScreenTime.add(
+          AppScreenTimeModel(
+            package: app.packageName,
+            appName: app.appName,
+            isSystemApp: app.isSystemApp,
+            seconds: seconds,
+            lastTimeUsed: lastTimeUsed,
+            iconBase64: usageModel?.iconBase64,
+          ),
+        );
       }
       usageMap.remove(app.packageName);
     }
 
     // Add remaining apps from usageMap that weren't in installed apps
     usageMap.forEach((package, usageModel) {
-      if (usageModel.seconds > 0) {
-        mergedScreenTime.add(
-          usageModel.copyWith(
-            appName: usageModel.appName.isNotEmpty
-                ? usageModel.appName
-                : package,
-          ),
-        );
-      }
+      mergedScreenTime.add(
+        usageModel.copyWith(
+          appName: usageModel.appName.isNotEmpty
+              ? usageModel.appName
+              : package,
+        ),
+      );
     });
 
     // Sort by seconds and cache

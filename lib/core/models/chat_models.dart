@@ -1,3 +1,6 @@
+import 'package:child_track/core/di/injector.dart';
+import 'package:child_track/core/services/shared_prefs_service.dart';
+
 class ChatConversation {
   final String id;
   final List<ChatParticipant> participants;
@@ -14,19 +17,57 @@ class ChatConversation {
   });
 
   factory ChatConversation.fromJson(Map<String, dynamic> json) {
+    int parsedUnreadCount = 0;
+    final unreadVal = json['unreadCount'];
+    if (unreadVal is num) {
+      parsedUnreadCount = unreadVal.toInt();
+    } else if (unreadVal is Map) {
+      try {
+        final currentUserId = injector<SharedPrefsService>().getString('parent_id') ??
+            injector<SharedPrefsService>().getString('child_id') ??
+            '';
+        final userUnread = unreadVal[currentUserId];
+        if (userUnread is num) {
+          parsedUnreadCount = userUnread.toInt();
+        } else if (userUnread != null) {
+          parsedUnreadCount = int.tryParse(userUnread.toString()) ?? 0;
+        }
+      } catch (_) {
+        if (unreadVal.isNotEmpty) {
+          final firstVal = unreadVal.values.first;
+          if (firstVal is num) {
+            parsedUnreadCount = firstVal.toInt();
+          } else if (firstVal != null) {
+            parsedUnreadCount = int.tryParse(firstVal.toString()) ?? 0;
+          }
+        }
+      }
+    }
+
+    final updatedAt = json['updatedAt'] != null
+        ? DateTime.parse(json['updatedAt'].toString())
+        : DateTime.now();
+
     return ChatConversation(
-      id: json['_id'] ?? '',
-      participants: (json['participants'] as List?)
+      id: json['_id']?.toString() ?? '',
+      participants:
+          (json['participants'] as List?)
               ?.map((e) => ChatParticipant.fromJson(e))
               .toList() ??
           [],
       lastMessage: json['lastMessage'] != null
-          ? ChatMessage.fromJson(json['lastMessage'])
+          ? (json['lastMessage'] is Map
+              ? ChatMessage.fromJson(Map<String, dynamic>.from(json['lastMessage'] as Map))
+              : ChatMessage(
+                  id: json['lastMessage'].toString(),
+                  chatId: json['_id']?.toString() ?? '',
+                  senderId: '',
+                  text: '',
+                  createdAt: updatedAt,
+                ))
           : null,
-      unreadCount: json['unreadCount'] is int ? json['unreadCount'] : 0,
-      updatedAt: json['updatedAt'] != null
-          ? DateTime.parse(json['updatedAt'])
-          : DateTime.now(),
+      unreadCount: parsedUnreadCount,
+      updatedAt: updatedAt,
     );
   }
 
@@ -64,12 +105,7 @@ class ChatParticipant {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      '_id': id,
-      'name': name,
-      'avatar': avatar,
-      'role': role,
-    };
+    return {'_id': id, 'name': name, 'avatar': avatar, 'role': role};
   }
 }
 
@@ -92,14 +128,21 @@ class ChatMessage {
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) {
     return ChatMessage(
-      id: json['_id'] ?? '',
-      chatId: json['chatId'] ?? '',
-      senderId: json['senderId'] ?? (json['sender'] is Map ? json['sender']['_id'] : (json['sender'] ?? '')),
-      text: json['text'] ?? '',
+      id: json['_id']?.toString() ?? '',
+      chatId: json['chatId']?.toString() ?? '',
+      senderId: (json['senderId'] ??
+              (json['sender'] is Map
+                  ? (json['sender'] as Map)['_id']
+                  : (json['sender'] ?? '')))
+          ?.toString() ??
+          '',
+      text: json['text']?.toString() ?? '',
       createdAt: json['createdAt'] != null
-          ? DateTime.parse(json['createdAt'])
+          ? DateTime.parse(json['createdAt'].toString())
           : DateTime.now(),
-      isRead: json['isRead'] ?? false,
+      isRead: json['isRead'] is bool
+          ? json['isRead'] as bool
+          : (json['isRead']?.toString() == 'true'),
     );
   }
 

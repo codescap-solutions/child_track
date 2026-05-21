@@ -84,24 +84,41 @@ class _OtpScreenState extends State<OtpScreen> {
           foregroundColor: AppColors.surfaceColor,
         ),
         body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(AppSizes.paddingL),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Spacer(),
-                  _buildHeader(),
-                  const SizedBox(height: AppSizes.spacingXXL),
-                  _buildOtpField(),
-                  const SizedBox(height: AppSizes.spacingXL),
-                  _buildVerifyOtpButton(),
-                  const SizedBox(height: AppSizes.spacingL),
-                  _buildResendOtpButton(),
-                  const Spacer(),
-                ],
-              ),
+          child: GestureDetector(
+            onTap: () => FocusScope.of(context).unfocus(),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  physics: const ClampingScrollPhysics(),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight,
+                    ),
+                    child: IntrinsicHeight(
+                      child: Padding(
+                        padding: const EdgeInsets.all(AppSizes.paddingL),
+                        child: Form(
+                          key: _formKey,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              const Spacer(),
+                              _buildHeader(),
+                              const SizedBox(height: AppSizes.spacingXXL),
+                              _buildOtpField(),
+                              const SizedBox(height: AppSizes.spacingXL),
+                              _buildVerifyOtpButton(),
+                              const SizedBox(height: AppSizes.spacingL),
+                              _buildResendOtpButton(),
+                              const Spacer(),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
           ),
         ),

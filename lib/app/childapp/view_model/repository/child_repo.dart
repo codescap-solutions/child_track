@@ -197,11 +197,14 @@ class ChildRepo extends BaseService {
   }
 
   // Remove child FCM token from server (on logout)
-  Future<BaseResponse> removeChildFcmToken({required String childId}) async {
+  Future<BaseResponse> removeChildFcmToken({
+    required String childId,
+    required String fcmToken,
+  }) async {
     try {
       final response = await delete(
         ApiEndpoints.childFcmToken,
-        data: {'child_id': childId},
+        data: {'child_id': childId, 'fcm_token': fcmToken},
       );
       return response;
     } catch (e) {

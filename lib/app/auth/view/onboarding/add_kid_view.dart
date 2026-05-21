@@ -68,7 +68,7 @@ class _AddKidViewState extends State<AddKidView> {
                   const SizedBox(height: AppSizes.spacingS),
                   Text(
                     textAlign: TextAlign.center,
-                    'It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum.',
+                    'Add your child\'s details to begin tracking their location and setting up safety boundaries.',
                     style: AppTextStyles.body2.copyWith(
                       color: AppColors.textSecondary,
                     ),

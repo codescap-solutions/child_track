@@ -88,7 +88,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
                     // Description
                     Text(
-                      'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean commodo ligula eget dolor. Aenean massa.',
+                      'Keep your loved ones safe and connected. Track real-time location, receive smart alerts, and ensure peace of mind for your family.',
                       textAlign: TextAlign.center,
                       style: AppTextStyles.body2.copyWith(
                         color: AppColors.textSecondary,
