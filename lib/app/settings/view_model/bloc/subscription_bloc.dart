@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 
@@ -10,12 +12,16 @@ class SubscriptionBloc extends Bloc<SubscriptionEvent, SubscriptionState> {
   final RevenueCatService _rc;
 
   // Product IDs as configured in RevenueCat dashboard
-  static const _monthlyProductId = 'naviqpro_99_montly';
-  static const _yearlyProductId = 'naviqpro_999_yearly';
+  static final String _monthlyProductId = Platform.isIOS
+      ? 'naviqpro_99_montly'
+      : 'naviqpro_99_montly:naviqpro99montly';
+  static final String _yearlyProductId = Platform.isIOS
+      ? 'naviqpro_999_yearly'
+      : 'naviqpro_999_yearly:naviqpro-999-yearly';
 
   SubscriptionBloc({RevenueCatService? revenueCatService})
-      : _rc = revenueCatService ?? RevenueCatService.instance,
-        super(const SubscriptionInitial()) {
+    : _rc = revenueCatService ?? RevenueCatService.instance,
+      super(const SubscriptionInitial()) {
     on<LoadOfferingsEvent>(_onLoadOfferings);
     on<SelectPlanEvent>(_onSelectPlan);
     on<PurchasePackageEvent>(_onPurchasePackage);
@@ -30,10 +36,12 @@ class SubscriptionBloc extends Bloc<SubscriptionEvent, SubscriptionState> {
     try {
       final offerings = await _rc.getOfferings();
       if (offerings == null) {
-        emit(const SubscriptionError(
-          'Unable to load subscription plans.',
-          isLoadError: true,
-        ));
+        emit(
+          const SubscriptionError(
+            'Unable to load subscription plans.',
+            isLoadError: true,
+          ),
+        );
         return;
       }
 
@@ -61,21 +69,20 @@ class SubscriptionBloc extends Bloc<SubscriptionEvent, SubscriptionState> {
         }
       }
 
-      emit(SubscriptionLoaded(
-        monthlyPackage: monthly,
-        yearlyPackage: yearly,
-        selectedIndex: 1, // default: yearly (best value)
-      ));
+      emit(
+        SubscriptionLoaded(
+          monthlyPackage: monthly,
+          yearlyPackage: yearly,
+          selectedIndex: 1, // default: yearly (best value)
+        ),
+      );
     } catch (e) {
       AppLogger.error('SubscriptionBloc loadOfferings: $e');
       emit(SubscriptionError('Failed to load plans: $e', isLoadError: true));
     }
   }
 
-  void _onSelectPlan(
-    SelectPlanEvent event,
-    Emitter<SubscriptionState> emit,
-  ) {
+  void _onSelectPlan(SelectPlanEvent event, Emitter<SubscriptionState> emit) {
     if (state is SubscriptionLoaded) {
       emit((state as SubscriptionLoaded).copyWith(selectedIndex: event.index));
     }
@@ -122,10 +129,12 @@ class SubscriptionBloc extends Bloc<SubscriptionEvent, SubscriptionState> {
       if (customerInfo != null && customerInfo.entitlements.active.isNotEmpty) {
         emit(SubscriptionSuccess(customerInfo));
       } else {
-        emit(const SubscriptionError(
-          'No active subscriptions found to restore.',
-          isLoadError: true,
-        ));
+        emit(
+          const SubscriptionError(
+            'No active subscriptions found to restore.',
+            isLoadError: true,
+          ),
+        );
       }
     } catch (e) {
       emit(SubscriptionError('Restore failed: $e', isLoadError: true));
