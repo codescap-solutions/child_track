@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:child_track/core/constants/app_colors.dart';
-import 'package:child_track/core/constants/app_sizes.dart';
-import 'package:child_track/core/constants/app_text_styles.dart';
+import 'package:google_fonts/google_fonts.dart';
 
-/// A pill-shaped segmented control to choose between Kid and Parent.
-/// Reusable for other binary choices if needed.
+/// An animated capsule-shaped selector for choosing between Kid and Parent roles.
 class RoleSelector extends StatelessWidget {
   final String selected; // 'Kid' or 'Parent'
   final ValueChanged<String> onChanged;
@@ -17,91 +14,105 @@ class RoleSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isKid = selected == 'Kid';
+    final isKidSelected = selected == 'Kid';
 
     return Container(
       height: 56,
       decoration: BoxDecoration(
-        color: AppColors.surfaceColor,
-        borderRadius: BorderRadius.circular(32),
-        border: Border.all(color: AppColors.borderColor),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        color: const Color(0xFFEEF2F6),
+        borderRadius: BorderRadius.circular(28),
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _Segment(
-              label: 'Kid',
-              selected: isKid,
-              onTap: () => onChanged('Kid'),
-              isLeft: true,
-            ),
-          ),
-          Container(
-            width: 1,
-            height: double.infinity,
-            color: AppColors.borderColor,
-          ),
-          Expanded(
-            child: _Segment(
-              label: 'Parent',
-              selected: !isKid,
-              onTap: () => onChanged('Parent'),
-              isLeft: false,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Segment extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final bool isLeft;
-  final VoidCallback onTap;
-
-  const _Segment({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-    required this.isLeft,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final background = selected ? Colors.white : Colors.transparent;
-    final textColor = selected
-        ? AppColors.textPrimary
-        : AppColors.textSecondary;
-
-    return InkWell(
-      borderRadius: BorderRadius.horizontal(
-        left: Radius.circular(isLeft ? 32 : 0),
-        right: Radius.circular(isLeft ? 0 : 32),
-      ),
-      onTap: onTap,
-      child: Container(
-        alignment: Alignment.center,
-        padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingL),
-        decoration: BoxDecoration(
-          color: background,
-          borderRadius: BorderRadius.horizontal(
-            left: Radius.circular(isLeft ? 32 : 0),
-            right: Radius.circular(isLeft ? 0 : 32),
-          ),
-        ),
-        child: Text(
-          label,
-          style: AppTextStyles.subtitle2.copyWith(color: textColor),
-        ),
+      padding: const EdgeInsets.all(5),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final tabWidth = constraints.maxWidth / 2;
+          return Stack(
+            children: [
+              // Sliding Selection Indicator
+              AnimatedAlign(
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeInOut,
+                alignment: isKidSelected ? Alignment.centerLeft : Alignment.centerRight,
+                child: Container(
+                  width: tabWidth - 4, // subtle inner padding
+                  height: double.infinity,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0066FF),
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF0066FF).withValues(alpha: 0.25),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              // Option labels in a Row
+              Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => onChanged('Kid'),
+                      behavior: HitTestBehavior.opaque,
+                      child: Center(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Text(
+                              '👦',
+                              style: TextStyle(fontSize: 16),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Kid',
+                              style: GoogleFonts.manrope(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: isKidSelected
+                                    ? Colors.white
+                                    : const Color(0xFF5F6368),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => onChanged('Parent'),
+                      behavior: HitTestBehavior.opaque,
+                      child: Center(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Text(
+                              '👪',
+                              style: TextStyle(fontSize: 16),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Parent',
+                              style: GoogleFonts.manrope(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: !isKidSelected
+                                    ? Colors.white
+                                    : const Color(0xFF5F6368),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          );
+        },
       ),
     );
   }

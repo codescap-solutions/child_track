@@ -7,13 +7,20 @@ class AppTheme {
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
-      // Set Poppins as the global default font for all text in the app
-      fontFamily: GoogleFonts.poppins().fontFamily,
+      // Set Manrope as the global default font for all text in the app
+      fontFamily: GoogleFonts.manrope().fontFamily,
       colorScheme: ColorScheme.fromSeed(
         seedColor: AppColors.primaryColor,
         brightness: Brightness.light,
       ),
-      textTheme: GoogleFonts.poppinsTextTheme(),
+      textTheme: GoogleFonts.manropeTextTheme().copyWith(
+        displayLarge: GoogleFonts.oswald(fontWeight: FontWeight.bold),
+        displayMedium: GoogleFonts.oswald(fontWeight: FontWeight.bold),
+        displaySmall: GoogleFonts.oswald(fontWeight: FontWeight.bold),
+        headlineLarge: GoogleFonts.oswald(fontWeight: FontWeight.bold),
+        headlineMedium: GoogleFonts.oswald(fontWeight: FontWeight.w600),
+        headlineSmall: GoogleFonts.oswald(fontWeight: FontWeight.w600),
+      ),
       appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.primaryColor,
         foregroundColor: AppColors.surfaceColor,

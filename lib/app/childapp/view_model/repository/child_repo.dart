@@ -98,10 +98,15 @@ class ChildRepo extends BaseService {
   Future<BaseResponse> createChild({
     required String name,
     required int age,
+    required String travelOption,
   }) async {
     final response = await post(
       ApiEndpoints.createChild,
-      data: {'name': name, 'age': age},
+      data: {
+        'name': name,
+        'age': age,
+        'traveloption': travelOption,
+      },
     );
 
     if (response.isSuccess && response.data != null) {
