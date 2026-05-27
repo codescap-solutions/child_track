@@ -81,4 +81,40 @@ class CsvFileLogger {
       return [];
     }
   }
+
+  /// Reads and parses all logs from today and previous days, returning list of raw log rows.
+  Future<List<String>> readLogs() async {
+    try {
+      final paths = await getAllLogPaths();
+      final List<String> logs = [];
+      for (final path in paths.reversed) {
+        final file = File(path);
+        if (file.existsSync()) {
+          final lines = await file.readAsLines();
+          if (lines.length > 1) {
+            // Skip CSV header line and add in reverse order (newest first)
+            logs.addAll(lines.skip(1).toList().reversed);
+          }
+        }
+      }
+      return logs;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Deletes all CSV log files on disk and reinitializes the log directory/today's file.
+  Future<void> clearLogs() async {
+    try {
+      final paths = await getAllLogPaths();
+      for (final path in paths) {
+        final file = File(path);
+        if (file.existsSync()) {
+          await file.delete();
+        }
+      }
+      _initialised = false;
+      await init();
+    } catch (_) {}
+  }
 }

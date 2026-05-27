@@ -12,14 +12,22 @@ class MainActivity : FlutterActivity() {
         private const val TAG = "MainActivity"
     }
 
-    private val deviceInfoPlugin = DeviceInfoPlugin()
+    private var deviceInfoPlugin: DeviceInfoPlugin? = null
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
     private var pendingBlockRunnable: Runnable? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        flutterEngine.plugins.add(deviceInfoPlugin)
-        Log.d(TAG, ">>> FlutterEngine configured, DeviceInfoPlugin registered")
+        
+        var plugin = flutterEngine.plugins.get(DeviceInfoPlugin::class.java) as? DeviceInfoPlugin
+        if (plugin == null) {
+            Log.w(TAG, ">>> DeviceInfoPlugin not found in registry, registering manually")
+            plugin = DeviceInfoPlugin()
+            flutterEngine.plugins.add(plugin)
+        } else {
+            Log.d(TAG, ">>> DeviceInfoPlugin resolved from registry successfully")
+        }
+        deviceInfoPlugin = plugin
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -67,14 +75,14 @@ class MainActivity : FlutterActivity() {
                 Log.d(TAG, ">>> Cold launch — scheduling appBlocked with 1500ms delay")
                 val runnable = Runnable {
                     Log.d(TAG, ">>> [1500ms elapsed] Sending appBlocked to Flutter for: $packageName")
-                    deviceInfoPlugin.sendAppBlockedEvent(packageName)
+                    deviceInfoPlugin?.sendAppBlockedEvent(packageName)
                     pendingBlockRunnable = null
                 }
                 pendingBlockRunnable = runnable
                 handler.postDelayed(runnable, 1500)
             } else {
                 Log.d(TAG, ">>> Warm launch — sending appBlocked to Flutter NOW for: $packageName")
-                deviceInfoPlugin.sendAppBlockedEvent(packageName)
+                deviceInfoPlugin?.sendAppBlockedEvent(packageName)
             }
 
             // Clear extras
@@ -82,7 +90,7 @@ class MainActivity : FlutterActivity() {
             intent.removeExtra("blocked_package")
         } else {
             Log.d(TAG, ">>> No block extras in intent — skipping and sending clear event")
-            deviceInfoPlugin.sendClearBlockEvent()
+            deviceInfoPlugin?.sendClearBlockEvent()
         }
     }
 }

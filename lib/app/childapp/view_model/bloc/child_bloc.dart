@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:child_track/app/childapp/model/scree_time_model.dart';
 import 'package:child_track/app/childapp/view_model/repository/child_location_repo.dart';
 import 'package:child_track/app/childapp/view_model/repository/device_info_service.dart';
@@ -6,6 +7,7 @@ import 'package:child_track/app/home/model/device_model.dart';
 import 'package:child_track/core/utils/app_logger.dart';
 import 'package:child_track/core/services/firebase_notification_service.dart';
 import 'package:equatable/equatable.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:child_track/app/childapp/view_model/repository/child_repo.dart';
 import 'package:child_track/core/services/shared_prefs_service.dart';
@@ -15,7 +17,7 @@ import 'package:geolocator/geolocator.dart';
 part 'child_event.dart';
 part 'child_state.dart';
 
-class ChildBloc extends Bloc<ChildEvent, ChildState> {
+class ChildBloc extends Bloc<ChildEvent, ChildState> with WidgetsBindingObserver {
   final ChildInfoService _deviceInfoService;
   final ChildRepo _childRepo;
   final ChildGoogleMapsRepo _childLocationRepo;
@@ -50,7 +52,7 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
   }
 
   void onInitialize() {
-    final childId = _sharedPrefsService.getString('child_id');
+    final childId  = _sharedPrefsService.getString('child_id');
     final parentId = _sharedPrefsService.getString('parent_id');
 
     if (childId != null &&
@@ -60,7 +62,7 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
       add(LoadDeviceInfo());
       add(CheckUsagePermission());
       add(GetChildLocation());
-      
+
       // Initialize Socket for real-time updates
       _childRepo.initializeSocket(childId);
 
@@ -69,10 +71,35 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
 
       // Register FCM token with server for child device
       FirebaseNotificationService().registerTokenWithServer();
+
+      // iOS: sync credentials to App Group so native Swift can POST in background
+      if (Platform.isIOS) {
+        _childRepo.syncAppGroupCredentials();
+      }
+
+      // iOS lifecycle observer — refreshes Bloc state after native background sync
+      WidgetsBinding.instance.addObserver(this);
     } else {
       AppLogger.info(
         'ChildBloc: Skipping initialization - not logged in as child',
       );
+    }
+  }
+
+  /// Called by the Flutter framework when the app lifecycle changes.
+  /// On iOS, after the native Swift handler runs a background sync while the app
+  /// is suspended, the Bloc state is stale (old battery/location values).
+  /// When the child opens the app (resumed), we re-fetch everything so the UI
+  /// shows accurate data immediately.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && Platform.isIOS) {
+      AppLogger.info('ChildBloc: App resumed on iOS — refreshing location & device info');
+      add(GetChildLocation());
+      add(LoadDeviceInfo());
+      if (_locationSubscription == null) {
+        _startChildLocationStream();
+      }
     }
   }
 
@@ -322,6 +349,7 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> {
 
   @override
   Future<void> close() {
+    WidgetsBinding.instance.removeObserver(this);
     _stopChildLocationStream();
     return super.close();
   }

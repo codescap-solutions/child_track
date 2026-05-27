@@ -7,7 +7,14 @@ sealed class HomepageEvent extends Equatable {
   List<Object> get props => [];
 }
 
-final class GetHomepageData extends HomepageEvent {}
+final class GetHomepageData extends HomepageEvent {
+  final bool isSilentRefresh;
+
+  const GetHomepageData({this.isSilentRefresh = false});
+
+  @override
+  List<Object> get props => [isSilentRefresh];
+}
 
 final class GetTrips extends HomepageEvent {
   final int? page;

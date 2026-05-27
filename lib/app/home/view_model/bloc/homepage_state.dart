@@ -16,6 +16,7 @@ final class HomepageSuccess extends HomepageState {
   final bool isLoading;
   final bool hasNoChild;
   final bool webFilteringEnabled;
+  final bool waitingForSilentSyncResponse;
   // Trips data
   final List<Trip> trips;
   final int? tripsPage;
@@ -37,6 +38,7 @@ final class HomepageSuccess extends HomepageState {
     this.isLoading = false,
     this.hasNoChild = false,
     this.webFilteringEnabled = false,
+    this.waitingForSilentSyncResponse = false,
     this.trips = const [],
     this.tripsPage,
     this.tripsPageSize,
@@ -58,6 +60,7 @@ final class HomepageSuccess extends HomepageState {
         isLoading: false,
         hasNoChild: false,
         webFilteringEnabled: false,
+        waitingForSilentSyncResponse: false,
         trips: const [],
         tripsPage: null,
         tripsPageSize: null,
@@ -78,6 +81,7 @@ final class HomepageSuccess extends HomepageState {
     isLoading,
     hasNoChild,
     webFilteringEnabled,
+    waitingForSilentSyncResponse,
     trips,
     if (tripsPage != null) tripsPage!,
     if (tripsPageSize != null) tripsPageSize!,
@@ -97,6 +101,7 @@ final class HomepageSuccess extends HomepageState {
     bool? isLoading,
     bool? hasNoChild,
     bool? webFilteringEnabled,
+    bool? waitingForSilentSyncResponse,
     List<Trip>? trips,
     int? tripsPage,
     int? tripsPageSize,
@@ -116,6 +121,7 @@ final class HomepageSuccess extends HomepageState {
       isLoading: isLoading ?? this.isLoading,
       hasNoChild: hasNoChild ?? this.hasNoChild,
       webFilteringEnabled: webFilteringEnabled ?? this.webFilteringEnabled,
+      waitingForSilentSyncResponse: waitingForSilentSyncResponse ?? this.waitingForSilentSyncResponse,
       trips: trips ?? this.trips,
       tripsPage: tripsPage ?? this.tripsPage,
       tripsPageSize: tripsPageSize ?? this.tripsPageSize,

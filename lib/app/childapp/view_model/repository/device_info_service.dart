@@ -53,6 +53,10 @@ class ChildInfoService {
   /// Get battery percentage
   Future<int> getBatteryPercentage() async {
     try {
+      if (Platform.isIOS) {
+        final result = await _channel.invokeMethod<int>('getBatteryPercentage');
+        return result ?? 0;
+      }
       final batteryLevel = await _battery.batteryLevel;
       return batteryLevel;
     } catch (e) {

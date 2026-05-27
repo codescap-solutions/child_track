@@ -1,0 +1,19 @@
+name: device_info
+description: A local wrapper to register DeviceInfoPlugin with all background isolates/engines.
+version: 0.0.1
+publish_to: 'none'
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: ">=3.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: com.truenyx.naviqandroid
+        pluginClass: DeviceInfoPlugin

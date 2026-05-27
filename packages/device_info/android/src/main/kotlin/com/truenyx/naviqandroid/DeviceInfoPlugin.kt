@@ -29,6 +29,7 @@ import android.graphics.Canvas
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import java.io.ByteArrayOutputStream
+import java.util.Locale
 
 /**
  * FlutterPlugin for device info operations (screen time, installed apps, etc.)
@@ -162,9 +163,7 @@ class DeviceInfoPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
                 try {
                     val packages = call.arguments<List<String>>()
                     if (packages != null) {
-                        // Pass context so the lock list is also persisted to SharedPreferences.
-                        // This ensures AppLockService can reload it after a restart.
-                        AppLockService.updateLockedPackages(packages.toSet(), context)
+                        updateLockedPackages(packages.toSet(), context)
                         result.success(true)
                     } else {
                         result.error("INVALID_ARGS", "Expected List<String>", null)
@@ -175,7 +174,7 @@ class DeviceInfoPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
             }
 
             "checkAccessibilityPermission" -> {
-                result.success(AppLockService.isServiceEnabled(context))
+                result.success(isAccessibilityServiceEnabled(context))
             }
 
             "openAccessibilitySettings" -> {
@@ -228,6 +227,49 @@ class DeviceInfoPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
             }
 
             else -> result.notImplemented()
+        }
+    }
+
+    // ─── Reflection/Fallback Helpers for circular dependencies ───
+
+    private fun updateLockedPackages(packages: Set<String>, context: Context) {
+        try {
+            val clazz = Class.forName("com.truenyx.naviqandroid.AppLockService")
+            val method = clazz.getMethod("updateLockedPackages", Set::class.java, Context::class.java)
+            method.invoke(null, packages, context)
+        } catch (e: Exception) {
+            Log.e("DeviceInfoPlugin", "Failed to update locked packages via reflection: ${e.message}")
+            // Fallback: write to SharedPreferences directly
+            val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+            val csv = packages.joinToString(",")
+            prefs.edit().putString("flutter.locked_packages_csv", csv).apply()
+        }
+    }
+
+    private fun isAccessibilityServiceEnabled(context: Context): Boolean {
+        try {
+            val clazz = Class.forName("com.truenyx.naviqandroid.AppLockService")
+            val method = clazz.getMethod("isServiceEnabled", Context::class.java)
+            return method.invoke(null, context) as? Boolean ?: false
+        } catch (e: Exception) {
+            Log.e("DeviceInfoPlugin", "Failed to check service enabled via reflection: ${e.message}")
+            // Fallback: check manually
+            val expectedComponent = android.content.ComponentName(context, "com.truenyx.naviqandroid.AppLockService")
+            val enabledServices = Settings.Secure.getString(
+                context.contentResolver,
+                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+            ) ?: return false
+
+            val colonSplitter = android.text.TextUtils.SimpleStringSplitter(':')
+            colonSplitter.setString(enabledServices)
+            while (colonSplitter.hasNext()) {
+                val componentStr = colonSplitter.next()
+                val enabledComponent = android.content.ComponentName.unflattenFromString(componentStr)
+                if (enabledComponent != null && enabledComponent == expectedComponent) {
+                    return true
+                }
+            }
+            return false
         }
     }
 
@@ -327,16 +369,9 @@ class DeviceInfoPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
             val startTime = calendar.timeInMillis
             val endTime = System.currentTimeMillis()
 
-            // ── Use queryEvents() for precise foreground time ──
-            // queryUsageStats(INTERVAL_DAILY) returns duplicate entries per
-            // package, causing totalTimeInForeground to be summed multiple
-            // times (inflated ~1.5-2.7x). queryEvents() gives individual
-            // FOREGROUND / BACKGROUND transitions so we can compute exact time.
-
             val usageEvents = usageStatsManager.queryEvents(startTime, endTime)
             val event = UsageEvents.Event()
 
-            // per-package tracking
             val foregroundStart = mutableMapOf<String, Long>()   // currently in FG since
             val totalTime = mutableMapOf<String, Long>()         // accumulated ms
             val lastUsedMap = mutableMapOf<String, Long>()       // last interaction ts
@@ -347,14 +382,11 @@ class DeviceInfoPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
                 val ts = event.timeStamp
 
                 when (event.eventType) {
-                    // App moved to foreground
                     UsageEvents.Event.ACTIVITY_RESUMED -> {
                         foregroundStart[pkg] = ts
-                        // Track last-used regardless
                         val prev = lastUsedMap[pkg] ?: 0L
                         if (ts > prev) lastUsedMap[pkg] = ts
                     }
-                    // App moved to background
                     UsageEvents.Event.ACTIVITY_PAUSED -> {
                         val start = foregroundStart.remove(pkg)
                         if (start != null && ts > start) {
@@ -366,7 +398,6 @@ class DeviceInfoPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
                 }
             }
 
-            // Handle apps still in the foreground at query time
             for ((pkg, start) in foregroundStart) {
                 if (endTime > start) {
                     totalTime[pkg] = (totalTime[pkg] ?: 0L) + (endTime - start)

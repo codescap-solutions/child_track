@@ -82,15 +82,19 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
         ? currentState
         : const HomepageSuccess.initial();
 
-    emit(
-      startingState.copyWith(
-        isLoading: true,
-        trips:
-            [], // Clear trips to prevent showing the old child's trips while loading
-        hasReachedMax: false,
-        tripsPage: 1,
-      ),
-    );
+    if (!event.isSilentRefresh) {
+      emit(
+        startingState.copyWith(
+          isLoading: true,
+          trips:
+              [], // Clear trips to prevent showing the old child's trips while loading
+          hasReachedMax: false,
+          tripsPage: 1,
+          waitingForSilentSyncResponse: true,
+        ),
+      );
+    }
+
     try {
       final response = await _homeRepository.getHomeData(childId: childId);
 
@@ -131,13 +135,14 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
             webFilteringEnabled: homeData.webFilteringEnabled,
             isLoading: false,
             hasNoChild: false,
+            waitingForSilentSyncResponse: event.isSilentRefresh ? false : freshState.waitingForSilentSyncResponse,
           ),
         );
       } else {
         // Check if error is due to no child connected
         if (response.message.toLowerCase().contains('child') ||
             response.message.toLowerCase().contains('not found')) {
-          emit(startingState.copyWith(isLoading: false, hasNoChild: true));
+          emit(startingState.copyWith(isLoading: false, hasNoChild: true, waitingForSilentSyncResponse: false));
         } else {
           emit(HomepageError(message: response.message));
         }
@@ -283,6 +288,15 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
       final data = event.locationData;
       AppLogger.info('[HomepageBloc] Processing socket location update: $data');
 
+      if (currentState.waitingForSilentSyncResponse) {
+        emit(currentState.copyWith(waitingForSilentSyncResponse: false));
+        Future.delayed(const Duration(milliseconds: 2500), () {
+          if (!isClosed) {
+            add(const GetHomepageData(isSilentRefresh: true));
+          }
+        });
+      }
+
       // Helper to safely extract double value
       double toDouble(dynamic value) {
         if (value == null) return 0.0;
@@ -367,6 +381,15 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
     try {
       final data = event.statusData;
       AppLogger.info('[HomepageBloc] Processing socket status update: $data');
+
+      if (currentState.waitingForSilentSyncResponse) {
+        emit(currentState.copyWith(waitingForSilentSyncResponse: false));
+        Future.delayed(const Duration(milliseconds: 2500), () {
+          if (!isClosed) {
+            add(const GetHomepageData(isSilentRefresh: true));
+          }
+        });
+      }
 
       final deviceInfo = currentState.deviceInfo;
       if (deviceInfo == null) return;

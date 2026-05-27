@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:child_track/app/childapp/view_model/repository/device_info_service.dart';
 import 'package:child_track/app/home/model/device_model.dart';
 import 'package:child_track/app/childapp/view_model/bloc/child_bloc.dart';
@@ -120,13 +121,15 @@ class _SosViewState extends State<SosView> with WidgetsBindingObserver {
     final locStatus = await Permission.locationAlways.status;
     final locWhenInUse = await Permission.location.status;
     final notifStatus = await Permission.notification.status;
-    final bgStatus = await Permission.ignoreBatteryOptimizations.status;
+    final bgStatus = Platform.isAndroid
+        ? await Permission.ignoreBatteryOptimizations.status
+        : PermissionStatus.granted;
 
     if (mounted) {
       setState(() {
         _hasLocationPermission = locStatus.isGranted || locWhenInUse.isGranted;
         _hasNotificationPermission = notifStatus.isGranted;
-        _hasBackgroundPermission = bgStatus.isGranted;
+        _hasBackgroundPermission = Platform.isAndroid ? bgStatus.isGranted : true;
       });
     }
   }
@@ -768,38 +771,88 @@ class _SosViewContent extends StatelessWidget {
                                   color: Colors.grey.withValues(alpha: 0.2),
                                 ),
                                 const SizedBox(height: AppSizes.spacingS),
-                                _buildPermissionItem(
-                                  'Location',
-                                  hasLocationPermission,
-                                  () => Permission.locationAlways.request(),
-                                ),
-                                _buildPermissionItem(
-                                  'Background Work',
-                                  hasBackgroundPermission,
-                                  () => Permission.ignoreBatteryOptimizations
-                                      .request(),
-                                ),
-                                _buildPermissionItem(
-                                  'App Usage',
-                                  state is ChildDeviceInfoLoaded
-                                      ? state.hasUsagePermission
-                                      : false,
-                                  () => context.read<ChildBloc>().add(
-                                    OpenUsageSettings(),
+                                if (Platform.isIOS) ...[
+                                  _buildPermissionItem(
+                                    'Location',
+                                    hasLocationPermission,
+                                    () async {
+                                      final currentStatus = await Permission.location.status;
+                                      if (currentStatus.isGranted || currentStatus.isLimited) {
+                                        final statusAlways = await Permission.locationAlways.request();
+                                        if (!statusAlways.isGranted) {
+                                          await openAppSettings();
+                                        }
+                                      } else {
+                                        final status = await Permission.location.request();
+                                        if (status.isGranted || status.isLimited) {
+                                          final statusAlways = await Permission.locationAlways.request();
+                                          if (!statusAlways.isGranted) {
+                                            await openAppSettings();
+                                          }
+                                        } else {
+                                          await openAppSettings();
+                                        }
+                                      }
+                                    },
                                   ),
-                                ),
-                                _buildPermissionItem(
-                                  'Accessibility',
-                                  hasAccessibilityPermission,
-                                  // Show prominent disclosure BEFORE opening Settings
-                                  // (required by Google Play Accessibility Service policy)
-                                  () => showAccessibilityDisclosure(context),
-                                ),
-                                _buildPermissionItem(
-                                  'Notifications',
-                                  hasNotificationPermission,
-                                  () => Permission.notification.request(),
-                                ),
+                                  _buildPermissionItem(
+                                    'Screen Time & App Blocking',
+                                    hasAccessibilityPermission,
+                                    () => showAccessibilityDisclosure(context),
+                                  ),
+                                  _buildPermissionItem(
+                                    'Notifications',
+                                    hasNotificationPermission,
+                                    () async {
+                                      final status = await Permission.notification.request();
+                                      if (!status.isGranted) {
+                                        await openAppSettings();
+                                      }
+                                    },
+                                  ),
+                                ] else ...[
+                                  _buildPermissionItem(
+                                    'Location',
+                                    hasLocationPermission,
+                                    () async {
+                                      final status = await Permission.locationAlways.request();
+                                      if (status.isPermanentlyDenied) {
+                                        await openAppSettings();
+                                      }
+                                    },
+                                  ),
+                                  _buildPermissionItem(
+                                    'Background Work',
+                                    hasBackgroundPermission,
+                                    () => Permission.ignoreBatteryOptimizations.request(),
+                                  ),
+                                  _buildPermissionItem(
+                                    'App Usage',
+                                    state is ChildDeviceInfoLoaded
+                                        ? state.hasUsagePermission
+                                        : false,
+                                    () => context.read<ChildBloc>().add(
+                                      OpenUsageSettings(),
+                                    ),
+                                  ),
+                                  _buildPermissionItem(
+                                    'Accessibility',
+                                    hasAccessibilityPermission,
+                                    // Show prominent disclosure BEFORE opening Settings
+                                    // (required by Google Play Accessibility Service policy)
+                                    () => showAccessibilityDisclosure(context),
+                                  ),
+                                  _buildPermissionItem(
+                                    'Notifications',
+                                    hasNotificationPermission,
+                                    () async {
+                                      final status = await Permission.notification.request();
+                                      if (status.isPermanentlyDenied) {
+                                        await openAppSettings();
+                                      }
+                                    },
+                                  ),
+                                ],
                                 if (Platform.isIOS) ...[
                                   const SizedBox(height: AppSizes.spacingM),
                                   StatefulBuilder(
@@ -964,6 +1017,32 @@ class _SosViewContent extends StatelessWidget {
                                               );
                                             },
                                           ),
+                                          const SizedBox(height: AppSizes.spacingS),
+                                          OutlinedButton.icon(
+                                            style: OutlinedButton.styleFrom(
+                                              foregroundColor: AppColors.primaryColor,
+                                              side: BorderSide(
+                                                color: AppColors.primaryColor.withValues(alpha: 0.5),
+                                              ),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(12),
+                                              ),
+                                              padding: const EdgeInsets.symmetric(vertical: 12),
+                                            ),
+                                            icon: const Icon(Icons.analytics_outlined, size: 18),
+                                            label: const Text(
+                                              'View Diagnostic Logs',
+                                              style: TextStyle(fontWeight: FontWeight.bold),
+                                            ),
+                                            onPressed: () {
+                                              showModalBottomSheet(
+                                                context: context,
+                                                isScrollControlled: true,
+                                                backgroundColor: Colors.transparent,
+                                                builder: (context) => const _DiagnosticLogsSheet(),
+                                              );
+                                            },
+                                          ),
                                         ],
                                       );
                                     },
@@ -1088,6 +1167,522 @@ class _SosViewContent extends StatelessWidget {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+// -------------------------------------------------------------------------
+// DIAGNOSTIC LOGS VIEWER SHEET (iOS Background & App Activity Logs)
+// -------------------------------------------------------------------------
+class _DiagnosticLogsSheet extends StatefulWidget {
+  const _DiagnosticLogsSheet();
+
+  @override
+  State<_DiagnosticLogsSheet> createState() => _DiagnosticLogsSheetState();
+}
+
+class _DiagnosticLogsSheetState extends State<_DiagnosticLogsSheet> {
+  bool _isLoading = true;
+  List<String> _appLogs = [];
+  List<String> _apnsLogs = [];
+  String _searchQuery = "";
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLogs();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadLogs() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    final csvLogs = await CsvFileLogger.instance.readLogs();
+    List<String> nativeLogs = [];
+    if (Platform.isIOS) {
+      try {
+        const channel = MethodChannel('com.truenyx.naviq/parental_control');
+        final result = await channel.invokeMethod<List<dynamic>>('getExtensionLogs');
+        if (result != null) {
+          nativeLogs = result.map((e) => e.toString()).toList().reversed.toList();
+        }
+      } catch (e) {
+        AppLogger.error('Failed to get iOS native extension logs: $e');
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _appLogs = csvLogs;
+        _apnsLogs = nativeLogs;
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _clearLogs() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Clear All Logs?'),
+        content: const Text('This will delete all activity and sync diagnostics logs from this device. This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: const Text('Clear Logs'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      setState(() {
+        _isLoading = true;
+      });
+
+      await CsvFileLogger.instance.clearLogs();
+      if (Platform.isIOS) {
+        try {
+          const channel = MethodChannel('com.truenyx.naviq/parental_control');
+          await channel.invokeMethod<bool>('clearExtensionLogs');
+        } catch (e) {
+          AppLogger.error('Failed to clear iOS native logs: $e');
+        }
+      }
+
+      await _loadLogs();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Logs successfully cleared'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    }
+  }
+
+  List<String> _filterLogs(List<String> logs) {
+    if (_searchQuery.isEmpty) return logs;
+    return logs
+        .where((log) => log.toLowerCase().contains(_searchQuery.toLowerCase()))
+        .toList();
+  }
+
+  Widget _buildAppLogItem(String rawRow) {
+    final parts = rawRow.split(',');
+    if (parts.length < 4) {
+      return _buildRawLogItem(rawRow);
+    }
+    final ts = parts[0];
+    final tag = parts[1];
+    final level = parts[2];
+    final message = parts.skip(3).join(',').replaceAll('"', '');
+
+    Color tagColor = Colors.blue;
+    if (level == 'ERROR') tagColor = Colors.red;
+    if (level == 'WARNING') tagColor = Colors.orange;
+    if (level.contains('OK') || message.toLowerCase().contains('success') || message.contains('OK')) tagColor = Colors.green;
+
+    String formattedTime = ts;
+    try {
+      final dateTime = DateTime.parse(ts).toLocal();
+      formattedTime = "${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}:${dateTime.second.toString().padLeft(2, '0')}";
+    } catch (_) {}
+
+    return GestureDetector(
+      onLongPress: () {
+        Clipboard.setData(ClipboardData(text: message));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Copied log to clipboard'),
+            duration: Duration(seconds: 1),
+          ),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceColor,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: tagColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        tag,
+                        style: TextStyle(
+                          color: tagColor,
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        level,
+                        style: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                Text(
+                  formattedTime,
+                  style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              style: AppTextStyles.body2.copyWith(
+                fontFamily: Platform.isIOS ? 'Courier' : 'monospace',
+                fontSize: 12,
+                color: AppColors.textPrimary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildApnsLogItem(String rawRow) {
+    final timeRegex = RegExp(r'^\[(.*?)\]');
+    final match = timeRegex.firstMatch(rawRow);
+    String time = "";
+    String body = rawRow;
+    if (match != null) {
+      time = match.group(1) ?? "";
+      body = rawRow.replaceFirst(timeRegex, '').trim();
+    }
+
+    Color sourceColor = AppColors.primaryColor;
+    if (body.contains("AppDel")) {
+      sourceColor = Colors.teal;
+    }
+    if (body.contains("❌") || body.toLowerCase().contains("failed") || body.toLowerCase().contains("error")) {
+      sourceColor = Colors.red;
+    } else if (body.contains("✅") || body.toLowerCase().contains("ok") || body.toLowerCase().contains("success")) {
+      sourceColor = Colors.green;
+    }
+
+    final displayBody = body.replaceFirst("AppDel:", "").replaceFirst("Runner:", "").trim();
+
+    return GestureDetector(
+      onLongPress: () {
+        Clipboard.setData(ClipboardData(text: rawRow));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Copied log to clipboard'),
+            duration: Duration(seconds: 1),
+          ),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceColor,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: sourceColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    body.contains("AppDel") ? "AppDelegate" : "ScreenTimeExtension",
+                    style: TextStyle(
+                      color: sourceColor,
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                if (time.isNotEmpty)
+                  Text(
+                    time,
+                    style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              displayBody,
+              style: AppTextStyles.body2.copyWith(
+                fontFamily: Platform.isIOS ? 'Courier' : 'monospace',
+                fontSize: 12,
+                color: AppColors.textPrimary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRawLogItem(String rawLog) {
+    return GestureDetector(
+      onLongPress: () {
+        Clipboard.setData(ClipboardData(text: rawLog));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Copied log to clipboard'),
+            duration: Duration(seconds: 1),
+          ),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceColor,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
+        ),
+        child: Text(
+          rawLog,
+          style: AppTextStyles.body2.copyWith(
+            fontFamily: Platform.isIOS ? 'Courier' : 'monospace',
+            fontSize: 12,
+            color: AppColors.textPrimary,
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.85,
+      minChildSize: 0.5,
+      maxChildSize: 0.95,
+      builder: (context, scrollController) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              // Draggable Handle Indicator
+              const SizedBox(height: 12),
+              Container(
+                width: 40,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(2.5),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Title and Actions Header
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Diagnostic Logs',
+                          style: AppTextStyles.headline6.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        Text(
+                          'Background Sync & System Logs',
+                          style: AppTextStyles.caption.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.refresh, color: AppColors.primaryColor),
+                          onPressed: _loadLogs,
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline, color: AppColors.error),
+                          onPressed: _clearLogs,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Search Bar
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: (val) {
+                    setState(() {
+                      _searchQuery = val;
+                    });
+                  },
+                  decoration: InputDecoration(
+                    hintText: 'Search logs...',
+                    prefixIcon: const Icon(Icons.search, size: 20),
+                    suffixIcon: _searchQuery.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear, size: 18),
+                            onPressed: () {
+                              _searchController.clear();
+                              setState(() {
+                                _searchQuery = "";
+                              });
+                            },
+                          )
+                        : null,
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.3)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Log Tabs and List View
+              Expanded(
+                child: DefaultTabController(
+                  length: 2,
+                  child: Column(
+                    children: [
+                      const TabBar(
+                        labelColor: AppColors.primaryColor,
+                        unselectedLabelColor: Colors.grey,
+                        indicatorColor: AppColors.primaryColor,
+                        indicatorSize: TabBarIndicatorSize.tab,
+                        tabs: [
+                          Tab(text: 'App Activity'),
+                          Tab(text: 'APNs & Sync'),
+                        ],
+                      ),
+                      Expanded(
+                        child: TabBarView(
+                          children: [
+                            // Tab 1: App Activity Logs
+                            _isLoading
+                                ? const Center(child: CircularProgressIndicator())
+                                : Builder(
+                                    builder: (context) {
+                                      final filtered = _filterLogs(_appLogs);
+                                      if (filtered.isEmpty) {
+                                        return _buildEmptyState('No Activity Logs found');
+                                      }
+                                      return ListView.builder(
+                                        controller: scrollController,
+                                        itemCount: filtered.length,
+                                        itemBuilder: (context, idx) => _buildAppLogItem(filtered[idx]),
+                                      );
+                                    },
+                                  ),
+
+                            // Tab 2: APNs & Sync Logs
+                            _isLoading
+                                ? const Center(child: CircularProgressIndicator())
+                                : Builder(
+                                    builder: (context) {
+                                      final filtered = _filterLogs(_apnsLogs);
+                                      if (filtered.isEmpty) {
+                                        return _buildEmptyState('No APNs Sync Logs found');
+                                      }
+                                      return ListView.builder(
+                                        controller: scrollController,
+                                        itemCount: filtered.length,
+                                        itemBuilder: (context, idx) => _buildApnsLogItem(filtered[idx]),
+                                      );
+                                    },
+                                  ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildEmptyState(String message) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.history_toggle_off, size: 48, color: Colors.grey.withValues(alpha: 0.4)),
+          const SizedBox(height: 8),
+          Text(
+            message,
+            style: AppTextStyles.body2.copyWith(color: AppColors.textSecondary),
+          ),
+        ],
       ),
     );
   }

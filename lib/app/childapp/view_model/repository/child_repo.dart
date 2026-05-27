@@ -1,4 +1,5 @@
 import 'dart:developer';
+import 'dart:io';
 import 'package:child_track/core/services/api_endpoints.dart';
 import 'package:child_track/core/services/base_service.dart';
 import 'package:child_track/core/services/dio_client.dart';
@@ -6,6 +7,7 @@ import 'package:child_track/core/services/shared_prefs_service.dart';
 import 'package:child_track/core/models/child_profile.dart';
 import 'package:child_track/core/services/socket_service.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter/services.dart';
 import 'package:child_track/core/utils/app_logger.dart';
 import 'package:child_track/core/services/device_info_service.dart';
 import 'package:child_track/core/di/injector.dart';
@@ -47,6 +49,10 @@ class ChildRepo extends BaseService {
           log('child_id saved: $childId');
           await _sharedPrefsService.setString('child_code', childCode);
           AppLogger.info('Child login: Child ID saved: $childId');
+
+          // iOS: sync credentials to App Group so native background handler can POST data
+          // without depending on the Flutter engine being alive.
+          await syncAppGroupCredentials();
 
           final name = data['child']?['name'] as String? ?? 'Child';
           await _sharedPrefsService.setString('child_name', name);
@@ -228,4 +234,31 @@ class ChildRepo extends BaseService {
       return BaseResponse.error(message: e.toString());
     }
   }
+
+  // ── iOS Native Background Sync — App Group Credential Bridge ─────────────
+  /// Saves auth token, API base URL, and child ID into the iOS App Group
+  /// (group.com.truenyx.naviq) via MethodChannel so the native Swift handler
+  /// (handleNativeDataSync) can POST to the server even when Flutter is suspended.
+  ///
+  /// No-op on Android.
+  Future<void> syncAppGroupCredentials() async {
+    if (!Platform.isIOS) return;
+    try {
+      const channel = MethodChannel('com.truenyx.naviq/parental_control');
+      final token   = _sharedPrefsService.getAuthToken();
+      final childId = _sharedPrefsService.getString('child_id');
+
+      if (token != null && token.isNotEmpty) {
+        await channel.invokeMethod<bool>('saveAuthToken', token);
+      }
+      await channel.invokeMethod<bool>('saveApiBaseUrl', ApiEndpoints.baseUrl);
+      if (childId != null && childId.isNotEmpty) {
+        await channel.invokeMethod<bool>('saveChildId', childId);
+      }
+      AppLogger.info('ChildRepo: iOS App Group credentials synced ✅');
+    } catch (e) {
+      AppLogger.error('ChildRepo: Failed to sync App Group credentials: $e');
+    }
+  }
 }
+

@@ -48,3 +48,7 @@
 -keep class com.revenuecat.purchases.** { *; }
 -keep class com.revenuecat.purchases.hybrid.common.** { *; }
 -dontwarn com.revenuecat.purchases.**
+
+# Keep com.truenyx.naviqandroid classes (AppLockService, DeviceInfoPlugin, etc.) for reflection and registration
+-keep class com.truenyx.naviqandroid.** { *; }
+
