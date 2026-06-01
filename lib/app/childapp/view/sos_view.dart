@@ -129,7 +129,9 @@ class _SosViewState extends State<SosView> with WidgetsBindingObserver {
       setState(() {
         _hasLocationPermission = locStatus.isGranted || locWhenInUse.isGranted;
         _hasNotificationPermission = notifStatus.isGranted;
-        _hasBackgroundPermission = Platform.isAndroid ? bgStatus.isGranted : true;
+        _hasBackgroundPermission = Platform.isAndroid
+            ? bgStatus.isGranted
+            : true;
       });
     }
   }
@@ -776,16 +778,24 @@ class _SosViewContent extends StatelessWidget {
                                     'Location',
                                     hasLocationPermission,
                                     () async {
-                                      final currentStatus = await Permission.location.status;
-                                      if (currentStatus.isGranted || currentStatus.isLimited) {
-                                        final statusAlways = await Permission.locationAlways.request();
+                                      final currentStatus =
+                                          await Permission.location.status;
+                                      if (currentStatus.isGranted ||
+                                          currentStatus.isLimited) {
+                                        final statusAlways = await Permission
+                                            .locationAlways
+                                            .request();
                                         if (!statusAlways.isGranted) {
                                           await openAppSettings();
                                         }
                                       } else {
-                                        final status = await Permission.location.request();
-                                        if (status.isGranted || status.isLimited) {
-                                          final statusAlways = await Permission.locationAlways.request();
+                                        final status = await Permission.location
+                                            .request();
+                                        if (status.isGranted ||
+                                            status.isLimited) {
+                                          final statusAlways = await Permission
+                                              .locationAlways
+                                              .request();
                                           if (!statusAlways.isGranted) {
                                             await openAppSettings();
                                           }
@@ -804,7 +814,9 @@ class _SosViewContent extends StatelessWidget {
                                     'Notifications',
                                     hasNotificationPermission,
                                     () async {
-                                      final status = await Permission.notification.request();
+                                      final status = await Permission
+                                          .notification
+                                          .request();
                                       if (!status.isGranted) {
                                         await openAppSettings();
                                       }
@@ -815,7 +827,9 @@ class _SosViewContent extends StatelessWidget {
                                     'Location',
                                     hasLocationPermission,
                                     () async {
-                                      final status = await Permission.locationAlways.request();
+                                      final status = await Permission
+                                          .locationAlways
+                                          .request();
                                       if (status.isPermanentlyDenied) {
                                         await openAppSettings();
                                       }
@@ -824,7 +838,8 @@ class _SosViewContent extends StatelessWidget {
                                   _buildPermissionItem(
                                     'Background Work',
                                     hasBackgroundPermission,
-                                    () => Permission.ignoreBatteryOptimizations.request(),
+                                    () => Permission.ignoreBatteryOptimizations
+                                        .request(),
                                   ),
                                   _buildPermissionItem(
                                     'App Usage',
@@ -846,7 +861,9 @@ class _SosViewContent extends StatelessWidget {
                                     'Notifications',
                                     hasNotificationPermission,
                                     () async {
-                                      final status = await Permission.notification.request();
+                                      final status = await Permission
+                                          .notification
+                                          .request();
                                       if (status.isPermanentlyDenied) {
                                         await openAppSettings();
                                       }
@@ -1017,29 +1034,44 @@ class _SosViewContent extends StatelessWidget {
                                               );
                                             },
                                           ),
-                                          const SizedBox(height: AppSizes.spacingS),
+                                          const SizedBox(
+                                            height: AppSizes.spacingS,
+                                          ),
                                           OutlinedButton.icon(
                                             style: OutlinedButton.styleFrom(
-                                              foregroundColor: AppColors.primaryColor,
+                                              foregroundColor:
+                                                  AppColors.primaryColor,
                                               side: BorderSide(
-                                                color: AppColors.primaryColor.withValues(alpha: 0.5),
+                                                color: AppColors.primaryColor
+                                                    .withValues(alpha: 0.5),
                                               ),
                                               shape: RoundedRectangleBorder(
-                                                borderRadius: BorderRadius.circular(12),
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
                                               ),
-                                              padding: const EdgeInsets.symmetric(vertical: 12),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    vertical: 12,
+                                                  ),
                                             ),
-                                            icon: const Icon(Icons.analytics_outlined, size: 18),
+                                            icon: const Icon(
+                                              Icons.analytics_outlined,
+                                              size: 18,
+                                            ),
                                             label: const Text(
                                               'View Diagnostic Logs',
-                                              style: TextStyle(fontWeight: FontWeight.bold),
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                              ),
                                             ),
                                             onPressed: () {
                                               showModalBottomSheet(
                                                 context: context,
                                                 isScrollControlled: true,
-                                                backgroundColor: Colors.transparent,
-                                                builder: (context) => const _DiagnosticLogsSheet(),
+                                                backgroundColor:
+                                                    Colors.transparent,
+                                                builder: (context) =>
+                                                    const _DiagnosticLogsSheet(),
                                               );
                                             },
                                           ),
@@ -1153,7 +1185,7 @@ class _SosViewContent extends StatelessWidget {
                             width: double.infinity,
                           ),
                           Text(
-                            'Naviq Dev 1.0.2(May-12)',
+                            'Naviq Dev 1.0.3(May-30)',
                             style: AppTextStyles.caption.copyWith(
                               color: AppColors.textSecondary,
                             ),
@@ -1211,9 +1243,15 @@ class _DiagnosticLogsSheetState extends State<_DiagnosticLogsSheet> {
     if (Platform.isIOS) {
       try {
         const channel = MethodChannel('com.truenyx.naviq/parental_control');
-        final result = await channel.invokeMethod<List<dynamic>>('getExtensionLogs');
+        final result = await channel.invokeMethod<List<dynamic>>(
+          'getExtensionLogs',
+        );
         if (result != null) {
-          nativeLogs = result.map((e) => e.toString()).toList().reversed.toList();
+          nativeLogs = result
+              .map((e) => e.toString())
+              .toList()
+              .reversed
+              .toList();
         }
       } catch (e) {
         AppLogger.error('Failed to get iOS native extension logs: $e');
@@ -1235,7 +1273,9 @@ class _DiagnosticLogsSheetState extends State<_DiagnosticLogsSheet> {
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Clear All Logs?'),
-        content: const Text('This will delete all activity and sync diagnostics logs from this device. This action cannot be undone.'),
+        content: const Text(
+          'This will delete all activity and sync diagnostics logs from this device. This action cannot be undone.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -1297,12 +1337,16 @@ class _DiagnosticLogsSheetState extends State<_DiagnosticLogsSheet> {
     Color tagColor = Colors.blue;
     if (level == 'ERROR') tagColor = Colors.red;
     if (level == 'WARNING') tagColor = Colors.orange;
-    if (level.contains('OK') || message.toLowerCase().contains('success') || message.contains('OK')) tagColor = Colors.green;
+    if (level.contains('OK') ||
+        message.toLowerCase().contains('success') ||
+        message.contains('OK'))
+      tagColor = Colors.green;
 
     String formattedTime = ts;
     try {
       final dateTime = DateTime.parse(ts).toLocal();
-      formattedTime = "${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}:${dateTime.second.toString().padLeft(2, '0')}";
+      formattedTime =
+          "${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}:${dateTime.second.toString().padLeft(2, '0')}";
     } catch (_) {}
 
     return GestureDetector(
@@ -1332,7 +1376,10 @@ class _DiagnosticLogsSheetState extends State<_DiagnosticLogsSheet> {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: tagColor.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(4),
@@ -1348,7 +1395,10 @@ class _DiagnosticLogsSheetState extends State<_DiagnosticLogsSheet> {
                     ),
                     const SizedBox(width: 6),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.grey.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(4),
@@ -1366,7 +1416,9 @@ class _DiagnosticLogsSheetState extends State<_DiagnosticLogsSheet> {
                 ),
                 Text(
                   formattedTime,
-                  style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary),
+                  style: AppTextStyles.caption.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
                 ),
               ],
             ),
@@ -1399,13 +1451,20 @@ class _DiagnosticLogsSheetState extends State<_DiagnosticLogsSheet> {
     if (body.contains("AppDel")) {
       sourceColor = Colors.teal;
     }
-    if (body.contains("❌") || body.toLowerCase().contains("failed") || body.toLowerCase().contains("error")) {
+    if (body.contains("❌") ||
+        body.toLowerCase().contains("failed") ||
+        body.toLowerCase().contains("error")) {
       sourceColor = Colors.red;
-    } else if (body.contains("✅") || body.toLowerCase().contains("ok") || body.toLowerCase().contains("success")) {
+    } else if (body.contains("✅") ||
+        body.toLowerCase().contains("ok") ||
+        body.toLowerCase().contains("success")) {
       sourceColor = Colors.green;
     }
 
-    final displayBody = body.replaceFirst("AppDel:", "").replaceFirst("Runner:", "").trim();
+    final displayBody = body
+        .replaceFirst("AppDel:", "")
+        .replaceFirst("Runner:", "")
+        .trim();
 
     return GestureDetector(
       onLongPress: () {
@@ -1432,13 +1491,18 @@ class _DiagnosticLogsSheetState extends State<_DiagnosticLogsSheet> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: sourceColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
-                    body.contains("AppDel") ? "AppDelegate" : "ScreenTimeExtension",
+                    body.contains("AppDel")
+                        ? "AppDelegate"
+                        : "ScreenTimeExtension",
                     style: TextStyle(
                       color: sourceColor,
                       fontSize: 9,
@@ -1449,7 +1513,9 @@ class _DiagnosticLogsSheetState extends State<_DiagnosticLogsSheet> {
                 if (time.isNotEmpty)
                   Text(
                     time,
-                    style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary),
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
                   ),
               ],
             ),
@@ -1552,11 +1618,17 @@ class _DiagnosticLogsSheetState extends State<_DiagnosticLogsSheet> {
                     Row(
                       children: [
                         IconButton(
-                          icon: const Icon(Icons.refresh, color: AppColors.primaryColor),
+                          icon: const Icon(
+                            Icons.refresh,
+                            color: AppColors.primaryColor,
+                          ),
                           onPressed: _loadLogs,
                         ),
                         IconButton(
-                          icon: const Icon(Icons.delete_outline, color: AppColors.error),
+                          icon: const Icon(
+                            Icons.delete_outline,
+                            color: AppColors.error,
+                          ),
                           onPressed: _clearLogs,
                         ),
                       ],
@@ -1591,14 +1663,21 @@ class _DiagnosticLogsSheetState extends State<_DiagnosticLogsSheet> {
                           )
                         : null,
                     isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.3)),
+                      borderSide: BorderSide(
+                        color: Colors.grey.withValues(alpha: 0.3),
+                      ),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
+                      borderSide: BorderSide(
+                        color: Colors.grey.withValues(alpha: 0.2),
+                      ),
                     ),
                   ),
                 ),
@@ -1626,34 +1705,44 @@ class _DiagnosticLogsSheetState extends State<_DiagnosticLogsSheet> {
                           children: [
                             // Tab 1: App Activity Logs
                             _isLoading
-                                ? const Center(child: CircularProgressIndicator())
+                                ? const Center(
+                                    child: CircularProgressIndicator(),
+                                  )
                                 : Builder(
                                     builder: (context) {
                                       final filtered = _filterLogs(_appLogs);
                                       if (filtered.isEmpty) {
-                                        return _buildEmptyState('No Activity Logs found');
+                                        return _buildEmptyState(
+                                          'No Activity Logs found',
+                                        );
                                       }
                                       return ListView.builder(
                                         controller: scrollController,
                                         itemCount: filtered.length,
-                                        itemBuilder: (context, idx) => _buildAppLogItem(filtered[idx]),
+                                        itemBuilder: (context, idx) =>
+                                            _buildAppLogItem(filtered[idx]),
                                       );
                                     },
                                   ),
 
                             // Tab 2: APNs & Sync Logs
                             _isLoading
-                                ? const Center(child: CircularProgressIndicator())
+                                ? const Center(
+                                    child: CircularProgressIndicator(),
+                                  )
                                 : Builder(
                                     builder: (context) {
                                       final filtered = _filterLogs(_apnsLogs);
                                       if (filtered.isEmpty) {
-                                        return _buildEmptyState('No APNs Sync Logs found');
+                                        return _buildEmptyState(
+                                          'No APNs Sync Logs found',
+                                        );
                                       }
                                       return ListView.builder(
                                         controller: scrollController,
                                         itemCount: filtered.length,
-                                        itemBuilder: (context, idx) => _buildApnsLogItem(filtered[idx]),
+                                        itemBuilder: (context, idx) =>
+                                            _buildApnsLogItem(filtered[idx]),
                                       );
                                     },
                                   ),
@@ -1676,7 +1765,11 @@ class _DiagnosticLogsSheetState extends State<_DiagnosticLogsSheet> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.history_toggle_off, size: 48, color: Colors.grey.withValues(alpha: 0.4)),
+          Icon(
+            Icons.history_toggle_off,
+            size: 48,
+            color: Colors.grey.withValues(alpha: 0.4),
+          ),
           const SizedBox(height: 8),
           Text(
             message,

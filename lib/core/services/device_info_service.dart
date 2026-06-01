@@ -29,6 +29,9 @@ class DeviceInfoService {
       // Get sound profile
       final soundProfile = await _getSoundProfile();
 
+      // Get charging status
+      final chargingStatus = await isCharging();
+
       return DeviceInfo(
         batteryPercentage: batteryPercentage,
         networkStatus: networkInfo['status'] ?? 'unknown',
@@ -36,7 +39,7 @@ class DeviceInfoService {
         soundProfile: soundProfile,
         isOnline: networkInfo['isOnline'] ?? false,
         onlineSince: _getCurrentTime(),
-        isCharging: networkInfo['isCharging'] ?? false,
+        isCharging: chargingStatus,
       );
     } catch (e) {
       AppLogger.error('Error getting device info: $e');
@@ -56,15 +59,28 @@ class DeviceInfoService {
   /// Get battery percentage
   Future<int> _getBatteryPercentage() async {
     try {
-      if (Platform.isIOS) {
+      if (Platform.isIOS || Platform.isAndroid) {
         final result = await _channel.invokeMethod<int>('getBatteryPercentage');
         return result ?? 0;
       }
-      final batteryLevel = await _battery.batteryLevel;
-      return batteryLevel;
+      return 0;
     } catch (e) {
       AppLogger.error('Error getting battery percentage: $e');
       return 0;
+    }
+  }
+
+  /// Get charging status
+  Future<bool> isCharging() async {
+    try {
+      if (Platform.isIOS || Platform.isAndroid) {
+        final result = await _channel.invokeMethod<bool>('isCharging');
+        return result ?? false;
+      }
+      return false;
+    } catch (e) {
+      AppLogger.error('Error getting charging status: $e');
+      return false;
     }
   }
 

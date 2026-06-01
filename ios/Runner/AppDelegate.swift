@@ -551,6 +551,11 @@ import os.log
                 let rawBattery = UIDevice.current.batteryLevel
                 let battery = rawBattery < 0 ? 0 : Int((rawBattery * 100).rounded())
                 result(battery)
+            case "isCharging":
+                UIDevice.current.isBatteryMonitoringEnabled = true
+                let state = UIDevice.current.batteryState
+                let isCharging = state == .charging || state == .full
+                result(isCharging)
             default: result(FlutterMethodNotImplemented)
             }
         }

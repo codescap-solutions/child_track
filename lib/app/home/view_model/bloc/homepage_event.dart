@@ -9,11 +9,15 @@ sealed class HomepageEvent extends Equatable {
 
 final class GetHomepageData extends HomepageEvent {
   final bool isSilentRefresh;
+  final bool isProgressFetching;
 
-  const GetHomepageData({this.isSilentRefresh = false});
+  const GetHomepageData({
+    this.isSilentRefresh = false,
+    this.isProgressFetching = false,
+  });
 
   @override
-  List<Object> get props => [isSilentRefresh];
+  List<Object> get props => [isSilentRefresh, isProgressFetching];
 }
 
 final class GetTrips extends HomepageEvent {
