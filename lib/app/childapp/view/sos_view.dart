@@ -1029,7 +1029,7 @@ class _SosViewContentState extends State<_SosViewContent> {
                                 if (Platform.isIOS) ...[
                                   _buildPermissionItem(
                                     'Location',
-                                    hasLocationPermission,
+                                    widget.hasLocationPermission,
                                     () async {
                                       final currentStatus =
                                           await Permission.location.status;
@@ -1060,12 +1060,12 @@ class _SosViewContentState extends State<_SosViewContent> {
                                   ),
                                   _buildPermissionItem(
                                     'Screen Time & App Blocking',
-                                    hasAccessibilityPermission,
+                                    widget.hasAccessibilityPermission,
                                     () => showAccessibilityDisclosure(context),
                                   ),
                                   _buildPermissionItem(
                                     'Notifications',
-                                    hasNotificationPermission,
+                                    widget.hasNotificationPermission,
                                     () async {
                                       final status = await Permission
                                           .notification
@@ -1078,7 +1078,7 @@ class _SosViewContentState extends State<_SosViewContent> {
                                 ] else ...[
                                   _buildPermissionItem(
                                     'Location',
-                                    hasLocationPermission,
+                                    widget.hasLocationPermission,
                                     () async {
                                       final status = await Permission
                                           .locationAlways
@@ -1090,7 +1090,7 @@ class _SosViewContentState extends State<_SosViewContent> {
                                   ),
                                   _buildPermissionItem(
                                     'Background Work',
-                                    hasBackgroundPermission,
+                                    widget.hasBackgroundPermission,
                                     () => Permission.ignoreBatteryOptimizations
                                         .request(),
                                   ),
@@ -1105,14 +1105,14 @@ class _SosViewContentState extends State<_SosViewContent> {
                                   ),
                                   _buildPermissionItem(
                                     'Accessibility',
-                                    hasAccessibilityPermission,
+                                    widget.hasAccessibilityPermission,
                                     // Show prominent disclosure BEFORE opening Settings
                                     // (required by Google Play Accessibility Service policy)
                                     () => showAccessibilityDisclosure(context),
                                   ),
                                   _buildPermissionItem(
                                     'Notifications',
-                                    hasNotificationPermission,
+                                    widget.hasNotificationPermission,
                                     () async {
                                       final status = await Permission
                                           .notification
