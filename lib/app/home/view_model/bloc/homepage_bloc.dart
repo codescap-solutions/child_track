@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:child_track/app/home/model/home_model.dart';
 import 'package:child_track/app/home/model/device_model.dart';
 import 'package:child_track/app/home/model/last_trip_model.dart';
 import 'package:child_track/app/home/model/location_info_model.dart';
@@ -133,6 +134,9 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
             cards: homeData.cards,
             currentLocation: homeData.currentLocation,
             webFilteringEnabled: homeData.webFilteringEnabled,
+            features: homeData.features,
+            todayRoute: homeData.todayRoute,
+            screentimeToday: homeData.screentimeToday,
             isLoading: false,
             hasNoChild: false,
             waitingForSilentSyncResponse: event.isSilentRefresh ? false : freshState.waitingForSilentSyncResponse,

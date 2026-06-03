@@ -16,6 +16,7 @@ class MapViewWidget extends StatefulWidget {
     this.currentPosition,
     this.markers,
     this.polylines,
+    this.circles,
     this.isPolyLines = false,
     this.onMapCreated,
     this.myLocationEnabled = true,
@@ -33,6 +34,7 @@ class MapViewWidget extends StatefulWidget {
   final LatLng? currentPosition;
   final List<Marker>? markers;
   final List<Polyline>? polylines;
+  final Set<Circle>? circles;
   final void Function(GoogleMapController)? onMapCreated;
   final bool myLocationEnabled;
   final bool myLocationButtonEnabled;
@@ -231,6 +233,7 @@ class _MapViewWidgetState extends State<MapViewWidget> {
                           widget.onMapCreated?.call(controller);
                         },
                         polylines: Set<Polyline>.of(polylines.values),
+                        circles: widget.circles ?? {},
                         initialCameraPosition: _initialCameraPosition,
                         markers: () {
                           final markersToUse =

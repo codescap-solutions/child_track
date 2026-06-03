@@ -7,7 +7,7 @@ import 'package:child_track/core/models/child_profile.dart';
 import 'package:child_track/core/services/background_location_service.dart';
 import 'package:child_track/core/utils/app_logger.dart';
 import 'package:child_track/core/utils/app_snackbar.dart';
-import 'package:flutter/cupertino.dart' show CupertinoSwitch;
+import 'package:flutter/cupertino.dart' show CupertinoSwitch, CupertinoIcons;
 import 'package:flutter/material.dart';
 import 'package:child_track/core/constants/app_colors.dart';
 import 'package:child_track/core/constants/app_sizes.dart';
@@ -16,6 +16,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:child_track/core/services/csv_file_logger.dart';
 import 'account_view.dart';
+import 'devices_view.dart';
 import 'widgets/section_card.dart';
 import 'widgets/setting_tile.dart';
 import 'notification_settings_view.dart';
@@ -24,6 +25,8 @@ import '../../addplace/add_and_saveplace.dart';
 import '../../chat/view/chat_screen.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../chat/view_model/bloc/chat_bloc.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class SettingsView extends StatefulWidget {
   const SettingsView({super.key});
@@ -79,515 +82,451 @@ class _SettingsViewState extends State<SettingsView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.backgroundColor,
+      backgroundColor: const Color(0xFFF8FAFC), // Matching screenshot off-white bg
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.of(context).maybePop(),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        centerTitle: true,
+        leadingWidth: 56,
+        leading: Center(
+          child: Padding(
+            padding: const EdgeInsets.only(left: 16.0),
+            child: GestureDetector(
+              onTap: () => Navigator.of(context).maybePop(),
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  CupertinoIcons.chevron_left,
+                  color: Colors.black,
+                  size: 18,
+                ),
+              ),
+            ),
+          ),
         ),
         title: Text(
           'Settings',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            color: AppColors.textPrimary,
+          style: GoogleFonts.manrope(
+            fontSize: 20,
+            fontWeight: FontWeight.w800,
+            color: const Color(0xFF0C1D37),
           ),
         ),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        foregroundColor: AppColors.textPrimary,
-        centerTitle: true,
+        actions: [
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.only(right: 16.0),
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  CupertinoIcons.search,
+                  color: Colors.black,
+                  size: 20,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(AppSizes.paddingM),
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
           child: Column(
             children: [
-              SectionCard(
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          height: 60,
-                          width: 60,
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: AppColors.primaryColor,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.primaryColor.withOpacity(0.3),
-                                blurRadius: 10,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: const CircleAvatar(
-                            backgroundColor: Colors.white,
-                            child: Icon(
-                              Icons.person,
-                              color: AppColors.primaryColor,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: AppSizes.spacingM),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Text(
-                                    _childName ?? 'Child',
-                                    style: AppTextStyles.subtitle1.copyWith(
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 16,
+              // 1. Premium Protection Banner
+              _buildPremiumBanner(),
 
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  const Icon(
-                                    Icons.edit_square,
-                                    size: 16,
-                                    color: AppColors.textSecondary,
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                "Child code $_childCode",
-                                style: AppTextStyles.caption.copyWith(
-                                  color: AppColors.textSecondary,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: () {
-                            setState(() {
-                              _isExpanded = !_isExpanded;
-                            });
-                          },
-                          icon: AnimatedRotation(
-                            duration: const Duration(milliseconds: 300),
-                            turns: _isExpanded ? 0.5 : 0,
-                            child: const Icon(
-                              Icons.keyboard_arrow_down_rounded,
-                              size: 32,
-                              color: AppColors.textPrimary,
-                            ),
-                          ),
-                        ),
-                      ],
+              // 2. PRIVACY & SECURITY
+              _buildSectionHeader("PRIVACY & SECURITY"),
+              _buildSectionCard(
+                children: [
+                  _buildSettingsTile(
+                    leading: Image.asset(
+                      'assets/icons/Image (Restrict from Deleting).png',
+                      width: 24,
+                      height: 24,
                     ),
-                    if (_isExpanded) ...[
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 12),
-                        child: Divider(height: 1),
-                      ),
-                      ..._buildInactiveChildTiles(),
-                      _buildAddChildTile(),
-                    ],
-                  ],
-                ),
-              ),
-
-              SectionCard(
-                child: Column(
-                  children: [
-                    _toggleTile(
-                      context,
-                      Icons.block,
-                      'Restrict from deleting',
-                      'contact details of each location',
-                      _restrictDeletion,
-                      (value) async {
-                        await _sharedPrefsService.setBool(
-                          'restrict_deletion',
-                          value,
-                        );
-                        setState(() => _restrictDeletion = value);
-                      },
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: const Divider(
-                        height: 1,
-                        endIndent: 20,
-                        indent: 20,
-                      ),
-                    ),
-                    _toggleTile(
-                      context,
-                      Icons.do_not_disturb_on_outlined,
-                      'Block 18plus Websites',
-                      'Blocks adult content in browsers',
-                      _block18Plus,
-                      (value) async {
-                        debugPrint(
-                          'SettingsView: Toggling Block 18plus Websites to $value',
-                        );
-
-                        // 1. Update Server (Parent side)
-                        if (_currentChildId != null) {
-                          final response = await injector<HomeRepository>()
-                              .updateWebFilter(
-                                childId: _currentChildId!,
-                                enabled: value,
-                              );
-
-                          if (!response.isSuccess) {
-                            AppSnackbar.showError(
-                              context,
-                              'Failed to update filter: ${response.message}',
-                            );
-                            return;
-                          }
-                        }
-
-                        // 2. Update Shared Prefs (Local)
-                        await _sharedPrefsService.setBool(
-                          'block_18plus',
-                          value,
-                        );
-                        setState(() => _block18Plus = value);
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              SectionCard(
-                child: Column(
-                  children: [
-                    SettingTile(
-                      subtitle: 'Notification settings for the app',
-                      leading: const Icon(
-                        Icons.notifications_none,
-                        color: AppColors.textSecondary,
-                      ),
-                      title: 'Notification Settings',
-                      trailing: Transform.scale(
-                        alignment: Alignment.centerRight,
-                        scale: 0.7,
-                        child: CupertinoSwitch(
-                          value: _notificationSettings,
-                          onChanged: (value) async {
-                            await _sharedPrefsService.setBool(
-                              'notification_settings',
-                              value,
-                            );
-                            setState(() => _notificationSettings = value);
-                          },
-                        ),
-                      ),
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const NotificationSettingsView(),
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: const Divider(
-                        height: 1,
-                        endIndent: 20,
-                        indent: 20,
-                      ),
-                    ),
-                    SettingTile(
-                      subtitle: 'Get live location of others',
-                      leading: const Icon(
-                        Icons.notifications_none,
-                        color: AppColors.textSecondary,
-                      ),
-                      title: 'Request Location',
-                      trailing: TextButton(
-                        onPressed: () {
-                          // Logical trigger for location ping
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Requesting location ping...'),
-                            ),
+                    title: 'Restrict from Deleting',
+                    trailing: Transform.scale(
+                      alignment: Alignment.centerRight,
+                      scale: 0.8,
+                      child: CupertinoSwitch(
+                        activeColor: const Color(0xFF22C55E),
+                        value: _restrictDeletion,
+                        onChanged: (value) async {
+                          await _sharedPrefsService.setBool(
+                            'restrict_deletion',
+                            value,
                           );
+                          setState(() => _restrictDeletion = value);
                         },
-                        child: Text(
-                          'PING',
-                          style: TextStyle(
-                            color: AppColors.primaryColor,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
                       ),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: const Divider(
-                        height: 1,
-                        endIndent: 20,
-                        indent: 20,
+                  ),
+                  const Divider(height: 1, color: Color(0xFFF1F5F9), indent: 56, endIndent: 16),
+                  _buildSettingsTile(
+                    leading: Image.asset(
+                      'assets/icons/Image (Block 18+ Websites).png',
+                      width: 24,
+                      height: 24,
+                    ),
+                    title: 'Block 18+ Websites',
+                    trailing: Transform.scale(
+                      alignment: Alignment.centerRight,
+                      scale: 0.8,
+                      child: CupertinoSwitch(
+                        activeColor: const Color(0xFF22C55E),
+                        value: _block18Plus,
+                        onChanged: (value) async {
+                          if (_currentChildId != null) {
+                            final response = await injector<HomeRepository>()
+                                .updateWebFilter(
+                                  childId: _currentChildId!,
+                                  enabled: value,
+                                );
+                            if (!response.isSuccess) {
+                              AppSnackbar.showError(
+                                context,
+                                'Failed to update filter: ${response.message}',
+                              );
+                              return;
+                            }
+                          }
+                          await _sharedPrefsService.setBool('block_18plus', value);
+                          setState(() => _block18Plus = value);
+                        },
                       ),
                     ),
-                    SettingTile(
-                      subtitle: 'Details contact shown in kids app',
-                      leading: const Icon(
-                        Icons.family_restroom_rounded,
-                        color: AppColors.textSecondary,
-                      ),
-                      title: 'Emergency Contacts',
-                      trailing: const Icon(
-                        Icons.arrow_forward_ios,
-                        size: 16,
-                        color: AppColors.textSecondary,
-                      ),
-                      onTap: () {
-                        // Navigation to Emergency Contacts view
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Emergency Contacts feature coming soon',
-                            ),
-                          ),
-                        );
-                      },
+                  ),
+                  const Divider(height: 1, color: Color(0xFFF1F5F9), indent: 56, endIndent: 16),
+                  _buildSettingsTile(
+                    leading: Image.asset(
+                      'assets/icons/Image (Family Management).png',
+                      width: 24,
+                      height: 24,
                     ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: const Divider(
-                        height: 1,
-                        endIndent: 20,
-                        indent: 20,
-                      ),
+                    title: 'Family Management',
+                    trailing: Icon(
+                      _isExpanded
+                          ? CupertinoIcons.chevron_up
+                          : CupertinoIcons.chevron_right,
+                      color: const Color(0xFF94A3B8),
+                      size: 16,
                     ),
-                    SizedBox(height: 10),
-                    SettingTile(
-                      subtitle: 'Manage your subscription',
-                      leading: const Icon(
-                        Icons.verified_user_rounded,
-                        color: AppColors.primaryColor,
+                    onTap: () {
+                      setState(() {
+                        _isExpanded = !_isExpanded;
+                      });
+                    },
+                  ),
+                  if (_isExpanded) ...[
+                    const Divider(height: 1, color: Color(0xFFF1F5F9), indent: 56, endIndent: 16),
+                    Container(
+                      color: const Color(0xFFF8FAFC),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      child: Column(
+                        children: [
+                          ..._buildInactiveChildTiles(),
+                          const SizedBox(height: 8),
+                          _buildAddChildTile(),
+                        ],
                       ),
-                      title: 'Subscription',
-                      trailing: const Icon(
-                        Icons.arrow_forward_ios,
-                        size: 16,
-                        color: AppColors.textSecondary,
-                      ),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const SubscriptionView(),
-                          ),
-                        );
-                      },
                     ),
                   ],
-                ),
+                ],
               ),
-              SectionCard(
-                child: Column(
-                  children: [
-                    SettingTile(
-                      subtitle: 'Manage your saved locations',
-                      leading: const Icon(
-                        Icons.bookmark_border,
-                        color: AppColors.textSecondary,
+
+              // 3. ACCOUNT & NOTIFICATIONS
+              _buildSectionHeader("ACCOUNT & NOTIFICATIONS"),
+              _buildSectionCard(
+                children: [
+                  _buildSettingsTile(
+                    leading: Image.asset(
+                      'assets/icons/Image (Notification Settings).png',
+                      width: 24,
+                      height: 24,
+                    ),
+                    title: 'Notification Settings',
+                    trailing: const Icon(
+                      CupertinoIcons.chevron_right,
+                      color: Color(0xFF94A3B8),
+                      size: 16,
+                    ),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const NotificationSettingsView(),
                       ),
-                      title: 'Saved Places',
-                      trailing: const Icon(
-                        Icons.arrow_forward_ios,
-                        size: 16,
-                        color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const Divider(height: 1, color: Color(0xFFF1F5F9), indent: 56, endIndent: 16),
+                  _buildSettingsTile(
+                    leading: Image.asset(
+                      'assets/icons/Image (Login & Security).png',
+                      width: 24,
+                      height: 24,
+                    ),
+                    title: 'Login & Security',
+                    trailing: const Icon(
+                      CupertinoIcons.chevron_right,
+                      color: Color(0xFF94A3B8),
+                      size: 16,
+                    ),
+                    onTap: () => _showLoginSecurityOptions(context),
+                  ),
+                  const Divider(height: 1, color: Color(0xFFF1F5F9), indent: 56, endIndent: 16),
+                  _buildSettingsTile(
+                    leading: Image.asset(
+                      'assets/icons/Image (Account).png',
+                      width: 24,
+                      height: 24,
+                    ),
+                    title: 'Account',
+                    trailing: const Icon(
+                      CupertinoIcons.chevron_right,
+                      color: Color(0xFF94A3B8),
+                      size: 16,
+                    ),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const AccountView(),
                       ),
-                      onTap: () => Navigator.push(
+                    ),
+                  ),
+                ],
+              ),
+
+              // 4. MORE
+              _buildSectionHeader("MORE"),
+              _buildSectionCard(
+                children: [
+                  _buildSettingsTile(
+                    leading: Image.asset(
+                      'assets/icons/Image (Devices).png',
+                      width: 24,
+                      height: 24,
+                    ),
+                    title: 'Devices',
+                    trailing: const Icon(
+                      CupertinoIcons.chevron_right,
+                      color: Color(0xFF94A3B8),
+                      size: 16,
+                    ),
+                    onTap: () {
+                      Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const AddandSavePlace(),
+                          builder: (_) => const DevicesView(),
                         ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: const Divider(
-                        height: 1,
-                        endIndent: 20,
-                        indent: 20,
-                      ),
-                    ),
-
-                    SettingTile(
-                      subtitle: 'Your account details',
-                      leading: const Icon(
-                        Icons.person,
-                        color: AppColors.textSecondary,
-                      ),
-                      title: 'Account',
-                      trailing: const Icon(
-                        Icons.arrow_forward_ios,
-                        size: 16,
-                        color: AppColors.textSecondary,
-                      ),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const AccountView(),
-                          ),
-                        );
-                      },
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: const Divider(
-                        height: 1,
-                        endIndent: 20,
-                        indent: 20,
-                      ),
-                    ),
-                    SettingTile(
-                      subtitle: 'Device details',
-                      leading: const Icon(
-                        Icons.person,
-                        color: AppColors.textSecondary,
-                      ),
-                      title: 'Device',
-                      trailing: const Icon(
-                        Icons.arrow_forward_ios,
-                        size: 16,
-                        color: AppColors.textSecondary,
-                      ),
-                      onTap: () {
-                        AppSnackbar.showInfo(
-                          context,
-                          'Device details coming soon',
-                        );
-                      },
-                    ),
-
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: const Divider(
-                        height: 1,
-                        endIndent: 20,
-                        indent: 20,
-                      ),
-                    ),
-                    SettingTile(
-                      subtitle: 'Help and support',
-                      leading: const Icon(
-                        Icons.person,
-                        color: AppColors.textSecondary,
-                      ),
-                      title: 'Help',
-                      trailing: const Icon(
-                        Icons.arrow_forward_ios,
-                        size: 16,
-                        color: AppColors.textSecondary,
-                      ),
-                      onTap: () => _showHelpOptions(context),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: const Divider(
-                        height: 1,
-                        endIndent: 20,
-                        indent: 20,
-                      ),
-                    ),
-                    SettingTile(
-                      subtitle: 'About the app',
-                      leading: const Icon(
-                        Icons.person,
-                        color: AppColors.textSecondary,
-                      ),
-                      title: 'About app',
-                      trailing: const Icon(
-                        Icons.arrow_forward_ios,
-                        size: 16,
-                        color: AppColors.textSecondary,
-                      ),
-                      onTap: () => _showAboutAppDialog(context),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: const Divider(
-                        height: 1,
-                        endIndent: 20,
-                        indent: 20,
-                      ),
-                    ),
-                    SettingTile(
-                      subtitle: 'Delete Account',
-                      leading: const Icon(
-                        Icons.delete_outline,
-                        color: AppColors.textSecondary,
-                      ),
-                      title: 'Delete Account',
-                      trailing: const Icon(
-                        Icons.arrow_forward_ios,
-                        size: 16,
-                        color: AppColors.textSecondary,
-                      ),
-                      onTap: () => _showDeleteAccountDialog(context),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: const Divider(
-                        height: 1,
-                        endIndent: 20,
-                        indent: 20,
-                      ),
-                    ),
-                    SettingTile(
-                      subtitle: 'Logout the app',
-                      leading: const Icon(
-                        Icons.logout,
-                        color: AppColors.textSecondary,
-                      ),
-                      title: 'Logout',
-                      trailing: const Icon(
-                        Icons.arrow_forward_ios,
-                        size: 16,
-                        color: AppColors.textSecondary,
-                      ),
-                      onTap: () async {
-                        // Remove FCM token from server before logout
-                        await FirebaseNotificationService()
-                            .removeTokenFromServer();
-                        injector<SharedPrefsService>().logout();
-                        Navigator.pushNamedAndRemoveUntil(
-                          context,
-                          RouteNames.onBoarding,
-                          (route) => false,
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              // ── Share Background Logs ──────────────────────────
-              SectionCard(
-                child: SettingTile(
-                  subtitle: 'Export CSV logs for debugging',
-                  leading: const Icon(
-                    Icons.bug_report_outlined,
-                    color: AppColors.textSecondary,
+                      );
+                    },
                   ),
-                  title: 'Share Background Logs',
-                  trailing: const Icon(
-                    Icons.share,
-                    size: 20,
-                    color: AppColors.primaryColor,
+                  const Divider(height: 1, color: Color(0xFFF1F5F9), indent: 56, endIndent: 16),
+                  _buildSettingsTile(
+                    leading: Image.asset(
+                      'assets/icons/Image (Help).png',
+                      width: 24,
+                      height: 24,
+                    ),
+                    title: 'Help',
+                    trailing: const Icon(
+                      CupertinoIcons.chevron_right,
+                      color: Color(0xFF94A3B8),
+                      size: 16,
+                    ),
+                    onTap: () => _showHelpOptions(context),
                   ),
-                  onTap: () => _shareLogs(context),
-                ),
+                  const Divider(height: 1, color: Color(0xFFF1F5F9), indent: 56, endIndent: 16),
+                  _buildSettingsTile(
+                    leading: Image.asset(
+                      'assets/icons/Image (About App).png',
+                      width: 24,
+                      height: 24,
+                    ),
+                    title: 'About App',
+                    trailing: const Icon(
+                      CupertinoIcons.chevron_right,
+                      color: Color(0xFF94A3B8),
+                      size: 16,
+                    ),
+                    onTap: () => _showAboutAppDialog(context),
+                  ),
+                ],
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPremiumBanner() {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF1E6), // Soft peach/orange background
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Image.asset(
+            'assets/icons/Image (Shield)Big.png',
+            width: 60,
+            height: 60,
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Ensure Better Protection",
+                  style: GoogleFonts.manrope(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF0C1D37),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  "at half price of a family meal\n60% of users prefer Premium",
+                  style: GoogleFonts.manrope(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: const Color(0xFF64748B),
+                    height: 1.3,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const SubscriptionView(),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0066FF), // Primary blue button
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      "Know More",
+                      style: GoogleFonts.manrope(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Padding(
+        padding: const EdgeInsets.only(left: 0, bottom: 8, top: 18),
+        child: Text(
+          title,
+          style: GoogleFonts.manrope(
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            color: const Color(0xFF94A3B8),
+            letterSpacing: 1.0,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionCard({required List<Widget> children}) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0C1D37).withValues(alpha: 0.015),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: children,
+      ),
+    );
+  }
+
+  Widget _buildSettingsTile({
+    required Widget leading,
+    required String title,
+    required Widget trailing,
+    VoidCallback? onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        child: Row(
+          children: [
+            leading,
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                title,
+                style: GoogleFonts.manrope(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF0C1D37),
+                ),
+              ),
+            ),
+            trailing,
+          ],
         ),
       ),
     );
@@ -749,6 +688,72 @@ class _SettingsViewState extends State<SettingsView> {
     );
   }
 
+  void _showLoginSecurityOptions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 10),
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 20),
+              ListTile(
+                leading: const Icon(Icons.share, color: AppColors.primaryColor),
+                title: const Text('Share Background Logs'),
+                subtitle: const Text('Export CSV logs for debugging'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _shareLogs(context);
+                },
+              ),
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.delete_outline, color: Colors.red),
+                title: const Text('Delete Account'),
+                subtitle: const Text('Permanently delete your account'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showDeleteAccountDialog(context);
+                },
+              ),
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.logout, color: Colors.red),
+                title: const Text('Logout'),
+                subtitle: const Text('Logout from the app'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  await FirebaseNotificationService().removeTokenFromServer();
+                  injector<SharedPrefsService>().logout();
+                  if (context.mounted) {
+                    Navigator.pushNamedAndRemoveUntil(
+                      context,
+                      RouteNames.onBoarding,
+                      (route) => false,
+                    );
+                  }
+                },
+              ),
+              const SizedBox(height: 20),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   void _showAboutAppDialog(BuildContext context) {
     showAboutDialog(
       context: context,
@@ -789,26 +794,6 @@ class _SettingsViewState extends State<SettingsView> {
         AppSnackbar.showError(context, 'Error: $e');
       }
     }
-  }
-
-  Widget _toggleTile(
-    BuildContext context,
-    IconData icon,
-    String title,
-    String subtitle,
-    bool value,
-    ValueChanged<bool> onChanged,
-  ) {
-    return SettingTile(
-      leading: Icon(icon, color: AppColors.textSecondary),
-      title: title,
-      subtitle: subtitle,
-      trailing: Transform.scale(
-        alignment: Alignment.centerRight,
-        scale: 0.7,
-        child: CupertinoSwitch(value: value, onChanged: onChanged),
-      ),
-    );
   }
 
   List<Widget> _buildInactiveChildTiles() {

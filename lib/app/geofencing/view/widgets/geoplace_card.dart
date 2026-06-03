@@ -1,152 +1,134 @@
 import 'package:flutter/material.dart';
-
+import 'package:google_fonts/google_fonts.dart';
 import 'toggle_switch.dart';
 
 class GeoPlaceCard extends StatelessWidget {
   final String title;
-  final String? subtitle;
-  final bool isPrimary;
+  final int radius;
   final bool toggleValue;
-  final String? geofenceId;
+  final String? category;
   final VoidCallback? onTap;
   final ValueChanged<bool>? onToggle;
-  final VoidCallback? onDelete;
 
   const GeoPlaceCard({
     super.key,
     required this.title,
-    this.subtitle,
-    this.toggleValue = false,
-    this.isPrimary = false,
-    this.geofenceId,
+    required this.radius,
+    required this.toggleValue,
+    this.category,
     this.onTap,
     this.onToggle,
-    this.onDelete,
   });
 
   @override
   Widget build(BuildContext context) {
-    final isAddCard = title.contains('Add');
+    Color iconBgColor;
+    IconData iconData;
 
-    return GestureDetector(
-      onTap: onTap ?? (isAddCard ? _defaultNavigate : null),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8.04),
-              height: 50,
-              width: 50,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isPrimary
-                    ? const Color(0xFF0C5391)
-                    : const Color(0xFF666363),
-              ),
-              child: Container(
-                decoration: isPrimary && !isAddCard
-                    ? null
-                    : BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2.5),
-                      ),
-                child: Icon(
-                  isPrimary && !isAddCard ? getIconByName(title) : Icons.add,
-                  color: Colors.white,
-                  size: 26,
-                ),
+    final cat = (category ?? title).toLowerCase();
+    if (cat.contains('home')) {
+      iconBgColor = const Color(0xFF0C80E0); // Solid blue
+      iconData = Icons.home_rounded;
+    } else if (cat.contains('school')) {
+      iconBgColor = const Color(0xFF10B981); // Solid green
+      iconData = Icons.school_rounded;
+    } else if (cat.contains('cricket') || cat.contains('ground') || cat.contains('play') || cat.contains('sport')) {
+      iconBgColor = const Color(0xFF6366F1); // Solid indigo/purple
+      iconData = Icons.sports_cricket_rounded;
+    } else {
+      iconBgColor = const Color(0xFFF59E0B); // Solid amber
+      iconData = Icons.location_on_rounded;
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0C1D37).withValues(alpha: 0.03),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Circular container for icons
+          Container(
+            height: 48,
+            width: 48,
+            decoration: BoxDecoration(
+              color: iconBgColor,
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Icon(
+                iconData,
+                color: Colors.white,
+                size: 24,
               ),
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                    ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.manrope(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF0C1D37),
                   ),
-                  if (subtitle != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Text(
+                      "${radius}m radius • ",
+                      style: GoogleFonts.manrope(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: const Color(0xFF64748B),
+                      ),
+                    ),
+                    if (toggleValue) ...[
+                      Text(
+                        "Active",
+                        style: GoogleFonts.manrope(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF22C55E),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                    ],
+                    GestureDetector(
+                      onTap: onTap,
                       child: Text(
-                        subtitle!,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w500,
-                          fontSize: 14,
-                          color: Color(0xFF0070F0),
+                        "Edit",
+                        style: GoogleFonts.manrope(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF0066FF),
                         ),
                       ),
                     ),
-                ],
-              ),
+                  ],
+                ),
+              ],
             ),
-            if (!isAddCard) ...[
-              PopupMenuButton(
-                itemBuilder: (context) => [
-                  const PopupMenuItem(
-                    value: 'delete',
-                    child: Row(
-                      children: [
-                        Icon(Icons.delete, color: Colors.red, size: 20),
-                        SizedBox(width: 8),
-                        Text('Delete', style: TextStyle(color: Colors.red)),
-                      ],
-                    ),
-                  ),
-                ],
-                onSelected: (value) {
-                  if (value == 'delete' && onDelete != null) {
-                    onDelete!();
-                  }
-                },
-              ),
-              CustomToggleSwitch(
-                value: toggleValue,
-                onChanged: onToggle ?? (value) {},
-              ),
-            ],
-          ],
-        ),
+          ),
+          CustomToggleSwitch(
+            value: toggleValue,
+            onChanged: onToggle ?? (value) {},
+          ),
+        ],
       ),
     );
-  }
-
-  void _defaultNavigate() {
-    // This won't be called if onTap is provided
-  }
-}
-
-IconData getIconByName(String name) {
-  switch (name.toLowerCase()) {
-    case 'home':
-      return Icons.home;
-    case 'school':
-      return Icons.school;
-    case 'office':
-      return Icons.business;
-    case 'hospital':
-      return Icons.local_hospital;
-    case 'park':
-      return Icons.park;
-    case 'shop':
-      return Icons.store;
-    case 'gym':
-      return Icons.fitness_center;
-    case 'mosque':
-      return Icons.mosque;
-    case 'church':
-      return Icons.church;
-    default:
-      return Icons.location_on; // default fallback
   }
 }

@@ -68,14 +68,11 @@ class _LoginScreenState extends State<LoginScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: Colors.transparent,
+        backgroundColor: Colors.white,
         body: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
-              colors: [
-                Color(0xFFFBFCFE),
-                Color(0xFFEDF4FE),
-              ],
+              colors: [Color(0xFFFBFCFE), Color(0xFFEDF4FE)],
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
             ),
@@ -83,7 +80,9 @@ class _LoginScreenState extends State<LoginScreen> {
           child: SafeArea(
             child: SingleChildScrollView(
               physics: const ClampingScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingL),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSizes.paddingL,
+              ),
               child: Form(
                 key: _formKey,
                 child: Column(
@@ -141,7 +140,9 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
         const Spacer(),
-        const SizedBox(width: 48), // Align text to center by balancing the Back button size
+        const SizedBox(
+          width: 48,
+        ), // Align text to center by balancing the Back button size
       ],
     );
   }
@@ -199,7 +200,10 @@ class _LoginScreenState extends State<LoginScreen> {
           hintText: 'Enter device/child code',
           keyboardType: TextInputType.phone,
           textInputAction: TextInputAction.done,
-          prefixIcon: const Icon(Icons.phone_android_rounded, color: Color(0xFF7C8BA0)),
+          prefixIcon: const Icon(
+            Icons.phone_android_rounded,
+            color: Color(0xFF7C8BA0),
+          ),
           suffixIcon: _isPhoneValid
               ? Container(
                   margin: const EdgeInsets.all(12),
@@ -248,10 +252,7 @@ class _LoginScreenState extends State<LoginScreen> {
     return Row(
       children: [
         const Expanded(
-          child: Divider(
-            color: AppColors.borderColor,
-            thickness: 1,
-          ),
+          child: Divider(color: AppColors.borderColor, thickness: 1),
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: AppSizes.spacingM),
@@ -265,10 +266,7 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
         const Expanded(
-          child: Divider(
-            color: AppColors.borderColor,
-            thickness: 1,
-          ),
+          child: Divider(color: AppColors.borderColor, thickness: 1),
         ),
       ],
     );
@@ -335,10 +333,13 @@ class _LoginScreenState extends State<LoginScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 SvgPicture.string(
-                  appleSvg, 
-                  width: 20, 
+                  appleSvg,
+                  width: 20,
                   height: 24,
-                  colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+                  colorFilter: const ColorFilter.mode(
+                    Colors.white,
+                    BlendMode.srcIn,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Text(
@@ -438,7 +439,7 @@ class _LoginScreenState extends State<LoginScreen> {
             height: 60,
             width: double.infinity,
             decoration: BoxDecoration(
-              color: (isLoading || !_agreeToTerms) 
+              color: (isLoading || !_agreeToTerms)
                   ? const Color(0xFF0066FF).withValues(alpha: 0.5)
                   : const Color(0xFF0066FF),
               borderRadius: BorderRadius.circular(16),
@@ -469,7 +470,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _sendOtp() {
     if (!_agreeToTerms) {
-      AppSnackbar.showError(context, 'You must agree to the Terms of Service & Privacy Policy');
+      AppSnackbar.showError(
+        context,
+        'You must agree to the Terms of Service & Privacy Policy',
+      );
       return;
     }
     if (_formKey.currentState?.validate() ?? false) {
@@ -478,4 +482,3 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 }
-

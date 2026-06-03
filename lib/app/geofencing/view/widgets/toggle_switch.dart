@@ -17,7 +17,7 @@ class CustomToggleSwitch extends StatelessWidget {
       child: CupertinoSwitch(
         value: value,
         onChanged: onChanged,
-        activeTrackColor: const Color(0xFF0C5391),
+        activeColor: const Color(0xFF22C55E),
       ),
     );
   }

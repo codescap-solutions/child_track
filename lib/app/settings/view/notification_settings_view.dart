@@ -1,122 +1,254 @@
+import 'package:flutter/cupertino.dart' show CupertinoSwitch, CupertinoIcons;
 import 'package:flutter/material.dart';
-import 'package:child_track/core/constants/app_colors.dart';
-import 'package:child_track/core/constants/app_sizes.dart';
-import 'widgets/section_card.dart';
-import 'widgets/setting_tile.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:child_track/core/services/shared_prefs_service.dart';
 
-class NotificationSettingsView extends StatelessWidget {
+class NotificationSettingsView extends StatefulWidget {
   const NotificationSettingsView({super.key});
+
+  @override
+  State<NotificationSettingsView> createState() => _NotificationSettingsViewState();
+}
+
+class _NotificationSettingsViewState extends State<NotificationSettingsView> {
+  final _sharedPrefsService = SharedPrefsService();
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.backgroundColor,
+      backgroundColor: const Color(
+        0xFFF8FAFC,
+      ), // Off-white background matching Settings
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 18),
-          onPressed: () => Navigator.of(context).maybePop(),
-        ),
-        title: const Text('Notification Settings'),
-        backgroundColor: AppColors.surfaceColor,
+        backgroundColor: Colors.white,
         elevation: 0,
-        foregroundColor: AppColors.textPrimary,
+        surfaceTintColor: Colors.transparent,
+        centerTitle: true,
+        leadingWidth: 56,
+        leading: Center(
+          child: Padding(
+            padding: const EdgeInsets.only(left: 16.0),
+            child: GestureDetector(
+              onTap: () => Navigator.of(context).maybePop(),
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  CupertinoIcons.chevron_left,
+                  color: Colors.black,
+                  size: 18,
+                ),
+              ),
+            ),
+          ),
+        ),
+        title: Text(
+          'Notification Settings',
+          style: GoogleFonts.manrope(
+            fontSize: 20,
+            fontWeight: FontWeight.w800,
+            color: const Color(0xFF0C1D37),
+          ),
+        ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(AppSizes.paddingL),
-        children: const [
-          _Group(
-            title: 'Movements',
-            items: [
-              'Entering a Place',
-              'Leaving a Place',
-              'New Place',
-              'Starting Trip',
-              'Route Deviation',
-              'Estimated arrival at a place',
-              'Movement speed',
-              'Geofences Boundary Alerts',
-              'Route Deviation Warning',
-              'Unusual Stop Detection',
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+          child: Column(
+            children: [
+              // 1. Movements
+              _buildSectionHeader("MOVEMENTS"),
+              _buildSectionCard(
+                children: [
+                  _buildNotificationTile('Entering a Place'),
+                  _buildDivider(),
+                  _buildNotificationTile('Leaving a Place'),
+                  _buildDivider(),
+                  _buildNotificationTile('New Place'),
+                  _buildDivider(),
+                  _buildNotificationTile('Starting Trip'),
+                  _buildDivider(),
+                  _buildNotificationTile('Route Deviation'),
+                  _buildDivider(),
+                  _buildNotificationTile('Estimated arrival at a place'),
+                  _buildDivider(),
+                  _buildNotificationTile('Movement speed'),
+                  _buildDivider(),
+                  _buildNotificationTile('Geofences Boundary Alerts'),
+                  _buildDivider(),
+                  _buildNotificationTile('Route Deviation Warning'),
+                  _buildDivider(),
+                  _buildNotificationTile('Unusual Stop Detection'),
+                ],
+              ),
+
+              // 2. Device & App Health Alerts
+              _buildSectionHeader("DEVICE & APP HEALTH ALERTS"),
+              _buildSectionCard(
+                children: [
+                  _buildNotificationTile('Low Battery Notification'),
+                  _buildDivider(),
+                  _buildNotificationTile('Signal Loss/GPS Offline Alert'),
+                  _buildDivider(),
+                  _buildNotificationTile('Device Tampering Alert'),
+                  _buildDivider(),
+                  _buildNotificationTile('Connectivity Loss Alert'),
+                  _buildDivider(),
+                  _buildNotificationTile('App Status Alert'),
+                ],
+              ),
+
+              // 3. Communication Alerts
+              _buildSectionHeader("COMMUNICATION ALERTS"),
+              _buildSectionCard(
+                children: [
+                  _buildNotificationTile('New Message Notification'),
+                  _buildDivider(),
+                  _buildNotificationTile('Missed Communication Alert'),
+                  _buildDivider(),
+                  _buildNotificationTile('Scheduled School Delivery'),
+                  _buildDivider(),
+                  _buildNotificationTile('Manual Whistle Clock'),
+                ],
+              ),
+
+              // 4. Health, Activity & Wellness
+              _buildSectionHeader("HEALTH, ACTIVITY & WELLNESS"),
+              _buildSectionCard(
+                children: [
+                  _buildNotificationTile('Daily Step Count Report'),
+                  _buildDivider(),
+                  _buildNotificationTile('Prolonged Inactivity Alert'),
+                ],
+              ),
+
+              // 5. Daily/Weekly
+              _buildSectionHeader("DAILY/WEEKLY"),
+              _buildSectionCard(
+                children: [
+                  _buildNotificationTile('Daily Movement Summary'),
+                  _buildDivider(),
+                  _buildNotificationTile('Weekly Safety & Activity Report'),
+                  _buildDivider(),
+                  _buildNotificationTile('Real-time Accurate Notification'),
+                  _buildDivider(),
+                  _buildNotificationTile('Weather Report'),
+                ],
+              ),
+
+              // 6. Family & App Usage
+              _buildSectionHeader("FAMILY & APP USAGE"),
+              _buildSectionCard(
+                children: [
+                  _buildNotificationTile('New Family Member Alert'),
+                  _buildDivider(),
+                  _buildNotificationTile('App Updates/Reminder Alert'),
+                ],
+              ),
+              const SizedBox(height: 20),
             ],
           ),
-          _Group(
-            title: 'Device & App Health Alerts',
-            items: [
-              'Low Battery Notification',
-              'Signal Loss/GPS Offline Alert',
-              'Device Tampering Alert',
-              'Connectivity Loss Alert',
-              'App Status Alert',
-            ],
-          ),
-          _Group(
-            title: 'Communication Alerts',
-            items: [
-              'New Message Notification',
-              'Missed Communication Alert',
-              'Scheduled School Delivery',
-              'Manual Whistle Clock',
-            ],
-          ),
-          _Group(
-            title: 'Health, Activity & Wellness',
-            items: ['Daily Step Count Report', 'Prolonged Inactivity Alert'],
-          ),
-          _Group(
-            title: 'Daily/Weekly',
-            items: [
-              'Daily Movement Summary',
-              'Weekly Safety & Activity Report',
-              'Real-time Accurate Notification',
-              'Weather Report',
-            ],
-          ),
-          _Group(
-            title: 'Family & App Usage',
-            items: ['New Family Member Alert', 'App Updates/Reminder Alert'],
-          ),
-        ],
+        ),
       ),
     );
   }
-}
 
-class _Group extends StatelessWidget {
-  final String title;
-  final List<String> items;
-  const _Group({required this.title, required this.items});
-
-  @override
-  Widget build(BuildContext context) {
-    return SectionCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(bottom: AppSizes.paddingS),
-            child: Text(
-              title,
-              style: const TextStyle(fontWeight: FontWeight.w700),
-            ),
+  Widget _buildSectionHeader(String title) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Padding(
+        padding: const EdgeInsets.only(left: 0, bottom: 8, top: 18),
+        child: Text(
+          title,
+          style: GoogleFonts.manrope(
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            color: const Color(0xFF94A3B8),
+            letterSpacing: 1.0,
           ),
-          ...items.map(
-            (e) => Column(
-              children: [
-                SettingTile(
-                  leading: const Icon(
-                    Icons.circle_outlined,
-                    size: 18,
-                    color: AppColors.textSecondary,
-                  ),
-                  title: e,
-                  trailing: Switch(value: true, onChanged: (_) {}),
-                ),
-                if (e != items.last) const Divider(height: 1),
-              ],
-            ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionCard({required List<Widget> children}) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0C1D37).withValues(alpha: 0.015),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
+      child: Column(children: children),
+    );
+  }
+
+  Widget _buildNotificationTile(String title) {
+    final String key =
+        'notif_${title.toLowerCase().replaceAll(' ', '_').replaceAll('/', '_').replaceAll('&', '_')}';
+    final bool value = _sharedPrefsService.getBool(key, defaultValue: true);
+
+    return InkWell(
+      onTap: () {
+        final newValue = !value;
+        _sharedPrefsService.setBool(key, newValue);
+        setState(() {});
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                style: GoogleFonts.manrope(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF0C1D37),
+                ),
+              ),
+            ),
+            Transform.scale(
+              scale: 0.8,
+              child: CupertinoSwitch(
+                activeTrackColor: const Color(0xFF22C55E),
+                value: value,
+                onChanged: (newValue) async {
+                  await _sharedPrefsService.setBool(key, newValue);
+                  setState(() {});
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDivider() {
+    return const Divider(
+      height: 1,
+      color: Color(0xFFF1F5F9),
+      indent: 16,
+      endIndent: 16,
     );
   }
 }

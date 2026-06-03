@@ -12,6 +12,8 @@ import 'package:child_track/core/constants/app_sizes.dart';
 import 'package:child_track/core/constants/app_text_styles.dart';
 import 'package:child_track/core/widgets/common_button.dart';
 import 'package:child_track/core/widgets/social_apps_shimmer.dart';
+import 'package:flutter/cupertino.dart' show CupertinoIcons;
+import 'package:google_fonts/google_fonts.dart';
 import 'widgets/social_app_item.dart';
 
 class SocialAppsView extends StatefulWidget {
@@ -25,7 +27,7 @@ class _SocialAppsViewState extends State<SocialAppsView> {
   late SocialAppsBloc _bloc;
   late AppLockBloc _appLockBloc;
   int _selectedTabIndex = 1; // Default to Today (index 1)
-  int _selectedFilterIndex = 0; // Default to All (index 0)
+  final int _selectedFilterIndex = 0; // Default to All (index 0)
 
   @override
   void initState() {
@@ -75,25 +77,72 @@ class _SocialAppsViewState extends State<SocialAppsView> {
         BlocProvider.value(value: _appLockBloc..add(FetchLockedApps())),
       ],
       child: Scaffold(
-        backgroundColor: AppColors.backgroundColor,
+        backgroundColor: const Color(0xFFF8FAFC),
         appBar: AppBar(
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new, size: 18),
-            onPressed: () => Navigator.of(context).maybePop(),
-          ),
-          title: Text('Scroll', style: AppTextStyles.headline3),
-          backgroundColor: AppColors.surfaceColor,
+          backgroundColor: Colors.white,
           elevation: 0,
-          foregroundColor: AppColors.textPrimary,
+          surfaceTintColor: Colors.transparent,
           centerTitle: true,
+          leadingWidth: 72,
+          leading: Align(
+            alignment: Alignment.centerLeft,
+            child: Padding(
+              padding: const EdgeInsets.only(left: 16.0),
+              child: GestureDetector(
+                onTap: () => Navigator.of(context).maybePop(),
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: const Icon(
+                    CupertinoIcons.chevron_left,
+                    color: Colors.black,
+                    size: 18,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          title: Text(
+            'Scroll',
+            style: GoogleFonts.manrope(
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              color: const Color(0xFF0C1D37),
+            ),
+          ),
+          actions: [
+            Padding(
+              padding: const EdgeInsets.only(right: 16.0),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  "Social Media",
+                  style: GoogleFonts.manrope(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF0066FF),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
         body: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingM),
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SizedBox(height: AppSizes.spacingM),
+                const SizedBox(height: 16),
                 AdvancedSegmentedTab(
                   onTabChanged: (index) {
                     setState(() {
@@ -102,7 +151,7 @@ class _SocialAppsViewState extends State<SocialAppsView> {
                     _fetchDataForIndex(index);
                   },
                 ),
-                const SizedBox(height: AppSizes.spacingM),
+                const SizedBox(height: 16),
                 BlocBuilder<AppLockBloc, AppLockState>(
                   builder: (context, lockState) {
                     final lockedPackages = lockState is AppLockLoaded
@@ -119,48 +168,22 @@ class _SocialAppsViewState extends State<SocialAppsView> {
                           allPackages = data.map((a) => a.packageName).toList();
                         }
                         return _ScreenTimeHeader(
-                          totalTime: state is SocialAppsLoaded
+                          totalUsageSeconds: state is SocialAppsLoaded
+                              ? state.data.totalUsageTime
+                              : 0,
+                          totalTimeFormatted: state is SocialAppsLoaded
                               ? state.data.totalUsageTimeFormatted
                               : '--',
                           allPackages: allPackages,
                           lockedPackages: lockedPackages,
                           appLockBloc: _appLockBloc,
+                          selectedTabIndex: _selectedTabIndex,
                         );
                       },
                     );
                   },
                 ),
-                const SizedBox(height: AppSizes.spacingM),
-                BlocBuilder<AppLockBloc, AppLockState>(
-                  builder: (context, lockState) {
-                    final lockedPackages = lockState is AppLockLoaded
-                        ? lockState.lockedPackages
-                        : const <String>{};
-                    
-                    return BlocBuilder<SocialAppsBloc, SocialAppsState>(
-                      builder: (context, state) {
-                        int blockedCount = 0;
-                        if (state is SocialAppsLoaded) {
-                          final data = _selectedTabIndex == 2
-                              ? state.data.summaryApps
-                              : state.data.dailyUsage[state.selectedDate] ?? [];
-                          blockedCount = data.where((a) => lockedPackages.contains(a.packageName)).length;
-                        }
-
-                        return FilterTabs(
-                          selectedIndex: _selectedFilterIndex,
-                          blockedCount: blockedCount,
-                          onFilterChanged: (index) {
-                            setState(() {
-                              _selectedFilterIndex = index;
-                            });
-                          },
-                        );
-                      },
-                    );
-                  },
-                ),
-                const SizedBox(height: AppSizes.spacingS),
+                const SizedBox(height: 4),
                 Expanded(child: _buildAppsList()),
               ],
             ),
@@ -335,16 +358,20 @@ class _SocialAppsViewState extends State<SocialAppsView> {
 }
 
 class _ScreenTimeHeader extends StatelessWidget {
-  final String totalTime;
+  final int totalUsageSeconds;
+  final String totalTimeFormatted;
   final List<String> allPackages;
   final Set<String> lockedPackages;
   final AppLockBloc? appLockBloc;
+  final int selectedTabIndex;
 
   const _ScreenTimeHeader({
-    required this.totalTime,
+    required this.totalUsageSeconds,
+    required this.totalTimeFormatted,
     this.allPackages = const [],
     this.lockedPackages = const {},
     this.appLockBloc,
+    required this.selectedTabIndex,
   });
 
   /// True when every visible app is already locked
@@ -401,90 +428,346 @@ class _ScreenTimeHeader extends StatelessWidget {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final allBlocked = _allBlocked;
+  String _getFormattedDate() {
+    final now = DateTime.now();
+    final weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    final months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    
+    if (selectedTabIndex == 0) {
+      final yesterday = now.subtract(const Duration(days: 1));
+      return "Yesterday · ${weekdays[yesterday.weekday % 7]}, ${months[yesterday.month - 1]} ${yesterday.day}";
+    } else if (selectedTabIndex == 1) {
+      return "Today · ${weekdays[now.weekday % 7]}, ${months[now.month - 1]} ${now.day}";
+    } else {
+      final weekStart = now.subtract(const Duration(days: 6));
+      return "${months[weekStart.month - 1]} ${weekStart.day} - ${months[now.month - 1]} ${now.day}";
+    }
+  }
 
-    return Card(
-      margin: EdgeInsets.zero,
-      elevation: 0,
-      color: AppColors.surfaceColor,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppSizes.radiusL),
+  Widget _buildSegment(double fillFraction) {
+    return Expanded(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(4),
+        child: Container(
+          height: 8,
+          color: const Color(0xFFE2E8F0), // background grey
+          child: FractionallySizedBox(
+            alignment: Alignment.centerLeft,
+            widthFactor: fillFraction,
+            child: Container(
+              color: const Color(0xFFF97316), // active orange
+            ),
+          ),
+        ),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(AppSizes.paddingM),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.end,
+    );
+  }
+
+  List<Widget> _buildSegmentedProgressBar(double percentage) {
+    final segment1 = (percentage * 4).clamp(0.0, 1.0);
+    final segment2 = ((percentage - 0.25) * 4).clamp(0.0, 1.0);
+    final segment3 = ((percentage - 0.50) * 4).clamp(0.0, 1.0);
+    final segment4 = ((percentage - 0.75) * 4).clamp(0.0, 1.0);
+
+    return [
+      _buildSegment(segment1),
+      const SizedBox(width: 4),
+      _buildSegment(segment2),
+      const SizedBox(width: 4),
+      _buildSegment(segment3),
+      const SizedBox(width: 4),
+      _buildSegment(segment4),
+    ];
+  }
+
+  Widget _buildWarningBanner() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFFB7185), Color(0xFFF43F5E)], // Rose/coral gradient
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFF43F5E).withValues(alpha: 0.15),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              shape: BoxShape.circle,
+            ),
+            child: const Stack(
+              alignment: Alignment.center,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Screentime',
-                      style: AppTextStyles.subtitle2.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(totalTime, style: AppTextStyles.headline5),
-                  ],
+                Icon(
+                  Icons.warning_amber_rounded,
+                  color: Colors.yellow,
+                  size: 20,
                 ),
-                const SizedBox(width: AppSizes.spacingM),
-                Text(
-                  textAlign: TextAlign.end,
-                  '40% lesser this last week',
-                  style: AppTextStyles.caption.copyWith(
-                    color: AppColors.textSecondary,
+                Positioned(
+                  bottom: 2,
+                  child: Icon(
+                    Icons.flash_on_rounded,
+                    color: Colors.yellow,
+                    size: 12,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: AppSizes.spacingM),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 250),
-              child: allBlocked
-                  ? SizedBox(
-                      key: const ValueKey('unblock'),
-                      width: double.infinity,
-                      height: 50,
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.error,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(AppSizes.radiusM),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Social media Use high",
+                  style: GoogleFonts.manrope(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  "Keep restriction on apps",
+                  style: GoogleFonts.manrope(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white.withValues(alpha: 0.8),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final allBlocked = _allBlocked;
+    final limitSeconds = selectedTabIndex == 2 ? 42 * 3600 : 6 * 3600;
+    final limitText = selectedTabIndex == 2 ? "42h limit" : "6h limit";
+    final double hours = totalUsageSeconds / 3600.0;
+    final double percentage = (totalUsageSeconds / limitSeconds).clamp(0.0, 1.0);
+    final String hoursStr = hours.toStringAsFixed(1);
+    final String usedPctText = "${(percentage * 100).toInt()}% used";
+
+    // Comparison text
+    String comparisonText = "";
+    if (selectedTabIndex == 0) {
+      comparisonText = "-0.5h vs previous day";
+    } else if (selectedTabIndex == 1) {
+      comparisonText = "+1.6h vs yesterday";
+    } else {
+      comparisonText = "-2.4h vs last week";
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF0C1D37).withValues(alpha: 0.04),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header Row
+              Row(
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFEFF6FF),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.desktop_windows_rounded,
+                      color: Color(0xFF0066FF),
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Screen Time",
+                          style: GoogleFonts.manrope(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            color: const Color(0xFF0C1D37),
                           ),
-                          elevation: 0,
                         ),
-                        icon: const Icon(Icons.lock_open_rounded, size: 20),
-                        label: Text(
-                          'Unblock All Apps',
-                          style: AppTextStyles.button,
+                        const SizedBox(height: 2),
+                        Text(
+                          _getFormattedDate(),
+                          style: GoogleFonts.manrope(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFF94A3B8),
+                          ),
                         ),
-                        onPressed: () => _onUnblockAll(context),
+                      ],
+                    ),
+                  ),
+                  // Set Limit button
+                  OutlinedButton(
+                    onPressed: allPackages.isEmpty
+                        ? null
+                        : () => allBlocked ? _onUnblockAll(context) : _onBlockAll(context),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: allBlocked ? const Color(0xFFEF4444) : const Color(0xFF0066FF),
+                      side: BorderSide(
+                        color: allBlocked ? const Color(0xFFEF4444) : const Color(0xFF0066FF),
+                        width: 1.5,
                       ),
-                    )
-                  : SizedBox(
-                      key: const ValueKey('block'),
-                      width: double.infinity,
-                      child: CommonButton(
-                        width: double.infinity,
-                        text: 'Block Everything temporarily',
-                        onPressed: allPackages.isEmpty
-                            ? null
-                            : () => _onBlockAll(context),
-                        height: 50,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          allBlocked ? "Unblock All" : "Set Limit",
+                          style: GoogleFonts.manrope(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Icon(
+                          allBlocked ? Icons.lock_open_rounded : Icons.tune_rounded,
+                          size: 15,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+
+              // Middle Row: Values
+              Row(
+                textBaseline: TextBaseline.alphabetic,
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                children: [
+                  Text(
+                    hoursStr,
+                    style: GoogleFonts.manrope(
+                      fontSize: 32,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFF0C1D37),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    "/ $limitText",
+                    style: GoogleFonts.manrope(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF94A3B8),
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    usedPctText,
+                    style: GoogleFonts.manrope(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF0066FF),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // Segmented Progress Bar
+              Row(
+                children: _buildSegmentedProgressBar(percentage),
+              ),
+              const SizedBox(height: 20),
+
+              // Footer Row
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    comparisonText,
+                    style: GoogleFonts.manrope(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFFEF4444),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Detailed analytics comparison is active')),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEFF6FF),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            "Know More",
+                            style: GoogleFonts.manrope(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF0066FF),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          const Icon(
+                            Icons.keyboard_arrow_down_rounded,
+                            color: Color(0xFF0066FF),
+                            size: 16,
+                          ),
+                        ],
                       ),
                     ),
-            ),
-          ],
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
-      ),
+        const SizedBox(height: 16),
+        _buildWarningBanner(),
+      ],
     );
   }
 }

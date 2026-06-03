@@ -17,6 +17,12 @@ final class HomepageSuccess extends HomepageState {
   final bool hasNoChild;
   final bool webFilteringEnabled;
   final bool waitingForSilentSyncResponse;
+  
+  // New Visual Section models from updated HomeResponse
+  final FeatureSummary? features;
+  final RouteMapSummary? todayRoute;
+  final ScreentimeTodaySummary? screentimeToday;
+
   // Trips data
   final List<Trip> trips;
   final int? tripsPage;
@@ -39,6 +45,9 @@ final class HomepageSuccess extends HomepageState {
     this.hasNoChild = false,
     this.webFilteringEnabled = false,
     this.waitingForSilentSyncResponse = false,
+    this.features,
+    this.todayRoute,
+    this.screentimeToday,
     this.trips = const [],
     this.tripsPage,
     this.tripsPageSize,
@@ -49,7 +58,8 @@ final class HomepageSuccess extends HomepageState {
     this.isLoadingTripDetail = false,
     this.selectedTripId,
   });
-  //inital
+
+  // initial
   const HomepageSuccess.initial()
     : this(
         deviceInfo: null,
@@ -61,6 +71,9 @@ final class HomepageSuccess extends HomepageState {
         hasNoChild: false,
         webFilteringEnabled: false,
         waitingForSilentSyncResponse: false,
+        features: null,
+        todayRoute: null,
+        screentimeToday: null,
         trips: const [],
         tripsPage: null,
         tripsPageSize: null,
@@ -71,6 +84,7 @@ final class HomepageSuccess extends HomepageState {
         isLoadingTripDetail: false,
         selectedTripId: null,
       );
+
   @override
   List<Object> get props => [
     if (deviceInfo != null) deviceInfo!,
@@ -82,6 +96,9 @@ final class HomepageSuccess extends HomepageState {
     hasNoChild,
     webFilteringEnabled,
     waitingForSilentSyncResponse,
+    if (features != null) features!,
+    if (todayRoute != null) todayRoute!,
+    if (screentimeToday != null) screentimeToday!,
     trips,
     if (tripsPage != null) tripsPage!,
     if (tripsPageSize != null) tripsPageSize!,
@@ -92,6 +109,7 @@ final class HomepageSuccess extends HomepageState {
     isLoadingTripDetail,
     if (selectedTripId != null) selectedTripId!,
   ];
+
   HomepageSuccess copyWith({
     DeviceInfo? deviceInfo,
     LocationInfo? currentLocation,
@@ -102,6 +120,9 @@ final class HomepageSuccess extends HomepageState {
     bool? hasNoChild,
     bool? webFilteringEnabled,
     bool? waitingForSilentSyncResponse,
+    FeatureSummary? features,
+    RouteMapSummary? todayRoute,
+    ScreentimeTodaySummary? screentimeToday,
     List<Trip>? trips,
     int? tripsPage,
     int? tripsPageSize,
@@ -122,6 +143,9 @@ final class HomepageSuccess extends HomepageState {
       hasNoChild: hasNoChild ?? this.hasNoChild,
       webFilteringEnabled: webFilteringEnabled ?? this.webFilteringEnabled,
       waitingForSilentSyncResponse: waitingForSilentSyncResponse ?? this.waitingForSilentSyncResponse,
+      features: features ?? this.features,
+      todayRoute: todayRoute ?? this.todayRoute,
+      screentimeToday: screentimeToday ?? this.screentimeToday,
       trips: trips ?? this.trips,
       tripsPage: tripsPage ?? this.tripsPage,
       tripsPageSize: tripsPageSize ?? this.tripsPageSize,

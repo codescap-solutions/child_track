@@ -51,7 +51,8 @@ class _OtpScreenState extends State<OtpScreen> {
           // New user - navigate to Parent Profile setup screen first
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(
-              builder: (_) => ParentProfileSetupView(phoneNumber: state.phoneNumber),
+              builder: (_) =>
+                  ParentProfileSetupView(phoneNumber: state.phoneNumber),
             ),
           );
         } else if (state is AuthSelectChild) {
@@ -84,14 +85,11 @@ class _OtpScreenState extends State<OtpScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: Colors.transparent,
+        backgroundColor: Color(0xFFFBFCFE),
         body: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
-              colors: [
-                Color(0xFFFBFCFE),
-                Color(0xFFEDF4FE),
-              ],
+              colors: [Color(0xFFFBFCFE), Color(0xFFEDF4FE)],
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
             ),
@@ -99,7 +97,9 @@ class _OtpScreenState extends State<OtpScreen> {
           child: SafeArea(
             child: SingleChildScrollView(
               physics: const ClampingScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingL),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSizes.paddingL,
+              ),
               child: Form(
                 key: _formKey,
                 child: Column(
@@ -153,7 +153,9 @@ class _OtpScreenState extends State<OtpScreen> {
           ),
         ),
         const Spacer(),
-        const SizedBox(width: 48), // Align text to center by balancing the Back button size
+        const SizedBox(
+          width: 48,
+        ), // Align text to center by balancing the Back button size
       ],
     );
   }
@@ -209,7 +211,10 @@ class _OtpScreenState extends State<OtpScreen> {
           controller: _phoneController,
           readOnly: true,
           enabled: false,
-          prefixIcon: const Icon(Icons.phone_android_rounded, color: Color(0xFF7C8BA0)),
+          prefixIcon: const Icon(
+            Icons.phone_android_rounded,
+            color: Color(0xFF7C8BA0),
+          ),
           suffixIcon: Container(
             margin: const EdgeInsets.all(12),
             decoration: const BoxDecoration(
@@ -277,7 +282,7 @@ class _OtpScreenState extends State<OtpScreen> {
             height: 60,
             width: double.infinity,
             decoration: BoxDecoration(
-              color: isLoading 
+              color: isLoading
                   ? const Color(0xFF0066FF).withValues(alpha: 0.5)
                   : const Color(0xFF0066FF),
               borderRadius: BorderRadius.circular(16),
@@ -351,4 +356,3 @@ class _OtpScreenState extends State<OtpScreen> {
     context.read<AuthBloc>().add(SendOtp(phoneNumber: widget.phoneNumber));
   }
 }
-

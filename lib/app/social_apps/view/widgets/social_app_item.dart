@@ -4,6 +4,7 @@ import 'package:child_track/core/constants/app_colors.dart';
 import 'package:child_track/core/constants/app_sizes.dart';
 import 'package:child_track/core/constants/app_text_styles.dart';
 import 'package:child_track/core/widgets/common_button.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class SocialAppItem extends StatelessWidget {
   final ImageProvider icon;
@@ -23,39 +24,59 @@ class SocialAppItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      margin: const EdgeInsets.only(bottom: AppSizes.spacingS),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppSizes.radiusM),
-        side: BorderSide(color: AppColors.borderColor),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFF1F5F9), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0C1D37).withValues(alpha: 0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(AppSizes.radiusM),
+        borderRadius: BorderRadius.circular(20),
         onTap: () {
           ScaffoldMessenger.of(
             context,
           ).showSnackBar(SnackBar(content: Text('Usage details for $name')));
         },
         child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSizes.paddingM,
-            vertical: AppSizes.paddingS,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             children: [
               _AppIcon(icon: icon),
-              const SizedBox(width: AppSizes.spacingM),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(name, style: AppTextStyles.subtitle2),
-                    const SizedBox(height: 2),
                     Text(
-                      usage,
-                      style: AppTextStyles.caption.copyWith(
-                        color: AppColors.textSecondary,
+                      name,
+                      style: GoogleFonts.manrope(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF0C1D37),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEFF6FF),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        usage,
+                        style: GoogleFonts.manrope(
+                          color: const Color(0xFF0066FF),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                   ],
@@ -77,48 +98,26 @@ class _AppIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CircleAvatar(
-      radius: 16,
-      backgroundColor: AppColors.surfaceColor,
-      child: ClipOval(
+    return Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
         child: Image(
           image: icon,
-          width: 32,
-          height: 32,
+          width: 44,
+          height: 44,
           fit: BoxFit.cover,
           errorBuilder: (context, error, stackTrace) {
             return Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: AppColors.surfaceColor,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.apps, size: 18, color: AppColors.textSecondary),
-            );
-          },
-          loadingBuilder: (context, child, loadingProgress) {
-            if (loadingProgress == null) return child;
-            return Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: AppColors.surfaceColor,
-                shape: BoxShape.circle,
-              ),
-              child: Center(
-                child: SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    value: loadingProgress.expectedTotalBytes != null
-                        ? loadingProgress.cumulativeBytesLoaded /
-                              loadingProgress.expectedTotalBytes!
-                        : null,
-                  ),
-                ),
-              ),
+              width: 44,
+              height: 44,
+              color: const Color(0xFFF1F5F9),
+              child: const Icon(Icons.apps, size: 20, color: Color(0xFF94A3B8)),
             );
           },
         ),
@@ -135,20 +134,44 @@ class _LockIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IconButton(
-      iconSize: 24,
-      onPressed: () {
+    return GestureDetector(
+      onTap: () {
         if (isLocked) {
           onLockToggle?.call(false, 0);
         } else {
           _showLockOptions(context);
         }
       },
-      icon: Image.asset(
-        isLocked ? 'assets/images/lock.png' : 'assets/images/unlock.png',
-        width: 24,
-        height: 24,
-      ),
+      child: isLocked
+          ? Container(
+              width: 36,
+              height: 36,
+              decoration: const BoxDecoration(
+                color: Colors.black,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.lock_rounded,
+                color: Colors.white,
+                size: 16,
+              ),
+            )
+          : Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: const Color(0xFFCBD5E1),
+                  width: 1.5,
+                ),
+              ),
+              child: const Icon(
+                Icons.lock_outline_rounded,
+                color: Color(0xFF94A3B8),
+                size: 16,
+              ),
+            ),
     );
   }
 
