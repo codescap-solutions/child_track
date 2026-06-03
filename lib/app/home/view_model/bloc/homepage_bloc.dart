@@ -87,11 +87,10 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
       emit(
         startingState.copyWith(
           isLoading: true,
-          trips:
-              [], // Clear trips to prevent showing the old child's trips while loading
-          hasReachedMax: false,
-          tripsPage: 1,
-          waitingForSilentSyncResponse: true,
+          trips: event.isProgressFetching ? startingState.trips : [],
+          hasReachedMax: event.isProgressFetching ? startingState.hasReachedMax : false,
+          tripsPage: event.isProgressFetching ? startingState.tripsPage : 1,
+          waitingForSilentSyncResponse: !event.isProgressFetching,
         ),
       );
     }
@@ -139,21 +138,41 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
             screentimeToday: homeData.screentimeToday,
             isLoading: false,
             hasNoChild: false,
-            waitingForSilentSyncResponse: event.isSilentRefresh ? false : freshState.waitingForSilentSyncResponse,
+            waitingForSilentSyncResponse: (event.isSilentRefresh || event.isProgressFetching)
+                ? false
+                : freshState.waitingForSilentSyncResponse,
           ),
         );
+
+        // If this was the first load (not silent, not progress fetching), call again with progress fetching
+        if (!event.isSilentRefresh && !event.isProgressFetching) {
+          Future.delayed(const Duration(milliseconds: 2500), () {
+            if (!isClosed) {
+              add(const GetHomepageData(isProgressFetching: true));
+            }
+          });
+        }
       } else {
         // Check if error is due to no child connected
         if (response.message.toLowerCase().contains('child') ||
             response.message.toLowerCase().contains('not found')) {
           emit(startingState.copyWith(isLoading: false, hasNoChild: true, waitingForSilentSyncResponse: false));
         } else {
-          emit(HomepageError(message: response.message));
+          if (event.isProgressFetching || event.isSilentRefresh) {
+            emit(freshState.copyWith(isLoading: false));
+          } else {
+            emit(HomepageError(message: response.message));
+          }
         }
       }
     } catch (e) {
       AppLogger.error('Error fetching home data: ${e.toString()}');
-      emit(HomepageError(message: 'Failed to load home data: ${e.toString()}'));
+      final freshState = state is HomepageSuccess ? state as HomepageSuccess : startingState;
+      if (event.isProgressFetching || event.isSilentRefresh) {
+        emit(freshState.copyWith(isLoading: false));
+      } else {
+        emit(HomepageError(message: 'Failed to load home data: ${e.toString()}'));
+      }
     }
   }
 

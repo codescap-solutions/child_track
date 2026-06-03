@@ -221,7 +221,7 @@ class _TripDetailViewState extends State<TripDetailView> {
             },
             interactive: true,
             width: double.infinity,
-            maxZoom: 15,
+            maxZoom: 20,
             height: double.infinity,
             currentPosition: markers.first.position,
             markers: markers,

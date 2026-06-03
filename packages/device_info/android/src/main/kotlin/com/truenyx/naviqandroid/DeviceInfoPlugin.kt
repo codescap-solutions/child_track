@@ -15,6 +15,8 @@ import android.provider.Settings
 import android.util.Log
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.view.accessibility.AccessibilityManager
+import android.os.BatteryManager
+import android.content.IntentFilter
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
@@ -109,6 +111,14 @@ class DeviceInfoPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
 
     override fun onMethodCall(call: MethodCall, result: Result) {
         when (call.method) {
+
+            "getBatteryPercentage" -> {
+                result.success(getBatteryPercentage())
+            }
+
+            "isCharging" -> {
+                result.success(isCharging())
+            }
 
             "getSoundProfile" -> {
                 result.success(getSoundProfile())
@@ -511,5 +521,40 @@ class DeviceInfoPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
         val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
         prefs.edit().putBoolean("flutter.block_18plus", enabled).apply()
         Log.d("DeviceInfoPlugin", ">>> Web filtering persisted to SharedPreferences")
+    }
+
+    private fun getBatteryPercentage(): Int {
+        return try {
+            val batteryManager = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+            batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+        } catch (e: Exception) {
+            Log.e("DeviceInfoPlugin", "Error getting battery percentage: ${e.message}")
+            try {
+                val intent = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+                val level = intent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
+                val scale = intent?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
+                if (level >= 0 && scale > 0) {
+                    (level * 100 / scale.toFloat()).toInt()
+                } else {
+                    0
+                }
+            } catch (ex: Exception) {
+                Log.e("DeviceInfoPlugin", "Fallback error getting battery percentage: ${ex.message}")
+                0
+            }
+        }
+    }
+
+    private fun isCharging(): Boolean {
+        return try {
+            val intentFilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+            val batteryStatus = context.registerReceiver(null, intentFilter)
+            val status = batteryStatus?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
+            status == BatteryManager.BATTERY_STATUS_CHARGING ||
+                    status == BatteryManager.BATTERY_STATUS_FULL
+        } catch (e: Exception) {
+            Log.e("DeviceInfoPlugin", "Error getting charging status: ${e.message}")
+            false
+        }
     }
 }

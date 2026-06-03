@@ -968,257 +968,79 @@ class _SosViewContentState extends State<_SosViewContent> {
                               ),
                             ],
                           ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 32),
-
-                      // Heading Text
-                      Text(
-                        "Need Help?",
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.manrope(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xFF64748B),
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        "Press SOS to call\nfor help!",
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.manrope(
-                          fontSize: 30,
-                          fontWeight: FontWeight.w800,
-                          color: const Color(0xFF0F172A),
-                          height: 1.25,
-                        ),
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      // Center Pulsing SOS Button
-                      Center(
-                        child: PulsingSosButton(
-                          onTap: () =>
-                              _callNumber(_isMomSelected ? momPhone : dadPhone),
-                        ),
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      // Parents Contact Details Card
-                      Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(28),
-                          border: Border.all(
-                            color: const Color(0xFFEFF2F6),
-                            width: 1.5,
+                          const SizedBox(height: 4),
+                          Text(
+                            childCode,
+                            style: AppTextStyles.body2.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
                           ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(
-                                0xFF0F172A,
-                              ).withValues(alpha: 0.04),
-                              blurRadius: 16,
-                              offset: const Offset(0, 8),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              "Parents Contact Details",
-                              style: GoogleFonts.manrope(
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                                color: const Color(0xFF64748B),
+                          const SizedBox(height: AppSizes.spacingM),
+                          Container(
+                            padding: const EdgeInsets.all(AppSizes.paddingL),
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceColor,
+                              borderRadius: BorderRadius.circular(
+                                AppSizes.radiusM,
                               ),
-                            ),
-                            const SizedBox(height: 16),
-
-                            // Toggle Tabs
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _buildContactTab(
-                                    isSelected: _isMomSelected,
-                                    label: "Mom",
-                                    icon: Icons.person_outline_rounded,
-                                    onTap: () {
-                                      setState(() {
-                                        _isMomSelected = true;
-                                      });
-                                    },
-                                  ),
+                              border: Border.all(
+                                color: AppColors.primaryColor.withValues(
+                                  alpha: 0.2,
                                 ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: _buildContactTab(
-                                    isSelected: !_isMomSelected,
-                                    label: "Dad",
-                                    icon: Icons.person_outline_rounded,
-                                    onTap: () {
-                                      setState(() {
-                                        _isMomSelected = false;
-                                      });
-                                    },
-                                  ),
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.05),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
                                 ),
                               ],
                             ),
-
-                            const SizedBox(height: 20),
-
-                            // Phone Info Row
-                            Row(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Container(
-                                  width: 48,
-                                  height: 48,
-                                  decoration: const BoxDecoration(
-                                    color: Color(0xFFEFF6FF),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.person_outline_rounded,
-                                    color: Color(0xFF3B82F6),
-                                    size: 24,
-                                  ),
-                                ),
-                                const SizedBox(width: 14),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        _isMomSelected ? momPhone : dadPhone,
-                                        style: GoogleFonts.manrope(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.w800,
-                                          color: const Color(0xFF0F172A),
-                                        ),
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.security_rounded,
+                                      color: AppColors.primaryColor,
+                                      size: 24,
+                                    ),
+                                    const SizedBox(width: AppSizes.spacingS),
+                                    Text(
+                                      'App Permissions Check',
+                                      style: AppTextStyles.subtitle1.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.textPrimary,
                                       ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        _isMomSelected
-                                            ? "Mom's number"
-                                            : "Dad's number",
-                                        style: GoogleFonts.manrope(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w500,
-                                          color: const Color(0xFF64748B),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                                    ),
+                                  ],
                                 ),
-                              ],
-                            ),
-
-                            const SizedBox(height: 20),
-
-                            // Action Button
-                            SizedBox(
-                              width: double.infinity,
-                              height: 52,
-                              child: ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF0066FF),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  elevation: 0,
+                                const SizedBox(height: AppSizes.spacingS),
+                                Divider(
+                                  color: Colors.grey.withValues(alpha: 0.2),
                                 ),
-                                onPressed: () => _callNumber(
-                                  _isMomSelected ? momPhone : dadPhone,
-                                ),
-                                icon: const Icon(
-                                  Icons.phone_outlined,
-                                  color: Colors.white,
-                                  size: 20,
-                                ),
-                                label: Text(
-                                  _isMomSelected
-                                      ? "Call Mom Now"
-                                      : "Call Dad Now",
-                                  style: GoogleFonts.manrope(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      // Expansion card for original permissions
-                      Theme(
-                        data: Theme.of(
-                          context,
-                        ).copyWith(dividerColor: Colors.transparent),
-                        child: ExpansionTile(
-                          title: Text(
-                            "App Configuration & Diagnostic Logs",
-                            style: GoogleFonts.manrope(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: const Color(0xFF94A3B8),
-                            ),
-                          ),
-                          iconColor: const Color(0xFF94A3B8),
-                          collapsedIconColor: const Color(0xFF94A3B8),
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: const Color(0xFFEFF2F6),
-                                  width: 1.5,
-                                ),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      const Icon(
-                                        Icons.security_rounded,
-                                        color: Color(0xFF0066FF),
-                                        size: 20,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        'App Permissions Status',
-                                        style: GoogleFonts.manrope(
-                                          fontWeight: FontWeight.bold,
-                                          color: const Color(0xFF0F172A),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  const Divider(color: Color(0xFFEFF2F6)),
-                                  if (Platform.isIOS) ...[
-                                    _buildPermissionItem(
-                                      'Location',
-                                      widget.hasLocationPermission,
-                                      () async {
-                                        final currentStatus =
-                                            await Permission.location.status;
-                                        if (currentStatus.isGranted ||
-                                            currentStatus.isLimited) {
+                                const SizedBox(height: AppSizes.spacingS),
+                                if (Platform.isIOS) ...[
+                                  _buildPermissionItem(
+                                    'Location',
+                                    hasLocationPermission,
+                                    () async {
+                                      final currentStatus =
+                                          await Permission.location.status;
+                                      if (currentStatus.isGranted ||
+                                          currentStatus.isLimited) {
+                                        final statusAlways = await Permission
+                                            .locationAlways
+                                            .request();
+                                        if (!statusAlways.isGranted) {
+                                          await openAppSettings();
+                                        }
+                                      } else {
+                                        final status = await Permission.location
+                                            .request();
+                                        if (status.isGranted ||
+                                            status.isLimited) {
                                           final statusAlways = await Permission
                                               .locationAlways
                                               .request();
@@ -1226,161 +1048,401 @@ class _SosViewContentState extends State<_SosViewContent> {
                                             await openAppSettings();
                                           }
                                         } else {
-                                          final status = await Permission
-                                              .location
-                                              .request();
-                                          if (status.isGranted ||
-                                              status.isLimited) {
-                                            final statusAlways =
-                                                await Permission.locationAlways
-                                                    .request();
-                                            if (!statusAlways.isGranted) {
-                                              await openAppSettings();
-                                            }
-                                          } else {
-                                            await openAppSettings();
-                                          }
-                                        }
-                                      },
-                                    ),
-                                    _buildPermissionItem(
-                                      'Screen Time & App Blocking',
-                                      widget.hasAccessibilityPermission,
-                                      () =>
-                                          showAccessibilityDisclosure(context),
-                                    ),
-                                    _buildPermissionItem(
-                                      'Notifications',
-                                      widget.hasNotificationPermission,
-                                      () async {
-                                        final status = await Permission
-                                            .notification
-                                            .request();
-                                        if (!status.isGranted) {
                                           await openAppSettings();
                                         }
-                                      },
+                                      }
+                                    },
+                                  ),
+                                  _buildPermissionItem(
+                                    'Screen Time & App Blocking',
+                                    hasAccessibilityPermission,
+                                    () => showAccessibilityDisclosure(context),
+                                  ),
+                                  _buildPermissionItem(
+                                    'Notifications',
+                                    hasNotificationPermission,
+                                    () async {
+                                      final status = await Permission
+                                          .notification
+                                          .request();
+                                      if (!status.isGranted) {
+                                        await openAppSettings();
+                                      }
+                                    },
+                                  ),
+                                ] else ...[
+                                  _buildPermissionItem(
+                                    'Location',
+                                    hasLocationPermission,
+                                    () async {
+                                      final status = await Permission
+                                          .locationAlways
+                                          .request();
+                                      if (status.isPermanentlyDenied) {
+                                        await openAppSettings();
+                                      }
+                                    },
+                                  ),
+                                  _buildPermissionItem(
+                                    'Background Work',
+                                    hasBackgroundPermission,
+                                    () => Permission.ignoreBatteryOptimizations
+                                        .request(),
+                                  ),
+                                  _buildPermissionItem(
+                                    'App Usage',
+                                    state is ChildDeviceInfoLoaded
+                                        ? state.hasUsagePermission
+                                        : false,
+                                    () => context.read<ChildBloc>().add(
+                                      OpenUsageSettings(),
                                     ),
-                                  ] else ...[
-                                    _buildPermissionItem(
-                                      'Location',
-                                      widget.hasLocationPermission,
-                                      () async {
-                                        final status = await Permission
-                                            .locationAlways
-                                            .request();
-                                        if (status.isPermanentlyDenied) {
-                                          await openAppSettings();
-                                        }
-                                      },
-                                    ),
-                                    _buildPermissionItem(
-                                      'Background Work',
-                                      widget.hasBackgroundPermission,
-                                      () => Permission
-                                          .ignoreBatteryOptimizations
-                                          .request(),
-                                    ),
-                                    _buildPermissionItem(
-                                      'App Usage',
-                                      state is ChildDeviceInfoLoaded
-                                          ? state.hasUsagePermission
-                                          : false,
-                                      () => context.read<ChildBloc>().add(
-                                        OpenUsageSettings(),
-                                      ),
-                                    ),
-                                    _buildPermissionItem(
-                                      'Accessibility',
-                                      widget.hasAccessibilityPermission,
-                                      () =>
-                                          showAccessibilityDisclosure(context),
-                                    ),
-                                    _buildPermissionItem(
-                                      'Notifications',
-                                      widget.hasNotificationPermission,
-                                      () async {
-                                        final status = await Permission
-                                            .notification
-                                            .request();
-                                        if (status.isPermanentlyDenied) {
-                                          await openAppSettings();
-                                        }
-                                      },
-                                    ),
+                                  ),
+                                  _buildPermissionItem(
+                                    'Accessibility',
+                                    hasAccessibilityPermission,
+                                    // Show prominent disclosure BEFORE opening Settings
+                                    // (required by Google Play Accessibility Service policy)
+                                    () => showAccessibilityDisclosure(context),
+                                  ),
+                                  _buildPermissionItem(
+                                    'Notifications',
+                                    hasNotificationPermission,
+                                    () async {
+                                      final status = await Permission
+                                          .notification
+                                          .request();
+                                      if (status.isPermanentlyDenied) {
+                                        await openAppSettings();
+                                      }
+                                    },
+                                  ),
+                                ],
+                                if (Platform.isIOS) ...[
+                                  const SizedBox(height: AppSizes.spacingM),
+                                  StatefulBuilder(
+                                    builder: (context, setLocalState) {
+                                      return Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
+                                        children: [
+                                          CommonButton(
+                                            text: 'Select Apps to Track',
+                                            width: double.infinity,
+                                            height: 50,
+                                            onPressed: () async {
+                                              final scaffoldMessenger =
+                                                  ScaffoldMessenger.of(context);
+                                              final result =
+                                                  await injector<
+                                                        ChildInfoService
+                                                      >()
+                                                      .openFamilyActivityPicker();
+                                              if (result.isNotEmpty) {
+                                                final prefs =
+                                                    injector<
+                                                      SharedPrefsService
+                                                    >();
+                                                final Map<String, String>
+                                                tokenMap = {};
+                                                for (final item in result) {
+                                                  final id =
+                                                      item['id'] as String? ??
+                                                      '';
+                                                  final name =
+                                                      item['displayName']
+                                                          as String? ??
+                                                      '';
+                                                  if (id.isNotEmpty &&
+                                                      name.isNotEmpty) {
+                                                    tokenMap[id] = name;
+                                                  }
+                                                }
+                                                await prefs.setString(
+                                                  'ios_token_label_map',
+                                                  tokenMap.entries
+                                                      .map(
+                                                        (e) =>
+                                                            '${e.key}::${e.value}',
+                                                      )
+                                                      .join('||'),
+                                                );
+                                                AppLogger.info(
+                                                  'Saved ${tokenMap.length} token labels to SharedPrefs',
+                                                );
+                                                setLocalState(
+                                                  () {},
+                                                ); // Refresh chips
+
+                                                scaffoldMessenger.showSnackBar(
+                                                  SnackBar(
+                                                    content: Text(
+                                                      '✅ ${result.length} apps/categories selected for tracking',
+                                                    ),
+                                                    backgroundColor:
+                                                        Colors.green,
+                                                  ),
+                                                );
+                                              }
+                                            },
+                                          ),
+                                          // Show currently tracked apps/categories
+                                          Builder(
+                                            builder: (context) {
+                                              final mapStr =
+                                                  injector<SharedPrefsService>()
+                                                      .getString(
+                                                        'ios_token_label_map',
+                                                      ) ??
+                                                  '';
+                                              if (mapStr.isEmpty) {
+                                                return const SizedBox.shrink();
+                                              }
+
+                                              final entries =
+                                                  <MapEntry<String, String>>[];
+                                              for (final entry in mapStr.split(
+                                                '||',
+                                              )) {
+                                                final parts = entry.split('::');
+                                                if (parts.length == 2 &&
+                                                    parts[0].isNotEmpty) {
+                                                  entries.add(
+                                                    MapEntry(
+                                                      parts[0],
+                                                      parts[1],
+                                                    ),
+                                                  );
+                                                }
+                                              }
+                                              if (entries.isEmpty) {
+                                                return const SizedBox.shrink();
+                                              }
+
+                                              return Padding(
+                                                padding: const EdgeInsets.only(
+                                                  top: AppSizes.spacingS,
+                                                ),
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      'Tracked (${entries.length})',
+                                                      style: AppTextStyles
+                                                          .caption
+                                                          .copyWith(
+                                                            color: AppColors
+                                                                .textSecondary,
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                          ),
+                                                    ),
+                                                    const SizedBox(height: 4),
+                                                    Wrap(
+                                                      spacing: 6,
+                                                      runSpacing: 4,
+                                                      children: entries.map((
+                                                        e,
+                                                      ) {
+                                                        final isCategory = e.key
+                                                            .startsWith(
+                                                              'usage_cat_',
+                                                            );
+                                                        return Chip(
+                                                          avatar: Icon(
+                                                            isCategory
+                                                                ? Icons.category
+                                                                : Icons.apps,
+                                                            size: 14,
+                                                            color: AppColors
+                                                                .primaryColor,
+                                                          ),
+                                                          label: Text(
+                                                            e.value,
+                                                            style: AppTextStyles
+                                                                .caption
+                                                                .copyWith(
+                                                                  fontSize: 11,
+                                                                ),
+                                                          ),
+                                                          materialTapTargetSize:
+                                                              MaterialTapTargetSize
+                                                                  .shrinkWrap,
+                                                          visualDensity:
+                                                              VisualDensity
+                                                                  .compact,
+                                                          padding:
+                                                              EdgeInsets.zero,
+                                                        );
+                                                      }).toList(),
+                                                    ),
+                                                  ],
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                          const SizedBox(
+                                            height: AppSizes.spacingS,
+                                          ),
+                                          OutlinedButton.icon(
+                                            style: OutlinedButton.styleFrom(
+                                              foregroundColor:
+                                                  AppColors.primaryColor,
+                                              side: BorderSide(
+                                                color: AppColors.primaryColor
+                                                    .withValues(alpha: 0.5),
+                                              ),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
+                                              ),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    vertical: 12,
+                                                  ),
+                                            ),
+                                            icon: const Icon(
+                                              Icons.analytics_outlined,
+                                              size: 18,
+                                            ),
+                                            label: const Text(
+                                              'View Diagnostic Logs',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            onPressed: () {
+                                              showModalBottomSheet(
+                                                context: context,
+                                                isScrollControlled: true,
+                                                backgroundColor:
+                                                    Colors.transparent,
+                                                builder: (context) =>
+                                                    const _DiagnosticLogsSheet(),
+                                              );
+                                            },
+                                          ),
+                                        ],
+                                      );
+                                    },
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          const Spacer(),
+                          GestureDetector(
+                            onTap: () async {
+                              if (parentPhone != 'N/A') {
+                                final Uri launchUri = Uri(
+                                  scheme: 'tel',
+                                  path: parentPhone,
+                                );
+                                try {
+                                  if (!await launchUrl(launchUri)) {
+                                    AppLogger.error('Could not launch dialer');
+                                  }
+                                } catch (e) {
+                                  AppLogger.error('Error launching dialer: $e');
+                                }
+                              }
+                            },
+                            child: Container(
+                              width: 220,
+                              height: 220,
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    Color(0xFF004CE8), // #004CE8
+                                    Color(0xFF6F9EFF), // #6F9EFF
                                   ],
-                                  const SizedBox(height: 12),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: OutlinedButton.icon(
-                                          style: OutlinedButton.styleFrom(
-                                            side: const BorderSide(
-                                              color: Color(0xFF0066FF),
-                                              width: 1.5,
-                                            ),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                            ),
-                                          ),
-                                          icon: const Icon(
-                                            Icons.analytics_outlined,
-                                            size: 16,
-                                            color: Color(0xFF0066FF),
-                                          ),
-                                          label: Text(
-                                            'Diagnostic Logs',
-                                            style: GoogleFonts.manrope(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 12,
-                                              color: const Color(0xFF0066FF),
-                                            ),
-                                          ),
-                                          onPressed: () {
-                                            showModalBottomSheet(
-                                              context: context,
-                                              isScrollControlled: true,
-                                              backgroundColor:
-                                                  Colors.transparent,
-                                              builder: (context) =>
-                                                  const _DiagnosticLogsSheet(),
-                                            );
-                                          },
-                                        ),
-                                      ),
-                                    ],
+                                ),
+                                shape: BoxShape.circle,
+                                color: Colors.blue,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.blueAccent.withValues(
+                                      alpha: 0.3,
+                                    ),
+                                    blurRadius: 20,
+                                    spreadRadius: 40,
+                                    offset: const Offset(0, 8),
                                   ),
                                 ],
                               ),
+                              child: Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      'SOS',
+                                      style: AppTextStyles.headlineXL.copyWith(
+                                        color: AppColors.surfaceColor,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      'Press this button\n in emergency',
+                                      textAlign: TextAlign.center,
+                                      style: AppTextStyles.body2.copyWith(
+                                        color: AppColors.surfaceColor,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                  ],
+                                ),
+                              ),
                             ),
-                          ],
-                        ),
+                          ),
+                          const Spacer(),
+                          Text(
+                            'Parent Number',
+                            style: AppTextStyles.button.copyWith(
+                              color: Colors.black,
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () async {
+                              if (parentPhone != 'N/A') {
+                                final Uri launchUri = Uri(
+                                  scheme: 'tel',
+                                  path: parentPhone,
+                                );
+                                try {
+                                  if (!await launchUrl(launchUri)) {
+                                    AppLogger.error('Could not launch dialer');
+                                  }
+                                } catch (e) {
+                                  AppLogger.error('Error launching dialer: $e');
+                                }
+                              }
+                            },
+                            child: Text(
+                              parentPhone,
+                              style: AppTextStyles.button.copyWith(
+                                color: AppColors.primaryColor,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(
+                            height: AppSizes.spacingXL,
+                            width: double.infinity,
+                          ),
+                          Text(
+                            'Naviq Dev 1.0.3(May-30)',
+                            style: AppTextStyles.caption.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
                       ),
-
-                      const SizedBox(height: 24),
-
-                      Text(
-                        'Child Code: $childCode',
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.manrope(
-                          fontSize: 12,
-                          color: const Color(0xFF94A3B8),
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Naviq Dev 1.0.2(May-12)',
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.manrope(
-                          fontSize: 10,
-                          color: const Color(0xFF94A3B8),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
           );

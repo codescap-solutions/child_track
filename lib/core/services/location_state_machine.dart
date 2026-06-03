@@ -5,6 +5,7 @@ import 'package:child_track/core/utils/structured_logger.dart';
 import 'package:child_track/app/childapp/view_model/repository/child_repo.dart';
 import 'package:child_track/app/childapp/view_model/repository/child_location_repo.dart';
 import 'package:child_track/core/services/shared_prefs_service.dart';
+import 'package:child_track/app/childapp/view_model/repository/device_info_service.dart';
 
 /// Trip mode detected from movement patterns.
 enum BgTripMode { unknown, walking, vehicle }
@@ -301,8 +302,13 @@ class LocationStateMachine {
     try {
       int batteryLevel = 0;
       try {
-        batteryLevel = await _battery.batteryLevel;
-      } catch (_) {}
+        final infoService = ChildInfoService();
+        batteryLevel = await infoService.getBatteryPercentage();
+      } catch (_) {
+        try {
+          batteryLevel = await _battery.batteryLevel;
+        } catch (_) {}
+      }
 
       final formattedPoints = points
           .map(
