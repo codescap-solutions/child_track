@@ -859,6 +859,11 @@ class _SosViewContentState extends State<_SosViewContent> {
       },
       child: BlocBuilder<ChildBloc, ChildState>(
         builder: (context, state) {
+          final hasAccessibilityPermission = widget.hasAccessibilityPermission;
+          final hasLocationPermission = widget.hasLocationPermission;
+          final hasNotificationPermission = widget.hasNotificationPermission;
+          final hasBackgroundPermission = widget.hasBackgroundPermission;
+
           final sharedPrefsService = injector<SharedPrefsService>();
           final childCode = sharedPrefsService.getString('child_code') ?? '';
           final parentPhone =
