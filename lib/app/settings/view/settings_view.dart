@@ -733,17 +733,9 @@ class _SettingsViewState extends State<SettingsView> {
                 leading: const Icon(Icons.logout, color: Colors.red),
                 title: const Text('Logout'),
                 subtitle: const Text('Logout from the app'),
-                onTap: () async {
+                onTap: () {
                   Navigator.pop(context);
-                  await FirebaseNotificationService().removeTokenFromServer();
-                  injector<SharedPrefsService>().logout();
-                  if (context.mounted) {
-                    Navigator.pushNamedAndRemoveUntil(
-                      context,
-                      RouteNames.onBoarding,
-                      (route) => false,
-                    );
-                  }
+                  _showPremiumLogoutDialog(context);
                 },
               ),
               const SizedBox(height: 20),
@@ -751,6 +743,191 @@ class _SettingsViewState extends State<SettingsView> {
           ),
         );
       },
+    );
+  }
+
+  void _showPremiumLogoutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext dialogContext) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.08),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Premium Badge Icon with Gradient
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      colors: [Color(0xFF0066FF), Color(0xFF6F9EFF)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.workspace_premium_rounded,
+                    color: Colors.white,
+                    size: 32,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  'Unlock Premium Protection',
+                  style: GoogleFonts.manrope(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF0C1D37),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Logging out will disable real-time alerts and location updates. Upgrade to Premium to keep your child fully protected.',
+                  style: GoogleFonts.manrope(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w500,
+                    color: const Color(0xFF64748B),
+                    height: 1.4,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+                
+                // Bullet points of premium features
+                Column(
+                  children: [
+                    _buildDialogFeatureRow('Real-time location & geofencing'),
+                    const SizedBox(height: 10),
+                    _buildDialogFeatureRow('SOS emergency notification alerts'),
+                    const SizedBox(height: 10),
+                    _buildDialogFeatureRow('Advanced web filtering (Block 18+)'),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                
+                // Action Buttons
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0066FF),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      elevation: 0,
+                    ),
+                    onPressed: () {
+                      Navigator.pop(dialogContext); // Close modal
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const SubscriptionView(),
+                        ),
+                      );
+                    },
+                    child: Text(
+                      'Upgrade to Premium',
+                      style: GoogleFonts.manrope(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: TextButton(
+                    style: TextButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    onPressed: () async {
+                      Navigator.pop(dialogContext); // Close modal
+                      
+                      // Perform logout
+                      AppSnackbar.showLoading(context, 'Logging out...');
+                      await FirebaseNotificationService().removeTokenFromServer();
+                      injector<SharedPrefsService>().logout();
+                      
+                      if (context.mounted) {
+                        Navigator.pushNamedAndRemoveUntil(
+                          context,
+                          RouteNames.onBoarding,
+                          (route) => false,
+                        );
+                      }
+                    },
+                    child: Text(
+                      'Logout Anyway',
+                      style: GoogleFonts.manrope(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.redAccent,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDialogFeatureRow(String text) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(4),
+          decoration: const BoxDecoration(
+            color: Color(0xFFE0EDFF),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.check,
+            color: Color(0xFF0066FF),
+            size: 12,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            text,
+            style: GoogleFonts.manrope(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFF0C1D37),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
