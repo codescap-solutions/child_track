@@ -17,6 +17,7 @@ final class HomepageSuccess extends HomepageState {
   final bool hasNoChild;
   final bool webFilteringEnabled;
   final bool waitingForSilentSyncResponse;
+  final String? childAvatar;
   
   // New Visual Section models from updated HomeResponse
   final FeatureSummary? features;
@@ -45,6 +46,7 @@ final class HomepageSuccess extends HomepageState {
     this.hasNoChild = false,
     this.webFilteringEnabled = false,
     this.waitingForSilentSyncResponse = false,
+    this.childAvatar,
     this.features,
     this.todayRoute,
     this.screentimeToday,
@@ -71,6 +73,7 @@ final class HomepageSuccess extends HomepageState {
         hasNoChild: false,
         webFilteringEnabled: false,
         waitingForSilentSyncResponse: false,
+        childAvatar: null,
         features: null,
         todayRoute: null,
         screentimeToday: null,
@@ -96,6 +99,7 @@ final class HomepageSuccess extends HomepageState {
     hasNoChild,
     webFilteringEnabled,
     waitingForSilentSyncResponse,
+    if (childAvatar != null) childAvatar!,
     if (features != null) features!,
     if (todayRoute != null) todayRoute!,
     if (screentimeToday != null) screentimeToday!,
@@ -120,6 +124,7 @@ final class HomepageSuccess extends HomepageState {
     bool? hasNoChild,
     bool? webFilteringEnabled,
     bool? waitingForSilentSyncResponse,
+    String? childAvatar,
     FeatureSummary? features,
     RouteMapSummary? todayRoute,
     ScreentimeTodaySummary? screentimeToday,
@@ -143,6 +148,7 @@ final class HomepageSuccess extends HomepageState {
       hasNoChild: hasNoChild ?? this.hasNoChild,
       webFilteringEnabled: webFilteringEnabled ?? this.webFilteringEnabled,
       waitingForSilentSyncResponse: waitingForSilentSyncResponse ?? this.waitingForSilentSyncResponse,
+      childAvatar: childAvatar ?? this.childAvatar,
       features: features ?? this.features,
       todayRoute: todayRoute ?? this.todayRoute,
       screentimeToday: screentimeToday ?? this.screentimeToday,

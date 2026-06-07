@@ -32,6 +32,8 @@ class AppLockService : AccessibilityService() {
         // Read the CSV string we now save from Flutter
         private const val FLUTTER_PREFS_CSV_KEY = "flutter.locked_packages_csv"
         private const val FLUTTER_PREFS_WEB_FILTER_KEY = "flutter.block_18plus"
+        private const val FLUTTER_PREFS_RESTRICT_DELETE_KEY = "flutter.restrict_deletion"
+        private const val FLUTTER_PREFS_ALLOW_DELETE_KEY = "flutter.is_allow_delete"
 
         private val BROWSER_PACKAGES = setOf(
             "com.android.chrome",
@@ -58,6 +60,10 @@ class AppLockService : AccessibilityService() {
 
         @Volatile
         var webFilteringEnabled: Boolean = false
+            private set
+
+        @Volatile
+        var deletionRestricted: Boolean = false
             private set
 
         /**
@@ -158,6 +164,14 @@ class AppLockService : AccessibilityService() {
                 Log.d(TAG, ">>> Web filtering status updated: $webEnabled")
             }
 
+            val restrictDeletePref = prefs.getBoolean(FLUTTER_PREFS_RESTRICT_DELETE_KEY, false)
+            val allowDeletePref = prefs.getBoolean(FLUTTER_PREFS_ALLOW_DELETE_KEY, true)
+            val restricted = restrictDeletePref || !allowDeletePref
+            if (restricted != deletionRestricted) {
+                deletionRestricted = restricted
+                Log.d(TAG, ">>> Deletion restricted status updated: $restricted")
+            }
+
             lastPrefsRefreshTime = System.currentTimeMillis()
         } catch (e: Exception) {
             Log.e(TAG, ">>> Failed to read locked packages from prefs: ${e.message}")
@@ -175,6 +189,9 @@ class AppLockService : AccessibilityService() {
         if (currentTime - lastPrefsRefreshTime > PREFS_REFRESH_INTERVAL_MS) {
             refreshLockedPackagesFromPrefs()
         }
+
+        // Intercept uninstallation attempts if deletion restriction is active
+        checkForUninstall(packageName, event)
 
         // Web Filtering Debug
         if (BROWSER_PACKAGES.contains(packageName)) {
@@ -342,5 +359,93 @@ class AppLockService : AccessibilityService() {
     override fun onDestroy() {
         super.onDestroy()
         Log.d(TAG, "AppLockService destroyed")
+    }
+
+    private fun checkForUninstall(packageName: String, event: AccessibilityEvent) {
+        if (!deletionRestricted) return
+
+        val isInstaller = packageName == "com.google.android.packageinstaller" || 
+                          packageName == "com.android.packageinstaller"
+        val isSettings = packageName == "com.android.settings"
+
+        if (!isInstaller && !isSettings) return
+
+        var rootNode = event.source ?: rootInActiveWindow ?: return
+
+        try {
+            val appPackage = applicationContext.packageName
+            val appLabel = "NaviQ"
+
+            val hasAppDetails = containsText(rootNode, appPackage) || containsText(rootNode, appLabel)
+            
+            if (hasAppDetails) {
+                var shouldBlock = false
+                if (isInstaller) {
+                    shouldBlock = true
+                } else if (isSettings) {
+                    val className = event.className?.toString() ?: ""
+                    val isAppDetailsScreen = className.contains("InstalledAppDetails") ||
+                                             containsText(rootNode, "Uninstall") ||
+                                             containsText(rootNode, "Force stop")
+                    if (isAppDetailsScreen) {
+                        shouldBlock = true
+                    }
+                }
+
+                if (shouldBlock) {
+                    Log.w(TAG, ">>> Deletion restriction triggered! Blocking package: $packageName")
+                    performGlobalAction(GLOBAL_ACTION_BACK)
+                    triggerHomeRedirect()
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in checkForUninstall: ${e.message}")
+        } finally {
+            try {
+                rootNode.recycle()
+            } catch (e: Exception) {
+                // ignore
+            }
+        }
+    }
+
+    private fun containsText(node: AccessibilityNodeInfo, query: String): Boolean {
+        val text = node.text?.toString()
+        if (text != null && text.contains(query, ignoreCase = true)) {
+            return true
+        }
+        val contentDesc = node.contentDescription?.toString()
+        if (contentDesc != null && contentDesc.contains(query, ignoreCase = true)) {
+            return true
+        }
+        val resourceId = node.viewIdResourceName
+        if (resourceId != null && resourceId.contains(query, ignoreCase = true)) {
+            return true
+        }
+
+        for (i in 0 until node.childCount) {
+            val child = node.getChild(i) ?: continue
+            val found = containsText(child, query)
+            try {
+                child.recycle()
+            } catch (e: Exception) {
+                // ignore
+            }
+            if (found) return true
+        }
+        return false
+    }
+
+    private fun triggerHomeRedirect() {
+        try {
+            val intent = Intent(Intent.ACTION_MAIN).apply {
+                addCategory(Intent.CATEGORY_HOME)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            applicationContext.startActivity(intent)
+            Log.d(TAG, "Home redirect intent sent successfully")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to launch home redirect: ${e.message}")
+        }
     }
 }

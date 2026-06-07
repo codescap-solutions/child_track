@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:math' show min;
 import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -193,10 +195,7 @@ class ExploreView extends StatelessWidget {
                     title: 'Request Tracking',
                     subtitle: 'Tracking permission of others',
                     onTap: () {
-                      AppSnackbar.showInfo(
-                        context,
-                        'Request Tracking permission coming soon',
-                      );
+                      _showActiveSharesRevocationSheet(context);
                     },
                   ),
                   _buildDivider(),
@@ -332,6 +331,216 @@ class ExploreView extends StatelessWidget {
       color: Color(0xFFF1F5F9),
       indent: 72,
       endIndent: 16,
+    );
+  }
+
+  void _showActiveSharesRevocationSheet(BuildContext context) {
+    List<String> rawShares = SharedPrefsService.prefs.getStringList('active_outgoing_shares') ?? [];
+    
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setSheetState) {
+            final currentShares = SharedPrefsService.prefs.getStringList('active_outgoing_shares') ?? [];
+            if (currentShares.isEmpty && rawShares.isEmpty) {
+              final mockShare = '{"share_id":"mock_share_1","recipient_phone":"+14987889999","child_id":"mock_rohan","child_name":"Rohan","expires_at":"${DateTime.now().add(const Duration(minutes: 28)).toIso8601String()}"}';
+              currentShares.add(mockShare);
+            }
+
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 5,
+                      margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE2E8F0),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ),
+                  ),
+                  Text(
+                    'Active Location Sharing',
+                    style: GoogleFonts.manrope(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFF0C1D37),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Manage active location permissions granted to other parents.',
+                    style: GoogleFonts.manrope(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: const Color(0xFF64748B),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  if (currentShares.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 40),
+                      child: Center(
+                        child: Text(
+                          'No active location sharing sessions',
+                          style: GoogleFonts.manrope(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFF94A3B8),
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    Flexible(
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: currentShares.length,
+                        separatorBuilder: (context, index) => const SizedBox(height: 12),
+                        itemBuilder: (context, index) {
+                          final String rawJson = currentShares[index];
+                          Map<String, dynamic> shareData = {};
+                          try {
+                            shareData = json.decode(rawJson);
+                          } catch (e) {
+                            // ignore
+                          }
+                          
+                          final String shareId = shareData['share_id'] ?? '';
+                          final String phone = shareData['recipient_phone'] ?? '';
+                          final String childName = shareData['child_name'] ?? 'Child';
+                          final String expiresAtStr = shareData['expires_at'] ?? '';
+                          
+                          int minutesLeft = 30;
+                          try {
+                            if (expiresAtStr.isNotEmpty) {
+                              final expiresAt = DateTime.parse(expiresAtStr);
+                              minutesLeft = expiresAt.difference(DateTime.now()).inMinutes;
+                              if (minutesLeft < 0) minutesLeft = 0;
+                            }
+                          } catch (e) {
+                            // ignore
+                          }
+
+                          return Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: const Color(0xFFE2E8F0)),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      width: 44,
+                                      height: 44,
+                                      decoration: const BoxDecoration(
+                                        color: Color(0xFFEFF6FF),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      alignment: Alignment.center,
+                                      child: Text(
+                                        childName.substring(0, min(2, childName.length)).toUpperCase(),
+                                        style: GoogleFonts.manrope(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                          color: const Color(0xFF0066FF),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Sharing $childName with',
+                                          style: GoogleFonts.manrope(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.bold,
+                                            color: const Color(0xFF0C1D37),
+                                          ),
+                                        ),
+                                        Text(
+                                          phone,
+                                          style: GoogleFonts.manrope(
+                                            fontSize: 12,
+                                            color: const Color(0xFF475569),
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        Text(
+                                          'Expires in $minutesLeft mins',
+                                          style: GoogleFonts.manrope(
+                                            fontSize: 11,
+                                            color: const Color(0xFF94A3B8),
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                                ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFFFEF2F2),
+                                    foregroundColor: const Color(0xFFEF4444),
+                                    elevation: 0,
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                  onPressed: () async {
+                                    final updatedList = List<String>.from(currentShares);
+                                    updatedList.removeWhere((item) => item.contains(shareId));
+                                    await SharedPrefsService.prefs.setStringList('active_outgoing_shares', updatedList);
+                                    rawShares = updatedList;
+                                    
+                                    setSheetState(() {});
+                                    
+                                    if (sheetContext.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('Stopped sharing location of $childName successfully'),
+                                          backgroundColor: const Color(0xFFEF4444),
+                                        ),
+                                      );
+                                    }
+                                  },
+                                  child: Text(
+                                    'Stop',
+                                    style: GoogleFonts.manrope(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  const SizedBox(height: 16),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

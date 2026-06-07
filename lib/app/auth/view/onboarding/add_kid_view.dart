@@ -10,6 +10,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:child_track/core/constants/app_colors.dart';
 import 'package:child_track/core/constants/app_sizes.dart';
 import 'package:child_track/core/widgets/common_textfield.dart';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
 
 class AddKidView extends StatefulWidget {
   const AddKidView({super.key});
@@ -27,7 +29,17 @@ class _AddKidViewState extends State<AddKidView> {
   bool _isLoading = false;
 
   // Selected avatar state (Boy 1 as default)
-  String _selectedAvatar = '👦';
+  String _selectedAvatar = 'assets/images/childavatar/Boy 03.png';
+  File? _customAvatarFile;
+
+  final List<String> _presetAvatars = [
+    'assets/images/childavatar/Boy 03.png',
+    'assets/images/childavatar/Boy 12.png',
+    'assets/images/childavatar/Boy 16.png',
+    'assets/images/childavatar/Girl 01.png',
+    'assets/images/childavatar/Girl 12.png',
+    'assets/images/childavatar/Girl 13.png',
+  ];
 
   // Selected travel mode state (Van as default)
   String _selectedTravelMode = '🚐';
@@ -37,10 +49,23 @@ class _AddKidViewState extends State<AddKidView> {
   String? _selectedMonth;
 
   // Static options matching Figma
-  final List<int> _years = List.generate(18, (index) => DateTime.now().year - index);
+  final List<int> _years = List.generate(
+    18,
+    (index) => DateTime.now().year - index,
+  );
   final List<String> _months = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
   ];
 
   @override
@@ -56,10 +81,7 @@ class _AddKidViewState extends State<AddKidView> {
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [
-              Color(0xFFFBFCFE),
-              Color(0xFFEDF4FE),
-            ],
+            colors: [Color(0xFFFBFCFE), Color(0xFFEDF4FE)],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
@@ -120,7 +142,9 @@ class _AddKidViewState extends State<AddKidView> {
           ),
         ),
         const Spacer(),
-        const SizedBox(width: 48), // Align text to center by balancing the Back button size
+        const SizedBox(
+          width: 48,
+        ), // Align text to center by balancing the Back button size
       ],
     );
   }
@@ -159,8 +183,31 @@ class _AddKidViewState extends State<AddKidView> {
     );
   }
 
+  Future<void> _pickImage() async {
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 512,
+        maxHeight: 512,
+        imageQuality: 85,
+      );
+
+      if (image != null) {
+        setState(() {
+          _customAvatarFile = File(image.path);
+          _selectedAvatar = '+'; // Indicates custom avatar is selected
+        });
+      }
+    } catch (e) {
+      AppLogger.error('Error picking image: $e');
+      if (context.mounted) {
+        AppSnackbar.showError(context, 'Failed to pick image');
+      }
+    }
+  }
+
   Widget _buildAvatarSelector() {
-    final avatars = ['👦', '👧', '👧🏻', '+'];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -173,41 +220,94 @@ class _AddKidViewState extends State<AddKidView> {
           ),
         ),
         const SizedBox(height: 12),
-        Row(
-          children: avatars.map((avatar) {
-            final isSelected = _selectedAvatar == avatar;
-            final isAddButton = avatar == '+';
-            return Padding(
-              padding: const EdgeInsets.only(right: 16),
-              child: GestureDetector(
-                onTap: () {
-                  if (isAddButton) {
-                    AppSnackbar.showInfo(context, 'Custom avatar uploads coming soon!');
-                  } else {
-                    setState(() {
-                      _selectedAvatar = avatar;
-                    });
-                  }
-                },
-                child: Container(
-                  width: 52,
-                  height: 52,
-                  decoration: BoxDecoration(
-                    color: isSelected ? const Color(0xFF0066FF).withValues(alpha: 0.1) : Colors.white,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: isSelected ? const Color(0xFF0066FF) : AppColors.borderColor,
-                      width: isSelected ? 2.5 : 1.5,
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          child: Row(
+            children: [
+              ..._presetAvatars.map((avatar) {
+                final isSelected =
+                    _selectedAvatar == avatar && _customAvatarFile == null;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _selectedAvatar = avatar;
+                        _customAvatarFile = null;
+                      });
+                    },
+                    child: Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? const Color(0xFF0066FF).withValues(alpha: 0.1)
+                            : Colors.white,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: isSelected
+                              ? const Color(0xFF0066FF)
+                              : AppColors.borderColor,
+                          width: isSelected ? 2.5 : 1.5,
+                        ),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(4.0),
+                        child: ClipOval(
+                          child: Image.asset(avatar, fit: BoxFit.cover),
+                        ),
+                      ),
                     ),
                   ),
-                  alignment: Alignment.center,
-                  child: isAddButton
-                      ? const Icon(Icons.add_rounded, color: Color(0xFF7C8BA0), size: 24)
-                      : Text(avatar, style: const TextStyle(fontSize: 26)),
+                );
+              }),
+              // Add Custom Button / Selected Custom Image
+              Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: GestureDetector(
+                  onTap: _pickImage,
+                  child: Builder(
+                    builder: (context) {
+                      final hasCustom = _customAvatarFile != null;
+                      final isSelected = _selectedAvatar == '+' && hasCustom;
+                      return Container(
+                        width: 56,
+                        height: 56,
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? const Color(0xFF0066FF).withValues(alpha: 0.1)
+                              : Colors.white,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: isSelected
+                                ? const Color(0xFF0066FF)
+                                : AppColors.borderColor,
+                            width: isSelected ? 2.5 : 1.5,
+                          ),
+                        ),
+                        child: hasCustom
+                            ? Padding(
+                                padding: const EdgeInsets.all(4.0),
+                                child: ClipOval(
+                                  child: Image.file(
+                                    _customAvatarFile!,
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                              )
+                            : const Icon(
+                                Icons.add_a_photo_outlined,
+                                color: Color(0xFF7C8BA0),
+                                size: 20,
+                              ),
+                      );
+                    },
+                  ),
                 ),
               ),
-            );
-          }).toList(),
+            ],
+          ),
         ),
       ],
     );
@@ -240,7 +340,10 @@ class _AddKidViewState extends State<AddKidView> {
           controller: _nameController,
           hintText: 'Enter child name',
           keyboardType: TextInputType.name,
-          prefixIcon: const Icon(Icons.person_outline_rounded, color: Color(0xFF7C8BA0)),
+          prefixIcon: const Icon(
+            Icons.person_outline_rounded,
+            color: Color(0xFF7C8BA0),
+          ),
           validator: (value) {
             if (value == null || value.isEmpty) {
               return 'Please enter child name';
@@ -275,22 +378,35 @@ class _AddKidViewState extends State<AddKidView> {
                         color: const Color(0xFF7C8BA0),
                       ),
                     ),
-                    icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF7C8BA0)),
+                    icon: const Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color: Color(0xFF7C8BA0),
+                    ),
                     decoration: InputDecoration(
                       filled: true,
                       fillColor: Colors.white,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
-                        borderSide: const BorderSide(color: AppColors.borderColor),
+                        borderSide: const BorderSide(
+                          color: AppColors.borderColor,
+                        ),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
-                        borderSide: const BorderSide(color: AppColors.borderColor),
+                        borderSide: const BorderSide(
+                          color: AppColors.borderColor,
+                        ),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
-                        borderSide: const BorderSide(color: Color(0xFF0066FF), width: 2),
+                        borderSide: const BorderSide(
+                          color: Color(0xFF0066FF),
+                          width: 2,
+                        ),
                       ),
                     ),
                     style: GoogleFonts.poppins(
@@ -338,22 +454,35 @@ class _AddKidViewState extends State<AddKidView> {
                         color: const Color(0xFF7C8BA0),
                       ),
                     ),
-                    icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF7C8BA0)),
+                    icon: const Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color: Color(0xFF7C8BA0),
+                    ),
                     decoration: InputDecoration(
                       filled: true,
                       fillColor: Colors.white,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
-                        borderSide: const BorderSide(color: AppColors.borderColor),
+                        borderSide: const BorderSide(
+                          color: AppColors.borderColor,
+                        ),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
-                        borderSide: const BorderSide(color: AppColors.borderColor),
+                        borderSide: const BorderSide(
+                          color: AppColors.borderColor,
+                        ),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
-                        borderSide: const BorderSide(color: Color(0xFF0066FF), width: 2),
+                        borderSide: const BorderSide(
+                          color: Color(0xFF0066FF),
+                          width: 2,
+                        ),
                       ),
                     ),
                     style: GoogleFonts.poppins(
@@ -420,10 +549,14 @@ class _AddKidViewState extends State<AddKidView> {
                 width: 62,
                 height: 72,
                 decoration: BoxDecoration(
-                  color: isSelected ? const Color(0xFF0066FF).withValues(alpha: 0.05) : Colors.white,
+                  color: isSelected
+                      ? const Color(0xFF0066FF).withValues(alpha: 0.05)
+                      : Colors.white,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: isSelected ? const Color(0xFF0066FF) : AppColors.borderColor,
+                    color: isSelected
+                        ? const Color(0xFF0066FF)
+                        : AppColors.borderColor,
                     width: isSelected ? 2.0 : 1.0,
                   ),
                 ),
@@ -436,8 +569,12 @@ class _AddKidViewState extends State<AddKidView> {
                       label,
                       style: GoogleFonts.manrope(
                         fontSize: 12,
-                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                        color: isSelected ? const Color(0xFF0066FF) : const Color(0xFF62748E),
+                        fontWeight: isSelected
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                        color: isSelected
+                            ? const Color(0xFF0066FF)
+                            : const Color(0xFF62748E),
                       ),
                     ),
                   ],
@@ -525,10 +662,28 @@ class _AddKidViewState extends State<AddKidView> {
           travelOption = 'Van';
       }
 
+      String? avatarValue;
+
+      if (_customAvatarFile != null) {
+        final uploadResponse = await _childRepo.uploadAvatar(_customAvatarFile!);
+        if (uploadResponse.isSuccess && uploadResponse.data != null) {
+          avatarValue = uploadResponse.data;
+        } else {
+          if (context.mounted) {
+            AppSnackbar.showError(context, uploadResponse.message.isEmpty ? 'Failed to upload avatar' : uploadResponse.message);
+            setState(() => _isLoading = false);
+          }
+          return;
+        }
+      } else {
+        avatarValue = _selectedAvatar.split('/').last;
+      }
+
       final response = await _childRepo.createChild(
         name: name,
         age: age,
         travelOption: travelOption,
+        avatar: avatarValue,
       );
 
       if (response.isSuccess && response.data != null) {
@@ -538,58 +693,63 @@ class _AddKidViewState extends State<AddKidView> {
 
         if (childId != null) {
           await _sharedPrefsService.setString('child_id', childId);
-          final currentCount = _sharedPrefsService.getInt('children_count') ?? 0;
+          final currentCount =
+              _sharedPrefsService.getInt('children_count') ?? 0;
           await _sharedPrefsService.setInt('children_count', currentCount + 1);
 
           if (childCode != null) {
             await _sharedPrefsService.setString('child_code', childCode);
 
             AppLogger.info('Linking child to parent with code: $childCode');
-            final linkResponse = await _homeRepo.linkChild(childCode: childCode);
-            
+            final linkResponse = await _homeRepo.linkChild(
+              childCode: childCode,
+            );
+
             if (linkResponse.isSuccess) {
               AppLogger.info('Child linked to parent successfully');
             } else {
-              AppLogger.warning('Failed to link child to parent: ${linkResponse.message}');
+              AppLogger.warning(
+                'Failed to link child to parent: ${linkResponse.message}',
+              );
             }
           }
 
-          AppLogger.info('Child created successfully. ID: $childId, Code: $childCode');
+          AppLogger.info(
+            'Child created successfully. ID: $childId, Code: $childCode',
+          );
 
-          if (mounted && childCode != null) {
+          if (context.mounted && childCode != null) {
             Navigator.of(context).pushReplacementNamed(
               RouteNames.childCode,
-              arguments: {
-                'childCode': childCode,
-                'childId': childId,
-              },
+              arguments: {'childCode': childCode, 'childId': childId},
             );
-          } else if (mounted) {
-            Navigator.of(context).pushNamedAndRemoveUntil(
-              RouteNames.home,
-              (route) => false,
-            );
+          } else if (context.mounted) {
+            Navigator.of(
+              context,
+            ).pushNamedAndRemoveUntil(RouteNames.home, (route) => false);
           }
         } else {
-          if (mounted) {
+          if (context.mounted) {
             AppSnackbar.showError(context, 'Child ID not received');
           }
         }
       } else {
-        if (mounted) {
+        if (context.mounted) {
           AppSnackbar.showError(context, response.message);
         }
       }
     } catch (e) {
       AppLogger.error('Error creating child: ${e.toString()}');
-      if (mounted) {
-        AppSnackbar.showError(context, 'Failed to create child: ${e.toString()}');
+      if (context.mounted) {
+        AppSnackbar.showError(
+          context,
+          'Failed to create child: ${e.toString()}',
+        );
       }
     } finally {
-      if (mounted) {
+      if (context.mounted) {
         setState(() => _isLoading = false);
       }
     }
   }
 }
-

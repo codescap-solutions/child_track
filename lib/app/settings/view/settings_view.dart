@@ -17,15 +17,11 @@ import 'package:share_plus/share_plus.dart';
 import 'package:child_track/core/services/csv_file_logger.dart';
 import 'account_view.dart';
 import 'devices_view.dart';
-import 'widgets/section_card.dart';
-import 'widgets/setting_tile.dart';
 import 'notification_settings_view.dart';
 import 'subscription_view.dart';
-import '../../addplace/add_and_saveplace.dart';
 import '../../chat/view/chat_screen.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../chat/view_model/bloc/chat_bloc.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class SettingsView extends StatefulWidget {
@@ -75,6 +71,14 @@ class _SettingsViewState extends State<SettingsView> {
       if (response.isSuccess && response.data != null) {
         setState(() => _block18Plus = response.data!);
         await _sharedPrefsService.setBool('block_18plus', response.data!);
+      }
+
+      final restrictRes = await injector<HomeRepository>().getDeletionRestrictionStatus(
+        childId: _currentChildId!,
+      );
+      if (restrictRes.isSuccess && restrictRes.data != null) {
+        setState(() => _restrictDeletion = restrictRes.data!);
+        await _sharedPrefsService.setBool('restrict_deletion', restrictRes.data!);
       }
     }
   }
@@ -179,6 +183,20 @@ class _SettingsViewState extends State<SettingsView> {
                         activeColor: const Color(0xFF22C55E),
                         value: _restrictDeletion,
                         onChanged: (value) async {
+                          if (_currentChildId != null) {
+                            final response = await injector<HomeRepository>()
+                                .updateDeletionRestriction(
+                                  childId: _currentChildId!,
+                                  enabled: value,
+                                );
+                            if (!response.isSuccess) {
+                              AppSnackbar.showError(
+                                context,
+                                'Failed to update restriction: ${response.message}',
+                              );
+                              return;
+                            }
+                          }
                           await _sharedPrefsService.setBool(
                             'restrict_deletion',
                             value,
@@ -613,7 +631,7 @@ class _SettingsViewState extends State<SettingsView> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) {
+      builder: (sheetContext) {
         return SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -636,7 +654,7 @@ class _SettingsViewState extends State<SettingsView> {
                 title: const Text('Chat with Support'),
                 subtitle: const Text('Real-time assistance'),
                 onTap: () {
-                  Navigator.pop(context);
+                  Navigator.pop(sheetContext);
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -661,7 +679,7 @@ class _SettingsViewState extends State<SettingsView> {
                 title: const Text('Email Support'),
                 subtitle: const Text('info.truenyx@gmail.com'),
                 onTap: () {
-                  Navigator.pop(context);
+                  Navigator.pop(sheetContext);
                   _launchContactUrl(
                     Uri(scheme: 'mailto', path: 'info.truenyx@gmail.com'),
                   );
@@ -676,7 +694,7 @@ class _SettingsViewState extends State<SettingsView> {
                 title: const Text('Call Support'),
                 subtitle: const Text('+91 90371 62751'),
                 onTap: () {
-                  Navigator.pop(context);
+                  Navigator.pop(sheetContext);
                   _launchContactUrl(Uri(scheme: 'tel', path: '+919037162751'));
                 },
               ),
@@ -694,7 +712,7 @@ class _SettingsViewState extends State<SettingsView> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) {
+      builder: (sheetContext) {
         return SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -714,7 +732,7 @@ class _SettingsViewState extends State<SettingsView> {
                 title: const Text('Share Background Logs'),
                 subtitle: const Text('Export CSV logs for debugging'),
                 onTap: () {
-                  Navigator.pop(context);
+                  Navigator.pop(sheetContext);
                   _shareLogs(context);
                 },
               ),
@@ -724,7 +742,7 @@ class _SettingsViewState extends State<SettingsView> {
                 title: const Text('Delete Account'),
                 subtitle: const Text('Permanently delete your account'),
                 onTap: () {
-                  Navigator.pop(context);
+                  Navigator.pop(sheetContext);
                   _showDeleteAccountDialog(context);
                 },
               ),
@@ -734,7 +752,7 @@ class _SettingsViewState extends State<SettingsView> {
                 title: const Text('Logout'),
                 subtitle: const Text('Logout from the app'),
                 onTap: () {
-                  Navigator.pop(context);
+                  Navigator.pop(sheetContext);
                   _showPremiumLogoutDialog(context);
                 },
               ),
@@ -868,20 +886,31 @@ class _SettingsViewState extends State<SettingsView> {
                       ),
                     ),
                     onPressed: () async {
+                      final navigator = Navigator.of(context);
                       Navigator.pop(dialogContext); // Close modal
                       
                       // Perform logout
                       AppSnackbar.showLoading(context, 'Logging out...');
-                      await FirebaseNotificationService().removeTokenFromServer();
-                      injector<SharedPrefsService>().logout();
                       
-                      if (context.mounted) {
-                        Navigator.pushNamedAndRemoveUntil(
-                          context,
-                          RouteNames.onBoarding,
-                          (route) => false,
+                      try {
+                        await FirebaseNotificationService().removeTokenFromServer().timeout(
+                          const Duration(seconds: 4),
+                          onTimeout: () {
+                            AppLogger.warning('removeTokenFromServer timed out');
+                          },
                         );
+                      } catch (e) {
+                        AppLogger.error('Failed to remove token: $e');
                       }
+                      
+                      await injector<SharedPrefsService>().logout();
+                      
+                      AppSnackbar.hideLoading(context);
+                      
+                      navigator.pushNamedAndRemoveUntil(
+                        RouteNames.onBoarding,
+                        (route) => false,
+                      );
                     },
                     child: Text(
                       'Logout Anyway',

@@ -483,14 +483,13 @@ class _ChildLocationDetailViewState extends State<ChildLocationDetailView> {
               _buildActivityTodayCard(context, trip),
               const SizedBox(height: AppSizes.spacingM),
 
-              // ScreentimeCard
-              if (cards?.screentimeYesterday != null)
-                _buildScreentimeCard(context, cards!.screentimeYesterday),
-              const SizedBox(height: AppSizes.spacingM),
+              // // ScreentimeCard
+              // if (cards?.screentimeYesterday != null)
+              //   _buildScreentimeCard(context, cards!.screentimeYesterday),
+              // const SizedBox(height: AppSizes.spacingM),
 
-              // Infinite Real-Time Tracking Card
-              _buildInfiniteTrackingCard(),
-
+              // // Infinite Real-Time Tracking Card
+              // _buildInfiniteTrackingCard(),
               const SizedBox(height: AppSizes.spacingXL),
             ],
           ),
@@ -536,14 +535,17 @@ class _ChildLocationDetailViewState extends State<ChildLocationDetailView> {
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildActivityMetric(
-                          '${trip.distanceKm} km',
-                          'Distance',
+                        Expanded(
+                          child: _buildActivityMetric(
+                            '${trip.distanceKm} km',
+                            'Distance',
+                          ),
                         ),
-                        const SizedBox(width: AppSizes.spacingS),
-                        _buildActivityMetric(
-                          '${trip.durationMinutes} min',
-                          'Duration',
+                        Expanded(
+                          child: _buildActivityMetric(
+                            '${trip.durationMinutes} min',
+                            'Duration',
+                          ),
                         ),
                       ],
                     ),
@@ -552,17 +554,19 @@ class _ChildLocationDetailViewState extends State<ChildLocationDetailView> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
-                          child: _RouteRenderer(
-                            startPlace: trip.startPlace,
-                            endPlace: trip.endPlace,
-                            startLocation: trip.startLocation,
-                            endLocation: trip.endLocation,
+                          child: _buildActivityMetric(
+                            trip.endPlace.isNotEmpty
+                                ? trip.endPlace
+                                : trip.startPlace,
+                            'Route',
+                            isRoute: true,
                           ),
                         ),
-                        const SizedBox(width: AppSizes.spacingS),
-                        _buildActivityMetric(
-                          '${trip.maxSpeedKmph} km/h',
-                          'Max Speed',
+                        Expanded(
+                          child: _buildActivityMetric(
+                            '${trip.maxSpeedKmph} km/h',
+                            'Max Speed',
+                          ),
                         ),
                       ],
                     ),
@@ -591,10 +595,11 @@ class _ChildLocationDetailViewState extends State<ChildLocationDetailView> {
                           ),
                         ),
                         Text(
-                          '${trip.progress}%',
-                          style: AppTextStyles.subtitle1.copyWith(
+                          '${trip.progress.toDouble().toStringAsFixed(1)}%',
+                          style: AppTextStyles.caption.copyWith(
                             fontWeight: FontWeight.bold,
                             color: AppColors.primaryColor,
+                            fontSize: 11,
                           ),
                         ),
                       ],
@@ -617,30 +622,37 @@ class _ChildLocationDetailViewState extends State<ChildLocationDetailView> {
           ),
           const SizedBox(height: AppSizes.spacingM),
           Divider(color: AppColors.borderColor, thickness: 1),
+          const SizedBox(height: AppSizes.spacingXS),
           Row(
             children: [
-              Text(
-                'Track your child\'s weekly progress\nand get personalized growth tips!',
-                style: AppTextStyles.caption.copyWith(
-                  color: AppColors.textSecondary,
+              Expanded(
+                child: Text(
+                  'Track your child\'s weekly progress\nand get personalized growth tips!',
+                  style: AppTextStyles.caption.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
                 ),
               ),
-              const Spacer(),
-              Align(
-                alignment: Alignment.centerRight,
-                child: SizedBox(
-                  width: 78,
-                  height: 27,
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const TripsView()),
+              const SizedBox(width: AppSizes.spacingS),
+              SizedBox(
+                height: 32,
+                child: OutlinedButton(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const TripsView()),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: AppColors.textPrimary),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AppColors.textPrimary),
-                      padding: const EdgeInsets.symmetric(),
+                  ),
+                  child: Text(
+                    'View all',
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.textPrimary,
                     ),
-                    child: Text('View all', style: AppTextStyles.caption),
                   ),
                 ),
               ),
@@ -662,209 +674,208 @@ class _ChildLocationDetailViewState extends State<ChildLocationDetailView> {
       children: [
         Text(
           value,
-          style: AppTextStyles.subtitle1.copyWith(
+          style: AppTextStyles.subtitle2.copyWith(
             color: AppColors.primaryColor,
-            fontWeight: FontWeight.bold,
-            fontSize: 12,
+            fontWeight: FontWeight.w500,
           ),
           maxLines: isRoute ? 2 : 1,
           overflow: TextOverflow.ellipsis,
         ),
-        const SizedBox(width: AppSizes.spacingXS),
+        const SizedBox(height: 2), // Fixed width to height for Column
         Text(
           label,
-
           style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary),
         ),
       ],
     );
   }
 
-  // Screentime Card
-  Widget _buildScreentimeCard(BuildContext context, ScreenTimeCard card) {
-    final double hours = card.totalSeconds / 3600;
-    String timeText;
-    if (hours >= 1) {
-      timeText = '${hours.toStringAsFixed(1)}hrs';
-    } else {
-      final double minutes = card.totalSeconds / 60;
-      if (card.totalSeconds > 0 && minutes < 1) {
-        timeText = '< 1 min';
-      } else {
-        timeText = '${minutes.toStringAsFixed(0)}min';
-      }
-    }
+  // // Screentime Card
+  // Widget _buildScreentimeCard(BuildContext context, ScreenTimeCard card) {
+  //   final double hours = card.totalSeconds / 3600;
+  //   String timeText;
+  //   if (hours >= 1) {
+  //     timeText = '${hours.toStringAsFixed(1)}hrs';
+  //   } else {
+  //     final double minutes = card.totalSeconds / 60;
+  //     if (card.totalSeconds > 0 && minutes < 1) {
+  //       timeText = '< 1 min';
+  //     } else {
+  //       timeText = '${minutes.toStringAsFixed(0)}min';
+  //     }
+  //   }
 
-    return Container(
-      // margin: const EdgeInsets.symmetric(horizontal: AppSizes.paddingL),
-      padding: const EdgeInsets.all(AppSizes.paddingM),
-      decoration: BoxDecoration(
-        color: AppColors.primaryColor.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(AppSizes.radiusL),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: AppColors.surfaceColor,
-              borderRadius: BorderRadius.circular(AppSizes.radiusM),
-            ),
-            child: const Icon(
-              Icons.grid_view,
-              color: AppColors.primaryColor,
-              size: 24,
-            ),
-          ),
-          const SizedBox(width: AppSizes.spacingXS),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '$timeText of screentime',
-                  style: AppTextStyles.subtitle1.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(width: 2),
-                Row(
-                  children: [
-                    // App icons placeholder
-                    Container(
-                      width: 15,
-                      height: 15,
-                      decoration: BoxDecoration(
-                        color: AppColors.success,
-                        borderRadius: BorderRadius.circular(AppSizes.radiusS),
-                      ),
-                    ),
-                    const SizedBox(width: 2),
-                    Container(
-                      width: 15,
-                      height: 15,
-                      decoration: BoxDecoration(
-                        color: AppColors.error,
-                        borderRadius: BorderRadius.circular(AppSizes.radiusS),
-                      ),
-                    ),
-                    const SizedBox(width: 2),
-                    Container(
-                      width: 15,
-                      height: 15,
-                      decoration: BoxDecoration(
-                        color: AppColors.warning,
-                        borderRadius: BorderRadius.circular(AppSizes.radiusS),
-                      ),
-                    ),
-                    const SizedBox(width: 2),
-                    Container(
-                      width: 15,
-                      height: 15,
-                      decoration: BoxDecoration(
-                        color: AppColors.info,
-                        borderRadius: BorderRadius.circular(AppSizes.radiusS),
-                      ),
-                    ),
-                    const SizedBox(width: AppSizes.spacingXS),
-                    Text(
-                      'and more yesterday',
-                      style: AppTextStyles.caption.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          CommonButton(
-            padding: EdgeInsets.zero,
-            width: 70,
-            text: 'View all',
-            fontSize: 12,
-            textColor: AppColors.surfaceColor,
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const TripsView()),
-            ),
-            height: 26,
-          ),
-        ],
-      ),
-    );
-  }
+  //   return Container(
+  //     // margin: const EdgeInsets.symmetric(horizontal: AppSizes.paddingL),
+  //     padding: const EdgeInsets.all(AppSizes.paddingM),
+  //     decoration: BoxDecoration(
+  //       color: AppColors.primaryColor.withValues(alpha: 0.1),
+  //       borderRadius: BorderRadius.circular(AppSizes.radiusL),
+  //     ),
+  //     child: Row(
+  //       children: [
+  //         Container(
+  //           width: 48,
+  //           height: 48,
+  //           decoration: BoxDecoration(
+  //             color: AppColors.surfaceColor,
+  //             borderRadius: BorderRadius.circular(AppSizes.radiusM),
+  //           ),
+  //           child: const Icon(
+  //             Icons.grid_view,
+  //             color: AppColors.primaryColor,
+  //             size: 24,
+  //           ),
+  //         ),
+  //         const SizedBox(width: AppSizes.spacingXS),
+  //         Expanded(
+  //           child: Column(
+  //             crossAxisAlignment: CrossAxisAlignment.start,
+  //             children: [
+  //               Text(
+  //                 '$timeText of screentime',
+  //                 style: AppTextStyles.subtitle1.copyWith(
+  //                   fontWeight: FontWeight.bold,
+  //                 ),
+  //               ),
+  //               const SizedBox(width: 2),
+  //               Row(
+  //                 children: [
+  //                   // App icons placeholder
+  //                   Container(
+  //                     width: 15,
+  //                     height: 15,
+  //                     decoration: BoxDecoration(
+  //                       color: AppColors.success,
+  //                       borderRadius: BorderRadius.circular(AppSizes.radiusS),
+  //                     ),
+  //                   ),
+  //                   const SizedBox(width: 2),
+  //                   Container(
+  //                     width: 15,
+  //                     height: 15,
+  //                     decoration: BoxDecoration(
+  //                       color: AppColors.error,
+  //                       borderRadius: BorderRadius.circular(AppSizes.radiusS),
+  //                     ),
+  //                   ),
+  //                   const SizedBox(width: 2),
+  //                   Container(
+  //                     width: 15,
+  //                     height: 15,
+  //                     decoration: BoxDecoration(
+  //                       color: AppColors.warning,
+  //                       borderRadius: BorderRadius.circular(AppSizes.radiusS),
+  //                     ),
+  //                   ),
+  //                   const SizedBox(width: 2),
+  //                   Container(
+  //                     width: 15,
+  //                     height: 15,
+  //                     decoration: BoxDecoration(
+  //                       color: AppColors.info,
+  //                       borderRadius: BorderRadius.circular(AppSizes.radiusS),
+  //                     ),
+  //                   ),
+  //                   const SizedBox(width: AppSizes.spacingXS),
+  //                   Text(
+  //                     'and more yesterday',
+  //                     style: AppTextStyles.caption.copyWith(
+  //                       color: AppColors.textSecondary,
+  //                     ),
+  //                   ),
+  //                 ],
+  //               ),
+  //             ],
+  //           ),
+  //         ),
+  //         CommonButton(
+  //           padding: EdgeInsets.zero,
+  //           width: 70,
+  //           text: 'View all',
+  //           fontSize: 12,
+  //           textColor: AppColors.surfaceColor,
+  //           onPressed: () => Navigator.push(
+  //             context,
+  //             MaterialPageRoute(builder: (_) => const TripsView()),
+  //           ),
+  //           height: 26,
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
 
   // Infinite Real-Time Tracking Card (Bottom)
-  Widget _buildInfiniteTrackingCard() {
-    return Container(
-      // margin: const EdgeInsets.all(AppSizes.paddingL),
-      padding: const EdgeInsets.all(AppSizes.paddingL),
-      decoration: BoxDecoration(
-        color: AppColors.primaryColor.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(AppSizes.radiusL),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'INFINITE REAL-TIME TRACKING',
-            style: AppTextStyles.subtitle1.copyWith(
-              fontWeight: FontWeight.bold,
-              color: AppColors.primaryColor,
-            ),
-          ),
-          const SizedBox(height: AppSizes.spacingM),
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: List.generate(
-                    4,
-                    (index) => Padding(
-                      padding: const EdgeInsets.only(
-                        bottom: AppSizes.spacingXS,
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.check_circle,
-                            size: 16,
-                            color: AppColors.primaryColor,
-                          ),
-                          const SizedBox(width: AppSizes.spacingXS),
-                          Text(
-                            'Unlimited Updated, just for you',
-                            style: AppTextStyles.caption,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              // Gift box placeholder
-              Container(
-                width: 60,
-                height: 60,
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceColor,
-                  borderRadius: BorderRadius.circular(AppSizes.radiusM),
-                ),
-                child: const Icon(
-                  Icons.card_giftcard,
-                  color: AppColors.primaryColor,
-                  size: 32,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
+  //   Widget _buildInfiniteTrackingCard() {
+  //     return Container(
+  //       // margin: const EdgeInsets.all(AppSizes.paddingL),
+  //       padding: const EdgeInsets.all(AppSizes.paddingL),
+  //       decoration: BoxDecoration(
+  //         color: AppColors.primaryColor.withValues(alpha: 0.1),
+  //         borderRadius: BorderRadius.circular(AppSizes.radiusL),
+  //       ),
+  //       child: Column(
+  //         crossAxisAlignment: CrossAxisAlignment.start,
+  //         children: [
+  //           Text(
+  //             'INFINITE REAL-TIME TRACKING',
+  //             style: AppTextStyles.subtitle1.copyWith(
+  //               fontWeight: FontWeight.bold,
+  //               color: AppColors.primaryColor,
+  //             ),
+  //           ),
+  //           const SizedBox(height: AppSizes.spacingM),
+  //           Row(
+  //             children: [
+  //               Expanded(
+  //                 child: Column(
+  //                   crossAxisAlignment: CrossAxisAlignment.start,
+  //                   children: List.generate(
+  //                     4,
+  //                     (index) => Padding(
+  //                       padding: const EdgeInsets.only(
+  //                         bottom: AppSizes.spacingXS,
+  //                       ),
+  //                       child: Row(
+  //                         children: [
+  //                           Icon(
+  //                             Icons.check_circle,
+  //                             size: 16,
+  //                             color: AppColors.primaryColor,
+  //                           ),
+  //                           const SizedBox(width: AppSizes.spacingXS),
+  //                           Text(
+  //                             'Unlimited Updated, just for you',
+  //                             style: AppTextStyles.caption,
+  //                           ),
+  //                         ],
+  //                       ),
+  //                     ),
+  //                   ),
+  //                 ),
+  //               ),
+  //               // Gift box placeholder
+  //               Container(
+  //                 width: 60,
+  //                 height: 60,
+  //                 decoration: BoxDecoration(
+  //                   color: AppColors.surfaceColor,
+  //                   borderRadius: BorderRadius.circular(AppSizes.radiusM),
+  //                 ),
+  //                 child: const Icon(
+  //                   Icons.card_giftcard,
+  //                   color: AppColors.primaryColor,
+  //                   size: 32,
+  //                 ),
+  //               ),
+  //             ],
+  //           ),
+  //         ],
+  //       ),
+  //     );
+  //   }
+  // }
 }
 
 class _RouteRenderer extends StatefulWidget {

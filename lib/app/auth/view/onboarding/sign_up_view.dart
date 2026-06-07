@@ -4,7 +4,7 @@ import 'package:child_track/core/constants/app_sizes.dart';
 import 'package:child_track/core/constants/app_text_styles.dart';
 import 'package:child_track/core/widgets/common_button.dart';
 import 'package:child_track/core/widgets/common_textfield.dart';
-import 'sign_in_view.dart';
+import '../login_screen.dart';
 
 class SignUpView extends StatefulWidget {
   const SignUpView({super.key});
@@ -127,7 +127,7 @@ class _SignUpViewState extends State<SignUpView> {
                     GestureDetector(
                       onTap: () => Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const SignInView()),
+                        MaterialPageRoute(builder: (_) => const LoginScreen()),
                       ),
                       child: const Text(
                         'Sign In',

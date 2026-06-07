@@ -6,6 +6,7 @@ import 'package:child_track/core/constants/app_text_styles.dart';
 class SettingTile extends StatelessWidget {
   final Widget leading;
   final String title;
+  final Color? titleColor;
   final String? subtitle;
   final Widget? trailing;
   final VoidCallback? onTap;
@@ -13,6 +14,7 @@ class SettingTile extends StatelessWidget {
     super.key,
     required this.leading,
     required this.title,
+    this.titleColor,
     this.subtitle,
     this.trailing,
     this.onTap,
@@ -33,7 +35,12 @@ class SettingTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: AppTextStyles.subtitle2),
+                  Text(
+                    title,
+                    style: titleColor != null
+                        ? AppTextStyles.subtitle2.copyWith(color: titleColor)
+                        : AppTextStyles.subtitle2,
+                  ),
                   if (subtitle != null) ...[
                     const SizedBox(height: 2),
                     Text(

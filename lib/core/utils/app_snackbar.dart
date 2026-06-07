@@ -11,16 +11,16 @@ class AppSnackbar {
           style: const TextStyle(color: AppColors.surfaceColor),
         ),
         backgroundColor: AppColors.success,
-        duration: const Duration(seconds: 3),
+        duration: const Duration(seconds: 2),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        action: SnackBarAction(
-          label: AppStrings.ok,
-          textColor: AppColors.surfaceColor,
-          onPressed: () {
-            ScaffoldMessenger.of(context).hideCurrentSnackBar();
-          },
-        ),
+        // action: SnackBarAction(
+        //   label: AppStrings.ok,
+        //   textColor: AppColors.surfaceColor,
+        //   onPressed: () {
+        //     ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        //   },
+        // ),
       ),
     );
   }
@@ -33,7 +33,7 @@ class AppSnackbar {
           style: const TextStyle(color: AppColors.surfaceColor),
         ),
         backgroundColor: AppColors.error,
-        duration: const Duration(seconds: 4),
+        duration: const Duration(seconds: 2),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         action: SnackBarAction(
@@ -55,7 +55,7 @@ class AppSnackbar {
           style: const TextStyle(color: AppColors.surfaceColor),
         ),
         backgroundColor: AppColors.warning,
-        duration: const Duration(seconds: 3),
+        duration: const Duration(seconds: 2),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         action: SnackBarAction(
@@ -77,16 +77,16 @@ class AppSnackbar {
           style: const TextStyle(color: AppColors.surfaceColor),
         ),
         backgroundColor: AppColors.info,
-        duration: const Duration(seconds: 3),
+        duration: const Duration(seconds: 2),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        action: SnackBarAction(
-          label: AppStrings.ok,
-          textColor: AppColors.surfaceColor,
-          onPressed: () {
-            ScaffoldMessenger.of(context).hideCurrentSnackBar();
-          },
-        ),
+        // action: SnackBarAction(
+        //   label: AppStrings.ok,
+        //   textColor: AppColors.surfaceColor,
+        //   onPressed: () {
+        //     ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        //   },
+        // ),
       ),
     );
   }
@@ -119,5 +119,9 @@ class AppSnackbar {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
+  }
+
+  static void hideLoading(BuildContext context) {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
   }
 }

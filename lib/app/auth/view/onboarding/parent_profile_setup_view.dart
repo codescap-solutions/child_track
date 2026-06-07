@@ -1,8 +1,15 @@
-import 'package:child_track/app/auth/view/onboarding/sign_in_view.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:child_track/core/constants/app_colors.dart';
 import 'package:child_track/core/constants/app_sizes.dart';
+import 'package:child_track/core/widgets/common_textfield.dart';
+import 'package:child_track/core/di/injector.dart';
+import 'package:child_track/app/auth/view_model/bloc/auth_bloc.dart';
+import 'package:child_track/app/auth/view_model/bloc/auth_event.dart';
+import 'package:child_track/app/auth/view_model/bloc/auth_state.dart';
+import 'package:child_track/core/utils/app_snackbar.dart';
+import 'package:child_track/app/auth/view/onboarding/add_kid_view.dart';
 
 class ParentProfileSetupView extends StatefulWidget {
   final String phoneNumber;
@@ -23,10 +30,52 @@ class _ParentProfileSetupViewState extends State<ParentProfileSetupView> {
   // Step 2 Selection: About Your Lifestyle
   int _selectedLifestyleIndex = -1;
 
+  // Step 2 Name Form Key & Controller
+  final _lifestyleFormKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController.addListener(_onNameChanged);
+  }
+
+  void _onNameChanged() {
+    setState(() {});
+  }
+
   @override
   void dispose() {
     _pageController.dispose();
+    _nameController.removeListener(_onNameChanged);
+    _nameController.dispose();
     super.dispose();
+  }
+
+  String _getParentingSituationValue(int index) {
+    switch (index) {
+      case 0:
+        return 'co_parenting';
+      case 1:
+        return 'single_mom';
+      case 2:
+        return 'single_dad';
+      case 3:
+        return 'guardian';
+      default:
+        return 'co_parenting';
+    }
+  }
+
+  String _getParentRoutineValue(int index) {
+    switch (index) {
+      case 0:
+        return 'homemaker';
+      case 1:
+        return 'working_parent';
+      default:
+        return 'homemaker';
+    }
   }
 
   void _nextStep() {
@@ -41,12 +90,20 @@ class _ParentProfileSetupViewState extends State<ParentProfileSetupView> {
       );
     } else {
       if (_selectedLifestyleIndex == -1) return;
-      // Complete flow: navigate to SignInView
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => SignInView(phoneNumber: widget.phoneNumber),
-        ),
-      );
+      if (_lifestyleFormKey.currentState?.validate() ?? false) {
+        final name = _nameController.text.trim();
+        final parentingSituation = _getParentingSituationValue(_selectedFamilyStructureIndex);
+        final parentRoutine = _getParentRoutineValue(_selectedLifestyleIndex);
+        
+        context.read<AuthBloc>().add(
+          RegisterUser(
+            phoneNumber: widget.phoneNumber,
+            name: name,
+            parentingSituation: parentingSituation,
+            parentRoutine: parentRoutine,
+          ),
+        );
+      }
     }
   }
 
@@ -70,43 +127,59 @@ class _ParentProfileSetupViewState extends State<ParentProfileSetupView> {
   Widget build(BuildContext context) {
     final bool isContinueEnabled = _currentStep == 0
         ? _selectedFamilyStructureIndex != -1
-        : _selectedLifestyleIndex != -1;
+        : (_selectedLifestyleIndex != -1 && _nameController.text.trim().length >= 2);
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              Color(0xFFFBFCFE),
-              Color(0xFFEDF4FE),
-            ],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: AppSizes.spacingS),
-              _buildCustomAppBar(),
-              _buildProgressBar(),
-              Expanded(
-                child: PageView(
-                  controller: _pageController,
-                  physics: const NeverScrollableScrollPhysics(),
-                  children: [
-                    _buildFamilyStructureStep(),
-                    _buildLifestyleStep(),
-                  ],
-                ),
+    return BlocProvider.value(
+      value: injector<AuthBloc>(),
+      child: BlocListener<AuthBloc, AuthState>(
+        listener: (context, state) {
+          if (state is AuthSuccess) {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (_) => const AddKidView(),
               ),
-              Padding(
-                padding: const EdgeInsets.all(AppSizes.paddingL),
-                child: _buildContinueButton(isContinueEnabled),
+            );
+          } else if (state is AuthError) {
+            AppSnackbar.showError(context, state.message);
+          }
+        },
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          body: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Color(0xFFFBFCFE),
+                  Color(0xFFEDF4FE),
+                ],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
               ),
-            ],
+            ),
+            child: SafeArea(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SizedBox(height: AppSizes.spacingS),
+                  _buildCustomAppBar(),
+                  _buildProgressBar(),
+                  Expanded(
+                    child: PageView(
+                      controller: _pageController,
+                      physics: const NeverScrollableScrollPhysics(),
+                      children: [
+                        _buildFamilyStructureStep(),
+                        _buildLifestyleStep(),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(AppSizes.paddingL),
+                    child: _buildContinueButton(isContinueEnabled),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -281,108 +354,153 @@ class _ParentProfileSetupViewState extends State<ParentProfileSetupView> {
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: AppSizes.paddingL),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: AppSizes.spacingM),
-          Text(
-            'About Your Lifestyle',
-            style: GoogleFonts.poppins(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: const Color(0xFF0066FF),
+      child: Form(
+        key: _lifestyleFormKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: AppSizes.spacingM),
+            Text(
+              'About Your Lifestyle',
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF0066FF),
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'What best describes your daily routine?',
-            style: GoogleFonts.oswald(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: const Color(0xFF1D293C),
+            const SizedBox(height: 8),
+            Text(
+              'What best describes your daily routine?',
+              style: GoogleFonts.oswald(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: const Color(0xFF1D293C),
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'This helps us personalise your notification schedule and safety alerts.',
-            style: GoogleFonts.manrope(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: const Color(0xFF62748E),
+            const SizedBox(height: 8),
+            Text(
+              'This helps us personalise your notification schedule and safety alerts.',
+              style: GoogleFonts.manrope(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: const Color(0xFF62748E),
+              ),
             ),
-          ),
-          const SizedBox(height: AppSizes.spacingXL),
-          ParentOptionCard(
-            emoji: '🏠',
-            title: 'Homemaker Parent',
-            subtitle: "You're at home full-time — the heart of the household.",
-            badgeText: 'Full-time caregiver',
-            badgeColor: const Color(0xFFFFEAD5),
-            badgeTextColor: const Color(0xFFD35F00),
-            detailText: "We'll set up home-zone alerts & routine check-ins tailored to your day.",
-            tipText: '💡 Homemaker parents are often the first responders in their household. SafeNest helps you stay aware without hovering — giving you peace of mind while letting kids build independence.',
-            themeColor: const Color(0xFFD35F00),
-            stat1Value: '76%',
-            stat1Label: 'feel safer with real-time location awareness',
-            stat2Value: '3×',
-            stat2Label: 'faster response to unexpected departures',
-            isSelected: _selectedLifestyleIndex == 0,
-            onTap: () {
-              setState(() {
-                _selectedLifestyleIndex = 0;
-              });
-            },
-          ),
-          const SizedBox(height: 16),
-          ParentOptionCard(
-            emoji: '💼',
-            title: 'Working Parent',
-            subtitle: 'You balance a career while raising your children every day.',
-            badgeText: 'Career + family',
-            badgeColor: const Color(0xFFE8DDFC),
-            badgeTextColor: const Color(0xFF7A4AF6),
-            detailText: 'Priority alerts between meetings & school hours — no noise, just what matters.',
-            tipText: '💡 Working parents often feel the tension between being present at work and being present for their kids. SafeNest bridges that gap with smart, quiet alerts — only buzzing when it truly matters.',
-            themeColor: const Color(0xFF7A4AF6),
-            stat1Value: '8×',
-            stat1Label: 'average daily location checks by working parents',
-            stat2Value: '62%',
-            stat2Label: 'report reduced work-day anxiety about child safety',
-            isSelected: _selectedLifestyleIndex == 1,
-            onTap: () {
-              setState(() {
-                _selectedLifestyleIndex = 1;
-              });
-            },
-          ),
-          const SizedBox(height: AppSizes.spacingL),
-        ],
+            const SizedBox(height: AppSizes.spacingXL),
+            Text(
+              'Parent Name',
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF1D293C),
+              ),
+            ),
+            const SizedBox(height: 8),
+            CommonTextField(
+              controller: _nameController,
+              hintText: 'Enter parent name',
+              prefixIcon: const Icon(
+                Icons.person_outline_rounded,
+                color: Color(0xFF7C8BA0),
+              ),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Please enter your name';
+                }
+                if (value.trim().length < 2) {
+                  return 'Name must be at least 2 characters';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: AppSizes.spacingXL),
+            ParentOptionCard(
+              emoji: '🏠',
+              title: 'Homemaker Parent',
+              subtitle: "You're at home full-time — the heart of the household.",
+              badgeText: 'Full-time caregiver',
+              badgeColor: const Color(0xFFFFEAD5),
+              badgeTextColor: const Color(0xFFD35F00),
+              detailText: "We'll set up home-zone alerts & routine check-ins tailored to your day.",
+              tipText: '💡 Homemaker parents are often the first responders in their household. SafeNest helps you stay aware without hovering — giving you peace of mind while letting kids build independence.',
+              themeColor: const Color(0xFFD35F00),
+              stat1Value: '76%',
+              stat1Label: 'feel safer with real-time location awareness',
+              stat2Value: '3×',
+              stat2Label: 'faster response to unexpected departures',
+              isSelected: _selectedLifestyleIndex == 0,
+              onTap: () {
+                setState(() {
+                  _selectedLifestyleIndex = 0;
+                });
+              },
+            ),
+            const SizedBox(height: 16),
+            ParentOptionCard(
+              emoji: '💼',
+              title: 'Working Parent',
+              subtitle: 'You balance a career while raising your children every day.',
+              badgeText: 'Career + family',
+              badgeColor: const Color(0xFFE8DDFC),
+              badgeTextColor: const Color(0xFF7A4AF6),
+              detailText: 'Priority alerts between meetings & school hours — no noise, just what matters.',
+              tipText: '💡 Working parents often feel the tension between being present at work and being present for their kids. SafeNest bridges that gap with smart, quiet alerts — only buzzing when it truly matters.',
+              themeColor: const Color(0xFF7A4AF6),
+              stat1Value: '8×',
+              stat1Label: 'average daily location checks by working parents',
+              stat2Value: '62%',
+              stat2Label: 'report reduced work-day anxiety about child safety',
+              isSelected: _selectedLifestyleIndex == 1,
+              onTap: () {
+                setState(() {
+                  _selectedLifestyleIndex = 1;
+                });
+              },
+            ),
+            const SizedBox(height: AppSizes.spacingL),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildContinueButton(bool isEnabled) {
-    return InkWell(
-      onTap: isEnabled ? _nextStep : null,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        height: 60,
-        decoration: BoxDecoration(
-          color: isEnabled
-              ? const Color(0xFF0066FF)
-              : const Color(0xFF0066FF).withValues(alpha: 0.5),
+    return BlocBuilder<AuthBloc, AuthState>(
+      builder: (context, state) {
+        final isLoading = state is AuthLoading;
+        final bool shouldDisable = !isEnabled || isLoading;
+        return InkWell(
+          onTap: shouldDisable ? null : _nextStep,
           borderRadius: BorderRadius.circular(16),
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          'Continue',
-          style: GoogleFonts.poppins(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: Colors.white,
+          child: Container(
+            height: 60,
+            decoration: BoxDecoration(
+              color: shouldDisable
+                  ? const Color(0xFF0066FF).withValues(alpha: 0.5)
+                  : const Color(0xFF0066FF),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            alignment: Alignment.center,
+            child: isLoading
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2.5,
+                    ),
+                  )
+                : Text(
+                    _currentStep == 0 ? 'Continue' : 'Register',
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

@@ -12,6 +12,7 @@ class ApiEndpoints {
   //child Endpoints
   static const String childLogin = 'child/login';
   static const String createChild = 'child/create';
+  static const String uploadAvatar = 'child/upload-avatar';
   static const String postDeviceInfo = 'child/device-status';
   static const String postLocation = 'child/location';
   static const String postActivity = 'child/activity';
@@ -24,6 +25,7 @@ class ApiEndpoints {
   static const String getDeviceStatus = 'parent/device-status';
   static const String getScreenTime = 'parent/screentime';
   static const String getTrips = 'parent/trips';
+  static const String parentChildren = 'parent/children';
   static const String linkChild = 'parent/link-child';
   static String getTripDetail(String tripId) => 'parent/trip/$tripId';
   static String postTripLocation(String childId) =>
@@ -57,6 +59,7 @@ class ApiEndpoints {
   // Settings endpoints
   static const String updateChildSettings = 'parent/child-settings';
   static const String webFilter = 'parent/web-filter';
+  static const String restrictDeletion = 'parent/restrict-deletion';
 
   // Chat Endpoints
   static const String chat = 'chat';

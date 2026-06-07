@@ -146,6 +146,9 @@ class CreateGeofenceRequest extends Equatable {
   final double latitude;
   final double longitude;
   final bool isLocked;
+  final bool alertOnEntry;
+  final bool alertOnExit;
+  final bool alertIfIdle;
 
   const CreateGeofenceRequest({
     required this.name,
@@ -156,6 +159,9 @@ class CreateGeofenceRequest extends Equatable {
     required this.latitude,
     required this.longitude,
     this.isLocked = false,
+    this.alertOnEntry = true,
+    this.alertOnExit = true,
+    this.alertIfIdle = false,
   });
 
   Map<String, dynamic> toJson() {
@@ -166,6 +172,11 @@ class CreateGeofenceRequest extends Equatable {
       'children': [childId], // Passed childId inside children array
       'address': {'latitude': latitude, 'longitude': longitude},
       'isLocked': isLocked,
+      'alerts': {
+        'alertOnEntry': alertOnEntry,
+        'alertOnExit': alertOnExit,
+        'alertIfIdle': alertIfIdle,
+      },
     };
   }
 
@@ -179,6 +190,9 @@ class CreateGeofenceRequest extends Equatable {
     latitude,
     longitude,
     isLocked,
+    alertOnEntry,
+    alertOnExit,
+    alertIfIdle,
   ];
 }
 
@@ -188,6 +202,9 @@ class UpdateGeofenceRequest extends Equatable {
   final int? radius;
   final double? latitude;
   final double? longitude;
+  final bool? alertOnEntry;
+  final bool? alertOnExit;
+  final bool? alertIfIdle;
 
   const UpdateGeofenceRequest({
     this.name,
@@ -195,6 +212,9 @@ class UpdateGeofenceRequest extends Equatable {
     this.radius,
     this.latitude,
     this.longitude,
+    this.alertOnEntry,
+    this.alertOnExit,
+    this.alertIfIdle,
   });
 
   Map<String, dynamic> toJson() {
@@ -207,11 +227,26 @@ class UpdateGeofenceRequest extends Equatable {
       if (latitude != null) data['address']['latitude'] = latitude;
       if (longitude != null) data['address']['longitude'] = longitude;
     }
+    if (alertOnEntry != null || alertOnExit != null || alertIfIdle != null) {
+      data['alerts'] = {};
+      if (alertOnEntry != null) data['alerts']['alertOnEntry'] = alertOnEntry;
+      if (alertOnExit != null) data['alerts']['alertOnExit'] = alertOnExit;
+      if (alertIfIdle != null) data['alerts']['alertIfIdle'] = alertIfIdle;
+    }
     return data;
   }
 
   @override
-  List<Object?> get props => [name, category, radius, latitude, longitude];
+  List<Object?> get props => [
+    name,
+    category,
+    radius,
+    latitude,
+    longitude,
+    alertOnEntry,
+    alertOnExit,
+    alertIfIdle,
+  ];
 }
 
 class PlaceAutocompleteResult extends Equatable {

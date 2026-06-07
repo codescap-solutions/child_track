@@ -204,10 +204,17 @@ class AuthRepository extends BaseService {
   Future<BaseResponse> registerUser({
     required String phoneNumber,
     required String name,
+    required String parentingSituation,
+    required String parentRoutine,
     Map<String, dynamic>? address,
   }) async {
     try {
-      final data = <String, dynamic>{'phoneNumber': phoneNumber, 'name': name};
+      final data = <String, dynamic>{
+        'phoneNumber': phoneNumber,
+        'name': name,
+        'parentingSituation': parentingSituation,
+        'parentRoutine': parentRoutine,
+      };
 
       if (address != null) {
         data['address'] = address;

@@ -20,6 +20,7 @@ class RouteNames {
   // Location Routes
   static const String locationHistory = '/location-history';
   static const String liveTracking = '/live-tracking';
+  static const String childLocationDetail = '/child-location-detail';
 
   // App Lock Routes
   static const String appBlocked = '/app-blocked';

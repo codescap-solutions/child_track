@@ -177,14 +177,14 @@ class _TripDetailViewState extends State<TripDetailView> {
 
                           const SizedBox(height: AppSizes.spacingL),
                           _buildTimelineItem(
-                            icon: Icons.home,
+                            icon: _getIconForPlace(widget.trip.startPlace),
                             title: widget.trip.startPlace,
                             time: widget.trip.startTime,
                             color: AppColors.primaryColor,
                             position: widget.markers.first.position,
                           ),
                           _buildTimelineItem(
-                            icon: Icons.school,
+                            icon: _getIconForPlace(widget.trip.endPlace),
                             title: widget.trip.endPlace,
                             time: widget.trip.endTime,
                             color: AppColors.success,
@@ -272,6 +272,41 @@ class _TripDetailViewState extends State<TripDetailView> {
   }
 
   // Timeline Item Widget
+  IconData _getIconForPlace(String placeName) {
+    final name = placeName.toLowerCase();
+    if (name.contains('school') ||
+        name.contains('college') ||
+        name.contains('university')) {
+      return Icons.school;
+    } else if (name.contains('home') ||
+        name.contains('house') ||
+        name.contains('apartment')) {
+      return Icons.home;
+    } else if (name.contains('work') ||
+        name.contains('office') ||
+        name.contains('business')) {
+      return Icons.work;
+    } else if (name.contains('park') || name.contains('playground')) {
+      return Icons.park;
+    } else if (name.contains('store') ||
+        name.contains('shop') ||
+        name.contains('mall') ||
+        name.contains('market')) {
+      return Icons.store;
+    } else if (name.contains('gym') || name.contains('fitness')) {
+      return Icons.fitness_center;
+    } else if (name.contains('hospital') ||
+        name.contains('clinic') ||
+        name.contains('doctor')) {
+      return Icons.local_hospital;
+    } else if (name.contains('restaurant') ||
+        name.contains('cafe') ||
+        name.contains('food')) {
+      return Icons.restaurant;
+    }
+    return Icons.location_on;
+  }
+
   Widget _buildTimelineItem({
     required IconData icon,
     required String title,

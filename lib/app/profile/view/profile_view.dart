@@ -7,15 +7,14 @@ import 'package:child_track/core/di/injector.dart';
 import 'package:child_track/core/utils/app_snackbar.dart';
 import 'package:child_track/core/models/child_profile.dart';
 import 'package:child_track/app/home/view_model/bloc/homepage_bloc.dart';
+import 'package:child_track/app/home/view_model/home_repo.dart';
+import 'package:child_track/app/auth/view/onboarding/add_kid_view.dart';
 import 'widgets/profile_form.dart';
 
 class ProfileView extends StatefulWidget {
   final VoidCallback onNavigateToHome;
 
-  const ProfileView({
-    super.key,
-    required this.onNavigateToHome,
-  });
+  const ProfileView({super.key, required this.onNavigateToHome});
 
   @override
   State<ProfileView> createState() => _ProfileViewState();
@@ -32,51 +31,59 @@ class _ProfileViewState extends State<ProfileView> {
     _loadChildren();
   }
 
-  void _loadChildren() {
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
+  Future<void> _loadChildren() async {
     final list = _sharedPrefsService.getChildren();
-    if (list.isEmpty) {
-      // Initialize with mock kids for high-fidelity demo mapping
-      final mockAnanya = ChildProfile(
-        childId: 'ananya_mock_id',
-        childCode: 'ANANYA123',
-        childName: 'Ananya Pandey',
-        authToken: 'mock_token_ananya',
-        lastActiveAt: DateTime.now(),
-      );
-      final mockRohan = ChildProfile(
-        childId: 'rohan_mock_id',
-        childCode: 'ROHAN123',
-        childName: 'Rohan Sharma',
-        authToken: 'mock_token_rohan',
-        lastActiveAt: DateTime.now().subtract(const Duration(hours: 2)),
-      );
-      _sharedPrefsService.saveChildren([mockAnanya, mockRohan]);
-      setState(() {
-        _children = [mockAnanya, mockRohan];
-      });
-      // Set default active if not set
-      if (_sharedPrefsService.getString('child_id') == null) {
-        _sharedPrefsService.setString('child_id', 'ananya_mock_id');
-        _sharedPrefsService.setString('child_name', 'Ananya Pandey');
+    setState(() {
+      _children = list;
+    });
+
+    try {
+      final repo = injector<HomeRepository>();
+      final response = await repo.getChildrenProfiles();
+      
+      if (response.isSuccess && response.data != null) {
+        final List<dynamic> data = response.data!;
+        final apiChildren = data.map((json) {
+          final apiChild = ChildProfile.fromMap(json as Map<String, dynamic>);
+          final existingIdx = list.indexWhere((c) => c.childId == apiChild.childId);
+          if (existingIdx != -1) {
+            return apiChild.copyWith(authToken: list[existingIdx].authToken);
+          }
+          return apiChild;
+        }).toList();
+        
+        await _sharedPrefsService.saveChildren(apiChildren);
+        
+        if (mounted) {
+          setState(() {
+            _children = apiChildren;
+          });
+        }
       }
-    } else {
-      setState(() {
-        _children = list;
-      });
+    } catch (e) {
+      // Ignore errors, we already displayed the local cache
     }
   }
 
   Future<void> _setActiveChild(ChildProfile child) async {
     // 1. Switch child profile identity in local preferences
     await _sharedPrefsService.switchChild(child.childId);
-    
+
     // 2. Fetch fresh homepage data/sockets for the newly selected child
     injector<HomepageBloc>().add(GetHomepageData());
 
     setState(() {});
 
     if (mounted) {
-      AppSnackbar.showSuccess(context, 'Switched active profile to ${child.childName}');
+      AppSnackbar.showSuccess(
+        context,
+        'Switched active profile to ${child.childName}',
+      );
       // Return to home map tab after brief delay
       Future.delayed(const Duration(milliseconds: 300), () {
         widget.onNavigateToHome();
@@ -127,16 +134,24 @@ class _ProfileViewState extends State<ProfileView> {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.delete_outline_rounded, color: Colors.red),
-                title: Text('Delete profile of ${child.childName}', style: const TextStyle(color: Colors.red)),
+                leading: const Icon(
+                  Icons.delete_outline_rounded,
+                  color: Colors.red,
+                ),
+                title: Text(
+                  'Delete profile of ${child.childName}',
+                  style: const TextStyle(color: Colors.red),
+                ),
                 onTap: () async {
                   Navigator.pop(context);
                   final list = _sharedPrefsService.getChildren();
                   list.removeWhere((c) => c.childId == child.childId);
                   await _sharedPrefsService.saveChildren(list);
-                  
+
                   // If we deleted the active child, switch to another child or clear
-                  final activeChildId = _sharedPrefsService.getString('child_id');
+                  final activeChildId = _sharedPrefsService.getString(
+                    'child_id',
+                  );
                   if (activeChildId == child.childId) {
                     if (list.isNotEmpty) {
                       await _sharedPrefsService.switchChild(list.first.childId);
@@ -146,10 +161,13 @@ class _ProfileViewState extends State<ProfileView> {
                       await _sharedPrefsService.setString('child_name', '');
                     }
                   }
-                  
+
                   _loadChildren();
-                  if (mounted) {
-                    AppSnackbar.showInfo(context, 'Profile of ${child.childName} deleted');
+                  if (context.mounted) {
+                    AppSnackbar.showInfo(
+                      context,
+                      'Profile of ${child.childName} deleted',
+                    );
                   }
                 },
               ),
@@ -208,26 +226,11 @@ class _ProfileViewState extends State<ProfileView> {
               padding: const EdgeInsets.only(right: 16.0),
               child: GestureDetector(
                 onTap: () async {
-                  final added = await Navigator.push<bool>(
+                  await Navigator.push(
                     context,
-                    MaterialPageRoute(
-                      builder: (_) => Scaffold(
-                        appBar: AppBar(
-                          title: const Text('Add Profile'),
-                          backgroundColor: const Color(0xFF48546A),
-                        ),
-                        body: const SafeArea(
-                          child: SingleChildScrollView(
-                            padding: EdgeInsets.all(20),
-                            child: ProfileForm(isEdit: false),
-                          ),
-                        ),
-                      ),
-                    ),
+                    MaterialPageRoute(builder: (_) => const AddKidView()),
                   );
-                  if (added == true) {
-                    _loadChildren();
-                  }
+                  _loadChildren();
                 },
                 child: Container(
                   width: 40,
@@ -263,17 +266,25 @@ class _ProfileViewState extends State<ProfileView> {
                 activeScreenTime = '02 hrs';
               }
             }
-            if (state.yesterdayTripSummary != null && state.yesterdayTripSummary!.maxSpeedKmph > 0) {
-              activeAvgSpeed = '${state.yesterdayTripSummary!.maxSpeedKmph.toStringAsFixed(0)} km/hr';
+            if (state.yesterdayTripSummary != null &&
+                state.yesterdayTripSummary!.maxSpeedKmph > 0) {
+              activeAvgSpeed =
+                  '${state.yesterdayTripSummary!.maxSpeedKmph.toStringAsFixed(0)} km/hr';
             }
-            if (state.todayRoute != null && state.todayRoute!.totalDistanceKm > 0) {
-              activeEntireRoute = '${state.todayRoute!.totalDistanceKm.toStringAsFixed(1)} km';
+            if (state.todayRoute != null &&
+                state.todayRoute!.totalDistanceKm > 0) {
+              activeEntireRoute =
+                  '${state.todayRoute!.totalDistanceKm.toStringAsFixed(1)} km';
             }
+          }
+
+          if (_children.isEmpty) {
+            return SafeArea(child: _buildEmptyState());
           }
 
           return SafeArea(
             child: ListView.builder(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.symmetric(vertical: 16),
               itemCount: _children.length,
               itemBuilder: (context, index) {
                 final child = _children[index];
@@ -286,23 +297,45 @@ class _ProfileViewState extends State<ProfileView> {
                 } else if (child.childName.contains('Rohan')) {
                   status = 'at home since 03:15 pm';
                 } else {
-                  status = isActive ? 'online & tracking' : 'last active: just now';
+                  status = isActive
+                      ? 'online & tracking'
+                      : 'last active: just now';
                 }
 
                 // Stats calculation
-                String screenTime = isActive ? activeScreenTime : (child.childName.contains('Rohan') ? '01 hrs' : '00 hrs');
-                String avgSpeed = isActive ? activeAvgSpeed : (child.childName.contains('Rohan') ? '42 km/hr' : '0 km/hr');
-                String entireRoute = isActive ? activeEntireRoute : (child.childName.contains('Rohan') ? '18.3 km' : '0.0 km');
+                String screenTime = isActive
+                    ? activeScreenTime
+                    : (child.childName.contains('Rohan')
+                        ? '01 hrs'
+                        : '00 hrs');
+                String avgSpeed = isActive
+                    ? activeAvgSpeed
+                    : (child.childName.contains('Rohan')
+                        ? '42 km/hr'
+                        : '0 km/hr');
+                String entireRoute = isActive
+                    ? activeEntireRoute
+                    : (child.childName.contains('Rohan')
+                        ? '18.3 km'
+                        : '0.0 km');
 
-                return _buildProfileCard(
-                  name: child.childName,
-                  status: status,
-                  screenTime: screenTime,
-                  avgSpeed: avgSpeed,
-                  entireRoute: entireRoute,
-                  isActive: isActive,
-                  onTap: () => _setActiveChild(child),
-                  onMorePressed: () => _showMoreActions(child),
+                return Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24.0,
+                    vertical: 8.0,
+                  ),
+                  child: _buildProfileCard(
+                    name: child.childName,
+                    childCode: child.childCode,
+                    avatar: child.avatar,
+                    status: status,
+                    screenTime: screenTime,
+                    avgSpeed: avgSpeed,
+                    entireRoute: entireRoute,
+                    isActive: isActive,
+                    onTap: () => _setActiveChild(child),
+                    onMorePressed: () => _showMoreActions(child),
+                  ),
                 );
               },
             ),
@@ -314,6 +347,8 @@ class _ProfileViewState extends State<ProfileView> {
 
   Widget _buildProfileCard({
     required String name,
+    required String childCode,
+    required String? avatar,
     required String status,
     required String screenTime,
     required String avgSpeed,
@@ -428,76 +463,38 @@ class _ProfileViewState extends State<ProfileView> {
                       ),
                     ),
                   ),
-                  // Avatar & Carousels & Text info
+                  // Avatar & Text info
                   Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         const SizedBox(height: 20),
-                        // Avatar Row with chevron indicators
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(
-                              width: 32,
-                              height: 32,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.2),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                CupertinoIcons.chevron_left,
-                                color: Colors.white,
-                                size: 14,
-                              ),
-                            ),
-                            const SizedBox(width: 24),
-                            // Profile Avatar image/placeholder
-                            GestureDetector(
-                              onTap: onTap,
-                              child: Container(
-                                width: 88,
-                                height: 88,
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  shape: BoxShape.circle,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.1),
-                                      blurRadius: 10,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ],
-                                ),
-                                child: Center(
-                                  child: Icon(
-                                    Icons.person_rounded,
-                                    color: Colors.blue.shade300,
-                                    size: 48,
+                        // Profile Avatar image/placeholder
+                        GestureDetector(
+                          onTap: onTap,
+                          child: Container(
+                            width: 88,
+                            height: 88,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(
+                                    alpha: 0.1,
                                   ),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
                                 ),
-                              ),
+                              ],
                             ),
-                            const SizedBox(width: 24),
-                            Container(
-                              width: 32,
-                              height: 32,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.2),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                CupertinoIcons.chevron_right,
-                                color: Colors.white,
-                                size: 14,
-                              ),
-                            ),
-                          ],
+                            child: _buildAvatarWidget(avatar),
+                          ),
                         ),
                         const SizedBox(height: 12),
                         // Name text
                         Text(
-                          name,
+                          '$name ($childCode)',
                           style: GoogleFonts.manrope(
                             fontSize: 20,
                             fontWeight: FontWeight.w800,
@@ -515,38 +512,6 @@ class _ProfileViewState extends State<ProfileView> {
                           ),
                         ),
                         const SizedBox(height: 12),
-                        // Page indicator dots
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(
-                              width: 16,
-                              height: 4,
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(2),
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Container(
-                              width: 4,
-                              height: 4,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.5),
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Container(
-                              width: 4,
-                              height: 4,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.5),
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                          ],
-                        ),
                       ],
                     ),
                   ),
@@ -558,9 +523,7 @@ class _ProfileViewState extends State<ProfileView> {
               onTap: onTap,
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                ),
+                decoration: const BoxDecoration(color: Colors.white),
                 child: Row(
                   children: [
                     Expanded(
@@ -615,11 +578,7 @@ class _ProfileViewState extends State<ProfileView> {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              icon,
-              color: const Color(0xFF0C1D37),
-              size: 16,
-            ),
+            Icon(icon, color: const Color(0xFF0C1D37), size: 16),
             const SizedBox(width: 6),
             Text(
               value,
@@ -641,6 +600,129 @@ class _ProfileViewState extends State<ProfileView> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildAvatarWidget(String? avatar) {
+    if (avatar == null || avatar.isEmpty) {
+      return Center(
+        child: Icon(
+          Icons.person_rounded,
+          color: Colors.blue.shade300,
+          size: 48,
+        ),
+      );
+    }
+    if (avatar.startsWith('http')) {
+      return ClipOval(
+        child: Image.network(
+          avatar,
+          width: 88,
+          height: 88,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) =>
+              Icon(Icons.person_rounded, color: Colors.blue.shade300, size: 48),
+        ),
+      );
+    }
+
+    final isPng =
+        avatar.endsWith('.png') ||
+        avatar.contains('Boy') ||
+        avatar.contains('Girl');
+    final finalPath = isPng
+        ? 'assets/images/childavatar/${avatar.replaceAll('.svg', '.png')}'
+        : 'assets/images/childavatar/$avatar';
+
+    return ClipOval(
+      child: Image.asset(
+        finalPath,
+        width: 88,
+        height: 88,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) =>
+            Icon(Icons.person_rounded, color: Colors.blue.shade300, size: 48),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 48.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: const BoxDecoration(
+                color: Color(0xFFEFF6FF),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.child_care_rounded,
+                size: 64,
+                color: Color(0xFF3B82F6),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              "No Connected Kids",
+              style: GoogleFonts.manrope(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: const Color(0xFF0C1D37),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              "Add a child profile to start tracking and managing their screen time.",
+              textAlign: TextAlign.center,
+              style: GoogleFonts.manrope(
+                fontSize: 14,
+                color: const Color(0xFF64748B),
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 32),
+            SizedBox(
+              width: 200,
+              height: 48,
+              child: ElevatedButton(
+                onPressed: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const AddKidView()),
+                  );
+                  _loadChildren();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0066FF),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.add_rounded, size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      "Add Kid",
+                      style: GoogleFonts.manrope(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

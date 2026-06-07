@@ -17,7 +17,6 @@ import 'package:child_track/app/social_apps/view_model/app_lock_repository.dart'
 import 'package:workmanager/workmanager.dart';
 import 'package:child_track/core/services/csv_file_logger.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:battery_plus/battery_plus.dart';
 import 'package:child_track/app/childapp/view_model/repository/child_location_repo.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter/material.dart' show GlobalKey, NavigatorState, MaterialPageRoute;
@@ -39,6 +38,28 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   
   AppLogger.info('Background message received: ${message.messageId}');
   AppLogger.info('Background message data: ${message.data}');
+
+  // Save background notification locally for parent app
+  try {
+    await SharedPrefsService.init();
+    final prefs = SharedPrefsService();
+    if (prefs.isParent) {
+      final parsed = FirebaseNotificationService.parseNotificationContent(message);
+      if (parsed['type'] != 'SYNC_SCREEN_TIME' && parsed['type'] != 'SYNC_LOCKED_APPS') {
+        await prefs.addNotification({
+          'id': message.messageId ?? DateTime.now().millisecondsSinceEpoch.toString(),
+          'title': parsed['title'],
+          'body': parsed['body'],
+          'timestamp': DateTime.now().toIso8601String(),
+          'type': parsed['type'],
+          'isRead': false,
+        });
+        AppLogger.info('Saved background notification locally');
+      }
+    }
+  } catch (e) {
+    AppLogger.error('Failed to save background notification: $e');
+  }
 
   // Log to CSV for offline analysis
   CsvFileLogger.instance.write(
@@ -283,6 +304,14 @@ class FirebaseNotificationService {
   Stream<RemoteMessage> get notificationTapStream =>
       _notificationTapController.stream;
 
+  RemoteMessage? _pendingLocationShareRequest;
+  RemoteMessage? get pendingLocationShareRequest => _pendingLocationShareRequest;
+
+  void clearPendingLocationShareRequest() {
+    _pendingLocationShareRequest = null;
+    AppLogger.info('Cleared pending location share request');
+  }
+
   GlobalKey<NavigatorState>? _navigatorKey;
   void setNavigatorKey(GlobalKey<NavigatorState> key) => _navigatorKey = key;
 
@@ -399,6 +428,27 @@ class FirebaseNotificationService {
           'FG message: type=${message.data['type']} title=${message.notification?.title} data=${message.data}',
     );
 
+    // Save to SharedPreferences for parent app
+    final parsed = parseNotificationContent(message);
+    if (parsed['type'] != 'SYNC_SCREEN_TIME' && parsed['type'] != 'SYNC_LOCKED_APPS') {
+      try {
+        final prefs = SharedPrefsService();
+        if (prefs.isParent) {
+          await prefs.addNotification({
+            'id': message.messageId ?? DateTime.now().millisecondsSinceEpoch.toString(),
+            'title': parsed['title'],
+            'body': parsed['body'],
+            'timestamp': DateTime.now().toIso8601String(),
+            'type': parsed['type'],
+            'isRead': false,
+          });
+          AppLogger.info('Saved foreground notification locally');
+        }
+      } catch (e) {
+        AppLogger.error('Failed to save foreground notification: $e');
+      }
+    }
+
     // Add to stream for listeners
     _messageController.add(message);
 
@@ -448,17 +498,16 @@ class FirebaseNotificationService {
     _showLocalNotification(message);
   }
 
-  /// Show a local notification based on FCM message data
-  void _showLocalNotification(RemoteMessage message) {
+  static Map<String, String> parseNotificationContent(RemoteMessage message) {
     final data = message.data;
-    final type = data['type'] as String?;
+    final type = data['type'] as String? ?? 'GENERAL';
     final notification = message.notification;
 
     String title = notification?.title ?? 'NaviQ';
     String body = notification?.body ?? '';
 
     // Build title/body from data payload if notification payload is empty
-    if (notification == null && type != null) {
+    if (notification == null) {
       final childName = data['child_name'] ?? 'Child';
       switch (type) {
         case 'SOS':
@@ -497,12 +546,31 @@ class FirebaseNotificationService {
           break;
         case 'SYNC_SCREEN_TIME':
         case 'SYNC_LOCKED_APPS':
-          // Silent — don't show a notification
-          return;
+          title = '';
+          body = '';
+          break;
         default:
           title = 'NaviQ';
           body = 'You have a new notification';
       }
+    }
+
+    return {
+      'title': title,
+      'body': body,
+      'type': type,
+    };
+  }
+
+  /// Show a local notification based on FCM message data
+  void _showLocalNotification(RemoteMessage message) {
+    final parsed = parseNotificationContent(message);
+    final title = parsed['title']!;
+    final body = parsed['body']!;
+    final type = parsed['type']!;
+
+    if (type == 'SYNC_SCREEN_TIME' || type == 'SYNC_LOCKED_APPS') {
+      return; // Silent
     }
 
     _localNotifications.show(
@@ -540,6 +608,10 @@ class FirebaseNotificationService {
       message:
           'Notification tapped: type=${message.data['type']} data=${message.data}',
     );
+
+    if (message.data['type'] == 'location_share_request') {
+      _pendingLocationShareRequest = message;
+    }
 
     // Add to stream for navigation or other actions
     _notificationTapController.add(message);

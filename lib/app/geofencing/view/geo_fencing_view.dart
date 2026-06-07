@@ -6,6 +6,8 @@ import 'package:google_maps_flutter/google_maps_flutter.dart' show LatLng;
 
 import '../../../core/constants/app_sizes.dart';
 import '../../../core/services/shared_prefs_service.dart';
+import '../../../core/di/injector.dart';
+import '../../home/view_model/bloc/homepage_bloc.dart';
 import 'location_selections.dart';
 import 'place_selection_view.dart';
 import '../view_model/bloc/geofence_bloc.dart';
@@ -63,6 +65,15 @@ class _GeoFencingViewState extends State<GeoFencingView> {
   Widget build(BuildContext context) {
     // Count how many geofences are active (locked)
     final activeCount = _geofences.where((g) => g.isLocked ?? false).length;
+
+    final homeState = injector<HomepageBloc>().state;
+    String? currentAddress;
+    LatLng? currentLatLng;
+    if (homeState is HomepageSuccess && homeState.currentLocation != null) {
+      final loc = homeState.currentLocation!;
+      currentLatLng = LatLng(loc.lat, loc.lng);
+      currentAddress = loc.address;
+    }
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -205,7 +216,7 @@ class _GeoFencingViewState extends State<GeoFencingView> {
                       const SizedBox(height: 14),
 
                       // Fences List
-                      if (_geofences.isNotEmpty)
+                      if (_geofences.isNotEmpty) ...[
                         ..._geofences.map(
                           (geofence) => GeoPlaceCard(
                             title: geofence.name ?? "Unknown Place",
@@ -229,18 +240,34 @@ class _GeoFencingViewState extends State<GeoFencingView> {
                             },
                           ),
                         ),
+                      ] else ...[
+                        // Professional Quick Add / Preset Grid directly on main page
+                        const SizedBox(height: 16),
+                        _buildPresetGridHeader(),
+                        const SizedBox(height: 12),
+                        _buildPresetGridContent(),
+                        const SizedBox(height: 24),
+                      ],
 
                       const SizedBox(height: 16),
 
                       // Suggested Fences Section
                       _buildSuggestedFencesHeader(),
                       const SizedBox(height: 8),
+                      if (currentLatLng != null) ...[
+                        _buildSuggestedFenceTile(
+                          "Current Location (${_formatAddress(currentAddress)})",
+                          currentLatLng,
+                          isCurrentLocation: true,
+                        ),
+                        const SizedBox(height: 10),
+                      ],
                       _buildSuggestedFenceTile(
-                        "${_getChildName()}'s School, Whitefield",
+                        "${_getChildName()}'s School",
                         const LatLng(12.9698, 77.7500),
                       ),
                       _buildSuggestedFenceTile(
-                        "Cubbon Park, Bengaluru",
+                        "Cubbon Park",
                         const LatLng(12.9738, 77.5906),
                       ),
 
@@ -340,7 +367,11 @@ class _GeoFencingViewState extends State<GeoFencingView> {
     );
   }
 
-  Widget _buildSuggestedFenceTile(String name, LatLng coordinates) {
+  Widget _buildSuggestedFenceTile(
+    String name,
+    LatLng coordinates, {
+    bool isCurrentLocation = false,
+  }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
@@ -362,9 +393,25 @@ class _GeoFencingViewState extends State<GeoFencingView> {
               builder: (_) => LocationSelectionScreen(
                 childId: widget.childId,
                 parentId: widget.parentId,
+                selectedCategory: "other",
+                customName: name.split('(').first.trim(),
+                isCurrentLocation: isCurrentLocation,
+                geofence: Geofence(
+                  name: name.split('(').first.trim(),
+                  address: name,
+                  latitude: coordinates.latitude,
+                  longitude: coordinates.longitude,
+                ),
               ),
             ),
-          );
+          ).then((_) {
+            if (!mounted) return;
+            if (widget.childId != null && _lastDateParam != null) {
+              context.read<GeofenceBloc>().add(
+                GetGeofencesRequested(childId: widget.childId!, date: _lastDateParam!),
+              );
+            }
+          });
         },
         leading: Container(
           height: 36,
@@ -421,6 +468,7 @@ class _GeoFencingViewState extends State<GeoFencingView> {
         ),
       ),
     ).then((_) {
+      if (!mounted) return;
       // Refresh geofences list on return
       if (widget.childId != null && _lastDateParam != null) {
         context.read<GeofenceBloc>().add(
@@ -428,5 +476,168 @@ class _GeoFencingViewState extends State<GeoFencingView> {
         );
       }
     });
+  }
+
+  String _formatAddress(String? address) {
+    if (address == null || address.isEmpty) return 'Unknown location';
+    final parts = address.split(',');
+    if (parts.length > 2) {
+      return '${parts[0].trim()}, ${parts[1].trim()}';
+    }
+    return address;
+  }
+
+  Widget _buildPresetGridHeader() {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 8),
+      child: Text(
+        "QUICK ADD GEOFENCE",
+        style: GoogleFonts.manrope(
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          color: const Color(0xFF94A3B8),
+          letterSpacing: 0.8,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPresetGridContent() {
+    return GridView.count(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisCount: 2,
+      mainAxisSpacing: 12,
+      crossAxisSpacing: 12,
+      childAspectRatio: 1.35,
+      children: [
+        _buildPresetGridCard(
+          label: "School",
+          icon: Icons.school_rounded,
+          circleBg: const Color(0xFF22C55E),
+          category: "school",
+        ),
+        _buildPresetGridCard(
+          label: "Coaching",
+          icon: Icons.school_outlined,
+          circleBg: const Color(0xFFF59E0B),
+          category: "tuition",
+        ),
+        _buildPresetGridCard(
+          label: "Grandma's",
+          icon: Icons.face_retouching_natural_rounded,
+          circleBg: const Color(0xFFEF4444),
+          category: "other",
+        ),
+        _buildPresetGridCard(
+          label: "Temple/Masjid",
+          icon: Icons.account_balance_rounded,
+          circleBg: const Color(0xFF8B5CF6),
+          category: "other",
+        ),
+        _buildPresetGridCard(
+          label: "Sports Ground",
+          icon: Icons.sports_cricket_rounded,
+          circleBg: const Color(0xFF0066FF),
+          category: "other",
+        ),
+        _buildPresetGridCard(
+          label: "Current Location",
+          icon: Icons.location_on_rounded,
+          circleBg: const Color(0xFF64748B),
+          category: "other",
+          isCurrentLocation: true,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPresetGridCard({
+    required String label,
+    required IconData icon,
+    required Color circleBg,
+    required String category,
+    bool isCurrentLocation = false,
+  }) {
+    final homeState = injector<HomepageBloc>().state;
+    LatLng? currentLatLng;
+    String? currentAddress;
+    if (isCurrentLocation && homeState is HomepageSuccess && homeState.currentLocation != null) {
+      final loc = homeState.currentLocation!;
+      currentLatLng = LatLng(loc.lat, loc.lng);
+      currentAddress = loc.address;
+    }
+
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => LocationSelectionScreen(
+              childId: widget.childId,
+              parentId: widget.parentId,
+              selectedCategory: category,
+              customName: label,
+              isCurrentLocation: isCurrentLocation,
+              geofence: currentLatLng != null
+                  ? Geofence(
+                      name: label,
+                      address: currentAddress ?? 'Current Location',
+                      latitude: currentLatLng.latitude,
+                      longitude: currentLatLng.longitude,
+                    )
+                  : null,
+            ),
+          ),
+        ).then((_) {
+          if (!mounted) return;
+          if (widget.childId != null && _lastDateParam != null) {
+            context.read<GeofenceBloc>().add(
+              GetGeofencesRequested(childId: widget.childId!, date: _lastDateParam!),
+            );
+          }
+        });
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF0C1D37).withValues(alpha: 0.03),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: circleBg,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                icon,
+                color: Colors.white,
+                size: 24,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              label,
+              style: GoogleFonts.manrope(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF0C1D37),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

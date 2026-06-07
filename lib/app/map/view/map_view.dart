@@ -255,7 +255,7 @@ class _MapViewWidgetState extends State<MapViewWidget> {
                   // Floating layers button
                   Positioned(
                     top: MediaQuery.of(context).padding.top + 10,
-                    right: 60,
+                    right: 20,
                     child: InkWell(
                       onTap: () => _showMapTypeOptions(context),
                       child: CircleAvatar(

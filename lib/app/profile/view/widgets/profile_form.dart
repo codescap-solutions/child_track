@@ -157,7 +157,7 @@ class _ProfileFormState extends State<ProfileForm> {
                   await _sharedPrefsService.addChild(newChild);
                 }
 
-                if (mounted) {
+                if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(

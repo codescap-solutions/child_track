@@ -94,6 +94,23 @@ class HomeRepository extends BaseService {
     return response;
   }
 
+  Future<BaseResponse<List<dynamic>>> getChildrenProfiles() async {
+    final response = await get<List<dynamic>>(
+      ApiEndpoints.parentChildren,
+    );
+
+    if (response.isSuccess && response.data != null) {
+      return BaseResponse.success(
+        data: response.data!,
+        message: response.message,
+      );
+    }
+    return BaseResponse.error(
+      message: response.message,
+      statusCode: response.statusCode,
+    );
+  }
+
   Future<BaseResponse> updateChildSettings({
     required String childId,
     required bool webFilteringEnabled,
@@ -131,6 +148,33 @@ class HomeRepository extends BaseService {
     if (response.isSuccess && response.data != null) {
       final isEnabled = response.data['web_filtering_enabled'] ?? false;
       return BaseResponse.success(data: isEnabled, message: response.message);
+    }
+    return BaseResponse.error(message: response.message);
+  }
+
+  Future<BaseResponse> updateDeletionRestriction({
+    required String childId,
+    required bool enabled,
+  }) async {
+    final response = await post(
+      ApiEndpoints.restrictDeletion,
+      data: {
+        'child_id': childId,
+        'isallowdelete': !enabled, // If deletion restriction is enabled, isallowdelete is false
+      },
+    );
+    return response;
+  }
+
+  Future<BaseResponse<bool>> getDeletionRestrictionStatus({required String childId}) async {
+    final response = await get(
+      ApiEndpoints.restrictDeletion,
+      queryParameters: {'childId': childId},
+    );
+
+    if (response.isSuccess && response.data != null) {
+      final isAllowDelete = response.data['isallowdelete'] ?? true;
+      return BaseResponse.success(data: !isAllowDelete, message: response.message);
     }
     return BaseResponse.error(message: response.message);
   }

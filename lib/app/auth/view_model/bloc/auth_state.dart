@@ -31,11 +31,12 @@ class AuthError extends AuthState {
 
 class AuthSuccess extends AuthState {
   final bool hasChildren;
+  final bool showProfilesTab;
 
-  const AuthSuccess({this.hasChildren = false});
+  const AuthSuccess({this.hasChildren = false, this.showProfilesTab = false});
 
   @override
-  List<Object?> get props => [hasChildren];
+  List<Object?> get props => [hasChildren, showProfilesTab];
 }
 
 class AuthNewUser extends AuthState {

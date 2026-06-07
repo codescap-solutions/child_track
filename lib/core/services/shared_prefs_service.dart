@@ -347,4 +347,58 @@ class SharedPrefsService {
 
     return true;
   }
+
+  // Get all notifications
+  List<Map<String, dynamic>> getNotifications() {
+    try {
+      final String? encoded = prefs.getString('stored_notifications');
+      if (encoded == null) return [];
+      final List<dynamic> decoded = json.decode(encoded);
+      return List<Map<String, dynamic>>.from(decoded);
+    } catch (e) {
+      AppLogger.error('Error getting notifications list: $e');
+      return [];
+    }
+  }
+
+  // Save list of notifications
+  Future<bool> saveNotifications(List<Map<String, dynamic>> list) async {
+    try {
+      final String encoded = json.encode(list);
+      return await prefs.setString('stored_notifications', encoded);
+    } catch (e) {
+      AppLogger.error('Error saving notifications list: $e');
+      return false;
+    }
+  }
+
+  // Add a single notification
+  Future<bool> addNotification(Map<String, dynamic> notification) async {
+    final list = getNotifications();
+    list.insert(0, notification); // Insert at beginning so newest is first
+    // Limit to last 100 notifications to prevent storage bloat
+    if (list.length > 100) {
+      list.removeRange(100, list.length);
+    }
+    return await saveNotifications(list);
+  }
+
+  // Clear notifications
+  Future<bool> clearNotifications() async {
+    try {
+      return await prefs.remove('stored_notifications');
+    } catch (e) {
+      AppLogger.error('Error clearing notifications: $e');
+      return false;
+    }
+  }
+
+  // Deletion Restriction Settings
+  Future<bool> setAllowDelete(bool value) async {
+    return await setBool('is_allow_delete', value);
+  }
+
+  bool getAllowDelete({bool defaultValue = true}) {
+    return getBool('is_allow_delete', defaultValue: defaultValue);
+  }
 }

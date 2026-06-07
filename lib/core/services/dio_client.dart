@@ -6,6 +6,9 @@ import 'package:child_track/core/services/api_endpoints.dart';
 import '../utils/app_logger.dart';
 import 'shared_prefs_service.dart';
 import 'package:child_track/core/services/connectivity/bloc/connectivity_bloc.dart';
+import 'package:flutter/material.dart';
+import 'package:child_track/main.dart' show navigatorKey;
+import 'package:child_track/core/navigation/route_names.dart';
 
 // Helper class to store pending requests during token refresh
 class _PendingRequest {
@@ -29,6 +32,34 @@ class DioClient {
     _sharedPrefsService = sharedPrefsService ?? injector<SharedPrefsService>();
     _dio = Dio(BaseOptions(baseUrl: ApiEndpoints.baseUrl));
     _setupInterceptors();
+  }
+
+  void _forceLogout() {
+    _sharedPrefsService.logout();
+    final context = navigatorKey.currentContext;
+    if (context != null && context.mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          title: const Text('Session Expired'),
+          content: const Text(
+            'Your session has expired or your profile was deleted. Please log in again.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pushNamedAndRemoveUntil(
+                  RouteNames.onBoarding,
+                  (route) => false,
+                );
+              },
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    }
   }
 
   void _setupInterceptors() {
@@ -86,6 +117,7 @@ class DioClient {
               AppLogger.error(
                 'Refresh token failed, user needs to login again',
               );
+              _forceLogout();
               handler.next(error);
               return;
             }
@@ -182,6 +214,7 @@ class DioClient {
               }
             } catch (e) {
               AppLogger.error('Error during token refresh: $e');
+              _forceLogout();
               handler.next(error);
               await _rejectPendingRequests(error);
             } finally {

@@ -133,6 +133,7 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
             cards: homeData.cards,
             currentLocation: homeData.currentLocation,
             webFilteringEnabled: homeData.webFilteringEnabled,
+            childAvatar: homeData.childAvatar,
             features: homeData.features,
             todayRoute: homeData.todayRoute,
             screentimeToday: homeData.screentimeToday,

@@ -1,7 +1,8 @@
-import 'package:child_track/app/auth/view/otp_screen.dart';
+import 'package:child_track/app/auth/view/onboarding/parent_profile_setup_view.dart';
 import 'package:child_track/app/auth/view_model/bloc/auth_bloc.dart';
 import 'package:child_track/app/auth/view_model/bloc/auth_event.dart';
 import 'package:child_track/app/auth/view_model/bloc/auth_state.dart';
+import 'package:child_track/core/navigation/route_names.dart';
 import 'package:child_track/core/utils/app_snackbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -23,9 +24,12 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _phoneController = TextEditingController();
+  final _otpController = TextEditingController();
   final _focusNode = FocusNode();
+  final _otpFocusNode = FocusNode();
   bool _isPhoneValid = false;
   bool _agreeToTerms = false;
+  bool _otpSent = false;
 
   @override
   void initState() {
@@ -41,13 +45,32 @@ class _LoginScreenState extends State<LoginScreen> {
         _isPhoneValid = isValid;
       });
     }
+
+    if (text.length < 10 && _otpSent) {
+      setState(() {
+        _otpSent = false;
+        _otpController.clear();
+      });
+    }
+
+    // Automatically trigger OTP send when it reaches 10 digits
+    if (isValid && !_otpSent) {
+      if (!_agreeToTerms) {
+        setState(() {
+          _agreeToTerms = true;
+        });
+      }
+      _sendOtp();
+    }
   }
 
   @override
   void dispose() {
     _phoneController.removeListener(_onPhoneChanged);
     _phoneController.dispose();
+    _otpController.dispose();
     _focusNode.dispose();
+    _otpFocusNode.dispose();
     super.dispose();
   }
 
@@ -56,19 +79,44 @@ class _LoginScreenState extends State<LoginScreen> {
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
         if (state is AuthOtpSent) {
-          // Navigate to OTP screen on success
-          Navigator.of(context).push(
+          setState(() {
+            _otpSent = true;
+          });
+          AppSnackbar.showSuccess(context, 'OTP sent successfully');
+        } else if (state is AuthNewUser) {
+          // New user - navigate to Parent Profile setup screen first
+          Navigator.of(context).pushReplacement(
             MaterialPageRoute(
-              builder: (_) => OtpScreen(phoneNumber: state.phoneNumber),
+              builder: (_) =>
+                  ParentProfileSetupView(phoneNumber: state.phoneNumber),
             ),
           );
+        } else if (state is AuthSuccess) {
+          if (state.hasChildren) {
+            // User has children - navigate to home screen
+            Navigator.of(context).pushNamedAndRemoveUntil(
+              RouteNames.home,
+              (route) => false,
+              arguments: {'initialIndex': state.showProfilesTab ? 3 : 0},
+            );
+          } else {
+            // Existing user with no children - navigate to add child screen
+            Navigator.of(
+              context,
+            ).pushNamedAndRemoveUntil(RouteNames.addChild, (route) => false);
+          }
+        } else if (state is AuthNeedsRegistration) {
+          // Navigate to registration screen when data is null
+          Navigator.of(
+            context,
+          ).pushNamedAndRemoveUntil(RouteNames.addChild, (route) => false);
         } else if (state is AuthError) {
           // Show error message
           AppSnackbar.showError(context, state.message);
         }
       },
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: const Color(0xFFEDF4FE),
         body: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
@@ -96,14 +144,12 @@ class _LoginScreenState extends State<LoginScreen> {
                     _buildPhoneField(),
                     const SizedBox(height: AppSizes.spacingS),
                     _buildValidationTip(),
-                    const SizedBox(height: AppSizes.spacingXL),
-                    _buildSocialDivider(),
-                    const SizedBox(height: AppSizes.spacingL),
-                    _buildSocialButtons(),
+                    _buildOtpField(),
                     const SizedBox(height: AppSizes.spacingXL),
                     _buildTermsCheckbox(),
                     const SizedBox(height: AppSizes.spacingXXL),
-                    _buildSendOtpButton(),
+                    _buildActionButton(),
+                    _buildResendOtpLink(),
                     const SizedBox(height: AppSizes.spacingXL),
                   ],
                 ),
@@ -226,7 +272,7 @@ class _LoginScreenState extends State<LoginScreen> {
             if (value == null || value.isEmpty) {
               return AppStrings.phoneNumberRequired;
             }
-            if (value.length < 10) {
+            if (value.length != 10) {
               return AppStrings.invalidPhoneNumber;
             }
             return null;
@@ -428,18 +474,102 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildSendOtpButton() {
+  Widget _buildOtpField() {
+    if (!_otpSent) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: AppSizes.spacingXL),
+        Text(
+          'OTP',
+          style: GoogleFonts.poppins(
+            fontSize: 10,
+            fontWeight: FontWeight.w400,
+            color: const Color(0xFF7C8BA0),
+          ),
+        ),
+        const SizedBox(height: 8),
+        CommonTextField(
+          controller: _otpController,
+          focusNode: _otpFocusNode,
+          hintText: AppStrings.otpHint,
+          keyboardType: TextInputType.number,
+          textInputAction: TextInputAction.done,
+          prefixIcon: const Icon(Icons.lock_rounded, color: Color(0xFF7C8BA0)),
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+            LengthLimitingTextInputFormatter(4),
+          ],
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return AppStrings.otpRequired;
+            }
+            if (value.length != 4) {
+              return AppStrings.invalidOtp;
+            }
+            return null;
+          },
+          onSubmitted: (_) => _verifyOtp(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildResendOtpLink() {
+    if (!_otpSent) return const SizedBox.shrink();
+
     return BlocBuilder<AuthBloc, AuthState>(
       builder: (context, state) {
         final isLoading = state is AuthLoading;
+        return Padding(
+          padding: const EdgeInsets.only(top: AppSizes.spacingL),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                "Didn't receive the OTP? ",
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: const Color(0xFF62748E),
+                ),
+              ),
+              GestureDetector(
+                onTap: isLoading ? null : _resendOtp,
+                child: Text(
+                  'Resend OTP',
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF0066FF),
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildActionButton() {
+    return BlocBuilder<AuthBloc, AuthState>(
+      builder: (context, state) {
+        final isLoading = state is AuthLoading;
+        final buttonText = _otpSent ? 'Verify and Proceed' : 'Create Account';
+
         return InkWell(
-          onTap: (isLoading || !_agreeToTerms) ? null : _sendOtp,
+          onTap: (isLoading || (!_agreeToTerms && !_otpSent))
+              ? null
+              : (_otpSent ? _verifyOtp : _sendOtp),
           borderRadius: BorderRadius.circular(16),
           child: Container(
             height: 60,
             width: double.infinity,
             decoration: BoxDecoration(
-              color: (isLoading || !_agreeToTerms)
+              color: (isLoading || (!_agreeToTerms && !_otpSent))
                   ? const Color(0xFF0066FF).withValues(alpha: 0.5)
                   : const Color(0xFF0066FF),
               borderRadius: BorderRadius.circular(16),
@@ -455,7 +585,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   )
                 : Text(
-                    'Create Account',
+                    buttonText,
                     style: GoogleFonts.poppins(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
@@ -476,9 +606,27 @@ class _LoginScreenState extends State<LoginScreen> {
       );
       return;
     }
-    if (_formKey.currentState?.validate() ?? false) {
-      final phoneNumber = _phoneController.text.trim();
+    final phoneNumber = _phoneController.text.trim();
+    if (phoneNumber.length == 10) {
       context.read<AuthBloc>().add(SendOtp(phoneNumber: phoneNumber));
+    } else {
+      AppSnackbar.showError(
+        context,
+        AppStrings.invalidPhoneNumber,
+      );
     }
+  }
+
+  void _verifyOtp() {
+    if (_formKey.currentState?.validate() ?? false) {
+      final otp = _otpController.text.trim();
+      context.read<AuthBloc>().add(VerifyOtp(otp: otp));
+    }
+  }
+
+  void _resendOtp() {
+    _otpController.clear();
+    final phoneNumber = _phoneController.text.trim();
+    context.read<AuthBloc>().add(SendOtp(phoneNumber: phoneNumber));
   }
 }

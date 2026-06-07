@@ -74,6 +74,11 @@ class ChildRepo extends BaseService {
             await _sharedPrefsService.setString('parent_phone', parentPhone);
           }
 
+          // Parse and store allow deletion permission
+          final isAllowDelete = data['child']?['isallowdelete'] as bool? ?? true;
+          await _sharedPrefsService.setAllowDelete(isAllowDelete);
+          AppLogger.info('Child login: isallowdelete saved: $isAllowDelete');
+
           // Apply Web Filtering settings
           await _applyWebFiltering(data['child']);
 
@@ -95,18 +100,51 @@ class ChildRepo extends BaseService {
     }
   }
 
+  Future<BaseResponse<String>> uploadAvatar(File file) async {
+    try {
+      final formData = FormData.fromMap({
+        'avatar': await MultipartFile.fromFile(
+          file.path,
+          filename: 'avatar_${DateTime.now().millisecondsSinceEpoch}.jpg',
+        ),
+      });
+
+      final response = await post(
+        ApiEndpoints.uploadAvatar,
+        data: formData,
+      );
+
+      if (response.isSuccess && response.data != null) {
+        final avatarUrl = response.data['avatar_url'] as String?;
+        if (avatarUrl != null) {
+          return BaseResponse.success(data: avatarUrl, message: response.message);
+        }
+      }
+      return BaseResponse.error(message: response.message.isEmpty ? 'Failed to upload avatar' : response.message);
+    } catch (e) {
+      return BaseResponse.error(message: 'Error uploading avatar: ${e.toString()}');
+    }
+  }
+
   Future<BaseResponse> createChild({
     required String name,
     required int age,
     required String travelOption,
+    String? avatar,
   }) async {
+    final Map<String, dynamic> dataMap = {
+      'name': name,
+      'age': age,
+      'traveloption': travelOption,
+    };
+
+    if (avatar != null) {
+      dataMap['avatar'] = avatar;
+    }
+
     final response = await post(
       ApiEndpoints.createChild,
-      data: {
-        'name': name,
-        'age': age,
-        'traveloption': travelOption,
-      },
+      data: dataMap,
     );
 
     if (response.isSuccess && response.data != null) {

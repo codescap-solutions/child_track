@@ -3,6 +3,7 @@ import 'package:child_track/app/auth/view_model/bloc/auth_event.dart';
 import 'package:child_track/app/auth/view_model/bloc/auth_state.dart';
 import 'package:child_track/core/services/shared_prefs_service.dart';
 import 'package:child_track/core/services/firebase_notification_service.dart';
+import 'package:child_track/core/models/child_profile.dart';
 import 'package:child_track/core/utils/app_logger.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -75,15 +76,41 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           if (hasChildren) {
             // Check how many children
             if (children.length > 1) {
-              // Multiple children: Let user select
-              // Parse children list properly
-              final List<Map<String, dynamic>> parsedChildren = [];
+              // Multiple children: Auto-parse all child profiles and save locally
+              final List<ChildProfile> profilesList = [];
               for (var child in children) {
                 if (child is Map<String, dynamic>) {
-                  parsedChildren.add(child);
+                  final childId = child['child_id'] as String? ?? child['_id'] as String? ?? '';
+                  final childCode = child['child_code'] as String? ?? '';
+                  final childName = child['name'] as String? ?? child['child_name'] as String? ?? 'Child';
+                  final avatar = child['avatar'] as String?;
+                  profilesList.add(ChildProfile(
+                    childId: childId,
+                    childCode: childCode,
+                    childName: childName,
+                    authToken: token ?? '',
+                    avatar: avatar,
+                    lastActiveAt: DateTime.now(),
+                  ));
                 }
               }
-              emit(AuthSelectChild(children: parsedChildren));
+
+              // Save all children locally in SharedPreferences
+              await _sharedPrefsService.saveChildren(profilesList);
+
+              // Set the first child as the default active child in local preferences
+              if (profilesList.isNotEmpty) {
+                final firstChild = profilesList.first;
+                await _sharedPrefsService.setString('child_id', firstChild.childId);
+                await _sharedPrefsService.setString('child_code', firstChild.childCode);
+                await _sharedPrefsService.setString('child_name', firstChild.childName);
+              }
+              await _sharedPrefsService.setInt('children_count', profilesList.length);
+
+              // Register FCM token with server
+              FirebaseNotificationService().registerTokenWithServer();
+
+              emit(const AuthSuccess(hasChildren: true, showProfilesTab: true));
             } else {
               // Single child: Auto-select
               final firstChild = children[0] as Map<String, dynamic>?;
@@ -170,6 +197,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       final response = await _authRepository.registerUser(
         phoneNumber: event.phoneNumber,
         name: event.name,
+        parentingSituation: event.parentingSituation,
+        parentRoutine: event.parentRoutine,
         address: event.address,
       );
       if (response.isSuccess) {

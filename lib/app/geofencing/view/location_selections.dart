@@ -518,6 +518,7 @@ class _GeoFenceFormSheetState extends State<GeoFenceFormSheet> {
   bool _alertOnEntry = true;
   bool _alertOnExit = true;
   bool _alertIfIdle = false;
+  late final TextEditingController _nameController;
 
   int _findClosestStep(int radius) {
     int closestIndex = 0;
@@ -535,6 +536,13 @@ class _GeoFenceFormSheetState extends State<GeoFenceFormSheet> {
   @override
   void initState() {
     super.initState();
+    _nameController = TextEditingController(
+      text: widget.customName ?? widget.geofence?.name ?? "Custom Place",
+    );
+    _nameController.addListener(() {
+      setState(() {});
+    });
+
     // Prefill fields when editing
     if (widget.geofence != null) {
       final g = widget.geofence!;
@@ -557,6 +565,12 @@ class _GeoFenceFormSheetState extends State<GeoFenceFormSheet> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       widget.onRadiusChanged?.call(_radius.toDouble());
     });
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
   }
 
   IconData _getCategoryIcon(String? category, String? customName) {
@@ -694,12 +708,12 @@ class _GeoFenceFormSheetState extends State<GeoFenceFormSheet> {
                     width: 48,
                     height: 48,
                     decoration: BoxDecoration(
-                      color: _getCategoryColor(widget.category, widget.customName).withValues(alpha: 0.1),
+                      color: _getCategoryColor(widget.category, _nameController.text).withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      _getCategoryIcon(widget.category, widget.customName),
-                      color: _getCategoryColor(widget.category, widget.customName),
+                      _getCategoryIcon(widget.category, _nameController.text),
+                      color: _getCategoryColor(widget.category, _nameController.text),
                       size: 24,
                     ),
                   ),
@@ -708,12 +722,27 @@ class _GeoFenceFormSheetState extends State<GeoFenceFormSheet> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          widget.customName ?? widget.geofence?.name ?? "Custom Place",
+                        TextField(
+                          controller: _nameController,
                           style: GoogleFonts.manrope(
                             fontSize: 18,
                             fontWeight: FontWeight.w800,
                             color: const Color(0xFF0C1D37),
+                          ),
+                          decoration: InputDecoration(
+                            hintText: "Place Name",
+                            hintStyle: GoogleFonts.manrope(
+                              color: const Color(0xFF94A3B8),
+                              fontWeight: FontWeight.w600,
+                            ),
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(vertical: 4),
+                            border: const UnderlineInputBorder(
+                              borderSide: BorderSide(color: Color(0xFFE2E8F0)),
+                            ),
+                            focusedBorder: const UnderlineInputBorder(
+                              borderSide: BorderSide(color: Color(0xFF0066FF), width: 1.5),
+                            ),
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -970,7 +999,9 @@ class _GeoFenceFormSheetState extends State<GeoFenceFormSheet> {
   }
 
   void _handleSaveGeofence() {
-    final name = widget.customName ?? widget.geofence?.name ?? "Custom Place";
+    final name = _nameController.text.trim().isEmpty
+        ? (widget.customName ?? widget.geofence?.name ?? "Custom Place")
+        : _nameController.text.trim();
     final category = widget.category ?? widget.geofence?.category ?? "other";
 
     if (widget.geofence != null && widget.geofence!.id != null) {
@@ -980,6 +1011,9 @@ class _GeoFenceFormSheetState extends State<GeoFenceFormSheet> {
         radius: _radius,
         latitude: widget.latitude,
         longitude: widget.longitude,
+        alertOnEntry: _alertOnEntry,
+        alertOnExit: _alertOnExit,
+        alertIfIdle: _alertIfIdle,
       );
 
       if (widget.geofence!.isLocked != _alertOnEntry) {
@@ -1009,6 +1043,9 @@ class _GeoFenceFormSheetState extends State<GeoFenceFormSheet> {
       latitude: widget.latitude,
       longitude: widget.longitude,
       isLocked: _alertOnEntry,
+      alertOnEntry: _alertOnEntry,
+      alertOnExit: _alertOnExit,
+      alertIfIdle: _alertIfIdle,
     );
 
     context.read<GeofenceBloc>().add(CreateGeofenceRequested(request: request));

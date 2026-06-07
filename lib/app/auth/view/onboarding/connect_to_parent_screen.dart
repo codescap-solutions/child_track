@@ -1,6 +1,8 @@
 import 'package:child_track/app/auth/view/onboarding/permission_sequence_screen.dart';
+import 'package:child_track/app/auth/view/onboarding/deletion_restriction_config_screen.dart';
 import 'package:child_track/app/childapp/view_model/repository/child_repo.dart';
 import 'package:child_track/core/di/injector.dart';
+import 'package:child_track/core/services/shared_prefs_service.dart';
 import 'package:child_track/core/utils/app_logger.dart';
 import 'package:child_track/core/utils/app_snackbar.dart';
 import 'package:flutter/material.dart';
@@ -179,11 +181,21 @@ class _ConnectToParentScreenState extends State<ConnectToParentScreen> {
 
           if (!mounted) return;
 
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(
-              builder: (_) => const PermissionSequenceScreen(),
-            ),
-          );
+          final isAllowDelete = SharedPrefsService().getAllowDelete();
+
+          if (!isAllowDelete) {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (_) => const DeletionRestrictionConfigScreen(),
+              ),
+            );
+          } else {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (_) => const PermissionSequenceScreen(),
+              ),
+            );
+          }
         } else {
           if (mounted) {
             AppSnackbar.showError(context, response.message);

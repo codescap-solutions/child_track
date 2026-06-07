@@ -137,6 +137,7 @@ class ScreentimeTodaySummary {
 class HomeResponse {
   final String? childName;
   final String? childCode;
+  final String? childAvatar;
   final bool webFilteringEnabled;
   final DeviceInfo deviceInfo;
   final LocationInfo currentLocation;
@@ -152,6 +153,7 @@ class HomeResponse {
   HomeResponse({
     this.childName,
     this.childCode,
+    this.childAvatar,
     this.webFilteringEnabled = false,
     required this.deviceInfo,
     required this.currentLocation,
@@ -167,6 +169,7 @@ class HomeResponse {
     return HomeResponse(
       childName: json['child_name'] as String?,
       childCode: json['child_code'] as String?,
+      childAvatar: (json['child_avatar'] ?? json['avatar']) as String?,
       webFilteringEnabled: json['web_filtering_enabled'] ?? false,
       deviceInfo: DeviceInfo.fromJson(json['device_info'] ?? {}),
       currentLocation: LocationInfo.fromJson(json['current_location'] ?? {}),
