@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/services.dart';
@@ -38,6 +39,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   
   AppLogger.info('Background message received: ${message.messageId}');
   AppLogger.info('Background message data: ${message.data}');
+  print('🔥 [FCM BACKGROUND] Received: data=${message.data}, title=${message.notification?.title}, body=${message.notification?.body}');
 
   // Save background notification locally for parent app
   try {
@@ -55,6 +57,12 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
           'isRead': false,
         });
         AppLogger.info('Saved background notification locally');
+
+        // Save pending request to local SharedPrefs
+        if (message.data['type'] == 'location_share_request') {
+          await prefs.setString('pending_location_share_request', json.encode(message.data));
+          AppLogger.info('Saved pending location share request to SharedPrefs');
+        }
       }
     }
   } catch (e) {
@@ -390,7 +398,17 @@ class FirebaseNotificationService {
       initSettings,
       onDidReceiveNotificationResponse: (NotificationResponse response) {
         AppLogger.info('Local notification tapped: ${response.payload}');
-        // Payload handling can trigger navigation if needed
+        if (response.payload != null) {
+          try {
+            final Map<String, dynamic> decoded = json.decode(response.payload!);
+            final remoteMessage = RemoteMessage(
+              data: decoded.map((key, value) => MapEntry(key, value.toString())),
+            );
+            _handleNotificationTap(remoteMessage);
+          } catch (e) {
+            AppLogger.warning('Payload was not JSON, treating as raw: $e');
+          }
+        }
       },
     );
 
@@ -419,6 +437,7 @@ class FirebaseNotificationService {
     AppLogger.info('Foreground message received: ${message.messageId}');
     AppLogger.info('Message data: ${message.data}');
     AppLogger.info('Message notification: ${message.notification?.title}');
+    print('🔥 [FCM FOREGROUND] Received: data=${message.data}, title=${message.notification?.title}, body=${message.notification?.body}');
 
     // Log to CSV for offline analysis
     CsvFileLogger.instance.write(
@@ -443,6 +462,12 @@ class FirebaseNotificationService {
             'isRead': false,
           });
           AppLogger.info('Saved foreground notification locally');
+
+          // Save pending request to local SharedPrefs
+          if (message.data['type'] == 'location_share_request') {
+            await prefs.setString('pending_location_share_request', json.encode(message.data));
+            AppLogger.info('Saved pending location share request from foreground to SharedPrefs');
+          }
         }
       } catch (e) {
         AppLogger.error('Failed to save foreground notification: $e');
@@ -503,49 +528,64 @@ class FirebaseNotificationService {
     final type = data['type'] as String? ?? 'GENERAL';
     final notification = message.notification;
 
-    String title = notification?.title ?? 'NaviQ';
+    // Diagnostic logging for parent app fcm
+    AppLogger.info('🔥 [FCM DEBUG] type="$type", data=$data, notificationTitle="${notification?.title}", notificationBody="${notification?.body}"');
+    print('🔥 [FCM DEBUG] type="$type", data=$data, notificationTitle="${notification?.title}", notificationBody="${notification?.body}"');
+
+    String title = notification?.title ?? '';
     String body = notification?.body ?? '';
 
-    // Build title/body from data payload if notification payload is empty
-    if (notification == null) {
+    // Build title/body from data payload if notification payload is empty or has missing fields
+    if (notification == null || title.trim().isEmpty || body.trim().isEmpty) {
       final childName = data['child_name'] ?? 'Child';
-      switch (type) {
-        case 'SOS':
+      final requesterName = data['requester_name'] ?? 'Someone';
+      final normalizedType = type.trim().toLowerCase();
+
+      switch (normalizedType) {
+        case 'location_share_request':
+          title = '📍 Location Share Request';
+          body = '$requesterName is requesting for your kids location';
+          break;
+        case 'location_share_accepted':
+          title = '✅ Location Share Accepted';
+          body = 'Location sharing started for $childName';
+          break;
+        case 'sos':
           title = '🚨 SOS from $childName!';
           body = 'Emergency alert received. Tap to view location.';
           break;
-        case 'SAFE_PLACE_ARRIVAL':
+        case 'safe_place_arrival':
           title = '$childName arrived safely';
           body = 'Arrived at ${data['place_name'] ?? 'safe place'}';
           break;
-        case 'SAFE_PLACE_DEPARTURE':
+        case 'safe_place_departure':
           title = '$childName left ${data['place_name'] ?? 'safe place'}';
           body = 'Departed from ${data['place_name'] ?? 'safe place'}';
           break;
-        case 'TRIP_STARTED':
+        case 'trip_started':
           title = '$childName is on the move';
           body = 'Started from ${data['start_place'] ?? 'unknown'}';
           break;
-        case 'TRIP_ENDED':
+        case 'trip_ended':
           title = '$childName\'s trip ended';
           body = data['from_place'] != null && data['to_place'] != null
               ? '${data['from_place']} → ${data['to_place']} (${data['distance_km'] ?? '?'} km)'
               : 'Trip completed';
           break;
-        case 'LOW_BATTERY':
+        case 'low_battery':
           title = '$childName\'s device battery low';
           body = 'Battery at ${data['battery_percentage'] ?? '?'}%';
           break;
-        case 'DEVICE_OFFLINE':
+        case 'device_offline':
           title = '$childName\'s device is offline';
           body = 'Device went offline. Last seen recently.';
           break;
-        case 'CHAT_MESSAGE':
+        case 'chat_message':
           title = data['sender_name'] ?? 'New Message';
           body = data['text'] ?? 'Tap to view';
           break;
-        case 'SYNC_SCREEN_TIME':
-        case 'SYNC_LOCKED_APPS':
+        case 'sync_screen_time':
+        case 'sync_locked_apps':
           title = '';
           body = '';
           break;
@@ -554,6 +594,9 @@ class FirebaseNotificationService {
           body = 'You have a new notification';
       }
     }
+
+    if (title.isEmpty) title = 'NaviQ';
+    if (body.isEmpty) body = 'You have a new notification';
 
     return {
       'title': title,
@@ -592,7 +635,10 @@ class FirebaseNotificationService {
           presentSound: true,
         ),
       ),
-      payload: type,
+      payload: json.encode({
+        ...message.data,
+        'type': type,
+      }),
     );
   }
 
@@ -611,6 +657,12 @@ class FirebaseNotificationService {
 
     if (message.data['type'] == 'location_share_request') {
       _pendingLocationShareRequest = message;
+      try {
+        final prefs = injector<SharedPrefsService>();
+        prefs.setString('pending_location_share_request', json.encode(message.data));
+      } catch (e) {
+        AppLogger.error('Failed to save tapped request to SharedPrefs: $e');
+      }
     }
 
     // Add to stream for navigation or other actions

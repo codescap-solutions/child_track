@@ -5,6 +5,7 @@ import 'package:child_track/app/home/view/child_location_detail_view.dart';
 import 'package:child_track/app/home/view/home_page.dart';
 import 'package:child_track/app/home/view/trips_view.dart';
 import 'package:child_track/app/onboarding/view/onboarding_screen.dart';
+import 'package:child_track/app/explore/view/emergency_contacts_view.dart';
 import 'package:flutter/material.dart';
 import '../../app/auth/view/login_screen.dart';
 import '../../app/auth/view/otp_screen.dart';
@@ -31,13 +32,17 @@ class AppRouter {
           builder: (_) => ChildCodeScreen(
             childId: args?['childId'] ?? '',
             childCode: args?['childCode'] ?? '',
+            isFirstChild: args?['isFirstChild'] ?? true,
           ),
           settings: settings,
         );
 
       case RouteNames.login:
+        final args = settings.arguments as Map<String, dynamic>?;
         return MaterialPageRoute(
-          builder: (_) => const LoginScreen(),
+          builder: (_) => LoginScreen(
+            isFromSignIn: args?['isFromSignIn'] ?? false,
+          ),
           settings: settings,
         );
 
@@ -78,6 +83,12 @@ class AppRouter {
       case RouteNames.childLocationDetail:
         return MaterialPageRoute(
           builder: (_) => const ChildLocationDetailView(),
+          settings: settings,
+        );
+
+      case RouteNames.emergencyContacts:
+        return MaterialPageRoute(
+          builder: (_) => const EmergencyContactsView(),
           settings: settings,
         );
 

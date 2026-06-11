@@ -9,7 +9,6 @@ import 'package:child_track/core/models/child_profile.dart';
 import 'package:child_track/app/home/view_model/bloc/homepage_bloc.dart';
 import 'package:child_track/app/home/view_model/home_repo.dart';
 import 'package:child_track/app/auth/view/onboarding/add_kid_view.dart';
-import 'widgets/profile_form.dart';
 
 class ProfileView extends StatefulWidget {
   final VoidCallback onNavigateToHome;
@@ -110,21 +109,8 @@ class _ProfileViewState extends State<ProfileView> {
                   final updated = await Navigator.push<bool>(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => Scaffold(
-                        appBar: AppBar(
-                          title: Text('Edit Profile - ${child.childName}'),
-                          backgroundColor: const Color(0xFF48546A),
-                        ),
-                        body: SafeArea(
-                          child: SingleChildScrollView(
-                            padding: const EdgeInsets.all(20),
-                            child: ProfileForm(
-                              isEdit: true,
-                              initialName: child.childName,
-                              initialCode: child.childCode,
-                            ),
-                          ),
-                        ),
+                      builder: (_) => AddKidView(
+                        childToEdit: child,
                       ),
                     ),
                   );
@@ -144,30 +130,44 @@ class _ProfileViewState extends State<ProfileView> {
                 ),
                 onTap: () async {
                   Navigator.pop(context);
-                  final list = _sharedPrefsService.getChildren();
-                  list.removeWhere((c) => c.childId == child.childId);
-                  await _sharedPrefsService.saveChildren(list);
+                  final repo = injector<HomeRepository>();
+                  final response = await repo.deleteChild(child.childId);
 
-                  // If we deleted the active child, switch to another child or clear
-                  final activeChildId = _sharedPrefsService.getString(
-                    'child_id',
-                  );
-                  if (activeChildId == child.childId) {
-                    if (list.isNotEmpty) {
-                      await _sharedPrefsService.switchChild(list.first.childId);
-                      injector<HomepageBloc>().add(GetHomepageData());
-                    } else {
-                      await _sharedPrefsService.removeChildId();
-                      await _sharedPrefsService.setString('child_name', '');
-                    }
-                  }
+                  if (response.isSuccess) {
+                    final list = _sharedPrefsService.getChildren();
+                    list.removeWhere((c) => c.childId == child.childId);
+                    await _sharedPrefsService.saveChildren(list);
 
-                  _loadChildren();
-                  if (context.mounted) {
-                    AppSnackbar.showInfo(
-                      context,
-                      'Profile of ${child.childName} deleted',
+                    // If we deleted the active child, switch to another child or clear
+                    final activeChildId = _sharedPrefsService.getString(
+                      'child_id',
                     );
+                    if (activeChildId == child.childId) {
+                      if (list.isNotEmpty) {
+                        await _sharedPrefsService.switchChild(list.first.childId);
+                        injector<HomepageBloc>().add(GetHomepageData());
+                      } else {
+                        await _sharedPrefsService.removeChildId();
+                        await _sharedPrefsService.setString('child_name', '');
+                      }
+                    }
+
+                    _loadChildren();
+                    if (context.mounted) {
+                      AppSnackbar.showSuccess(
+                        context,
+                        'Profile of ${child.childName} deleted successfully',
+                      );
+                    }
+                  } else {
+                    if (context.mounted) {
+                      AppSnackbar.showError(
+                        context,
+                        response.message.isEmpty
+                            ? 'Failed to delete child profile'
+                            : response.message,
+                      );
+                    }
                   }
                 },
               ),

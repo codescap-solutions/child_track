@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' show min;
 import 'dart:ui' as ui;
 import 'package:child_track/core/services/firebase_notification_service.dart';
@@ -7,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:child_track/core/navigation/route_names.dart';
 import 'package:flutter/services.dart';
 import 'package:child_track/app/home/view_model/bloc/homepage_bloc.dart';
+import 'package:child_track/app/home/view_model/home_repo.dart';
 import 'package:child_track/app/home/model/home_model.dart';
 import 'package:child_track/app/map/view/map_view.dart';
 import 'package:child_track/core/di/injector.dart';
@@ -43,14 +45,17 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   final SharedPrefsService _sharedPrefsService = injector<SharedPrefsService>();
   final DraggableScrollableController _sheetController =
       DraggableScrollableController();
-  
+
   StreamSubscription? _notificationSubscription;
+  StreamSubscription? _foregroundSubscription;
   Map<String, dynamic>? _activeSharedChildData;
   bool _viewingSharedChild = false;
+  bool _isLocationShareSheetOpen = false;
+  Timer? _sharedChildTimer;
 
   late final SavedPlacesService _savedPlacesService;
   List<SavedPlace> _savedPlaces = [];
@@ -114,6 +119,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _savedPlacesService = injector<SavedPlacesService>();
     _loadSavedPlaces();
 
@@ -124,23 +130,46 @@ class _HomePageState extends State<HomePage> {
     _notificationSubscription = injector<FirebaseNotificationService>()
         .notificationTapStream
         .listen((message) {
-      if (message.data['type'] == 'location_share_request') {
-        _showLocationShareApprovalSheet(message.data);
-      }
-    });
+          AppLogger.info('🔥 [FCM TAP] Received message: data=${message.data}');
+          print('🔥 [FCM TAP] Received message: data=${message.data}');
+          if (message.data['type'] == 'location_share_request') {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                _showLocationShareApprovalSheet(message.data);
+              }
+            });
+          } else if (message.data['type'] == 'location_share_accepted') {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                _handleIncomingLocationShareAccepted(message.data);
+              }
+            });
+          }
+        });
+
+    // Listen to foreground notifications
+    _foregroundSubscription = injector<FirebaseNotificationService>()
+        .messageStream
+        .listen((message) {
+          AppLogger.info('🔥 [FCM FG STREAM] Received message: data=${message.data}');
+          print('🔥 [FCM FG STREAM] Received message: data=${message.data}');
+          if (message.data['type'] == 'location_share_request') {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                _showLocationShareApprovalSheet(message.data);
+              }
+            });
+          } else if (message.data['type'] == 'location_share_accepted') {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                _handleIncomingLocationShareAccepted(message.data);
+              }
+            });
+          }
+        });
 
     // Check if there is a pending request on startup
-    final pendingRequest = injector<FirebaseNotificationService>()
-        .pendingLocationShareRequest;
-    if (pendingRequest != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          _showLocationShareApprovalSheet(pendingRequest.data);
-          injector<FirebaseNotificationService>()
-              .clearPendingLocationShareRequest();
-        }
-      });
-    }
+    _checkAndShowPendingLocationRequest();
 
     // Extract navigation arguments for pre-selected tab index
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -152,6 +181,12 @@ class _HomePageState extends State<HomePage> {
             _currentIndex = args['initialIndex'] as int;
           });
         }
+      }
+    });
+
+    _sharedChildTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (mounted && _viewingSharedChild) {
+        setState(() {});
       }
     });
   }
@@ -181,20 +216,118 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  String _getRemainingTimeText(dynamic expiresAtInput) {
+    if (expiresAtInput == null) return 'No expiry time';
+    DateTime expiresAt;
+    if (expiresAtInput is DateTime) {
+      expiresAt = expiresAtInput;
+    } else if (expiresAtInput is String) {
+      expiresAt = DateTime.tryParse(expiresAtInput) ?? DateTime.now();
+    } else {
+      return 'Invalid expiry';
+    }
+
+    final duration = expiresAt.difference(DateTime.now());
+    if (duration.isNegative) {
+      return 'Expired';
+    }
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes % 60;
+    if (hours > 0) {
+      return '${hours}h ${minutes}m remaining';
+    } else {
+      return '${minutes}m remaining';
+    }
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _progressTimer?.cancel();
+    _sharedChildTimer?.cancel();
     _sheetController.dispose();
     _notificationSubscription?.cancel();
+    _foregroundSubscription?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkAndShowPendingLocationRequest();
+    }
+  }
+
+  void _checkAndShowPendingLocationRequest() {
+    AppLogger.info('💡 _checkAndShowPendingLocationRequest check: mounted=$mounted, open=$_isLocationShareSheetOpen');
+    print('💡 [FCM CHECK] _checkAndShowPendingLocationRequest check: mounted=$mounted, open=$_isLocationShareSheetOpen');
+    if (!mounted || _isLocationShareSheetOpen) return;
+    final pendingJson = _sharedPrefsService.getString(
+      'pending_location_share_request',
+    );
+    AppLogger.info('💡 pendingJson: $pendingJson');
+    print('💡 [FCM CHECK] pendingJson: $pendingJson');
+    if (pendingJson != null && pendingJson.isNotEmpty) {
+      try {
+        final data = json.decode(pendingJson) as Map<String, dynamic>;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && !_isLocationShareSheetOpen) {
+            AppLogger.info('💡 Triggering approval sheet for data: $data');
+            print('💡 [FCM CHECK] Triggering approval sheet for data: $data');
+            _showLocationShareApprovalSheet(data);
+          }
+        });
+      } catch (e) {
+        AppLogger.error('Failed to parse pending location request JSON: $e');
+        print('❌ [FCM CHECK] Failed to parse pending JSON: $e');
+      }
+    }
+  }
+
+  void _handleIncomingLocationShareAccepted(Map<String, dynamic> data) {
+    AppLogger.info('💡 _handleIncomingLocationShareAccepted called with data: $data');
+    print('💡 [FCM ACCEPTED] Handling accepted share request: $data');
+    try {
+      final String childId = data['child_id'] ?? 'mock_rohan';
+      final String childName = data['child_name'] ?? 'Rohan';
+      final double lat = double.tryParse(data['lat']?.toString() ?? '') ?? 12.9716;
+      final double lng = double.tryParse(data['lng']?.toString() ?? '') ?? 77.5946;
+      final String? expiresAtStr = data['expires_at'];
+      final DateTime expiresAt = expiresAtStr != null 
+          ? DateTime.tryParse(expiresAtStr) ?? DateTime.now().add(const Duration(minutes: 30))
+          : DateTime.now().add(const Duration(minutes: 30));
+
+      setState(() {
+        _activeSharedChildData = {
+          'child_id': childId,
+          'child_name': childName,
+          'avatar': data['avatar'] ?? 'Boy 03.png',
+          'lat': lat,
+          'lng': lng,
+          'expires_at': expiresAt,
+        };
+        _viewingSharedChild = true;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$childName\'s shared location is now visible on your map'),
+          backgroundColor: const Color(0xFF10B981),
+        ),
+      );
+    } catch (e, stack) {
+      AppLogger.error('❌ Error handling location_share_accepted: $e');
+      print('❌ [FCM ACCEPTED ERROR] Error: $e\n$stack');
+    }
   }
 
   // helper to make import of min() safe
   int min(int a, int b) => a < b ? a : b;
 
   void _showRequestLocationSheet() {
-    final TextEditingController phoneController =
-        TextEditingController(text: "+14987889999");
+    final TextEditingController phoneController = TextEditingController(
+      text: "",
+    );
     final TextEditingController notesController = TextEditingController();
     bool isLoadingRequest = false;
 
@@ -224,7 +357,11 @@ class _HomePageState extends State<HomePage> {
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         IconButton(
-                          icon: const Icon(Icons.close, color: Color(0xFF0C1D37), size: 24),
+                          icon: const Icon(
+                            Icons.close,
+                            color: Color(0xFF0C1D37),
+                            size: 24,
+                          ),
                           onPressed: () => Navigator.pop(sheetContext),
                         ),
                       ],
@@ -248,22 +385,29 @@ class _HomePageState extends State<HomePage> {
                         color: const Color(0xFF0C1D37),
                       ),
                       decoration: InputDecoration(
-                        hintText: '+14987889999',
+                        hintText: 'Parent Mobile No',
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 16,
                           vertical: 16,
                         ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFE2E8F0),
+                          ),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFCBD5E1),
+                          ),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Color(0xFF0C1D37), width: 1.5),
+                          borderSide: const BorderSide(
+                            color: Color(0xFF0C1D37),
+                            width: 1.5,
+                          ),
                         ),
                       ),
                     ),
@@ -294,15 +438,22 @@ class _HomePageState extends State<HomePage> {
                         ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFE2E8F0),
+                          ),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFCBD5E1),
+                          ),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Color(0xFF0C1D37), width: 1.5),
+                          borderSide: const BorderSide(
+                            color: Color(0xFF0C1D37),
+                            width: 1.5,
+                          ),
                         ),
                       ),
                     ),
@@ -325,7 +476,9 @@ class _HomePageState extends State<HomePage> {
                                 if (phoneController.text.trim().isEmpty) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
-                                      content: Text('Please enter a phone number'),
+                                      content: Text(
+                                        'Please enter a phone number',
+                                      ),
                                       backgroundColor: Colors.redAccent,
                                     ),
                                   );
@@ -334,28 +487,47 @@ class _HomePageState extends State<HomePage> {
                                 setSheetState(() {
                                   isLoadingRequest = true;
                                 });
-                                await Future.delayed(const Duration(milliseconds: 1200));
-                                if (sheetContext.mounted) {
-                                  Navigator.pop(sheetContext);
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        'Location request sent to ${phoneController.text.trim()} successfully!',
+
+                                final repo = injector<HomeRepository>();
+                                final response = await repo
+                                    .requestLocationSharing(
+                                      phoneNumber: phoneController.text.trim(),
+                                      notes:
+                                          notesController.text.trim().isNotEmpty
+                                          ? notesController.text.trim()
+                                          : null,
+                                    );
+
+                                if (response.isSuccess) {
+                                  if (sheetContext.mounted) {
+                                    Navigator.pop(sheetContext);
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          'Location request sent to ${phoneController.text.trim()} successfully!',
+                                        ),
+                                        backgroundColor: const Color(
+                                          0xFF10B981,
+                                        ),
                                       ),
-                                      backgroundColor: const Color(0xFF10B981),
-                                    ),
-                                  );
-                                  
-                                  // For demonstration of the approval sheet receiving, trigger it after a 3s delay
-                                  Future.delayed(const Duration(seconds: 3), () {
-                                    if (mounted) {
-                                      _showLocationShareApprovalSheet({
-                                        'requester_name': 'Parent A',
-                                        'notes': notesController.text.trim(),
-                                        'request_id': 'demo_123',
-                                      });
-                                    }
+                                    );
+                                  }
+                                } else {
+                                  setSheetState(() {
+                                    isLoadingRequest = false;
                                   });
+                                  if (sheetContext.mounted) {
+                                    ScaffoldMessenger.of(
+                                      sheetContext,
+                                    ).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          'Failed to send request: ${response.message}',
+                                        ),
+                                        backgroundColor: Colors.redAccent,
+                                      ),
+                                    );
+                                  }
                                 }
                               },
                         child: isLoadingRequest
@@ -387,61 +559,75 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _showLocationShareApprovalSheet(Map<String, dynamic> data) {
-    final String requesterName = data['requester_name'] ?? 'Parent A';
-    final String? notes = data['notes'];
-    final String requestId = data['request_id'] ?? 'dummy_id';
-
-    List<ChildProfile> localChildren = _sharedPrefsService.getChildren();
-    if (localChildren.isEmpty) {
-      localChildren = [
-        ChildProfile(
-          childId: 'mock_aisha',
-          childCode: 'AI123',
-          childName: 'Aisha',
-          authToken: 'dummy',
-          lastActiveAt: DateTime.now(),
-        ),
-        ChildProfile(
-          childId: 'mock_rohan',
-          childCode: 'RO123',
-          childName: 'Rohan',
-          authToken: 'dummy',
-          lastActiveAt: DateTime.now(),
-        ),
-        ChildProfile(
-          childId: 'mock_priya',
-          childCode: 'PR123',
-          childName: 'Priya',
-          authToken: 'dummy',
-          lastActiveAt: DateTime.now(),
-        ),
-      ];
+    AppLogger.info('💡 _showLocationShareApprovalSheet called with data: $data');
+    print('💡 [FCM SHEET] _showLocationShareApprovalSheet called with data: $data');
+    
+    if (_isLocationShareSheetOpen) {
+      AppLogger.warning('⚠️ location share sheet is already open. Skipping duplicate show call.');
+      print('⚠️ [FCM SHEET] location share sheet is already open. Skipping duplicate show call.');
+      return;
     }
 
-    final Map<String, String> childAges = {
-      'Aisha': '8 yrs',
-      'Rohan': '11 yrs',
-      'Priya': '6 yrs',
-    };
+    try {
+      final String requesterName = data['requester_name'] ?? 'Parent A';
+      final String? notes = data['notes'];
+      final String requestId = data['request_id'] ?? 'dummy_id';
 
-    String selectedDuration = '30 min';
-    final List<String> selectedKids = [];
+      List<ChildProfile> localChildren = _sharedPrefsService.getChildren();
+      AppLogger.info('💡 Children count: ${localChildren.length}');
+      print('💡 [FCM SHEET] Children count: ${localChildren.length}');
+      if (localChildren.isEmpty) {
+        localChildren = [
+          ChildProfile(
+            childId: 'mock_aisha',
+            childCode: 'AI123',
+            childName: 'Aisha',
+            authToken: 'dummy',
+            lastActiveAt: DateTime.now(),
+          ),
+          ChildProfile(
+            childId: 'mock_rohan',
+            childCode: 'RO123',
+            childName: 'Rohan',
+            authToken: 'dummy',
+            lastActiveAt: DateTime.now(),
+          ),
+          ChildProfile(
+            childId: 'mock_priya',
+            childCode: 'PR123',
+            childName: 'Priya',
+            authToken: 'dummy',
+            lastActiveAt: DateTime.now(),
+          ),
+        ];
+      }
 
-    if (localChildren.length >= 2) {
-      selectedKids.add(localChildren[0].childId);
-      selectedKids.add(localChildren[1].childId);
-    } else if (localChildren.isNotEmpty) {
-      selectedKids.add(localChildren[0].childId);
-    }
+      final Map<String, String> childAges = {
+        'Aisha': '8 yrs',
+        'Rohan': '11 yrs',
+        'Priya': '6 yrs',
+      };
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (sheetContext) {
+      String selectedDuration = '30 min';
+      final List<String> selectedKids = [];
+
+      if (localChildren.length >= 2) {
+        selectedKids.add(localChildren[0].childId);
+        selectedKids.add(localChildren[1].childId);
+      } else if (localChildren.isNotEmpty) {
+        selectedKids.add(localChildren[0].childId);
+      }
+
+      _isLocationShareSheetOpen = true;
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.white,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        builder: (sheetContext) {
+        bool isResponding = false;
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setSheetState) {
             return Padding(
@@ -541,15 +727,21 @@ class _HomePageState extends State<HomePage> {
                                     fontWeight: FontWeight.w500,
                                   ),
                                 ),
-                                if (notes != null && notes.trim().isNotEmpty) ...[
+                                if (notes != null &&
+                                    notes.trim().isNotEmpty) ...[
                                   const SizedBox(height: 8),
                                   Container(
                                     width: double.infinity,
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 8,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: Colors.white,
                                       borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(color: const Color(0xFFFFE5DE)),
+                                      border: Border.all(
+                                        color: const Color(0xFFFFE5DE),
+                                      ),
                                     ),
                                     child: Text(
                                       'Note: "$notes"',
@@ -598,20 +790,31 @@ class _HomePageState extends State<HomePage> {
                     const SizedBox(height: 12),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: ['15 min', '30 min', '1 hour', '2 hours'].map((duration) {
+                      children: ['15 min', '30 min', '1 hour', '2 hours'].map((
+                        duration,
+                      ) {
                         final isSelected = selectedDuration == duration;
                         return GestureDetector(
-                          onTap: () {
-                            setSheetState(() {
-                              selectedDuration = duration;
-                            });
-                          },
+                          onTap: isResponding
+                              ? null
+                              : () {
+                                  setSheetState(() {
+                                    selectedDuration = duration;
+                                  });
+                                },
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
+                            ),
                             decoration: BoxDecoration(
-                              color: isSelected ? const Color(0xFF0066FF) : Colors.white,
+                              color: isSelected
+                                  ? const Color(0xFF0066FF)
+                                  : Colors.white,
                               border: Border.all(
-                                color: isSelected ? const Color(0xFF0066FF) : const Color(0xFFE2E8F0),
+                                color: isSelected
+                                    ? const Color(0xFF0066FF)
+                                    : const Color(0xFFE2E8F0),
                               ),
                               borderRadius: BorderRadius.circular(12),
                             ),
@@ -620,7 +823,9 @@ class _HomePageState extends State<HomePage> {
                               style: GoogleFonts.manrope(
                                 fontSize: 13,
                                 fontWeight: FontWeight.bold,
-                                color: isSelected ? Colors.white : const Color(0xFF0C1D37),
+                                color: isSelected
+                                    ? Colors.white
+                                    : const Color(0xFF0C1D37),
                               ),
                             ),
                           ),
@@ -646,22 +851,24 @@ class _HomePageState extends State<HomePage> {
                         final isSelected = selectedKids.contains(kid.childId);
                         final name = kid.childName;
                         final displayAge = childAges[name] ?? '8 yrs';
-                        String initials = name.length >= 2 
+                        String initials = name.length >= 2
                             ? name.substring(0, 2).toUpperCase()
                             : name.toUpperCase();
 
                         return Padding(
                           padding: const EdgeInsets.only(right: 20),
                           child: GestureDetector(
-                            onTap: () {
-                              setSheetState(() {
-                                if (isSelected) {
-                                  selectedKids.remove(kid.childId);
-                                } else {
-                                  selectedKids.add(kid.childId);
-                                }
-                              });
-                            },
+                            onTap: isResponding
+                                ? null
+                                : () {
+                                    setSheetState(() {
+                                      if (isSelected) {
+                                        selectedKids.remove(kid.childId);
+                                      } else {
+                                        selectedKids.add(kid.childId);
+                                      }
+                                    });
+                                  },
                             child: Column(
                               children: [
                                 Stack(
@@ -672,25 +879,36 @@ class _HomePageState extends State<HomePage> {
                                       decoration: BoxDecoration(
                                         shape: BoxShape.circle,
                                         border: isSelected
-                                            ? Border.all(color: const Color(0xFF0066FF), width: 2)
+                                            ? Border.all(
+                                                color: const Color(0xFF0066FF),
+                                                width: 2,
+                                              )
                                             : null,
-                                        color: isSelected 
-                                            ? const Color(0xFFEFF6FF) 
+                                        color: isSelected
+                                            ? const Color(0xFFEFF6FF)
                                             : const Color(0xFFECFDF5),
                                       ),
                                       alignment: Alignment.center,
-                                      child: kid.avatar != null && kid.avatar!.isNotEmpty
+                                      child:
+                                          kid.avatar != null &&
+                                              kid.avatar!.isNotEmpty
                                           ? CircleAvatar(
                                               radius: 30,
-                                              backgroundImage: NetworkImage(kid.avatar!),
+                                              backgroundImage: (kid.avatar!.startsWith('http://') || kid.avatar!.startsWith('https://'))
+                                                  ? NetworkImage(kid.avatar!)
+                                                  : AssetImage(
+                                                      kid.avatar!.startsWith('assets/')
+                                                          ? kid.avatar!
+                                                          : 'assets/images/childavatar/${kid.avatar!}',
+                                                    ) as ImageProvider,
                                             )
                                           : Text(
                                               initials,
                                               style: GoogleFonts.manrope(
                                                 fontSize: 16,
                                                 fontWeight: FontWeight.bold,
-                                                color: isSelected 
-                                                    ? const Color(0xFF0066FF) 
+                                                color: isSelected
+                                                    ? const Color(0xFF0066FF)
                                                     : const Color(0xFF059669),
                                               ),
                                             ),
@@ -753,60 +971,116 @@ class _HomePageState extends State<HomePage> {
                           ),
                           elevation: 0,
                         ),
-                        onPressed: selectedKids.isEmpty
+                        onPressed: selectedKids.isEmpty || isResponding
                             ? null
                             : () async {
-                                Navigator.pop(sheetContext);
-                                final List<String> sharedNames = localChildren
-                                    .where((k) => selectedKids.contains(k.childId))
-                                    .map((k) => k.childName)
-                                    .toList();
-
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Accepted share request for: ${sharedNames.join(', ')}'),
-                                    backgroundColor: const Color(0xFF10B981),
-                                  ),
-                                );
-
-                                LatLng basePos = const LatLng(12.9716, 77.5946);
-                                final state = injector<HomepageBloc>().state;
-                                if (state is HomepageSuccess && state.currentLocation != null) {
-                                  basePos = LatLng(state.currentLocation!.lat + 0.005, state.currentLocation!.lng + 0.005);
-                                }
-
-                                setState(() {
-                                  _activeSharedChildData = {
-                                    'child_id': selectedKids.first,
-                                    'child_name': sharedNames.first,
-                                    'avatar': null,
-                                    'lat': basePos.latitude,
-                                    'lng': basePos.longitude,
-                                    'expires_at': DateTime.now().add(
-                                      selectedDuration.contains('15')
-                                          ? const Duration(minutes: 15)
-                                          : selectedDuration.contains('30')
-                                              ? const Duration(minutes: 30)
-                                              : selectedDuration.contains('1 hour')
-                                                  ? const Duration(hours: 1)
-                                                  : const Duration(hours: 2),
-                                    ),
-                                  };
-                                  _viewingSharedChild = true;
+                                setSheetState(() {
+                                  isResponding = true;
                                 });
 
-                                final activeOutgoingShares = SharedPrefsService.prefs.getStringList('active_outgoing_shares') ?? [];
-                                final newShareJson = '{"share_id":"share_${DateTime.now().millisecondsSinceEpoch}","recipient_phone":"+14987889999","child_id":"${selectedKids.first}","child_name":"${sharedNames.first}","expires_at":"${DateTime.now().add(const Duration(minutes: 30)).toIso8601String()}"}';
-                                activeOutgoingShares.add(newShareJson);
-                                await SharedPrefsService.prefs.setStringList('active_outgoing_shares', activeOutgoingShares);
+                                int durationMin = 30;
+                                if (selectedDuration.contains('15')) {
+                                  durationMin = 15;
+                                } else if (selectedDuration.contains('30')) {
+                                  durationMin = 30;
+                                } else if (selectedDuration.contains(
+                                  '1 hour',
+                                )) {
+                                  durationMin = 60;
+                                } else if (selectedDuration.contains(
+                                  '2 hours',
+                                )) {
+                                  durationMin = 120;
+                                }
+
+                                final repo = injector<HomeRepository>();
+                                final response = await repo
+                                    .respondToLocationRequest(
+                                      requestId: requestId,
+                                      action: 'accept',
+                                      childIds: selectedKids,
+                                      durationMinutes: durationMin,
+                                    );
+
+                                if (response.isSuccess) {
+                                  await SharedPrefsService.prefs.remove(
+                                    'pending_location_share_request',
+                                  );
+                                  injector<FirebaseNotificationService>()
+                                      .clearPendingLocationShareRequest();
+
+                                  if (sheetContext.mounted) {
+                                    Navigator.pop(sheetContext);
+                                  }
+
+                                  final List<String> sharedNames = localChildren
+                                      .where(
+                                        (k) => selectedKids.contains(k.childId),
+                                      )
+                                      .map((k) => k.childName)
+                                      .toList();
+
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          'Accepted share request for: ${sharedNames.join(', ')}',
+                                        ),
+                                        backgroundColor: const Color(
+                                          0xFF10B981,
+                                        ),
+                                      ),
+                                    );
+                                  }
+
+                                  // Parent B is the sharing parent, so we do not show the shared child as an active incoming share on their own map.
+                                  // The shared child is already visible as their own child on the home map.
+                                  final activeOutgoingShares =
+                                      SharedPrefsService.prefs.getStringList(
+                                        'active_outgoing_shares',
+                                      ) ??
+                                      [];
+                                  final newShareJson =
+                                      '{"share_id":"share_${DateTime.now().millisecondsSinceEpoch}","recipient_phone":"+14987889999","child_id":"${selectedKids.first}","child_name":"${sharedNames.first}","expires_at":"${DateTime.now().add(const Duration(minutes: 30)).toIso8601String()}"}';
+                                  activeOutgoingShares.add(newShareJson);
+                                  await SharedPrefsService.prefs.setStringList(
+                                    'active_outgoing_shares',
+                                    activeOutgoingShares,
+                                  );
+                                } else {
+                                  setSheetState(() {
+                                    isResponding = false;
+                                  });
+                                  if (sheetContext.mounted) {
+                                    ScaffoldMessenger.of(
+                                      sheetContext,
+                                    ).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          'Failed to accept request: ${response.message}',
+                                        ),
+                                        backgroundColor: Colors.redAccent,
+                                      ),
+                                    );
+                                  }
+                                }
                               },
-                        child: Text(
-                          'Accept Request',
-                          style: GoogleFonts.manrope(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                        child: isResponding
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : Text(
+                                'Accept Request',
+                                style: GoogleFonts.manrope(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -816,15 +1090,20 @@ class _HomePageState extends State<HomePage> {
                       child: OutlinedButton(
                         style: OutlinedButton.styleFrom(
                           foregroundColor: const Color(0xFFDC2626),
-                          side: const BorderSide(color: Color(0xFFDC2626), width: 1.5),
+                          side: const BorderSide(
+                            color: Color(0xFFDC2626),
+                            width: 1.5,
+                          ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        onPressed: () {
-                          Navigator.pop(sheetContext);
-                          _showRejectionReasonDialog(requestId);
-                        },
+                        onPressed: isResponding
+                            ? null
+                            : () {
+                                Navigator.pop(sheetContext);
+                                _showRejectionReasonDialog(requestId);
+                              },
                         child: Text(
                           'Reject Request',
                           style: GoogleFonts.manrope(
@@ -851,97 +1130,163 @@ class _HomePageState extends State<HomePage> {
           },
         );
       },
-    );
+    ).whenComplete(() {
+      _isLocationShareSheetOpen = false;
+      AppLogger.info('💡 [FCM SHEET] Sheet closed/dismissed');
+      print('💡 [FCM SHEET] Sheet closed/dismissed');
+    });
+    } catch (e, stack) {
+      _isLocationShareSheetOpen = false;
+      AppLogger.error('❌ Error in _showLocationShareApprovalSheet: $e');
+      print('❌ [FCM SHEET ERROR] Error: $e\n$stack');
+    }
   }
 
   void _showRejectionReasonDialog(String requestId) {
     final TextEditingController reasonController = TextEditingController();
-    
+
     showDialog(
       context: context,
       builder: (dialogContext) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text(
-            'Reject Request',
-            style: GoogleFonts.manrope(
-              fontWeight: FontWeight.bold,
-              color: const Color(0xFF0C1D37),
-            ),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Please specify the reason for rejection (optional):',
-                style: GoogleFonts.manrope(
-                  fontSize: 13,
-                  color: const Color(0xFF475569),
-                  fontWeight: FontWeight.w500,
-                ),
+        bool isRejecting = false;
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
               ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: reasonController,
-                maxLines: 2,
-                decoration: InputDecoration(
-                  hintText: 'e.g. Kids are sleeping, already home...',
-                  contentPadding: const EdgeInsets.all(12),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: Text(
-                'Cancel',
+              title: Text(
+                'Reject Request',
                 style: GoogleFonts.manrope(
-                  color: const Color(0xFF64748B),
                   fontWeight: FontWeight.bold,
+                  color: const Color(0xFF0C1D37),
                 ),
               ),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFDC2626),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              onPressed: () {
-                Navigator.pop(dialogContext);
-                final String reason = reasonController.text.trim();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      reason.isEmpty 
-                          ? 'Request rejected' 
-                          : 'Request rejected. Reason: "$reason"',
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Please specify the reason for rejection (optional):',
+                    style: GoogleFonts.manrope(
+                      fontSize: 13,
+                      color: const Color(0xFF475569),
+                      fontWeight: FontWeight.w500,
                     ),
-                    backgroundColor: const Color(0xFFDC2626),
                   ),
-                );
-              },
-              child: Text(
-                'Reject',
-                style: GoogleFonts.manrope(
-                  fontWeight: FontWeight.bold,
-                ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: reasonController,
+                    maxLines: 2,
+                    enabled: !isRejecting,
+                    decoration: InputDecoration(
+                      hintText: 'e.g. Kids are sleeping, already home...',
+                      contentPadding: const EdgeInsets.all(12),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
+              actions: [
+                TextButton(
+                  onPressed: isRejecting
+                      ? null
+                      : () => Navigator.pop(dialogContext),
+                  child: Text(
+                    'Cancel',
+                    style: GoogleFonts.manrope(
+                      color: const Color(0xFF64748B),
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFDC2626),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  onPressed: isRejecting
+                      ? null
+                      : () async {
+                          setDialogState(() {
+                            isRejecting = true;
+                          });
+                          final String reason = reasonController.text.trim();
+
+                          final repo = injector<HomeRepository>();
+                          final response = await repo.respondToLocationRequest(
+                            requestId: requestId,
+                            action: 'reject',
+                            rejectionReason: reason.isNotEmpty ? reason : null,
+                          );
+
+                          if (response.isSuccess) {
+                            await SharedPrefsService.prefs.remove(
+                              'pending_location_share_request',
+                            );
+                            injector<FirebaseNotificationService>()
+                                .clearPendingLocationShareRequest();
+
+                            if (dialogContext.mounted) {
+                              Navigator.pop(dialogContext);
+                            }
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    reason.isEmpty
+                                        ? 'Request rejected'
+                                        : 'Request rejected. Reason: "$reason"',
+                                  ),
+                                  backgroundColor: const Color(0xFFDC2626),
+                                ),
+                              );
+                            }
+                          } else {
+                            setDialogState(() {
+                              isRejecting = false;
+                            });
+                            if (dialogContext.mounted) {
+                              ScaffoldMessenger.of(dialogContext).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Failed to reject request: ${response.message}',
+                                  ),
+                                  backgroundColor: Colors.redAccent,
+                                ),
+                              );
+                            }
+                          }
+                        },
+                  child: isRejecting
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : Text(
+                          'Reject',
+                          style: GoogleFonts.manrope(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                ),
+              ],
+            );
+          },
         );
       },
     );
   }
-
 
   Future<BitmapDescriptor?> _loadCustomMarker(
     int batteryPercentage,
@@ -1328,96 +1673,179 @@ class _HomePageState extends State<HomePage> {
                           loadCustomMarker: _loadCustomMarker,
                           activeSharedChildData: _activeSharedChildData,
                           viewingSharedChild: _viewingSharedChild,
+                          ownChildLocation: state.currentLocation != null
+                              ? LatLng(state.currentLocation!.lat, state.currentLocation!.lng)
+                              : null,
                         ),
                       ),
                     ),
 
                     // Layer 1.5: Floating Overlay Avatar for Shared Kid
-                    if (_activeSharedChildData != null)
-                      Positioned(
+                    () {
+                      final floatingChildren = state.sharedChildren.isNotEmpty
+                          ? state.sharedChildren
+                          : (_activeSharedChildData != null
+                              ? [
+                                  SharedChild(
+                                    shareId: _activeSharedChildData!['child_id'],
+                                    childId: _activeSharedChildData!['child_id'],
+                                    childName: _activeSharedChildData!['child_name'],
+                                    latitude: _activeSharedChildData!['lat'],
+                                    longitude: _activeSharedChildData!['lng'],
+                                    batteryPercentage: _activeSharedChildData!['battery_percentage'] ?? 50,
+                                    avatar: _activeSharedChildData!['avatar'],
+                                    expiresAt: _activeSharedChildData!['expires_at'],
+                                    lastSyncAt: _activeSharedChildData!['last_sync_at'],
+                                  )
+                                ]
+                              : <SharedChild>[]);
+
+                      if (floatingChildren.isEmpty) return const SizedBox.shrink();
+
+                      return Positioned(
                         top: 80,
                         right: 16,
                         child: Column(
-                          children: [
-                            GestureDetector(
-                              onTap: () {
-                                setState(() {
-                                  _viewingSharedChild = !_viewingSharedChild;
-                                });
-                              },
-                              child: Container(
-                                width: 56,
-                                height: 56,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: Colors.white,
-                                  border: Border.all(
-                                    color: _viewingSharedChild ? const Color(0xFF0066FF) : const Color(0xFFCBD5E1),
-                                    width: 2.5,
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.15),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ],
-                                ),
-                                alignment: Alignment.center,
-                                child: Stack(
-                                  alignment: Alignment.center,
-                                  children: [
-                                    Text(
-                                      (_activeSharedChildData!['child_name'] as String).substring(0, min(2, (_activeSharedChildData!['child_name'] as String).length)).toUpperCase(),
-                                      style: GoogleFonts.manrope(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold,
-                                        color: const Color(0xFF0066FF),
-                                      ),
-                                    ),
-                                    Positioned(
-                                      top: 0,
-                                      right: 0,
-                                      child: Container(
-                                        width: 12,
-                                        height: 12,
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFF10B981),
-                                          shape: BoxShape.circle,
-                                          border: Border.all(color: Colors.white, width: 1.5),
+                          children: floatingChildren.map((child) {
+                            final isSelected = _viewingSharedChild &&
+                                _activeSharedChildData != null &&
+                                _activeSharedChildData!['child_id'] == child.childId;
+                            final hasAvatar = child.avatar != null && child.avatar!.isNotEmpty;
+                            final String initials = child.childName
+                                .substring(0, min(2, child.childName.length))
+                                .toUpperCase();
+
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 12.0),
+                              child: Column(
+                                children: [
+                                  GestureDetector(
+                                    onTap: () {
+                                      setState(() {
+                                        _activeSharedChildData = {
+                                          'child_id': child.childId,
+                                          'child_name': child.childName,
+                                          'avatar': child.avatar ?? 'Boy 03.png',
+                                          'lat': child.latitude,
+                                          'lng': child.longitude,
+                                          'expires_at': child.expiresAt,
+                                          'battery_percentage': child.batteryPercentage,
+                                          'last_sync_at': child.lastSyncAt,
+                                        };
+                                        _viewingSharedChild = true;
+                                      });
+                                    },
+                                    child: Container(
+                                      width: 56,
+                                      height: 56,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: Colors.white,
+                                        border: Border.all(
+                                          color: isSelected
+                                              ? const Color(0xFF0066FF)
+                                              : const Color(0xFFCBD5E1),
+                                          width: 2.5,
                                         ),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withOpacity(0.15),
+                                            blurRadius: 8,
+                                            offset: const Offset(0, 4),
+                                          ),
+                                        ],
+                                      ),
+                                      alignment: Alignment.center,
+                                      child: Stack(
+                                        alignment: Alignment.center,
+                                        children: [
+                                          if (hasAvatar)
+                                            ClipOval(
+                                              child: Image(
+                                                image: (child.avatar!.startsWith('http://') || child.avatar!.startsWith('https://'))
+                                                    ? NetworkImage(child.avatar!)
+                                                    : AssetImage(
+                                                        child.avatar!.startsWith('assets/')
+                                                            ? child.avatar!
+                                                            : 'assets/images/childavatar/${child.avatar!}',
+                                                      ) as ImageProvider,
+                                                width: 50,
+                                                height: 50,
+                                                fit: BoxFit.cover,
+                                                errorBuilder: (context, error, stackTrace) {
+                                                  return Text(
+                                                    initials,
+                                                    style: GoogleFonts.manrope(
+                                                      fontSize: 14,
+                                                      fontWeight: FontWeight.bold,
+                                                      color: const Color(0xFF0066FF),
+                                                    ),
+                                                  );
+                                                },
+                                              ),
+                                            )
+                                          else
+                                            Text(
+                                              initials,
+                                              style: GoogleFonts.manrope(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.bold,
+                                                color: const Color(0xFF0066FF),
+                                              ),
+                                            ),
+                                          Positioned(
+                                            top: 0,
+                                            right: 0,
+                                            child: Container(
+                                              width: 12,
+                                              height: 12,
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFF10B981),
+                                                shape: BoxShape.circle,
+                                                border: Border.all(
+                                                  color: Colors.white,
+                                                  width: 1.5,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.9),
-                                borderRadius: BorderRadius.circular(8),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.05),
-                                    blurRadius: 4,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.9),
+                                      borderRadius: BorderRadius.circular(8),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.05),
+                                          blurRadius: 4,
+                                        ),
+                                      ],
+                                    ),
+                                    child: Text(
+                                      child.childName,
+                                      style: GoogleFonts.manrope(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: const Color(0xFF0C1D37),
+                                      ),
+                                    ),
                                   ),
                                 ],
                               ),
-                              child: Text(
-                                _activeSharedChildData!['child_name'],
-                                style: GoogleFonts.manrope(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: const Color(0xFF0C1D37),
-                                ),
-                              ),
-                            ),
-                          ],
+                            );
+                          }).toList(),
                         ),
-                      ),
-                      
+                      );
+                    }(),
+
                     // Layer 1.6: Overlay banner if viewing shared child
                     if (_viewingSharedChild && _activeSharedChildData != null)
                       Positioned(
@@ -1425,7 +1853,10 @@ class _HomePageState extends State<HomePage> {
                         left: 16,
                         right: 16,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(16),
@@ -1442,10 +1873,15 @@ class _HomePageState extends State<HomePage> {
                             children: [
                               Row(
                                 children: [
-                                  const Icon(Icons.share_location, color: Color(0xFF0066FF), size: 20),
+                                  const Icon(
+                                    Icons.share_location,
+                                    color: Color(0xFF0066FF),
+                                    size: 20,
+                                  ),
                                   const SizedBox(width: 10),
                                   Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         'Viewing: ${_activeSharedChildData!['child_name']} (Shared)',
@@ -1456,7 +1892,7 @@ class _HomePageState extends State<HomePage> {
                                         ),
                                       ),
                                       Text(
-                                        'Expires at ${TimeOfDay.fromDateTime(_activeSharedChildData!['expires_at']).format(context)}',
+                                        _getRemainingTimeText(_activeSharedChildData!['expires_at']),
                                         style: GoogleFonts.manrope(
                                           fontSize: 11,
                                           color: const Color(0xFF64748B),
@@ -1470,8 +1906,13 @@ class _HomePageState extends State<HomePage> {
                               TextButton(
                                 style: TextButton.styleFrom(
                                   backgroundColor: const Color(0xFFF1F5F9),
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 8,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
                                 ),
                                 onPressed: () {
                                   setState(() {
@@ -1479,7 +1920,7 @@ class _HomePageState extends State<HomePage> {
                                   });
                                 },
                                 child: Text(
-                                  'Back to Own',
+                                  'Switch to Home',
                                   style: GoogleFonts.manrope(
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
@@ -1499,8 +1940,12 @@ class _HomePageState extends State<HomePage> {
                       bottom: 24,
                       child: _buildLocationCardOnly(
                         context,
-                        childName,
-                        placeName,
+                        _viewingSharedChild && _activeSharedChildData != null
+                            ? _activeSharedChildData!['child_name']
+                            : childName,
+                        _viewingSharedChild && _activeSharedChildData != null
+                            ? 'Shared Location'
+                            : placeName,
                         state,
                       ),
                     ),
@@ -1510,7 +1955,8 @@ class _HomePageState extends State<HomePage> {
             ),
 
             // Sliver 2: Scrollable content cards below the map
-            SliverPadding(
+            if (!_viewingSharedChild)
+              SliverPadding(
               padding: const EdgeInsets.all(16.0),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
@@ -1714,10 +2160,15 @@ class _HomePageState extends State<HomePage> {
           _DynamicLocationText(
             childName: childName,
             initialPlaceName: placeName,
-            position: LatLng(
-              state.currentLocation?.lat ?? 0.0,
-              state.currentLocation?.lng ?? 0.0,
-            ),
+            position: _viewingSharedChild && _activeSharedChildData != null
+                ? LatLng(
+                    _activeSharedChildData!['lat'] ?? 0.0,
+                    _activeSharedChildData!['lng'] ?? 0.0,
+                  )
+                : LatLng(
+                    state.currentLocation?.lat ?? 0.0,
+                    state.currentLocation?.lng ?? 0.0,
+                  ),
           ),
           const SizedBox(height: 16),
           Row(
@@ -1725,24 +2176,32 @@ class _HomePageState extends State<HomePage> {
             children: [
               _buildLocationStatusPill(
                 Icons.access_time_rounded,
-                _formatSinceTime(state.currentLocation?.since),
+                _viewingSharedChild && _activeSharedChildData != null
+                    ? _formatSinceTime(_activeSharedChildData!['last_sync_at']?.toString())
+                    : _formatSinceTime(state.currentLocation?.since),
               ),
               const SizedBox(width: 8),
               _buildLocationStatusPill(
-                state.deviceInfo?.isCharging == true
-                    ? Icons.battery_charging_full_rounded
-                    : Icons.battery_std_rounded,
-                '${state.deviceInfo?.batteryPercentage ?? 0}%',
+                _viewingSharedChild && _activeSharedChildData != null
+                    ? Icons.battery_std_rounded
+                    : (state.deviceInfo?.isCharging == true
+                        ? Icons.battery_charging_full_rounded
+                        : Icons.battery_std_rounded),
+                _viewingSharedChild && _activeSharedChildData != null
+                    ? '${_activeSharedChildData!['battery_percentage'] ?? 0}%'
+                    : '${state.deviceInfo?.batteryPercentage ?? 0}%',
               ),
-              const SizedBox(width: 8),
-              _buildLocationStatusPill(
-                state.deviceInfo?.soundProfile.toLowerCase() == 'silent'
-                    ? Icons.volume_off_rounded
-                    : (state.deviceInfo?.soundProfile.toLowerCase() == 'vibrate'
-                          ? Icons.vibration_rounded
-                          : Icons.volume_up_rounded),
-                state.deviceInfo?.soundProfile ?? 'Vibrate',
-              ),
+              if (!_viewingSharedChild) ...[
+                const SizedBox(width: 8),
+                _buildLocationStatusPill(
+                  state.deviceInfo?.soundProfile.toLowerCase() == 'silent'
+                      ? Icons.volume_off_rounded
+                      : (state.deviceInfo?.soundProfile.toLowerCase() == 'vibrate'
+                            ? Icons.vibration_rounded
+                            : Icons.volume_up_rounded),
+                  state.deviceInfo?.soundProfile ?? 'Vibrate',
+                ),
+              ],
             ],
           ),
         ],
@@ -2766,11 +3225,13 @@ class _HomeMapBackground extends StatefulWidget {
   final Future<BitmapDescriptor?> Function(int, String?) loadCustomMarker;
   final Map<String, dynamic>? activeSharedChildData;
   final bool viewingSharedChild;
+  final LatLng? ownChildLocation;
 
   const _HomeMapBackground({
     required this.loadCustomMarker,
     required this.activeSharedChildData,
     required this.viewingSharedChild,
+    this.ownChildLocation,
   });
 
   @override
@@ -2784,6 +3245,9 @@ class _HomeMapBackgroundState extends State<_HomeMapBackground> {
   GoogleMapController? _mapController;
   bool _isFirstLocationAfterLoad = true;
 
+  final Map<String, BitmapDescriptor> _cachedSharedMarkers = {};
+  final Set<String> _loadingSharedMarkers = {};
+
   @override
   void initState() {
     super.initState();
@@ -2794,9 +3258,16 @@ class _HomeMapBackgroundState extends State<_HomeMapBackground> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.viewingSharedChild != widget.viewingSharedChild ||
         oldWidget.activeSharedChildData != widget.activeSharedChildData) {
-      if (_mapController != null && widget.activeSharedChildData != null && widget.viewingSharedChild) {
-        final target = LatLng(widget.activeSharedChildData!['lat'], widget.activeSharedChildData!['lng']);
-        _animateTo(target);
+      if (_mapController != null) {
+        if (widget.viewingSharedChild && widget.activeSharedChildData != null) {
+          final target = LatLng(
+            widget.activeSharedChildData!['lat'],
+            widget.activeSharedChildData!['lng'],
+          );
+          _animateTo(target);
+        } else if (!widget.viewingSharedChild && widget.ownChildLocation != null) {
+          _animateTo(widget.ownChildLocation!);
+        }
       }
     }
   }
@@ -2814,6 +3285,21 @@ class _HomeMapBackgroundState extends State<_HomeMapBackground> {
       _cachedBatteryPercentage = batteryPercentage;
       _cachedAvatar = avatar;
     });
+  }
+
+  Future<void> _loadSharedMarkerIcon(String childId, int batteryPercentage, String? avatar) async {
+    if (_cachedSharedMarkers.containsKey(childId) || _loadingSharedMarkers.contains(childId)) {
+      return;
+    }
+    _loadingSharedMarkers.add(childId);
+    final icon = await widget.loadCustomMarker(batteryPercentage, avatar);
+    _loadingSharedMarkers.remove(childId);
+    if (!mounted) return;
+    if (icon != null) {
+      setState(() {
+        _cachedSharedMarkers[childId] = icon;
+      });
+    }
   }
 
   Future<void> _animateTo(LatLng target, {double? zoom}) async {
@@ -2861,10 +3347,10 @@ class _HomeMapBackgroundState extends State<_HomeMapBackground> {
           _loadMarkerIcon(battery, avatar);
 
           // Animate to location - always try to animate when location updates
-          if (_mapController != null) {
+          if (_mapController != null && !widget.viewingSharedChild) {
             // Use a small delay to ensure map is ready
             Future.delayed(const Duration(milliseconds: 100), () {
-              if (mounted && _mapController != null) {
+              if (mounted && _mapController != null && !widget.viewingSharedChild) {
                 _animateTo(loc, zoom: _isFirstLocationAfterLoad ? 15.0 : null);
                 _isFirstLocationAfterLoad = false;
               }
@@ -2904,6 +3390,12 @@ class _HomeMapBackgroundState extends State<_HomeMapBackground> {
           final avatar = state is HomepageSuccess ? state.childAvatar : null;
           _loadMarkerIcon(battery, avatar);
 
+          if (state is HomepageSuccess) {
+            for (final child in state.sharedChildren) {
+              _loadSharedMarkerIcon(child.childId, child.batteryPercentage, child.avatar);
+            }
+          }
+
           final markers = <Marker>{
             if (location != null) ...{
               if (_cachedMarkerIcon != null)
@@ -2919,16 +3411,32 @@ class _HomeMapBackgroundState extends State<_HomeMapBackground> {
                   position: location,
                 ),
             },
+            if (state is HomepageSuccess) ...{
+              for (final child in state.sharedChildren) ...{
+                Marker(
+                  markerId: MarkerId(child.childId),
+                  position: LatLng(child.latitude, child.longitude),
+                  icon: _cachedSharedMarkers[child.childId] ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
+                  infoWindow: InfoWindow(
+                    title: child.childName,
+                    snippet: 'Battery: ${child.batteryPercentage}%${child.expiresAt != null ? " • Expires: ${TimeOfDay.fromDateTime(child.expiresAt!.toLocal()).format(context)}" : ""}',
+                  ),
+                ),
+              }
+            },
             if (widget.activeSharedChildData != null) ...{
               Marker(
                 markerId: MarkerId(widget.activeSharedChildData!['child_id']),
-                position: LatLng(widget.activeSharedChildData!['lat'], widget.activeSharedChildData!['lng']),
+                position: LatLng(
+                  widget.activeSharedChildData!['lat'],
+                  widget.activeSharedChildData!['lng'],
+                ),
                 infoWindow: InfoWindow(
                   title: widget.activeSharedChildData!['child_name'],
                   snippet: 'Shared Location',
                 ),
               ),
-            }
+            },
           };
 
           return MapViewWidget(
@@ -2936,8 +3444,13 @@ class _HomeMapBackgroundState extends State<_HomeMapBackground> {
             width: double.infinity,
             height: double.infinity,
             interactive: true,
-            currentPosition: widget.viewingSharedChild && widget.activeSharedChildData != null
-                ? LatLng(widget.activeSharedChildData!['lat'], widget.activeSharedChildData!['lng'])
+            currentPosition:
+                widget.viewingSharedChild &&
+                    widget.activeSharedChildData != null
+                ? LatLng(
+                    widget.activeSharedChildData!['lat'],
+                    widget.activeSharedChildData!['lng'],
+                  )
                 : location,
             markers: markers.toList(),
             myLocationEnabled: true,
@@ -2946,8 +3459,13 @@ class _HomeMapBackgroundState extends State<_HomeMapBackground> {
             myLocationButtonEnabled: true,
             onMapCreated: (controller) {
               _mapController = controller;
-              final target = widget.viewingSharedChild && widget.activeSharedChildData != null
-                  ? LatLng(widget.activeSharedChildData!['lat'], widget.activeSharedChildData!['lng'])
+              final target =
+                  widget.viewingSharedChild &&
+                      widget.activeSharedChildData != null
+                  ? LatLng(
+                      widget.activeSharedChildData!['lat'],
+                      widget.activeSharedChildData!['lng'],
+                    )
                   : location;
               if (target != null) {
                 Future.delayed(const Duration(milliseconds: 300), () {

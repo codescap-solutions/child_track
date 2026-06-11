@@ -15,10 +15,11 @@ import 'package:child_track/core/constants/app_strings.dart';
 import 'package:child_track/core/widgets/common_textfield.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  const LoginScreen({super.key, this.isFromSignIn = false});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
+  final bool isFromSignIn;
 }
 
 class _LoginScreenState extends State<LoginScreen> {
@@ -178,7 +179,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         const Spacer(),
         Text(
-          'Sign Up',
+          widget.isFromSignIn ? 'Sign In' : 'Sign Up',
           style: GoogleFonts.poppins(
             fontSize: 18,
             fontWeight: FontWeight.w600,
@@ -610,10 +611,7 @@ class _LoginScreenState extends State<LoginScreen> {
     if (phoneNumber.length == 10) {
       context.read<AuthBloc>().add(SendOtp(phoneNumber: phoneNumber));
     } else {
-      AppSnackbar.showError(
-        context,
-        AppStrings.invalidPhoneNumber,
-      );
+      AppSnackbar.showError(context, AppStrings.invalidPhoneNumber);
     }
   }
 

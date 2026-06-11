@@ -137,6 +137,7 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
             features: homeData.features,
             todayRoute: homeData.todayRoute,
             screentimeToday: homeData.screentimeToday,
+            sharedChildren: homeData.sharedChildren ?? [],
             isLoading: false,
             hasNoChild: false,
             waitingForSilentSyncResponse: (event.isSilentRefresh || event.isProgressFetching)

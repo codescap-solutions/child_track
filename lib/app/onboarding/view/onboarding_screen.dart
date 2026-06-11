@@ -24,6 +24,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final media = MediaQuery.of(context);
 
     return Scaffold(
+      backgroundColor: const Color(0xFFFFFFFF),
       body: Container(
         decoration: const BoxDecoration(
           gradient: AppColors.onboardingBackgroundGradient,
@@ -227,7 +228,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           ),
                           recognizer: TapGestureRecognizer()
                             ..onTap = () {
-                              Navigator.of(context).pushNamed(RouteNames.login);
+                              Navigator.of(context).pushNamed(
+                                RouteNames.login,
+                                arguments: {'isFromSignIn': true},
+                              );
                             },
                         ),
                       ],

@@ -94,6 +94,36 @@ class HomeRepository extends BaseService {
     return response;
   }
 
+  Future<BaseResponse> deleteChild(String childId) async {
+    final response = await delete(
+      ApiEndpoints.deleteChild(childId),
+    );
+    return response;
+  }
+
+  Future<BaseResponse> updateChild({
+    required String childId,
+    required String name,
+    int? age,
+    String? avatar,
+  }) async {
+    final Map<String, dynamic> dataMap = {
+      'name': name,
+    };
+    if (age != null) {
+      dataMap['age'] = age;
+    }
+    if (avatar != null) {
+      dataMap['avatar'] = avatar;
+    }
+
+    final response = await put(
+      ApiEndpoints.updateChild(childId),
+      data: dataMap,
+    );
+    return response;
+  }
+
   Future<BaseResponse<List<dynamic>>> getChildrenProfiles() async {
     final response = await get<List<dynamic>>(
       ApiEndpoints.parentChildren,
@@ -177,5 +207,61 @@ class HomeRepository extends BaseService {
       return BaseResponse.success(data: !isAllowDelete, message: response.message);
     }
     return BaseResponse.error(message: response.message);
+  }
+
+  Future<BaseResponse> requestLocationSharing({
+    required String phoneNumber,
+    String? notes,
+  }) async {
+    final response = await post(
+      ApiEndpoints.requestLocation,
+      data: {
+        'phone_number': phoneNumber,
+        if (notes != null && notes.isNotEmpty) 'notes': notes,
+      },
+    );
+    return response;
+  }
+
+  Future<BaseResponse> respondToLocationRequest({
+    required String requestId,
+    required String action,
+    List<String>? childIds,
+    int? durationMinutes,
+    String? rejectionReason,
+  }) async {
+    final response = await post(
+      ApiEndpoints.respondToLocationRequest(requestId),
+      data: {
+        'action': action,
+        if (childIds != null) 'child_ids': childIds,
+        if (durationMinutes != null) 'duration_minutes': durationMinutes,
+        if (rejectionReason != null) 'rejection_reason': rejectionReason,
+      },
+    );
+    return response;
+  }
+
+  Future<BaseResponse> revokeLocationSharing({required String shareId}) async {
+    final response = await post(
+      ApiEndpoints.revokeLocationShare(shareId),
+    );
+    return response;
+  }
+
+  Future<BaseResponse<List<dynamic>>> getActiveOutgoingShares() async {
+    final response = await get<List<dynamic>>(
+      ApiEndpoints.activeOutgoingShares,
+    );
+    if (response.isSuccess && response.data != null) {
+      return BaseResponse.success(
+        data: response.data!,
+        message: response.message,
+      );
+    }
+    return BaseResponse.error(
+      message: response.message,
+      statusCode: response.statusCode,
+    );
   }
 }

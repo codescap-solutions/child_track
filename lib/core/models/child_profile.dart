@@ -7,6 +7,7 @@ class ChildProfile {
   final String? avatar;
   final DateTime lastActiveAt;
   final String childCode;
+  final int? age;
 
   ChildProfile({
     required this.childId,
@@ -15,6 +16,7 @@ class ChildProfile {
     required this.authToken,
     this.avatar,
     required this.lastActiveAt,
+    this.age,
   });
 
   Map<String, dynamic> toMap() {
@@ -25,6 +27,7 @@ class ChildProfile {
       'auth_token': authToken,
       'avatar': avatar,
       'last_active_at': lastActiveAt.toIso8601String(),
+      'age': age,
     };
   }
 
@@ -38,6 +41,7 @@ class ChildProfile {
       lastActiveAt: DateTime.parse(
         map['last_active_at'] ?? DateTime.now().toIso8601String(),
       ),
+      age: map['age'] != null ? int.tryParse(map['age'].toString()) : null,
     );
   }
 
@@ -53,6 +57,7 @@ class ChildProfile {
     String? avatar,
     String? childCode,
     DateTime? lastActiveAt,
+    int? age,
   }) {
     return ChildProfile(
       childCode: childCode ?? this.childCode,
@@ -61,6 +66,7 @@ class ChildProfile {
       authToken: authToken ?? this.authToken,
       avatar: avatar ?? this.avatar,
       lastActiveAt: lastActiveAt ?? this.lastActiveAt,
+      age: age ?? this.age,
     );
   }
 }

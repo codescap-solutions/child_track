@@ -27,6 +27,8 @@ class ApiEndpoints {
   static const String getTrips = 'parent/trips';
   static const String parentChildren = 'parent/children';
   static const String linkChild = 'parent/link-child';
+  static String deleteChild(String childId) => 'parent/children/$childId';
+  static String updateChild(String childId) => 'parent/children/$childId';
   static String getTripDetail(String tripId) => 'parent/trip/$tripId';
   static String postTripLocation(String childId) =>
       'trip-tracking/$childId/locations';
@@ -65,4 +67,10 @@ class ApiEndpoints {
   static const String chat = 'chat';
   static String chatMessages(String chatId) => 'chat/$chatId/messages';
   static String markChatRead(String chatId) => 'chat/$chatId/read';
+
+  // Location Sharing Endpoints
+  static const String requestLocation = 'location/request';
+  static String respondToLocationRequest(String id) => 'location/request/$id/respond';
+  static String revokeLocationShare(String id) => 'location/share/$id/revoke';
+  static const String activeOutgoingShares = 'location/shares/active';
 }

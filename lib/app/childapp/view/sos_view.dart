@@ -1371,7 +1371,7 @@ class _SosViewContentState extends State<_SosViewContent> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Naviq Dev 1.0.3(May-30)',
+                        'Naviq Dev 1.0.3(Jun-08)',
                         textAlign: TextAlign.center,
                         style: GoogleFonts.manrope(
                           fontSize: 10,

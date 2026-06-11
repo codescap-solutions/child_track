@@ -24,6 +24,9 @@ final class HomepageSuccess extends HomepageState {
   final RouteMapSummary? todayRoute;
   final ScreentimeTodaySummary? screentimeToday;
 
+  // Shared children list
+  final List<SharedChild> sharedChildren;
+
   // Trips data
   final List<Trip> trips;
   final int? tripsPage;
@@ -50,6 +53,7 @@ final class HomepageSuccess extends HomepageState {
     this.features,
     this.todayRoute,
     this.screentimeToday,
+    this.sharedChildren = const [],
     this.trips = const [],
     this.tripsPage,
     this.tripsPageSize,
@@ -77,6 +81,7 @@ final class HomepageSuccess extends HomepageState {
         features: null,
         todayRoute: null,
         screentimeToday: null,
+        sharedChildren: const [],
         trips: const [],
         tripsPage: null,
         tripsPageSize: null,
@@ -103,6 +108,7 @@ final class HomepageSuccess extends HomepageState {
     if (features != null) features!,
     if (todayRoute != null) todayRoute!,
     if (screentimeToday != null) screentimeToday!,
+    sharedChildren,
     trips,
     if (tripsPage != null) tripsPage!,
     if (tripsPageSize != null) tripsPageSize!,
@@ -128,6 +134,7 @@ final class HomepageSuccess extends HomepageState {
     FeatureSummary? features,
     RouteMapSummary? todayRoute,
     ScreentimeTodaySummary? screentimeToday,
+    List<SharedChild>? sharedChildren,
     List<Trip>? trips,
     int? tripsPage,
     int? tripsPageSize,
@@ -152,6 +159,7 @@ final class HomepageSuccess extends HomepageState {
       features: features ?? this.features,
       todayRoute: todayRoute ?? this.todayRoute,
       screentimeToday: screentimeToday ?? this.screentimeToday,
+      sharedChildren: sharedChildren ?? this.sharedChildren,
       trips: trips ?? this.trips,
       tripsPage: tripsPage ?? this.tripsPage,
       tripsPageSize: tripsPageSize ?? this.tripsPageSize,

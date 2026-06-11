@@ -80,18 +80,26 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
               final List<ChildProfile> profilesList = [];
               for (var child in children) {
                 if (child is Map<String, dynamic>) {
-                  final childId = child['child_id'] as String? ?? child['_id'] as String? ?? '';
+                  final childId =
+                      child['child_id'] as String? ??
+                      child['_id'] as String? ??
+                      '';
                   final childCode = child['child_code'] as String? ?? '';
-                  final childName = child['name'] as String? ?? child['child_name'] as String? ?? 'Child';
+                  final childName =
+                      child['name'] as String? ??
+                      child['child_name'] as String? ??
+                      'Child';
                   final avatar = child['avatar'] as String?;
-                  profilesList.add(ChildProfile(
-                    childId: childId,
-                    childCode: childCode,
-                    childName: childName,
-                    authToken: token ?? '',
-                    avatar: avatar,
-                    lastActiveAt: DateTime.now(),
-                  ));
+                  profilesList.add(
+                    ChildProfile(
+                      childId: childId,
+                      childCode: childCode,
+                      childName: childName,
+                      authToken: token ?? '',
+                      avatar: avatar,
+                      lastActiveAt: DateTime.now(),
+                    ),
+                  );
                 }
               }
 
@@ -101,11 +109,23 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
               // Set the first child as the default active child in local preferences
               if (profilesList.isNotEmpty) {
                 final firstChild = profilesList.first;
-                await _sharedPrefsService.setString('child_id', firstChild.childId);
-                await _sharedPrefsService.setString('child_code', firstChild.childCode);
-                await _sharedPrefsService.setString('child_name', firstChild.childName);
+                await _sharedPrefsService.setString(
+                  'child_id',
+                  firstChild.childId,
+                );
+                await _sharedPrefsService.setString(
+                  'child_code',
+                  firstChild.childCode,
+                );
+                await _sharedPrefsService.setString(
+                  'child_name',
+                  firstChild.childName,
+                );
               }
-              await _sharedPrefsService.setInt('children_count', profilesList.length);
+              await _sharedPrefsService.setInt(
+                'children_count',
+                profilesList.length,
+              );
 
               // Register FCM token with server
               FirebaseNotificationService().registerTokenWithServer();

@@ -73,12 +73,14 @@ class _SettingsViewState extends State<SettingsView> {
         await _sharedPrefsService.setBool('block_18plus', response.data!);
       }
 
-      final restrictRes = await injector<HomeRepository>().getDeletionRestrictionStatus(
-        childId: _currentChildId!,
-      );
+      final restrictRes = await injector<HomeRepository>()
+          .getDeletionRestrictionStatus(childId: _currentChildId!);
       if (restrictRes.isSuccess && restrictRes.data != null) {
         setState(() => _restrictDeletion = restrictRes.data!);
-        await _sharedPrefsService.setBool('restrict_deletion', restrictRes.data!);
+        await _sharedPrefsService.setBool(
+          'restrict_deletion',
+          restrictRes.data!,
+        );
       }
     }
   }
@@ -86,7 +88,9 @@ class _SettingsViewState extends State<SettingsView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC), // Matching screenshot off-white bg
+      backgroundColor: const Color(
+        0xFFF8FAFC,
+      ), // Matching screenshot off-white bg
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -206,7 +210,12 @@ class _SettingsViewState extends State<SettingsView> {
                       ),
                     ),
                   ),
-                  const Divider(height: 1, color: Color(0xFFF1F5F9), indent: 56, endIndent: 16),
+                  const Divider(
+                    height: 1,
+                    color: Color(0xFFF1F5F9),
+                    indent: 56,
+                    endIndent: 16,
+                  ),
                   _buildSettingsTile(
                     leading: Image.asset(
                       'assets/icons/Image (Block 18+ Websites).png',
@@ -235,13 +244,21 @@ class _SettingsViewState extends State<SettingsView> {
                               return;
                             }
                           }
-                          await _sharedPrefsService.setBool('block_18plus', value);
+                          await _sharedPrefsService.setBool(
+                            'block_18plus',
+                            value,
+                          );
                           setState(() => _block18Plus = value);
                         },
                       ),
                     ),
                   ),
-                  const Divider(height: 1, color: Color(0xFFF1F5F9), indent: 56, endIndent: 16),
+                  const Divider(
+                    height: 1,
+                    color: Color(0xFFF1F5F9),
+                    indent: 56,
+                    endIndent: 16,
+                  ),
                   _buildSettingsTile(
                     leading: Image.asset(
                       'assets/icons/Image (Family Management).png',
@@ -263,10 +280,18 @@ class _SettingsViewState extends State<SettingsView> {
                     },
                   ),
                   if (_isExpanded) ...[
-                    const Divider(height: 1, color: Color(0xFFF1F5F9), indent: 56, endIndent: 16),
+                    const Divider(
+                      height: 1,
+                      color: Color(0xFFF1F5F9),
+                      indent: 56,
+                      endIndent: 16,
+                    ),
                     Container(
                       color: const Color(0xFFF8FAFC),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
                       child: Column(
                         children: [
                           ..._buildInactiveChildTiles(),
@@ -302,7 +327,12 @@ class _SettingsViewState extends State<SettingsView> {
                       ),
                     ),
                   ),
-                  const Divider(height: 1, color: Color(0xFFF1F5F9), indent: 56, endIndent: 16),
+                  const Divider(
+                    height: 1,
+                    color: Color(0xFFF1F5F9),
+                    indent: 56,
+                    endIndent: 16,
+                  ),
                   _buildSettingsTile(
                     leading: Image.asset(
                       'assets/icons/Image (Login & Security).png',
@@ -317,7 +347,12 @@ class _SettingsViewState extends State<SettingsView> {
                     ),
                     onTap: () => _showLoginSecurityOptions(context),
                   ),
-                  const Divider(height: 1, color: Color(0xFFF1F5F9), indent: 56, endIndent: 16),
+                  const Divider(
+                    height: 1,
+                    color: Color(0xFFF1F5F9),
+                    indent: 56,
+                    endIndent: 16,
+                  ),
                   _buildSettingsTile(
                     leading: Image.asset(
                       'assets/icons/Image (Account).png',
@@ -332,9 +367,7 @@ class _SettingsViewState extends State<SettingsView> {
                     ),
                     onTap: () => Navigator.push(
                       context,
-                      MaterialPageRoute(
-                        builder: (_) => const AccountView(),
-                      ),
+                      MaterialPageRoute(builder: (_) => const AccountView()),
                     ),
                   ),
                 ],
@@ -359,13 +392,16 @@ class _SettingsViewState extends State<SettingsView> {
                     onTap: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(
-                          builder: (_) => const DevicesView(),
-                        ),
+                        MaterialPageRoute(builder: (_) => const DevicesView()),
                       );
                     },
                   ),
-                  const Divider(height: 1, color: Color(0xFFF1F5F9), indent: 56, endIndent: 16),
+                  const Divider(
+                    height: 1,
+                    color: Color(0xFFF1F5F9),
+                    indent: 56,
+                    endIndent: 16,
+                  ),
                   _buildSettingsTile(
                     leading: Image.asset(
                       'assets/icons/Image (Help).png',
@@ -380,7 +416,12 @@ class _SettingsViewState extends State<SettingsView> {
                     ),
                     onTap: () => _showHelpOptions(context),
                   ),
-                  const Divider(height: 1, color: Color(0xFFF1F5F9), indent: 56, endIndent: 16),
+                  const Divider(
+                    height: 1,
+                    color: Color(0xFFF1F5F9),
+                    indent: 56,
+                    endIndent: 16,
+                  ),
                   _buildSettingsTile(
                     leading: Image.asset(
                       'assets/icons/Image (About App).png',
@@ -513,9 +554,7 @@ class _SettingsViewState extends State<SettingsView> {
           ),
         ],
       ),
-      child: Column(
-        children: children,
-      ),
+      child: Column(children: children),
     );
   }
 
@@ -831,7 +870,7 @@ class _SettingsViewState extends State<SettingsView> {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 20),
-                
+
                 // Bullet points of premium features
                 Column(
                   children: [
@@ -839,11 +878,13 @@ class _SettingsViewState extends State<SettingsView> {
                     const SizedBox(height: 10),
                     _buildDialogFeatureRow('SOS emergency notification alerts'),
                     const SizedBox(height: 10),
-                    _buildDialogFeatureRow('Advanced web filtering (Block 18+)'),
+                    _buildDialogFeatureRow(
+                      'Advanced web filtering (Block 18+)',
+                    ),
                   ],
                 ),
                 const SizedBox(height: 24),
-                
+
                 // Action Buttons
                 SizedBox(
                   width: double.infinity,
@@ -888,25 +929,29 @@ class _SettingsViewState extends State<SettingsView> {
                     onPressed: () async {
                       final navigator = Navigator.of(context);
                       Navigator.pop(dialogContext); // Close modal
-                      
+
                       // Perform logout
                       AppSnackbar.showLoading(context, 'Logging out...');
-                      
+
                       try {
-                        await FirebaseNotificationService().removeTokenFromServer().timeout(
-                          const Duration(seconds: 4),
-                          onTimeout: () {
-                            AppLogger.warning('removeTokenFromServer timed out');
-                          },
-                        );
+                        await FirebaseNotificationService()
+                            .removeTokenFromServer()
+                            .timeout(
+                              const Duration(seconds: 4),
+                              onTimeout: () {
+                                AppLogger.warning(
+                                  'removeTokenFromServer timed out',
+                                );
+                              },
+                            );
                       } catch (e) {
                         AppLogger.error('Failed to remove token: $e');
                       }
-                      
+
                       await injector<SharedPrefsService>().logout();
-                      
+
                       AppSnackbar.hideLoading(context);
-                      
+
                       navigator.pushNamedAndRemoveUntil(
                         RouteNames.onBoarding,
                         (route) => false,
@@ -939,11 +984,7 @@ class _SettingsViewState extends State<SettingsView> {
             color: Color(0xFFE0EDFF),
             shape: BoxShape.circle,
           ),
-          child: const Icon(
-            Icons.check,
-            color: Color(0xFF0066FF),
-            size: 12,
-          ),
+          child: const Icon(Icons.check, color: Color(0xFF0066FF), size: 12),
         ),
         const SizedBox(width: 10),
         Expanded(
@@ -964,7 +1005,7 @@ class _SettingsViewState extends State<SettingsView> {
     showAboutDialog(
       context: context,
       applicationName: 'NaviQ',
-      applicationVersion: 'Naviq Dev 1.0.3(May-30)',
+      applicationVersion: 'Naviq Dev 1.0.3(Jun 08)',
       applicationIcon: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(

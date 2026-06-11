@@ -149,6 +149,9 @@ class HomeResponse {
   final FeatureSummary? features;
   final RouteMapSummary? todayRoute;
   final ScreentimeTodaySummary? screentimeToday;
+  
+  // Shared children tracking list
+  final List<SharedChild>? sharedChildren;
 
   HomeResponse({
     this.childName,
@@ -163,9 +166,11 @@ class HomeResponse {
     this.features,
     this.todayRoute,
     this.screentimeToday,
+    this.sharedChildren,
   });
 
   factory HomeResponse.fromJson(Map<String, dynamic> json) {
+    final sharedList = json['shared_children'] as List<dynamic>? ?? [];
     return HomeResponse(
       childName: json['child_name'] as String?,
       childCode: json['child_code'] as String?,
@@ -199,6 +204,55 @@ class HomeResponse {
       screentimeToday: json['screentime_today'] != null
           ? ScreentimeTodaySummary.fromJson(json['screentime_today'] as Map<String, dynamic>)
           : null,
+      sharedChildren: sharedList
+          .map((e) => SharedChild.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+}
+
+class SharedChild {
+  final String shareId;
+  final String childId;
+  final String childName;
+  final double latitude;
+  final double longitude;
+  final int batteryPercentage;
+  final DateTime? lastSyncAt;
+  final String? avatar;
+  final DateTime? expiresAt;
+
+  SharedChild({
+    required this.shareId,
+    required this.childId,
+    required this.childName,
+    required this.latitude,
+    required this.longitude,
+    required this.batteryPercentage,
+    this.lastSyncAt,
+    this.avatar,
+    this.expiresAt,
+  });
+
+  factory SharedChild.fromJson(Map<String, dynamic> json) {
+    double toDouble(dynamic value) {
+      if (value == null) return 0.0;
+      if (value is double) return value;
+      if (value is int) return value.toDouble();
+      if (value is String) return double.tryParse(value) ?? 0.0;
+      return 0.0;
+    }
+
+    return SharedChild(
+      shareId: json['share_id']?.toString() ?? json['id']?.toString() ?? '',
+      childId: json['child_id']?.toString() ?? '',
+      childName: json['child_name']?.toString() ?? '',
+      latitude: toDouble(json['latitude'] ?? json['lat']),
+      longitude: toDouble(json['longitude'] ?? json['lng']),
+      batteryPercentage: json['battery_percentage'] ?? json['battery'] ?? 0,
+      lastSyncAt: json['last_sync_at'] != null ? DateTime.tryParse(json['last_sync_at']) : null,
+      avatar: (json['avatar'] ?? json['child_avatar'])?.toString(),
+      expiresAt: json['expires_at'] != null ? DateTime.tryParse(json['expires_at']) : null,
     );
   }
 }
