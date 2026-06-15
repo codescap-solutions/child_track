@@ -184,7 +184,7 @@ class _SettingsViewState extends State<SettingsView> {
                       alignment: Alignment.centerRight,
                       scale: 0.8,
                       child: CupertinoSwitch(
-                        activeColor: const Color(0xFF22C55E),
+                        activeTrackColor: const Color(0xFF22C55E),
                         value: _restrictDeletion,
                         onChanged: (value) async {
                           if (_currentChildId != null) {
@@ -227,7 +227,7 @@ class _SettingsViewState extends State<SettingsView> {
                       alignment: Alignment.centerRight,
                       scale: 0.8,
                       child: CupertinoSwitch(
-                        activeColor: const Color(0xFF22C55E),
+                        activeTrackColor: const Color(0xFF22C55E),
                         value: _block18Plus,
                         onChanged: (value) async {
                           if (_currentChildId != null) {
@@ -821,7 +821,7 @@ class _SettingsViewState extends State<SettingsView> {
               borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.08),
+                  color: Colors.black.withValues(alpha: 0.08),
                   blurRadius: 20,
                   offset: const Offset(0, 8),
                 ),
@@ -1057,7 +1057,7 @@ class _SettingsViewState extends State<SettingsView> {
           child: Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppColors.containerBackground.withOpacity(0.5),
+              color: AppColors.containerBackground.withValues(alpha: 0.5),
               borderRadius: BorderRadius.circular(AppSizes.radiusM),
               border: Border.all(color: Colors.white.withAlpha(50)),
             ),
@@ -1065,7 +1065,7 @@ class _SettingsViewState extends State<SettingsView> {
               children: [
                 CircleAvatar(
                   radius: 20,
-                  backgroundColor: AppColors.primaryColor.withOpacity(0.1),
+                  backgroundColor: AppColors.primaryColor.withValues(alpha: 0.1),
                   child: const Icon(
                     Icons.person,
                     size: 20,
@@ -1115,10 +1115,10 @@ class _SettingsViewState extends State<SettingsView> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppColors.primaryColor.withOpacity(0.05),
+          color: AppColors.primaryColor.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(AppSizes.radiusM),
           border: Border.all(
-            color: AppColors.primaryColor.withOpacity(0.2),
+            color: AppColors.primaryColor.withValues(alpha: 0.2),
             style: BorderStyle.solid,
           ),
         ),

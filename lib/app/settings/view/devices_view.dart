@@ -140,7 +140,7 @@ class _DevicesViewState extends State<DevicesView> {
                   ),
                 ),
                 Switch(
-                  activeColor: AppColors.primaryColor,
+                  activeThumbColor: AppColors.primaryColor,
                   value: _simulatedPurchased,
                   onChanged: (val) {
                     setState(() {
@@ -265,7 +265,7 @@ class _DevicesViewState extends State<DevicesView> {
                 Container(
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.55),
+                    color: Colors.white.withValues(alpha: 0.55),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Row(
@@ -349,7 +349,7 @@ class _DevicesViewState extends State<DevicesView> {
               borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF1D4ED8).withOpacity(0.2),
+                  color: const Color(0xFF1D4ED8).withValues(alpha: 0.2),
                   blurRadius: 16,
                   offset: const Offset(0, 8),
                 )
@@ -386,7 +386,7 @@ class _DevicesViewState extends State<DevicesView> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
+                        color: Colors.white.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
@@ -503,7 +503,7 @@ class _DevicesViewState extends State<DevicesView> {
     return Container(
       width: 1,
       height: 24,
-      color: const Color(0xFF64748B).withOpacity(0.2),
+      color: const Color(0xFF64748B).withValues(alpha: 0.2),
     );
   }
 
@@ -523,7 +523,7 @@ class _DevicesViewState extends State<DevicesView> {
           border: Border.all(color: const Color(0xFFF1F5F9)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.01),
+              color: Colors.black.withValues(alpha: 0.01),
               blurRadius: 4,
               offset: const Offset(0, 2),
             )
@@ -607,7 +607,7 @@ class _DevicesViewState extends State<DevicesView> {
                 border: Border.all(color: const Color(0xFFBFDBFE)),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF93C5FD).withOpacity(0.2),
+                    color: const Color(0xFF93C5FD).withValues(alpha: 0.2),
                     blurRadius: 12,
                     offset: const Offset(0, 6),
                   )
@@ -693,7 +693,7 @@ class _DevicesViewState extends State<DevicesView> {
                   Container(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.55),
+                      color: Colors.white.withValues(alpha: 0.55),
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Row(
@@ -1440,7 +1440,7 @@ class _PingSimulationDialogState extends State<_PingSimulationDialog> with Singl
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: AppColors.primaryColor.withOpacity(0.4),
+                              color: AppColors.primaryColor.withValues(alpha: 0.4),
                               width: 3,
                             ),
                           ),
@@ -1454,7 +1454,7 @@ class _PingSimulationDialogState extends State<_PingSimulationDialog> with Singl
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: AppColors.primaryColor.withOpacity(0.5),
+                              color: AppColors.primaryColor.withValues(alpha: 0.5),
                               width: 2,
                             ),
                           ),
@@ -1468,7 +1468,7 @@ class _PingSimulationDialogState extends State<_PingSimulationDialog> with Singl
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: AppColors.primaryColor.withOpacity(0.7),
+                              color: AppColors.primaryColor.withValues(alpha: 0.7),
                               width: 1.5,
                             ),
                           ),
@@ -1482,7 +1482,7 @@ class _PingSimulationDialogState extends State<_PingSimulationDialog> with Singl
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: AppColors.primaryColor.withOpacity(0.4),
+                              color: AppColors.primaryColor.withValues(alpha: 0.4),
                               blurRadius: 16,
                               offset: const Offset(0, 4),
                             )

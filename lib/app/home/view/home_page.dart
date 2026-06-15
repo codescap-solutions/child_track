@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math' show min;
 import 'dart:ui' as ui;
 import 'package:child_track/core/services/firebase_notification_service.dart';
 import 'package:child_track/core/models/child_profile.dart';
@@ -18,7 +17,6 @@ import 'package:child_track/core/constants/app_colors.dart';
 import 'package:child_track/core/constants/app_sizes.dart';
 import 'package:child_track/core/constants/app_text_styles.dart';
 import 'package:child_track/core/widgets/common_button.dart';
-import 'package:child_track/core/widgets/home_shimmer.dart';
 import 'package:child_track/core/utils/app_logger.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -1481,7 +1479,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Colors.black.withValues(alpha: 0.08),
             blurRadius: 10,
             offset: const Offset(0, -2),
           ),
@@ -1749,7 +1747,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                         ),
                                         boxShadow: [
                                           BoxShadow(
-                                            color: Colors.black.withOpacity(0.15),
+                                            color: Colors.black.withValues(alpha: 0.15),
                                             blurRadius: 8,
                                             offset: const Offset(0, 4),
                                           ),
@@ -1820,11 +1818,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                       vertical: 4,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.9),
+                                      color: Colors.white.withValues(alpha: 0.9),
                                       borderRadius: BorderRadius.circular(8),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: Colors.black.withOpacity(0.05),
+                                          color: Colors.black.withValues(alpha: 0.05),
                                           blurRadius: 4,
                                         ),
                                       ],
@@ -1862,7 +1860,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             borderRadius: BorderRadius.circular(16),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
+                                color: Colors.black.withValues(alpha: 0.1),
                                 blurRadius: 10,
                                 offset: const Offset(0, 4),
                               ),
@@ -2063,7 +2061,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0C1D37).withOpacity(0.08),
+            color: const Color(0xFF0C1D37).withValues(alpha: 0.08),
             blurRadius: 16,
             offset: const Offset(0, 4),
           ),
@@ -2258,7 +2256,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             border: Border.all(color: borderCol, width: 1.5),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF0C1D37).withOpacity(0.03),
+                color: const Color(0xFF0C1D37).withValues(alpha: 0.03),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -2362,7 +2360,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF0C1D37).withOpacity(0.04),
+                color: const Color(0xFF0C1D37).withValues(alpha: 0.04),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -2653,7 +2651,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF1D4ED8).withOpacity(0.2),
+            color: const Color(0xFF1D4ED8).withValues(alpha: 0.2),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -2665,7 +2663,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.15),
+              color: Colors.white.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(10),
             ),
             child: const Icon(
@@ -2690,7 +2688,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 "Unlock all premium features",
                 style: GoogleFonts.manrope(
                   fontSize: 11.5,
-                  color: Colors.white.withOpacity(0.85),
+                  color: Colors.white.withValues(alpha: 0.85),
                 ),
               ),
             ],
@@ -2741,7 +2739,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF0C1D37).withOpacity(0.04),
+                    color: const Color(0xFF0C1D37).withValues(alpha: 0.04),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -2776,7 +2774,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                               style: GoogleFonts.manrope(
                                 fontSize: 10.5,
                                 fontWeight: FontWeight.w500,
-                                color: const Color(0xFF1E40AF).withOpacity(0.8),
+                                color: const Color(0xFF1E40AF).withValues(alpha: 0.8),
                               ),
                             ),
                           ],
@@ -2827,7 +2825,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             Icon(
               Icons.insights_rounded,
               size: 48,
-              color: const Color(0xFF94A3B8).withOpacity(0.6),
+              color: const Color(0xFF94A3B8).withValues(alpha: 0.6),
             ),
             const SizedBox(height: 12),
             Text(
@@ -2937,7 +2935,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           height: 34,
           padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
-            color: brandColor.withOpacity(0.1),
+            color: brandColor.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(8),
           ),
           child: iconWidget,
@@ -3099,7 +3097,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF0C1D37).withOpacity(0.04),
+                color: const Color(0xFF0C1D37).withValues(alpha: 0.04),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -3494,11 +3492,10 @@ class _DynamicLocationText extends StatefulWidget {
   final LatLng position;
 
   const _DynamicLocationText({
-    Key? key,
     required this.childName,
     required this.initialPlaceName,
     required this.position,
-  }) : super(key: key);
+  });
 
   @override
   State<_DynamicLocationText> createState() => _DynamicLocationTextState();

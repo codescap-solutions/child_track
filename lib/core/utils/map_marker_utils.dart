@@ -62,7 +62,7 @@ class MapMarkerUtils {
     canvas.drawRRect(
       pillRRect.shift(const Offset(0, 2)),
       Paint()
-        ..color = Colors.black.withOpacity(0.3)
+        ..color = Colors.black.withValues(alpha: 0.3)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
     );
 
@@ -88,7 +88,7 @@ class MapMarkerUtils {
       Offset(circleCenterX, circleCenterY + 2),
       circleRadius,
       Paint()
-        ..color = Colors.black.withOpacity(0.3)
+        ..color = Colors.black.withValues(alpha: 0.3)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
     );
 

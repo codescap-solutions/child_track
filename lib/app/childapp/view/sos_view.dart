@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:child_track/app/onboarding/view/onboarding_screen.dart';
 import 'package:child_track/core/navigation/app_router.dart';
 import 'package:flutter/services.dart';
-import 'package:child_track/app/childapp/view_model/repository/device_info_service.dart';
 import 'package:child_track/app/home/model/device_model.dart';
 import 'package:child_track/app/childapp/view_model/bloc/child_bloc.dart';
 import 'package:child_track/core/di/injector.dart';
@@ -175,7 +174,7 @@ Future<void> showAccessibilityDisclosure(BuildContext context) async {
           borderRadius: BorderRadius.circular(AppSizes.radiusL),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withValues(alpha: 0.1),
               blurRadius: 20,
               offset: const Offset(0, 10),
             ),
@@ -189,7 +188,7 @@ Future<void> showAccessibilityDisclosure(BuildContext context) async {
               Container(
                 padding: const EdgeInsets.all(AppSizes.spacingM),
                 decoration: BoxDecoration(
-                  color: AppColors.primaryColor.withOpacity(0.1),
+                  color: AppColors.primaryColor.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
@@ -227,7 +226,7 @@ Future<void> showAccessibilityDisclosure(BuildContext context) async {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: AppColors.primaryColor.withOpacity(0.1),
+                      color: AppColors.primaryColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(
@@ -268,7 +267,7 @@ Future<void> showAccessibilityDisclosure(BuildContext context) async {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: AppColors.primaryColor.withOpacity(0.1),
+                      color: AppColors.primaryColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(
@@ -306,7 +305,7 @@ Future<void> showAccessibilityDisclosure(BuildContext context) async {
               Container(
                 padding: const EdgeInsets.all(AppSizes.spacingS),
                 decoration: BoxDecoration(
-                  color: Colors.grey.withOpacity(0.1),
+                  color: Colors.grey.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(AppSizes.radiusM),
                 ),
                 child: Row(
@@ -1525,8 +1524,9 @@ class _DiagnosticLogsSheetState extends State<_DiagnosticLogsSheet> {
     if (level == 'WARNING') tagColor = Colors.orange;
     if (level.contains('OK') ||
         message.toLowerCase().contains('success') ||
-        message.contains('OK'))
+        message.contains('OK')) {
       tagColor = Colors.green;
+    }
 
     String formattedTime = ts;
     try {
