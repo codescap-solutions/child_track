@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:child_track/app/home/view_model/bloc/homepage_bloc.dart';
 import 'package:child_track/app/home/view_model/home_repo.dart';
 import 'package:child_track/app/home/model/home_model.dart';
+import 'package:child_track/app/subscription/view_model/subscription_repository.dart';
 import 'package:child_track/app/map/view/map_view.dart';
 import 'package:child_track/core/di/injector.dart';
 import 'package:child_track/core/services/shared_prefs_service.dart';
@@ -123,6 +124,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     // Fetch home data once on initialization
     injector<HomepageBloc>().add(GetHomepageData());
+
+    // Preload subscription plans
+    injector<SubscriptionRepository>().getPlans();
 
     // Listen to notification taps
     _notificationSubscription = injector<FirebaseNotificationService>()

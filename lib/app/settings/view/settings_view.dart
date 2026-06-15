@@ -18,7 +18,7 @@ import 'package:child_track/core/services/csv_file_logger.dart';
 import 'account_view.dart';
 import 'devices_view.dart';
 import 'notification_settings_view.dart';
-import 'subscription_view.dart';
+import '../../subscription/view/subscription_multi_plan_view.dart';
 import '../../chat/view/chat_screen.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../chat/view_model/bloc/chat_bloc.dart';
@@ -491,7 +491,7 @@ class _SettingsViewState extends State<SettingsView> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => const SubscriptionView(),
+                        builder: (_) => const SubscriptionMultiPlanView(),
                       ),
                     );
                   },
@@ -902,7 +902,7 @@ class _SettingsViewState extends State<SettingsView> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const SubscriptionView(),
+                          builder: (_) => const SubscriptionMultiPlanView(),
                         ),
                       );
                     },
