@@ -3,14 +3,14 @@ enum SubscriptionTier {
   starter('starter'),
   basic('basic'),
   smart('smart'),
-  ultimate('ultimate');
+  premium('premium');
 
   final String id;
   const SubscriptionTier(this.id);
 
   static SubscriptionTier fromId(String id) {
     final lowerId = id.toLowerCase();
-    if (lowerId.contains('ultimate') || lowerId.contains('premium')) return SubscriptionTier.ultimate;
+    if (lowerId.contains('premium') || lowerId.contains('ultimate')) return SubscriptionTier.premium;
     if (lowerId.contains('smart') || lowerId.contains('plus')) return SubscriptionTier.smart;
     if (lowerId.contains('basic')) return SubscriptionTier.basic;
     return SubscriptionTier.starter;

@@ -86,6 +86,16 @@ class RevenueCatService {
     return result;
   }
 
+  /// Triggers the native OS payment sheet for a specific product ID.
+  /// Fetches the product from the store first.
+  Future<CustomerInfo> purchaseProductById(String productId) async {
+    final products = await Purchases.getProducts([productId]);
+    if (products.isEmpty) {
+      throw Exception('Product $productId not found in stores.');
+    }
+    return await Purchases.purchaseStoreProduct(products.first);
+  }
+
   // ── Customer Info ─────────────────────────────────────────────────────────
 
   Future<CustomerInfo?> getCustomerInfo() async {
@@ -97,14 +107,4 @@ class RevenueCatService {
     }
   }
 
-  // ── Restore ───────────────────────────────────────────────────────────────
-
-  Future<CustomerInfo?> restorePurchases() async {
-    try {
-      return await Purchases.restorePurchases();
-    } catch (e) {
-      AppLogger.error('RevenueCat restorePurchases error: $e');
-      return null;
-    }
-  }
 }

@@ -166,7 +166,7 @@ class _SubscriptionPopupSheetState extends State<_SubscriptionPopupSheet> {
                     fontWeight: FontWeight.bold,
                   ),
                 )
-              else if (widget.tier == SubscriptionTier.ultimate)
+              else if (widget.tier == SubscriptionTier.premium)
                 Text(
                   'Everything in Smart Plan and',
                   style: AppTextStyles.body1.copyWith(

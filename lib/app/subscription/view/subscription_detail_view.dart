@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:child_track/core/constants/app_colors.dart';
 import 'package:child_track/core/constants/app_text_styles.dart';
+import '../../../core/services/revenue_cat_service.dart';
 import '../models/subscription_plan.dart';
 
 class SubscriptionDetailView extends StatelessWidget {
@@ -16,7 +17,6 @@ class SubscriptionDetailView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Determine colors based on plan
-    final isUltimate = plan.tier == SubscriptionTier.ultimate;
     final isSmart = plan.tier == SubscriptionTier.smart;
     final isBasic = plan.tier == SubscriptionTier.basic;
     final isStarter = plan.tier == SubscriptionTier.starter;
@@ -33,13 +33,7 @@ class SubscriptionDetailView extends StatelessWidget {
         ? 'Go Basic'
         : isSmart
         ? 'Go Smart'
-        : 'Go Ultimate';
-
-    final double price = plan.isFree
-        ? 0
-        : (isYearly && plan.yearlyPrice != null)
-        ? plan.yearlyPrice!
-        : plan.monthlyPrice;
+        : 'Go Premium';
 
     final String priceText = plan.isFree
         ? 'Free forever'
@@ -123,7 +117,7 @@ class SubscriptionDetailView extends StatelessWidget {
                   children: [
                     Container(
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.5),
+                        color: Colors.white.withValues(alpha: 0.5),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Column(
@@ -146,9 +140,7 @@ class SubscriptionDetailView extends StatelessWidget {
           width: double.infinity,
           height: 56,
           child: ElevatedButton(
-            onPressed: () {
-              // Proceed to checkout or upgrade
-            },
+            onPressed: () => _handlePurchase(context),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primaryColor,
               shape: RoundedRectangleBorder(
@@ -173,6 +165,42 @@ class SubscriptionDetailView extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _handlePurchase(BuildContext context) async {
+    if (plan.tier == SubscriptionTier.starter) return;
+
+    final billingCycle = isYearly ? 'yearly' : 'monthly';
+    final productId = 'naviq_${plan.tier.id}_$billingCycle';
+
+    // Show loading overlay
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      await RevenueCatService.instance.purchaseProductById(productId);
+
+      if (context.mounted) Navigator.pop(context); // Dismiss loading
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Purchase successful! Premium features unlocked.'),
+          ),
+        );
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
+    } catch (e) {
+      if (context.mounted) Navigator.pop(context); // Dismiss loading
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Purchase failed: ${e.toString()}')),
+        );
+      }
+    }
   }
 
   Widget _buildFeatureRow(SubscriptionFeature feature) {

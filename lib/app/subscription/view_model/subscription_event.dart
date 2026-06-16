@@ -28,6 +28,4 @@ class PurchasePackageEvent extends SubscriptionEvent {
   List<Object?> get props => [package];
 }
 
-class RestorePurchasesEvent extends SubscriptionEvent {
-  const RestorePurchasesEvent();
-}
+

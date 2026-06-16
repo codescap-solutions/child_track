@@ -219,7 +219,7 @@ class _SubscriptionMultiPlanViewState extends State<SubscriptionMultiPlanView> {
   Widget _buildPlanCard(SubscriptionPlan plan) {
     // Determine colors based on plan
     final isSmart = plan.tier == SubscriptionTier.smart;
-    final isUltimate = plan.tier == SubscriptionTier.ultimate;
+    final isPremium = plan.tier == SubscriptionTier.premium;
     final isBasic = plan.tier == SubscriptionTier.basic;
     final isStarter = plan.tier == SubscriptionTier.starter;
 
@@ -229,7 +229,7 @@ class _SubscriptionMultiPlanViewState extends State<SubscriptionMultiPlanView> {
     if (isSmart) {
       bgColor = const Color(0xFFE5EFFF);
       borderColor = AppColors.primaryColor;
-    } else if (isUltimate) {
+    } else if (isPremium) {
       bgColor = const Color(0xFFFFF7E0);
     } else if (isBasic) {
       bgColor = const Color(0xFFF1F5F9);
@@ -271,7 +271,7 @@ class _SubscriptionMultiPlanViewState extends State<SubscriptionMultiPlanView> {
                           Text(
                             plan.badge!,
                             style: AppTextStyles.overline.copyWith(
-                              color: isUltimate
+                              color: isPremium
                                   ? const Color(0xFFF5A623)
                                   : AppColors.primaryColor,
                               fontWeight: FontWeight.w700,
@@ -308,7 +308,7 @@ class _SubscriptionMultiPlanViewState extends State<SubscriptionMultiPlanView> {
                           const SizedBox(height: 16),
                         ],
                         if (!isStarter) ...[
-                          if (isUltimate)
+                          if (isPremium)
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
@@ -338,7 +338,7 @@ class _SubscriptionMultiPlanViewState extends State<SubscriptionMultiPlanView> {
                           plan.name,
                           style: AppTextStyles.headline4.copyWith(
                             fontWeight: FontWeight.w800,
-                            color: isUltimate
+                            color: isPremium
                                 ? const Color(0xFFF5A623)
                                 : isSmart
                                 ? AppColors.primaryColor
@@ -392,7 +392,7 @@ class _SubscriptionMultiPlanViewState extends State<SubscriptionMultiPlanView> {
                             decoration: BoxDecoration(
                               color: isSmart
                                   ? const Color(0xFFBFDBFE)
-                                  : isUltimate
+                                  : isPremium
                                   ? const Color(0xFFFFEDD5)
                                   : const Color(0xFFE2E8F0),
                               borderRadius: BorderRadius.circular(10),
@@ -401,7 +401,7 @@ class _SubscriptionMultiPlanViewState extends State<SubscriptionMultiPlanView> {
                               '₹${(plan.monthlyPrice * 12).toInt()}/yr',
                               style: AppTextStyles.overline.copyWith(
                                 fontWeight: FontWeight.w700,
-                                color: isUltimate
+                                color: isPremium
                                     ? const Color(0xFFF5A623)
                                     : isSmart
                                     ? AppColors.primaryColor
@@ -430,7 +430,7 @@ class _SubscriptionMultiPlanViewState extends State<SubscriptionMultiPlanView> {
                                     Icon(
                                       Icons.check_circle_outline,
                                       size: 16,
-                                      color: isUltimate
+                                      color: isPremium
                                           ? const Color(0xFFF5A623)
                                           : Colors.grey.shade400,
                                     ),
@@ -477,7 +477,7 @@ class _SubscriptionMultiPlanViewState extends State<SubscriptionMultiPlanView> {
                                 );
                               },
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: isUltimate
+                                backgroundColor: isPremium
                                     ? const Color(0xFFF5A623)
                                     : isBasic
                                     ? const Color(0xFF1E293B)

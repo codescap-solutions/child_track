@@ -25,7 +25,7 @@ class SubscriptionBloc extends Bloc<SubscriptionEvent, SubscriptionState> {
     on<LoadOfferingsEvent>(_onLoadOfferings);
     on<SelectPlanEvent>(_onSelectPlan);
     on<PurchasePackageEvent>(_onPurchasePackage);
-    on<RestorePurchasesEvent>(_onRestorePurchases);
+   
   }
 
   Future<void> _onLoadOfferings(
@@ -119,25 +119,4 @@ class SubscriptionBloc extends Bloc<SubscriptionEvent, SubscriptionState> {
     }
   }
 
-  Future<void> _onRestorePurchases(
-    RestorePurchasesEvent event,
-    Emitter<SubscriptionState> emit,
-  ) async {
-    emit(const SubscriptionRestoring());
-    try {
-      final customerInfo = await _rc.restorePurchases();
-      if (customerInfo != null && customerInfo.entitlements.active.isNotEmpty) {
-        emit(SubscriptionSuccess(customerInfo));
-      } else {
-        emit(
-          const SubscriptionError(
-            'No active subscriptions found to restore.',
-            isLoadError: true,
-          ),
-        );
-      }
-    } catch (e) {
-      emit(SubscriptionError('Restore failed: $e', isLoadError: true));
-    }
-  }
 }
