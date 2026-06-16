@@ -12,7 +12,8 @@ class SubscriptionMultiPlanView extends StatefulWidget {
   const SubscriptionMultiPlanView({super.key});
 
   @override
-  State<SubscriptionMultiPlanView> createState() => _SubscriptionMultiPlanViewState();
+  State<SubscriptionMultiPlanView> createState() =>
+      _SubscriptionMultiPlanViewState();
 }
 
 class _SubscriptionMultiPlanViewState extends State<SubscriptionMultiPlanView> {
@@ -35,7 +36,11 @@ class _SubscriptionMultiPlanViewState extends State<SubscriptionMultiPlanView> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black, size: 20),
+          icon: const Icon(
+            Icons.arrow_back_ios_new,
+            color: Colors.black,
+            size: 20,
+          ),
           onPressed: () => Navigator.of(context).maybePop(),
         ),
         title: Text(
@@ -72,16 +77,21 @@ class _SubscriptionMultiPlanViewState extends State<SubscriptionMultiPlanView> {
                       padding: EdgeInsets.symmetric(vertical: 40),
                       child: CircularProgressIndicator(),
                     );
-                  } else if (snapshot.hasError || !snapshot.hasData || snapshot.data!.data == null || snapshot.data!.data!.isEmpty) {
+                  } else if (snapshot.hasError ||
+                      !snapshot.hasData ||
+                      snapshot.data!.data == null ||
+                      snapshot.data!.data!.isEmpty) {
                     return const Padding(
                       padding: EdgeInsets.symmetric(vertical: 40),
                       child: Text('Failed to load plans.'),
                     );
                   }
-                  
+
                   final plans = snapshot.data!.data!;
                   return Column(
-                    children: plans.map((plan) => _buildPlanCard(plan)).toList(),
+                    children: plans
+                        .map((plan) => _buildPlanCard(plan))
+                        .toList(),
                   );
                 },
               ),
@@ -132,15 +142,17 @@ class _SubscriptionMultiPlanViewState extends State<SubscriptionMultiPlanView> {
                           color: Colors.black.withOpacity(0.05),
                           blurRadius: 4,
                           offset: const Offset(0, 2),
-                        )
+                        ),
                       ]
                     : [],
               ),
               child: Row(
                 children: [
-                  Icon(Icons.calendar_month,
-                      size: 16,
-                      color: !_isYearly ? Colors.black87 : Colors.black54),
+                  Icon(
+                    Icons.calendar_month,
+                    size: 16,
+                    color: !_isYearly ? Colors.black87 : Colors.black54,
+                  ),
                   const SizedBox(width: 8),
                   Text(
                     'Monthly',
@@ -163,9 +175,11 @@ class _SubscriptionMultiPlanViewState extends State<SubscriptionMultiPlanView> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.calendar_today,
-                      size: 16,
-                      color: _isYearly ? Colors.white : Colors.black54),
+                  Icon(
+                    Icons.calendar_today,
+                    size: 16,
+                    color: _isYearly ? Colors.white : Colors.black54,
+                  ),
                   const SizedBox(width: 8),
                   Text(
                     'Yearly',
@@ -176,8 +190,10 @@ class _SubscriptionMultiPlanViewState extends State<SubscriptionMultiPlanView> {
                   ),
                   const SizedBox(width: 8),
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFF4CAF50),
                       borderRadius: BorderRadius.circular(10),
@@ -224,7 +240,8 @@ class _SubscriptionMultiPlanViewState extends State<SubscriptionMultiPlanView> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => SubscriptionDetailView(plan: plan, isYearly: _isYearly),
+            builder: (context) =>
+                SubscriptionDetailView(plan: plan, isYearly: _isYearly),
           ),
         );
       },
@@ -249,7 +266,8 @@ class _SubscriptionMultiPlanViewState extends State<SubscriptionMultiPlanView> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (plan.badge != null && plan.badge != 'Recommended') ...[
+                        if (plan.badge != null &&
+                            plan.badge != 'Recommended') ...[
                           Text(
                             plan.badge!,
                             style: AppTextStyles.overline.copyWith(
@@ -279,11 +297,13 @@ class _SubscriptionMultiPlanViewState extends State<SubscriptionMultiPlanView> {
                                 BoxShadow(
                                   color: Colors.black.withOpacity(0.05),
                                   blurRadius: 4,
-                                )
+                                ),
                               ],
                             ),
-                            child: const Icon(Icons.send_rounded,
-                                color: Colors.grey),
+                            child: const Icon(
+                              Icons.send_rounded,
+                              color: Colors.grey,
+                            ),
                           ),
                           const SizedBox(height: 16),
                         ],
@@ -295,8 +315,10 @@ class _SubscriptionMultiPlanViewState extends State<SubscriptionMultiPlanView> {
                                 color: const Color(0xFFFFEDD5),
                                 shape: BoxShape.circle,
                               ),
-                              child: const Icon(Icons.workspace_premium,
-                                  color: Color(0xFFF5A623)),
+                              child: const Icon(
+                                Icons.workspace_premium,
+                                color: Color(0xFFF5A623),
+                              ),
                             )
                           else if (isSmart)
                             Container(
@@ -305,8 +327,10 @@ class _SubscriptionMultiPlanViewState extends State<SubscriptionMultiPlanView> {
                                 color: const Color(0xFFBFDBFE),
                                 shape: BoxShape.circle,
                               ),
-                              child: const Icon(Icons.shield_outlined,
-                                  color: AppColors.primaryColor),
+                              child: const Icon(
+                                Icons.shield_outlined,
+                                color: AppColors.primaryColor,
+                              ),
                             ),
                           const SizedBox(height: 12),
                         ],
@@ -317,10 +341,10 @@ class _SubscriptionMultiPlanViewState extends State<SubscriptionMultiPlanView> {
                             color: isUltimate
                                 ? const Color(0xFFF5A623)
                                 : isSmart
-                                    ? AppColors.primaryColor
-                                    : isBasic
-                                        ? AppColors.primaryColor
-                                        : Colors.black87,
+                                ? AppColors.primaryColor
+                                : isBasic
+                                ? AppColors.primaryColor
+                                : Colors.black87,
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -338,8 +362,8 @@ class _SubscriptionMultiPlanViewState extends State<SubscriptionMultiPlanView> {
                               _isYearly && plan.yearlyPrice != null
                                   ? '${plan.yearlyPrice?.toInt()}'
                                   : plan.isFree
-                                      ? '0'
-                                      : '${plan.monthlyPrice.toInt()}',
+                                  ? '0'
+                                  : '${plan.monthlyPrice.toInt()}',
                               style: AppTextStyles.headline3.copyWith(
                                 fontWeight: FontWeight.w800,
                                 color: Colors.black,
@@ -351,8 +375,8 @@ class _SubscriptionMultiPlanViewState extends State<SubscriptionMultiPlanView> {
                           plan.isFree
                               ? 'forever free'
                               : _isYearly
-                                  ? '/year'
-                                  : '/month',
+                              ? '/year'
+                              : '/month',
                           style: AppTextStyles.caption.copyWith(
                             color: Colors.black54,
                             fontWeight: FontWeight.w600,
@@ -362,28 +386,30 @@ class _SubscriptionMultiPlanViewState extends State<SubscriptionMultiPlanView> {
                           const SizedBox(height: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
                               color: isSmart
                                   ? const Color(0xFFBFDBFE)
                                   : isUltimate
-                                      ? const Color(0xFFFFEDD5)
-                                      : const Color(0xFFE2E8F0),
+                                  ? const Color(0xFFFFEDD5)
+                                  : const Color(0xFFE2E8F0),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Text(
-                              '₹${plan.yearlyPrice?.toInt()}/yr',
+                              '₹${(plan.monthlyPrice * 12).toInt()}/yr',
                               style: AppTextStyles.overline.copyWith(
                                 fontWeight: FontWeight.w700,
                                 color: isUltimate
                                     ? const Color(0xFFF5A623)
                                     : isSmart
-                                        ? AppColors.primaryColor
-                                        : Colors.black54,
+                                    ? AppColors.primaryColor
+                                    : Colors.black54,
                               ),
                             ),
                           ),
-                        ]
+                        ],
                       ],
                     ),
                   ),
@@ -394,16 +420,20 @@ class _SubscriptionMultiPlanViewState extends State<SubscriptionMultiPlanView> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        ...plan.features.take(8).map(
+                        ...plan.features
+                            .take(8)
+                            .map(
                               (f) => Padding(
                                 padding: const EdgeInsets.only(bottom: 8),
                                 child: Row(
                                   children: [
-                                    Icon(Icons.check_circle_outline,
-                                        size: 16,
-                                        color: isUltimate
-                                            ? const Color(0xFFF5A623)
-                                            : Colors.grey.shade400),
+                                    Icon(
+                                      Icons.check_circle_outline,
+                                      size: 16,
+                                      color: isUltimate
+                                          ? const Color(0xFFF5A623)
+                                          : Colors.grey.shade400,
+                                    ),
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
@@ -438,7 +468,11 @@ class _SubscriptionMultiPlanViewState extends State<SubscriptionMultiPlanView> {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) => SubscriptionDetailView(plan: plan, isYearly: _isYearly),
+                                    builder: (context) =>
+                                        SubscriptionDetailView(
+                                          plan: plan,
+                                          isYearly: _isYearly,
+                                        ),
                                   ),
                                 );
                               },
@@ -446,12 +480,14 @@ class _SubscriptionMultiPlanViewState extends State<SubscriptionMultiPlanView> {
                                 backgroundColor: isUltimate
                                     ? const Color(0xFFF5A623)
                                     : isBasic
-                                        ? const Color(0xFF1E293B)
-                                        : AppColors.primaryColor,
+                                    ? const Color(0xFF1E293B)
+                                    : AppColors.primaryColor,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(30),
                                 ),
-                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
                                 elevation: 0,
                               ),
                               child: Row(
@@ -465,13 +501,16 @@ class _SubscriptionMultiPlanViewState extends State<SubscriptionMultiPlanView> {
                                     ),
                                   ),
                                   const SizedBox(width: 4),
-                                  const Icon(Icons.arrow_forward_ios,
-                                      size: 12, color: Colors.white),
+                                  const Icon(
+                                    Icons.arrow_forward_ios,
+                                    size: 12,
+                                    color: Colors.white,
+                                  ),
                                 ],
                               ),
                             ),
                           ),
-                        ]
+                        ],
                       ],
                     ),
                   ),
@@ -483,8 +522,10 @@ class _SubscriptionMultiPlanViewState extends State<SubscriptionMultiPlanView> {
                 top: -12,
                 right: 16,
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.primaryColor,
                     borderRadius: BorderRadius.circular(20),

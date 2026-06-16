@@ -24,25 +24,27 @@ class SubscriptionDetailView extends StatelessWidget {
     final Color bgColor = isStarter
         ? const Color(0xFFF1F5F9)
         : isBasic
-            ? const Color(0xFFF1F5F9)
-            : const Color(0xFFE5EFFF);
+        ? const Color(0xFFF1F5F9)
+        : const Color(0xFFE5EFFF);
 
     final String title = isStarter
         ? 'Get Started'
         : isBasic
-            ? 'Go Basic'
-            : isSmart
-                ? 'Go Smart'
-                : 'Go Ultimate';
+        ? 'Go Basic'
+        : isSmart
+        ? 'Go Smart'
+        : 'Go Ultimate';
 
     final double price = plan.isFree
         ? 0
         : (isYearly && plan.yearlyPrice != null)
-            ? plan.yearlyPrice!
-            : plan.monthlyPrice;
+        ? plan.yearlyPrice!
+        : plan.monthlyPrice;
 
     final String priceText = plan.isFree
         ? 'Free forever'
+        : isYearly
+        ? 'From only ₹${plan.yearlyPrice?.toInt()} a year!'
         : 'From only ₹${plan.monthlyPrice.toInt()} a month!';
 
     return Scaffold(
@@ -51,7 +53,11 @@ class SubscriptionDetailView extends StatelessWidget {
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black, size: 20),
+          icon: const Icon(
+            Icons.arrow_back_ios_new,
+            color: Colors.black,
+            size: 20,
+          ),
           onPressed: () => Navigator.of(context).maybePop(),
         ),
       ),
@@ -81,11 +87,13 @@ class SubscriptionDetailView extends StatelessWidget {
                           color: const Color(0xFF334155),
                         ),
                       ),
-                      if (plan.yearlyDiscountBadge != null) ...[
+                      if (plan.yearlyDiscountBadge != null && isYearly) ...[
                         const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 4),
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFFE0E7FF),
                             borderRadius: BorderRadius.circular(12),
@@ -98,7 +106,7 @@ class SubscriptionDetailView extends StatelessWidget {
                             ),
                           ),
                         ),
-                      ]
+                      ],
                     ],
                   ),
                 ],
@@ -109,9 +117,7 @@ class SubscriptionDetailView extends StatelessWidget {
             Expanded(
               child: Container(
                 width: double.infinity,
-                decoration: BoxDecoration(
-                  color: bgColor,
-                ),
+                decoration: BoxDecoration(color: bgColor),
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(16, 20, 16, 100),
                   children: [
@@ -154,10 +160,10 @@ class SubscriptionDetailView extends StatelessWidget {
               isStarter
                   ? 'Choose Starter'
                   : isBasic
-                      ? 'Choose Basic'
-                      : isSmart
-                          ? 'Choose Plus'
-                          : 'Choose Premium',
+                  ? 'Choose Basic'
+                  : isSmart
+                  ? 'Choose Plus'
+                  : 'Choose Premium',
               style: AppTextStyles.button.copyWith(
                 color: Colors.white,
                 fontSize: 16,
@@ -181,13 +187,16 @@ class SubscriptionDetailView extends StatelessWidget {
         return Icons.show_chart_outlined;
       }
       if (name.contains('steps')) return Icons.directions_walk_outlined;
-      if (name.contains('parent') || name.contains('login')) return Icons.people_outline;
+      if (name.contains('parent') || name.contains('login'))
+        return Icons.people_outline;
       if (name.contains('support')) return Icons.headset_mic_outlined;
-      if (name.contains('emergency') || name.contains('share')) return Icons.share_outlined;
+      if (name.contains('emergency') || name.contains('share'))
+        return Icons.share_outlined;
       if (name.contains('mood')) return Icons.favorite_border;
       if (name.contains('tamper')) return Icons.volume_off_outlined;
       if (name.contains('call')) return Icons.phone_missed_outlined;
-      if (name.contains('block') || name.contains('18+')) return Icons.language_outlined;
+      if (name.contains('block') || name.contains('18+'))
+        return Icons.language_outlined;
       return Icons.check_circle_outline;
     }
 
@@ -195,7 +204,11 @@ class SubscriptionDetailView extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       child: Row(
         children: [
-          Icon(getIconForFeature(feature.name), color: Colors.black54, size: 24),
+          Icon(
+            getIconForFeature(feature.name),
+            color: Colors.black54,
+            size: 24,
+          ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
