@@ -414,6 +414,31 @@ class _SettingsViewState extends State<SettingsView> {
                       MaterialPageRoute(builder: (_) => const AccountView()),
                     ),
                   ),
+                  const Divider(
+                    height: 1,
+                    color: Color(0xFFF1F5F9),
+                    indent: 56,
+                    endIndent: 16,
+                  ),
+                  _buildSettingsTile(
+                    leading: const Icon(
+                      Icons.workspace_premium,
+                      color: AppColors.primaryColor,
+                      size: 24,
+                    ),
+                    title: 'Subscriptions',
+                    trailing: const Icon(
+                      CupertinoIcons.chevron_right,
+                      color: Color(0xFF94A3B8),
+                      size: 16,
+                    ),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const SubscriptionMultiPlanView(),
+                      ),
+                    ),
+                  ),
                 ],
               ),
 

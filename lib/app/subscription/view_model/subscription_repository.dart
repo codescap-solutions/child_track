@@ -8,11 +8,11 @@ import '../models/subscription_plan.dart';
 class SubscriptionRepository extends BaseService {
   List<SubscriptionPlan>? _cachedPlans;
 
-  SubscriptionRepository({
-    required DioClient dioClient,
-  }) : super(dioClient);
+  SubscriptionRepository({required DioClient dioClient}) : super(dioClient);
 
-  Future<BaseResponse<List<SubscriptionPlan>>> getPlans({bool forceRefresh = false}) async {
+  Future<BaseResponse<List<SubscriptionPlan>>> getPlans({
+    bool forceRefresh = false,
+  }) async {
     if (!forceRefresh && _cachedPlans != null) {
       log('Returning cached subscription plans...');
       return BaseResponse.success(data: _cachedPlans!, message: 'Cached');
@@ -25,7 +25,9 @@ class SubscriptionRepository extends BaseService {
       if (response.isSuccess && response.data != null) {
         final List<dynamic> plansJson = response.data['plans'] ?? [];
         final plans = plansJson
-            .map((json) => SubscriptionPlan.fromJson(json as Map<String, dynamic>))
+            .map(
+              (json) => SubscriptionPlan.fromJson(json as Map<String, dynamic>),
+            )
             .toList();
         _cachedPlans = plans;
         return BaseResponse.success(data: plans, message: response.message);
@@ -33,13 +35,11 @@ class SubscriptionRepository extends BaseService {
 
       log('Failed to fetch plans: ${response.message}');
       // Fallback
-      return BaseResponse.success(data: SubscriptionData.plans, message: response.message);
+      return BaseResponse.error(message: response.message);
     } catch (e) {
       log('Error fetching subscription plans: $e');
       // Fallback
-      return BaseResponse.success(data: SubscriptionData.plans, message: e.toString());
+      return BaseResponse.error(message: e.toString());
     }
   }
 }
-
-
