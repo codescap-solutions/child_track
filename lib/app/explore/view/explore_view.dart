@@ -9,8 +9,8 @@ import 'package:child_track/app/geofencing/view/geo_fencing_view.dart';
 import 'package:child_track/app/social_apps/view/social_apps_view.dart';
 import 'package:child_track/app/settings/view/subscription_view.dart';
 import 'package:child_track/app/explore/view/emergency_contacts_view.dart';
+import 'package:child_track/app/explore/view/parents_contact_view.dart';
 import 'package:child_track/app/home/view_model/home_repo.dart';
-import 'package:child_track/core/utils/app_snackbar.dart';
 
 class ExploreView extends StatelessWidget {
   final VoidCallback onNavigateToHome;
@@ -182,9 +182,11 @@ class ExploreView extends StatelessWidget {
                     title: 'Parents Contact',
                     subtitle: "Contact displayed in kid's device",
                     onTap: () {
-                      AppSnackbar.showInfo(
+                      Navigator.push(
                         context,
-                        'Parents Contact configuration coming soon',
+                        MaterialPageRoute(
+                          builder: (_) => const ParentsContactView(),
+                        ),
                       );
                     },
                   ),

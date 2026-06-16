@@ -303,5 +303,21 @@ class ChildRepo extends BaseService {
       AppLogger.error('ChildRepo: Failed to sync App Group credentials: $e');
     }
   }
+
+  Future<BaseResponse<List<dynamic>>> getChildContacts() async {
+    final response = await get<List<dynamic>>(
+      ApiEndpoints.childContacts,
+    );
+    if (response.isSuccess && response.data != null) {
+      return BaseResponse.success(
+        data: response.data!,
+        message: response.message,
+      );
+    }
+    return BaseResponse.error(
+      message: response.message,
+      statusCode: response.statusCode,
+    );
+  }
 }
 

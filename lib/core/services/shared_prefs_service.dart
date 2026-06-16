@@ -251,6 +251,10 @@ class SharedPrefsService {
     return parentId != null && parentId.isNotEmpty;
   }
 
+  bool get isPrimaryParent {
+    return getBool('is_primary_parent', defaultValue: true);
+  }
+
   // Logout user
   Future<bool> logout() async {
     try {

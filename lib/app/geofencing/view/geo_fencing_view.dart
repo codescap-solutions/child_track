@@ -7,6 +7,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart' show LatLng;
 import '../../../core/constants/app_sizes.dart';
 import '../../../core/services/shared_prefs_service.dart';
 import '../../../core/di/injector.dart';
+import '../../../core/utils/app_snackbar.dart';
 import '../../home/view_model/bloc/homepage_bloc.dart';
 import 'location_selections.dart';
 import 'place_selection_view.dart';
@@ -31,6 +32,7 @@ class _GeoFencingViewState extends State<GeoFencingView> {
   List<Geofence> _geofences = [];
   int _defaultRadius = 30;
   String? _lastDateParam;
+  late final bool _isPrimaryParent;
 
   String _getChildName() {
     return SharedPrefsService().getString('child_name') ?? 'Ananya';
@@ -45,6 +47,7 @@ class _GeoFencingViewState extends State<GeoFencingView> {
   @override
   void initState() {
     super.initState();
+    _isPrimaryParent = SharedPrefsService().isPrimaryParent;
     // Load default radius from SharedPreferences
     _defaultRadius = SharedPrefsService().getInt('default_radius') ?? 30;
 
@@ -223,8 +226,14 @@ class _GeoFencingViewState extends State<GeoFencingView> {
                             radius: geofence.radius ?? _defaultRadius,
                             toggleValue: geofence.isLocked ?? false,
                             category: geofence.category,
-                            onTap: () => _navigateToLocationSelection(geofence: geofence),
+                            onTap: _isPrimaryParent
+                                ? () => _navigateToLocationSelection(geofence: geofence)
+                                : () => AppSnackbar.showError(context, 'Guardians have view-only access. Only primary parents can edit geofences.'),
                             onToggle: (value) {
+                              if (!_isPrimaryParent) {
+                                AppSnackbar.showError(context, 'Guardians have view-only access. Only primary parents can edit geofences.');
+                                return;
+                              }
                               if (geofence.id != null) {
                                 context.read<GeofenceBloc>().add(
                                   ToggleGeofenceLockRequested(
@@ -280,16 +289,18 @@ class _GeoFencingViewState extends State<GeoFencingView> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _navigateToPlaceSelection,
-        backgroundColor: const Color(0xFF0066FF),
-        shape: const CircleBorder(),
-        child: const Icon(
-          Icons.add,
-          color: Colors.white,
-          size: 28,
-        ),
-      ),
+      floatingActionButton: _isPrimaryParent
+          ? FloatingActionButton(
+              onPressed: _navigateToPlaceSelection,
+              backgroundColor: const Color(0xFF0066FF),
+              shape: const CircleBorder(),
+              child: const Icon(
+                Icons.add,
+                color: Colors.white,
+                size: 28,
+              ),
+            )
+          : null,
     );
   }
 
@@ -387,6 +398,10 @@ class _GeoFencingViewState extends State<GeoFencingView> {
       ),
       child: ListTile(
         onTap: () {
+          if (!_isPrimaryParent) {
+            AppSnackbar.showError(context, 'Guardians have view-only access. Only primary parents can edit geofences.');
+            return;
+          }
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -570,6 +585,10 @@ class _GeoFencingViewState extends State<GeoFencingView> {
 
     return GestureDetector(
       onTap: () {
+        if (!_isPrimaryParent) {
+          AppSnackbar.showError(context, 'Guardians have view-only access. Only primary parents can edit geofences.');
+          return;
+        }
         Navigator.push(
           context,
           MaterialPageRoute(

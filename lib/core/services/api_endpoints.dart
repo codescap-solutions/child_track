@@ -19,9 +19,12 @@ class ApiEndpoints {
   static const String postAppUsage = 'app-usage';
   static const String childAvailableIcons = 'child/available-icons';
   static const String childUploadAppIcons = 'child/upload-icons';
+  static const String childContacts = 'child/contacts';
 
   //parent Endpoints
   static const String getHome = 'parent/home';
+  static const String parentContacts = 'parent/contacts';
+  static String parentContactDetail(String id) => 'parent/contacts/$id';
   static const String getDeviceStatus = 'parent/device-status';
   static const String getScreenTime = 'parent/screentime';
   static const String getTrips = 'parent/trips';
