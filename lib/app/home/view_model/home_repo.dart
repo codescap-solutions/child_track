@@ -264,4 +264,60 @@ class HomeRepository extends BaseService {
       statusCode: response.statusCode,
     );
   }
+
+  Future<BaseResponse<List<dynamic>>> getParentsContacts() async {
+    final response = await get<List<dynamic>>(
+      ApiEndpoints.parentContacts,
+    );
+    if (response.isSuccess && response.data != null) {
+      return BaseResponse.success(
+        data: response.data!,
+        message: response.message,
+      );
+    }
+    return BaseResponse.error(
+      message: response.message,
+      statusCode: response.statusCode,
+    );
+  }
+
+  Future<BaseResponse> addParentContact({
+    required String name,
+    required String relation,
+    required String phone,
+  }) async {
+    final response = await post(
+      ApiEndpoints.parentContacts,
+      data: {
+        'name': name,
+        'relation': relation,
+        'phone': phone,
+      },
+    );
+    return response;
+  }
+
+  Future<BaseResponse> editParentContact({
+    required String id,
+    required String name,
+    required String relation,
+    required String phone,
+  }) async {
+    final response = await put(
+      ApiEndpoints.parentContactDetail(id),
+      data: {
+        'name': name,
+        'relation': relation,
+        'phone': phone,
+      },
+    );
+    return response;
+  }
+
+  Future<BaseResponse> deleteParentContact(String id) async {
+    final response = await delete(
+      ApiEndpoints.parentContactDetail(id),
+    );
+    return response;
+  }
 }

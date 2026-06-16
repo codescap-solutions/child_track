@@ -19,6 +19,7 @@ import 'account_view.dart';
 import 'devices_view.dart';
 import 'notification_settings_view.dart';
 import '../../subscription/view/subscription_multi_plan_view.dart';
+import 'family_management_view.dart';
 import '../../chat/view/chat_screen.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../chat/view_model/bloc/chat_bloc.dart';
@@ -40,6 +41,7 @@ class _SettingsViewState extends State<SettingsView> {
   bool _block18Plus = false;
   bool _notificationSettings = true;
   bool _isExpanded = false;
+  bool _isPrimaryParent = true;
   List<ChildProfile> _children = [];
 
   @override
@@ -49,6 +51,7 @@ class _SettingsViewState extends State<SettingsView> {
   }
 
   void _loadChildData() {
+    _isPrimaryParent = _sharedPrefsService.isPrimaryParent;
     _childCode = _sharedPrefsService.getString('child_code');
     _currentChildId = _sharedPrefsService.getString('child_id');
     _childName = _sharedPrefsService.getString('child_name');
@@ -187,6 +190,13 @@ class _SettingsViewState extends State<SettingsView> {
                         activeTrackColor: const Color(0xFF22C55E),
                         value: _restrictDeletion,
                         onChanged: (value) async {
+                          if (!_isPrimaryParent) {
+                            AppSnackbar.showError(
+                              context,
+                              'Guardians have view-only access. Only primary parents can change this setting.',
+                            );
+                            return;
+                          }
                           if (_currentChildId != null) {
                             final response = await injector<HomeRepository>()
                                 .updateDeletionRestriction(
@@ -230,6 +240,13 @@ class _SettingsViewState extends State<SettingsView> {
                         activeTrackColor: const Color(0xFF22C55E),
                         value: _block18Plus,
                         onChanged: (value) async {
+                          if (!_isPrimaryParent) {
+                            AppSnackbar.showError(
+                              context,
+                              'Guardians have view-only access. Only primary parents can change this setting.',
+                            );
+                            return;
+                          }
                           if (_currentChildId != null) {
                             final response = await injector<HomeRepository>()
                                 .updateWebFilter(
@@ -266,6 +283,33 @@ class _SettingsViewState extends State<SettingsView> {
                       height: 24,
                     ),
                     title: 'Family Management',
+                    trailing: const Icon(
+                      CupertinoIcons.chevron_right,
+                      color: Color(0xFF94A3B8),
+                      size: 16,
+                    ),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const FamilyManagementView(),
+                        ),
+                      );
+                    },
+                  ),
+                  const Divider(
+                    height: 1,
+                    color: Color(0xFFF1F5F9),
+                    indent: 56,
+                    endIndent: 16,
+                  ),
+                  _buildSettingsTile(
+                    leading: const Icon(
+                      CupertinoIcons.person_crop_circle_fill_badge_plus,
+                      color: Color(0xFF0066FF),
+                      size: 24,
+                    ),
+                    title: 'Switch / Add Child',
                     trailing: Icon(
                       _isExpanded
                           ? CupertinoIcons.chevron_up
@@ -1065,7 +1109,9 @@ class _SettingsViewState extends State<SettingsView> {
               children: [
                 CircleAvatar(
                   radius: 20,
-                  backgroundColor: AppColors.primaryColor.withValues(alpha: 0.1),
+                  backgroundColor: AppColors.primaryColor.withValues(
+                    alpha: 0.1,
+                  ),
                   child: const Icon(
                     Icons.person,
                     size: 20,
@@ -1108,6 +1154,13 @@ class _SettingsViewState extends State<SettingsView> {
   Widget _buildAddChildTile() {
     return InkWell(
       onTap: () async {
+        if (!_isPrimaryParent) {
+          AppSnackbar.showError(
+            context,
+            'Guardians have view-only access. Only primary parents can add a new child.',
+          );
+          return;
+        }
         await Navigator.pushNamed(context, RouteNames.addChild);
         _loadChildData();
       },

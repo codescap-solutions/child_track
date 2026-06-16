@@ -1,7 +1,7 @@
+import 'dart:convert';
 import 'dart:io';
-import 'package:child_track/app/onboarding/view/onboarding_screen.dart';
-import 'package:child_track/core/navigation/app_router.dart';
 import 'package:flutter/services.dart';
+import 'package:child_track/app/childapp/view_model/repository/child_repo.dart';
 import 'package:child_track/app/home/model/device_model.dart';
 import 'package:child_track/app/childapp/view_model/bloc/child_bloc.dart';
 import 'package:child_track/core/di/injector.dart';
@@ -535,7 +535,67 @@ class _SosViewContent extends StatefulWidget {
 }
 
 class _SosViewContentState extends State<_SosViewContent> {
-  bool _isMomSelected = true;
+  List<Map<String, dynamic>> _contacts = [];
+  int _selectedContactIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCachedContacts();
+    _fetchContactsFromBackend();
+  }
+
+  void _loadCachedContacts() {
+    final sharedPrefs = injector<SharedPrefsService>();
+    final contactsJson = sharedPrefs.getString('parents_contacts');
+    final parentPhone = sharedPrefs.getString('parent_phone') ?? 'N/A';
+    final parentName = sharedPrefs.getString('parent_name') ?? 'Parent';
+
+    if (contactsJson != null && contactsJson.isNotEmpty) {
+      try {
+        final List<dynamic> decoded = jsonDecode(contactsJson);
+        setState(() {
+          _contacts = decoded.map((e) => Map<String, dynamic>.from(e)).toList();
+        });
+        return;
+      } catch (e) {
+        // Fallback
+      }
+    }
+
+    setState(() {
+      _contacts = [
+        {
+          'id': 'default_parent_contact',
+          'name': parentName,
+          'phone': parentPhone != 'N/A' ? parentPhone : '+91 78 27 533 456',
+          'relation': 'Parent',
+          'is_default': true,
+        },
+      ];
+    });
+  }
+
+  Future<void> _fetchContactsFromBackend() async {
+    try {
+      final response = await injector<ChildRepo>().getChildContacts();
+      if (response.isSuccess && response.data != null) {
+        final List<dynamic> list = response.data!;
+        if (list.isNotEmpty) {
+          setState(() {
+            _contacts = list.map((e) => Map<String, dynamic>.from(e)).toList();
+            if (_selectedContactIndex >= _contacts.length) {
+              _selectedContactIndex = 0;
+            }
+          });
+          final String encoded = jsonEncode(_contacts);
+          injector<SharedPrefsService>().setString('parents_contacts', encoded);
+        }
+      }
+    } catch (e) {
+      // Fallback silently
+    }
+  }
 
   void _showDeviceInfoDialog(BuildContext context, DeviceInfo deviceInfo) {
     showDialog(
@@ -846,390 +906,380 @@ class _SosViewContentState extends State<_SosViewContent> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<ChildBloc, ChildState>(
-      listenWhen: (previous, current) {
-        return previous is! ChildDeviceInfoLoaded &&
-            current is ChildDeviceInfoLoaded;
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _handleLogout(context);
       },
-      listener: (context, state) {
-        if (state is ChildDeviceInfoLoaded) {
-          _showDeviceInfoDialog(context, state.deviceInfo);
-        }
-      },
-      child: BlocBuilder<ChildBloc, ChildState>(
-        builder: (context, state) {
-          final sharedPrefsService = injector<SharedPrefsService>();
-          final childCode = sharedPrefsService.getString('child_code') ?? '';
-          final parentPhone =
-              sharedPrefsService.getString('parent_phone') ?? 'N/A';
+      child: BlocListener<ChildBloc, ChildState>(
+        listenWhen: (previous, current) {
+          return previous is! ChildDeviceInfoLoaded &&
+              current is ChildDeviceInfoLoaded;
+        },
+        listener: (context, state) {
+          if (state is ChildDeviceInfoLoaded) {
+            _showDeviceInfoDialog(context, state.deviceInfo);
+          }
+        },
+        child: BlocBuilder<ChildBloc, ChildState>(
+          builder: (context, state) {
+            final sharedPrefsService = injector<SharedPrefsService>();
+            final childCode = sharedPrefsService.getString('child_code') ?? '';
 
-          final momPhone = parentPhone != 'N/A'
-              ? parentPhone
-              : '+91 78 27 533 456';
-          const dadPhone = '+91 98 76 543 210'; // Simulated Dad number
+            final contact =
+                _contacts.isNotEmpty && _selectedContactIndex < _contacts.length
+                ? _contacts[_selectedContactIndex]
+                : null;
+            final contactPhone = contact != null
+                ? (contact['phone'] ?? '')
+                : '';
+            final contactRelation = contact != null
+                ? (contact['relation'] ?? 'Parent')
+                : 'Parent';
 
-          return Scaffold(
-            backgroundColor: const Color(
-              0xFFF8FAFC,
-            ), // very light blue/gray background
-            drawer: ChildAppDrawer(
-              onLogout: () => _handleLogout(context),
-              onShareLogs: () => _shareLogs(context),
-            ),
-            body: SafeArea(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 16,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // Top Bar Row
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          // Back Button
-                          GestureDetector(
-                            onTap: () {
-                              // Navigator.of(context).maybePop();
-                              AppRouter.pushAndRemoveUntil(
-                                context,
-                                OnboardingScreen(),
-                              );
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 8,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: const Color(0xFFE2E8F0),
-                                  width: 1.5,
+            return Scaffold(
+              backgroundColor: const Color(
+                0xFFF8FAFC,
+              ), // very light blue/gray background
+              drawer: ChildAppDrawer(
+                onLogout: () => _handleLogout(context),
+                onShareLogs: () => _shareLogs(context),
+              ),
+              body: SafeArea(
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 16,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Top Bar Row
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            // Back Button
+                            GestureDetector(
+                              onTap: () {
+                                _handleLogout(context);
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: const Color(0xFFE2E8F0),
+                                    width: 1.5,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.arrow_back,
+                                      color: Color(0xFF0F172A),
+                                      size: 16,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      "Back",
+                                      style: GoogleFonts.manrope(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: const Color(0xFF0F172A),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
+                            ),
+
+                            // Right Status Icons
+                            // Row(
+                            //   children: [
+                            //     GestureDetector(
+                            //       onTap: () => Scaffold.of(context).openDrawer(),
+                            //       child: const Icon(
+                            //         Icons.wb_cloudy_outlined,
+                            //         color: Color(0xFF3B82F6),
+                            //         size: 22,
+                            //       ),
+                            //     ),
+                            //     const SizedBox(width: 16),
+                            //     GestureDetector(
+                            //       onTap: () {
+                            //         context.read<ChildBloc>().add(
+                            //           CheckUsagePermission(),
+                            //         );
+                            //       },
+                            //       child: const Icon(
+                            //         Icons.star_outline_rounded,
+                            //         color: Color(0xFF3B82F6),
+                            //         size: 22,
+                            //       ),
+                            //     ),
+                            //     const SizedBox(width: 16),
+                            //     const Icon(
+                            //       Icons.auto_awesome_outlined,
+                            //       color: Color(0xFF3B82F6),
+                            //       size: 22,
+                            //     ),
+                            //   ],
+                            // ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 32),
+
+                        // Heading Text
+                        Text(
+                          "Need Help?",
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.manrope(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF64748B),
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          "Press SOS to call\nfor help!",
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.manrope(
+                            fontSize: 30,
+                            fontWeight: FontWeight.w800,
+                            color: const Color(0xFF0F172A),
+                            height: 1.25,
+                          ),
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        // Center Pulsing SOS Button
+                        Center(
+                          child: PulsingSosButton(
+                            onTap: () => _callNumber(contactPhone),
+                          ),
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        // Parents Contact Details Card
+                        Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(28),
+                            border: Border.all(
+                              color: const Color(0xFFEFF2F6),
+                              width: 1.5,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(
+                                  0xFF0F172A,
+                                ).withValues(alpha: 0.04),
+                                blurRadius: 16,
+                                offset: const Offset(0, 8),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "Parents Contact Details",
+                                style: GoogleFonts.manrope(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: const Color(0xFF64748B),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Toggle Tabs
+                              if (_contacts.length > 1) ...[
+                                Row(
+                                  children: List.generate(_contacts.length, (
+                                    index,
+                                  ) {
+                                    final c = _contacts[index];
+                                    final isSelected =
+                                        _selectedContactIndex == index;
+                                    return Expanded(
+                                      child: Padding(
+                                        padding: EdgeInsets.only(
+                                          right: index == _contacts.length - 1
+                                              ? 0
+                                              : 12,
+                                        ),
+                                        child: _buildContactTab(
+                                          isSelected: isSelected,
+                                          label:
+                                              c['relation'] ??
+                                              c['name'] ??
+                                              'Parent',
+                                          icon: Icons.person_outline_rounded,
+                                          onTap: () {
+                                            setState(() {
+                                              _selectedContactIndex = index;
+                                            });
+                                          },
+                                        ),
+                                      ),
+                                    );
+                                  }),
+                                ),
+                                const SizedBox(height: 20),
+                              ],
+
+                              // Phone Info Row
+                              Row(
                                 children: [
-                                  const Icon(
-                                    Icons.arrow_back,
-                                    color: Color(0xFF0F172A),
-                                    size: 16,
+                                  Container(
+                                    width: 48,
+                                    height: 48,
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFFEFF6FF),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.person_outline_rounded,
+                                      color: Color(0xFF3B82F6),
+                                      size: 24,
+                                    ),
                                   ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    "Back",
-                                    style: GoogleFonts.manrope(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold,
-                                      color: const Color(0xFF0F172A),
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          contactPhone,
+                                          style: GoogleFonts.manrope(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.w800,
+                                            color: const Color(0xFF0F172A),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          "$contactRelation's number",
+                                          style: GoogleFonts.manrope(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w500,
+                                            color: const Color(0xFF64748B),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ],
                               ),
-                            ),
-                          ),
 
-                          // Right Status Icons
-                          Row(
-                            children: [
-                              GestureDetector(
-                                onTap: () => Scaffold.of(context).openDrawer(),
-                                child: const Icon(
-                                  Icons.wb_cloudy_outlined,
-                                  color: Color(0xFF3B82F6),
-                                  size: 22,
+                              const SizedBox(height: 20),
+
+                              // Action Button
+                              SizedBox(
+                                width: double.infinity,
+                                height: 52,
+                                child: ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF0066FF),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    elevation: 0,
+                                  ),
+                                  onPressed: () => _callNumber(contactPhone),
+                                  icon: const Icon(
+                                    Icons.phone_outlined,
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
+                                  label: Text(
+                                    "Call $contactRelation Now",
+                                    style: GoogleFonts.manrope(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(width: 16),
-                              GestureDetector(
-                                onTap: () {
-                                  context.read<ChildBloc>().add(
-                                    CheckUsagePermission(),
-                                  );
-                                },
-                                child: const Icon(
-                                  Icons.star_outline_rounded,
-                                  color: Color(0xFF3B82F6),
-                                  size: 22,
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              const Icon(
-                                Icons.auto_awesome_outlined,
-                                color: Color(0xFF3B82F6),
-                                size: 22,
                               ),
                             ],
                           ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 32),
-
-                      // Heading Text
-                      Text(
-                        "Need Help?",
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.manrope(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xFF64748B),
-                          letterSpacing: 0.5,
                         ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        "Press SOS to call\nfor help!",
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.manrope(
-                          fontSize: 30,
-                          fontWeight: FontWeight.w800,
-                          color: const Color(0xFF0F172A),
-                          height: 1.25,
-                        ),
-                      ),
 
-                      const SizedBox(height: 20),
+                        const SizedBox(height: 20),
 
-                      // Center Pulsing SOS Button
-                      Center(
-                        child: PulsingSosButton(
-                          onTap: () =>
-                              _callNumber(_isMomSelected ? momPhone : dadPhone),
-                        ),
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      // Parents Contact Details Card
-                      Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(28),
-                          border: Border.all(
-                            color: const Color(0xFFEFF2F6),
-                            width: 1.5,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(
-                                0xFF0F172A,
-                              ).withValues(alpha: 0.04),
-                              blurRadius: 16,
-                              offset: const Offset(0, 8),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              "Parents Contact Details",
+                        // Expansion card for original permissions
+                        Theme(
+                          data: Theme.of(
+                            context,
+                          ).copyWith(dividerColor: Colors.transparent),
+                          child: ExpansionTile(
+                            title: Text(
+                              "App Configuration & Diagnostic Logs",
                               style: GoogleFonts.manrope(
-                                fontSize: 13,
+                                fontSize: 12,
                                 fontWeight: FontWeight.bold,
-                                color: const Color(0xFF64748B),
+                                color: const Color(0xFF94A3B8),
                               ),
                             ),
-                            const SizedBox(height: 16),
-
-                            // Toggle Tabs
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _buildContactTab(
-                                    isSelected: _isMomSelected,
-                                    label: "Mom",
-                                    icon: Icons.person_outline_rounded,
-                                    onTap: () {
-                                      setState(() {
-                                        _isMomSelected = true;
-                                      });
-                                    },
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: _buildContactTab(
-                                    isSelected: !_isMomSelected,
-                                    label: "Dad",
-                                    icon: Icons.person_outline_rounded,
-                                    onTap: () {
-                                      setState(() {
-                                        _isMomSelected = false;
-                                      });
-                                    },
-                                  ),
-                                ),
-                              ],
-                            ),
-
-                            const SizedBox(height: 20),
-
-                            // Phone Info Row
-                            Row(
-                              children: [
-                                Container(
-                                  width: 48,
-                                  height: 48,
-                                  decoration: const BoxDecoration(
-                                    color: Color(0xFFEFF6FF),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.person_outline_rounded,
-                                    color: Color(0xFF3B82F6),
-                                    size: 24,
-                                  ),
-                                ),
-                                const SizedBox(width: 14),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        _isMomSelected ? momPhone : dadPhone,
-                                        style: GoogleFonts.manrope(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.w800,
-                                          color: const Color(0xFF0F172A),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        _isMomSelected
-                                            ? "Mom's number"
-                                            : "Dad's number",
-                                        style: GoogleFonts.manrope(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w500,
-                                          color: const Color(0xFF64748B),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-
-                            const SizedBox(height: 20),
-
-                            // Action Button
-                            SizedBox(
-                              width: double.infinity,
-                              height: 52,
-                              child: ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF0066FF),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  elevation: 0,
-                                ),
-                                onPressed: () => _callNumber(
-                                  _isMomSelected ? momPhone : dadPhone,
-                                ),
-                                icon: const Icon(
-                                  Icons.phone_outlined,
+                            iconColor: const Color(0xFF94A3B8),
+                            collapsedIconColor: const Color(0xFF94A3B8),
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
                                   color: Colors.white,
-                                  size: 20,
-                                ),
-                                label: Text(
-                                  _isMomSelected
-                                      ? "Call Mom Now"
-                                      : "Call Dad Now",
-                                  style: GoogleFonts.manrope(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: const Color(0xFFEFF2F6),
+                                    width: 1.5,
                                   ),
                                 ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      // Expansion card for original permissions
-                      Theme(
-                        data: Theme.of(
-                          context,
-                        ).copyWith(dividerColor: Colors.transparent),
-                        child: ExpansionTile(
-                          title: Text(
-                            "App Configuration & Diagnostic Logs",
-                            style: GoogleFonts.manrope(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: const Color(0xFF94A3B8),
-                            ),
-                          ),
-                          iconColor: const Color(0xFF94A3B8),
-                          collapsedIconColor: const Color(0xFF94A3B8),
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: const Color(0xFFEFF2F6),
-                                  width: 1.5,
-                                ),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      const Icon(
-                                        Icons.security_rounded,
-                                        color: Color(0xFF0066FF),
-                                        size: 20,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        'App Permissions Status',
-                                        style: GoogleFonts.manrope(
-                                          fontWeight: FontWeight.bold,
-                                          color: const Color(0xFF0F172A),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.security_rounded,
+                                          color: Color(0xFF0066FF),
+                                          size: 20,
                                         ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  const Divider(color: Color(0xFFEFF2F6)),
-                                  if (Platform.isIOS) ...[
-                                    _buildPermissionItem(
-                                      'Location',
-                                      widget.hasLocationPermission,
-                                      () async {
-                                        final currentStatus =
-                                            await Permission.location.status;
-                                        if (currentStatus.isGranted ||
-                                            currentStatus.isLimited) {
-                                          final statusAlways = await Permission
-                                              .locationAlways
-                                              .request();
-                                          if (!statusAlways.isGranted) {
-                                            await openAppSettings();
-                                          }
-                                        } else {
-                                          final status = await Permission
-                                              .location
-                                              .request();
-                                          if (status.isGranted ||
-                                              status.isLimited) {
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          'App Permissions Status',
+                                          style: GoogleFonts.manrope(
+                                            fontWeight: FontWeight.bold,
+                                            color: const Color(0xFF0F172A),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    const Divider(color: Color(0xFFEFF2F6)),
+                                    if (Platform.isIOS) ...[
+                                      _buildPermissionItem(
+                                        'Location',
+                                        widget.hasLocationPermission,
+                                        () async {
+                                          final currentStatus =
+                                              await Permission.location.status;
+                                          if (currentStatus.isGranted ||
+                                              currentStatus.isLimited) {
                                             final statusAlways =
                                                 await Permission.locationAlways
                                                     .request();
@@ -1237,153 +1287,169 @@ class _SosViewContentState extends State<_SosViewContent> {
                                               await openAppSettings();
                                             }
                                           } else {
-                                            await openAppSettings();
+                                            final status = await Permission
+                                                .location
+                                                .request();
+                                            if (status.isGranted ||
+                                                status.isLimited) {
+                                              final statusAlways =
+                                                  await Permission
+                                                      .locationAlways
+                                                      .request();
+                                              if (!statusAlways.isGranted) {
+                                                await openAppSettings();
+                                              }
+                                            } else {
+                                              await openAppSettings();
+                                            }
                                           }
-                                        }
-                                      },
-                                    ),
-                                    _buildPermissionItem(
-                                      'Screen Time & App Blocking',
-                                      widget.hasAccessibilityPermission,
-                                      () =>
-                                          showAccessibilityDisclosure(context),
-                                    ),
-                                    _buildPermissionItem(
-                                      'Notifications',
-                                      widget.hasNotificationPermission,
-                                      () async {
-                                        final status = await Permission
-                                            .notification
-                                            .request();
-                                        if (!status.isGranted) {
-                                          await openAppSettings();
-                                        }
-                                      },
-                                    ),
-                                  ] else ...[
-                                    _buildPermissionItem(
-                                      'Location',
-                                      widget.hasLocationPermission,
-                                      () async {
-                                        final status = await Permission
-                                            .locationAlways
-                                            .request();
-                                        if (status.isPermanentlyDenied) {
-                                          await openAppSettings();
-                                        }
-                                      },
-                                    ),
-                                    _buildPermissionItem(
-                                      'Background Work',
-                                      widget.hasBackgroundPermission,
-                                      () => Permission
-                                          .ignoreBatteryOptimizations
-                                          .request(),
-                                    ),
-                                    _buildPermissionItem(
-                                      'App Usage',
-                                      state is ChildDeviceInfoLoaded
-                                          ? state.hasUsagePermission
-                                          : false,
-                                      () => context.read<ChildBloc>().add(
-                                        OpenUsageSettings(),
+                                        },
                                       ),
-                                    ),
-                                    _buildPermissionItem(
-                                      'Accessibility',
-                                      widget.hasAccessibilityPermission,
-                                      () =>
-                                          showAccessibilityDisclosure(context),
-                                    ),
-                                    _buildPermissionItem(
-                                      'Notifications',
-                                      widget.hasNotificationPermission,
-                                      () async {
-                                        final status = await Permission
-                                            .notification
-                                            .request();
-                                        if (status.isPermanentlyDenied) {
-                                          await openAppSettings();
-                                        }
-                                      },
-                                    ),
-                                  ],
-                                  const SizedBox(height: 12),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: OutlinedButton.icon(
-                                          style: OutlinedButton.styleFrom(
-                                            side: const BorderSide(
-                                              color: Color(0xFF0066FF),
-                                              width: 1.5,
-                                            ),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                            ),
-                                          ),
-                                          icon: const Icon(
-                                            Icons.analytics_outlined,
-                                            size: 16,
-                                            color: Color(0xFF0066FF),
-                                          ),
-                                          label: Text(
-                                            'Diagnostic Logs',
-                                            style: GoogleFonts.manrope(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 12,
-                                              color: const Color(0xFF0066FF),
-                                            ),
-                                          ),
-                                          onPressed: () {
-                                            showModalBottomSheet(
-                                              context: context,
-                                              isScrollControlled: true,
-                                              backgroundColor:
-                                                  Colors.transparent,
-                                              builder: (context) =>
-                                                  const _DiagnosticLogsSheet(),
-                                            );
-                                          },
+                                      _buildPermissionItem(
+                                        'Screen Time & App Blocking',
+                                        widget.hasAccessibilityPermission,
+                                        () => showAccessibilityDisclosure(
+                                          context,
                                         ),
                                       ),
+                                      _buildPermissionItem(
+                                        'Notifications',
+                                        widget.hasNotificationPermission,
+                                        () async {
+                                          final status = await Permission
+                                              .notification
+                                              .request();
+                                          if (!status.isGranted) {
+                                            await openAppSettings();
+                                          }
+                                        },
+                                      ),
+                                    ] else ...[
+                                      _buildPermissionItem(
+                                        'Location',
+                                        widget.hasLocationPermission,
+                                        () async {
+                                          final status = await Permission
+                                              .locationAlways
+                                              .request();
+                                          if (status.isPermanentlyDenied) {
+                                            await openAppSettings();
+                                          }
+                                        },
+                                      ),
+                                      _buildPermissionItem(
+                                        'Background Work',
+                                        widget.hasBackgroundPermission,
+                                        () => Permission
+                                            .ignoreBatteryOptimizations
+                                            .request(),
+                                      ),
+                                      _buildPermissionItem(
+                                        'App Usage',
+                                        state is ChildDeviceInfoLoaded
+                                            ? state.hasUsagePermission
+                                            : false,
+                                        () => context.read<ChildBloc>().add(
+                                          OpenUsageSettings(),
+                                        ),
+                                      ),
+                                      _buildPermissionItem(
+                                        'Accessibility',
+                                        widget.hasAccessibilityPermission,
+                                        () => showAccessibilityDisclosure(
+                                          context,
+                                        ),
+                                      ),
+                                      _buildPermissionItem(
+                                        'Notifications',
+                                        widget.hasNotificationPermission,
+                                        () async {
+                                          final status = await Permission
+                                              .notification
+                                              .request();
+                                          if (status.isPermanentlyDenied) {
+                                            await openAppSettings();
+                                          }
+                                        },
+                                      ),
                                     ],
-                                  ),
-                                ],
+                                    const SizedBox(height: 12),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: OutlinedButton.icon(
+                                            style: OutlinedButton.styleFrom(
+                                              side: const BorderSide(
+                                                color: Color(0xFF0066FF),
+                                                width: 1.5,
+                                              ),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
+                                              ),
+                                            ),
+                                            icon: const Icon(
+                                              Icons.analytics_outlined,
+                                              size: 16,
+                                              color: Color(0xFF0066FF),
+                                            ),
+                                            label: Text(
+                                              'Diagnostic Logs',
+                                              style: GoogleFonts.manrope(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 12,
+                                                color: const Color(0xFF0066FF),
+                                              ),
+                                            ),
+                                            onPressed: () {
+                                              showModalBottomSheet(
+                                                context: context,
+                                                isScrollControlled: true,
+                                                backgroundColor:
+                                                    Colors.transparent,
+                                                builder: (context) =>
+                                                    const _DiagnosticLogsSheet(),
+                                              );
+                                            },
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
 
-                      const SizedBox(height: 24),
+                        const SizedBox(height: 24),
 
-                      Text(
-                        'Child Code: $childCode',
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.manrope(
-                          fontSize: 12,
-                          color: const Color(0xFF94A3B8),
-                          fontWeight: FontWeight.bold,
+                        Text(
+                          'Child Code: $childCode',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.manrope(
+                            fontSize: 12,
+                            color: const Color(0xFF94A3B8),
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Naviq Dev 1.0.3(Jun-08)',
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.manrope(
-                          fontSize: 10,
-                          color: const Color(0xFF94A3B8),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Naviq Dev 1.0.3(Jun-08)',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.manrope(
+                            fontSize: 10,
+                            color: const Color(0xFF94A3B8),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }

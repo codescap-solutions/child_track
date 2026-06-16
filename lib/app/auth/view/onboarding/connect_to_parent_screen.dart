@@ -7,11 +7,7 @@ import 'package:child_track/core/utils/app_logger.dart';
 import 'package:child_track/core/utils/app_snackbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:child_track/core/constants/app_colors.dart';
-import 'package:child_track/core/constants/app_sizes.dart';
-import 'package:child_track/core/constants/app_text_styles.dart';
-import 'package:child_track/core/widgets/common_button.dart';
-import 'package:child_track/core/widgets/common_textfield.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class ConnectToParentScreen extends StatefulWidget {
   const ConnectToParentScreen({super.key});
@@ -30,139 +26,6 @@ class _ConnectToParentScreenState extends State<ConnectToParentScreen> {
   void dispose() {
     _childCodeController.dispose();
     super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.surfaceColor,
-      appBar: AppBar(
-        backgroundColor: AppColors.surfaceColor,
-        elevation: 0,
-        foregroundColor: AppColors.textPrimary,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 18),
-          onPressed: () => Navigator.of(context).maybePop(),
-        ),
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSizes.paddingM),
-          child: Form(
-            key: _formKey,
-            child: Padding(
-              padding: const EdgeInsets.all(AppSizes.paddingM),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Spacer(),
-                  _buildHeader(),
-                  const SizedBox(height: AppSizes.spacingXL),
-                  _buildChildCodeField(),
-                  const SizedBox(height: AppSizes.spacingL),
-                  _buildInfoText(),
-                  const Spacer(),
-                  CommonButton(
-                    text: 'Connect',
-                    onPressed: _isLoading ? null : _connectToParent,
-                    isLoading: _isLoading,
-                  ),
-                  // const SizedBox(height: AppSizes.spacingM),
-                  // CommonButton(
-                  //   text: 'Skip for now',
-                  //   onPressed: _isLoading ? null : _skipConnection,
-                  //   isOutlined: true,
-                  // ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Column(
-      children: [
-        Container(
-          width: 100,
-          height: 100,
-          decoration: BoxDecoration(
-            color: AppColors.primaryColor.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(AppSizes.radiusXXL),
-          ),
-          child: const Icon(
-            Icons.family_restroom,
-            size: 50,
-            color: AppColors.primaryColor,
-          ),
-        ),
-        const SizedBox(height: AppSizes.spacingL),
-        Text(
-          'Connect to Parent',
-          style: AppTextStyles.headline1.copyWith(
-            color: AppColors.primaryColor,
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: AppSizes.spacingS),
-        Text(
-          'Enter your child code to connect and share your location and screen time',
-          style: AppTextStyles.body2.copyWith(color: AppColors.textSecondary),
-          textAlign: TextAlign.center,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildChildCodeField() {
-    return CommonTextField(
-      fillColor: AppColors.containerBackground,
-      controller: _childCodeController,
-      hintText: 'Enter child code',
-      labelText: 'Child Code',
-      textInputAction: TextInputAction.done,
-      inputFormatters: [UpperCaseTextFormatter()],
-      validator: (value) {
-        if (value == null || value.isEmpty) {
-          return 'Please enter child code';
-        }
-        if (value.length < 4) {
-          return 'Child code must be at least 4 characters';
-        }
-        return null;
-      },
-      onSubmitted: (_) => _connectToParent(),
-    );
-  }
-
-  Widget _buildInfoText() {
-    return Container(
-      padding: const EdgeInsets.all(AppSizes.paddingM),
-      decoration: BoxDecoration(
-        color: AppColors.primaryColor.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(AppSizes.radiusM),
-      ),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.info_outline,
-            color: AppColors.primaryColor,
-            size: 20,
-          ),
-          const SizedBox(width: AppSizes.spacingS),
-          Expanded(
-            child: Text(
-              'By connecting, you allow your parent to view your location and screen time.',
-              style: AppTextStyles.caption.copyWith(
-                color: AppColors.primaryColor,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   Future<void> _connectToParent() async {
@@ -212,6 +75,382 @@ class _ConnectToParentScreenState extends State<ConnectToParentScreen> {
         }
       }
     }
+  }
+
+  void _showHelpDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          'Where is my code?',
+          style: GoogleFonts.manrope(fontWeight: FontWeight.bold),
+        ),
+        content: Text(
+          '1. Open the Parents App.\n2. Go to the Child settings or Dashboard.\n3. Copy the 6-character code shown under your child\'s name.\n4. Enter that code on this screen.',
+          style: GoogleFonts.manrope(height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            child: Text('Close', style: GoogleFonts.manrope(color: const Color(0xFF0066FF), fontWeight: FontWeight.bold)),
+            onPressed: () => Navigator.pop(context),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFFF8FAFC),
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        centerTitle: true,
+        leadingWidth: 60,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 16.0),
+          child: Center(
+            child: GestureDetector(
+              onTap: () => Navigator.of(context).maybePop(),
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.06),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.arrow_back,
+                  color: Color(0xFF0C1D37),
+                  size: 20,
+                ),
+              ),
+            ),
+          ),
+        ),
+        title: Text(
+          'Add Child',
+          style: GoogleFonts.manrope(
+            fontSize: 20,
+            fontWeight: FontWeight.w800,
+            color: const Color(0xFF0C1D37),
+          ),
+        ),
+      ),
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(24.0),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight - 48,
+                ),
+                child: IntrinsicHeight(
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 8),
+                        Text(
+                          'Enter Child Code',
+                          style: GoogleFonts.manrope(
+                            fontSize: 26,
+                            fontWeight: FontWeight.w800,
+                            color: const Color(0xFF0C1D37),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'The six didgit code that generated in Parents App',
+                          style: GoogleFonts.manrope(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFF64748B),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        // How to get code blue box
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFF6FF),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: const Color(0xFFDBEAFE),
+                              width: 1.5,
+                            ),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                width: 36,
+                                height: 36,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFDBEAFE),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.people_outline,
+                                  color: Color(0xFF0066FF),
+                                  size: 18,
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'How to get the code?',
+                                      style: GoogleFonts.manrope(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: const Color(0xFF0C1D37),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    RichText(
+                                      text: TextSpan(
+                                        style: GoogleFonts.manrope(
+                                          fontSize: 12,
+                                          color: const Color(0xFF64748B),
+                                          height: 1.4,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                        children: [
+                                          const TextSpan(text: "Incase you installed kids app first go parents app and "),
+                                          TextSpan(
+                                            text: "Finish Sign Up",
+                                            style: GoogleFonts.manrope(
+                                              fontWeight: FontWeight.bold,
+                                              color: const Color(0xFF0066FF),
+                                            ),
+                                          ),
+                                          const TextSpan(text: " . The 6-character code will appear there."),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+                        Text(
+                          'Child Code',
+                          style: GoogleFonts.manrope(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: const Color(0xFF0C1D37),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: _childCodeController,
+                          textCapitalization: TextCapitalization.characters,
+                          textAlign: TextAlign.center,
+                          onChanged: (value) {
+                            setState(() {}); // Rebuild to update segment dashes
+                          },
+                          style: GoogleFonts.manrope(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: const Color(0xFF0C1D37),
+                            letterSpacing: 4,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: 'e.g. KIDS01',
+                            hintStyle: GoogleFonts.manrope(
+                              color: const Color(0xFF94A3B8),
+                              fontSize: 28,
+                              letterSpacing: 4,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+                            filled: true,
+                            fillColor: Colors.white,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(color: Color(0xFF0C1D37), width: 2.0),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(color: Color(0xFF0C1D37), width: 2.0),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(color: Color(0xFF0066FF), width: 2.0),
+                            ),
+                            errorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(color: Colors.red, width: 1.0),
+                            ),
+                            focusedErrorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(color: Colors.red, width: 2.0),
+                            ),
+                          ),
+                          inputFormatters: [
+                            UpperCaseTextFormatter(),
+                            LengthLimitingTextInputFormatter(6),
+                          ],
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Please enter child code';
+                            }
+                            if (value.trim().length < 6) {
+                              return 'Child code must be exactly 6 characters';
+                            }
+                            return null;
+                          },
+                          onFieldSubmitted: (_) => _connectToParent(),
+                        ),
+                        const SizedBox(height: 12),
+                        // 6 segment dashes below code box
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: List.generate(6, (index) {
+                            final isEntered = _childCodeController.text.length > index;
+                            return Expanded(
+                              child: Container(
+                                height: 6,
+                                margin: const EdgeInsets.symmetric(horizontal: 4),
+                                decoration: BoxDecoration(
+                                  color: isEntered ? const Color(0xFF5593F8) : const Color(0xFFE2E8F0),
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                              ),
+                            );
+                          }),
+                        ),
+                        const SizedBox(height: 24),
+                        // Yellow Note box
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFFBEB),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: const Color(0xFFFDE68A),
+                              width: 1.0,
+                            ),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                '💡 ',
+                                style: TextStyle(fontSize: 14),
+                              ),
+                              Expanded(
+                                child: RichText(
+                                  text: TextSpan(
+                                    style: GoogleFonts.manrope(
+                                      fontSize: 12,
+                                      color: const Color(0xFFB45309),
+                                      height: 1.4,
+                                    ),
+                                    children: [
+                                      const TextSpan(
+                                        text: 'Note: ',
+                                        style: TextStyle(fontWeight: FontWeight.bold),
+                                      ),
+                                      const TextSpan(
+                                        text: 'You can add multiple kids by adding in parent app',
+                                        style: TextStyle(fontWeight: FontWeight.w600),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Spacer(),
+                        const SizedBox(height: 32),
+                        // Verify Code Button
+                        SizedBox(
+                          width: double.infinity,
+                          height: 54,
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF5593F8),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              elevation: 0,
+                            ),
+                            onPressed: _isLoading ? null : _connectToParent,
+                            child: _isLoading
+                                ? const SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2.5,
+                                    ),
+                                  )
+                                : Text(
+                                    'Verify Code',
+                                    style: GoogleFonts.manrope(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        // Help footer link
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              "Can't find the code? ",
+                              style: GoogleFonts.manrope(
+                                fontSize: 13,
+                                color: const Color(0xFF64748B),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: _showHelpDialog,
+                              child: Text(
+                                "Help",
+                                style: GoogleFonts.manrope(
+                                  fontSize: 13,
+                                  color: const Color(0xFF5593F8),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
   }
 }
 
