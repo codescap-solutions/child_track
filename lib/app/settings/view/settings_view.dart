@@ -8,6 +8,7 @@ import 'package:child_track/core/services/background_location_service.dart';
 import 'package:child_track/core/utils/app_logger.dart';
 import 'package:child_track/core/utils/app_snackbar.dart';
 import 'package:flutter/cupertino.dart' show CupertinoSwitch, CupertinoIcons;
+import 'package:child_track/core/services/revenue_cat_service.dart';
 import 'package:flutter/material.dart';
 import 'package:child_track/core/constants/app_colors.dart';
 import 'package:child_track/core/constants/app_sizes.dart';
@@ -34,12 +35,12 @@ class SettingsView extends StatefulWidget {
 
 class _SettingsViewState extends State<SettingsView> {
   final _sharedPrefsService = SharedPrefsService();
-  String? _childCode;
+
   String? _currentChildId;
   String? _childName;
   bool _restrictDeletion = false;
   bool _block18Plus = false;
-  bool _notificationSettings = true;
+
   bool _isExpanded = false;
   bool _isPrimaryParent = true;
   List<ChildProfile> _children = [];
@@ -52,15 +53,10 @@ class _SettingsViewState extends State<SettingsView> {
 
   void _loadChildData() {
     _isPrimaryParent = _sharedPrefsService.isPrimaryParent;
-    _childCode = _sharedPrefsService.getString('child_code');
     _currentChildId = _sharedPrefsService.getString('child_id');
     _childName = _sharedPrefsService.getString('child_name');
     _restrictDeletion = _sharedPrefsService.getBool('restrict_deletion');
     _block18Plus = _sharedPrefsService.getBool('block_18plus');
-    _notificationSettings = _sharedPrefsService.getBool(
-      'notification_settings',
-      defaultValue: true,
-    );
     _children = _sharedPrefsService.getChildren();
     setState(() {});
     _fetchServerSettings();
@@ -439,6 +435,26 @@ class _SettingsViewState extends State<SettingsView> {
                       ),
                     ),
                   ),
+                  const Divider(
+                    height: 1,
+                    color: Color(0xFFF1F5F9),
+                    indent: 56,
+                    endIndent: 16,
+                  ),
+                  _buildSettingsTile(
+                    leading: const Icon(
+                      Icons.restore,
+                      color: AppColors.primaryColor,
+                      size: 24,
+                    ),
+                    title: 'Restore Purchases',
+                    trailing: const Icon(
+                      CupertinoIcons.chevron_right,
+                      color: Color(0xFF94A3B8),
+                      size: 16,
+                    ),
+                    onTap: () => _handleRestorePurchases(context),
+                  ),
                 ],
               ),
 
@@ -717,6 +733,39 @@ class _SettingsViewState extends State<SettingsView> {
         ],
       ),
     );
+  }
+
+  Future<void> _handleRestorePurchases(BuildContext context) async {
+    // Show loading overlay
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final customerInfo = await RevenueCatService.instance.restorePurchases();
+      if (context.mounted) Navigator.pop(context); // Dismiss loading
+      
+      if (context.mounted) {
+        if (customerInfo != null && customerInfo.entitlements.active.containsKey('premium_access')) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Purchases successfully restored! Premium unlocked.')),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No active subscriptions found to restore.')),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) Navigator.pop(context); // Dismiss loading
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to restore purchases: ${e.toString()}')),
+        );
+      }
+    }
   }
 
   Future<void> _openDeleteForm() async {

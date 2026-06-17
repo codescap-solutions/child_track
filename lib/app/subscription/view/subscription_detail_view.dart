@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:child_track/core/constants/app_colors.dart';
 import 'package:child_track/core/constants/app_text_styles.dart';
 import '../../../core/services/revenue_cat_service.dart';
@@ -192,6 +194,19 @@ class SubscriptionDetailView extends StatelessWidget {
           ),
         );
         Navigator.of(context).popUntil((route) => route.isFirst);
+      }
+    } on PlatformException catch (e) {
+      if (context.mounted) Navigator.pop(context); // Dismiss loading
+      
+      final errorCode = PurchasesErrorHelper.getErrorCode(e);
+      if (errorCode == PurchasesErrorCode.purchaseCancelledError) {
+        return; // User intentionally cancelled, do nothing
+      }
+      
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Purchase error: ${e.message}')),
+        );
       }
     } catch (e) {
       if (context.mounted) Navigator.pop(context); // Dismiss loading

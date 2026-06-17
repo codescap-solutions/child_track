@@ -107,4 +107,14 @@ class RevenueCatService {
     }
   }
 
+  // ── Restore ───────────────────────────────────────────────────────────────
+
+  Future<CustomerInfo?> restorePurchases() async {
+    try {
+      return await Purchases.restorePurchases();
+    } catch (e) {
+      AppLogger.error('RevenueCat restorePurchases error: $e');
+      return null;
+    }
+  }
 }

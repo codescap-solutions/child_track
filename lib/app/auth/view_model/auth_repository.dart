@@ -243,6 +243,11 @@ class AuthRepository extends BaseService {
         }
         // New user has no children initially
         await _sharedPrefsService.setInt('children_count', 0);
+        
+        // Sync user identity with RevenueCat after successful registration
+        if (parentId != null) {
+          await RevenueCatService.instance.logIn(parentId);
+        }
       }
 
       return response;
