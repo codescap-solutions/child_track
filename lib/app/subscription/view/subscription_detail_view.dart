@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
@@ -172,8 +173,20 @@ class SubscriptionDetailView extends StatelessWidget {
   Future<void> _handlePurchase(BuildContext context) async {
     if (plan.tier == SubscriptionTier.starter) return;
 
-    final billingCycle = isYearly ? 'yearly' : 'monthly';
-    final productId = 'naviq_${plan.tier.id}_$billingCycle';
+    final productId = Platform.isIOS
+        ? (isYearly ? plan.yearlyAppleProductId : plan.monthlyAppleProductId)
+        : (isYearly
+            ? plan.yearlyGoogleProductId
+            : plan.monthlyGoogleProductId);
+
+    if (productId == null || productId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Product ID not configured for this plan.'),
+        ),
+      );
+      return;
+    }
 
     // Show loading overlay
     showDialog(

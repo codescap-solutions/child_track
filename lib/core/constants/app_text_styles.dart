@@ -28,7 +28,7 @@ class AppTextStyles {
     color: AppColors.textPrimary,
   );
 
-  static TextStyle get headline4 => GoogleFonts.oswald(
+  static TextStyle get headline4 => GoogleFonts.poppins(
     fontSize: 20,
     fontWeight: FontWeight.w600,
     color: AppColors.textPrimary,

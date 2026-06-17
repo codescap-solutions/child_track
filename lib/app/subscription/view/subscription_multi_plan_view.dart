@@ -64,6 +64,7 @@ class _SubscriptionMultiPlanViewState extends State<SubscriptionMultiPlanView> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              const SizedBox(width: double.infinity),
               // Toggle Button
               _buildToggle(),
               const SizedBox(height: 30),
