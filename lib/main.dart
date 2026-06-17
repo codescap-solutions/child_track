@@ -96,7 +96,6 @@ class ChildTrackApp extends StatelessWidget {
             child: widget ?? const SizedBox.shrink(),
           );
         },
-        // home: HomePage(),
         home: SplashScreen(),
       ),
     );
