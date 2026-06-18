@@ -175,9 +175,7 @@ class SubscriptionDetailView extends StatelessWidget {
 
     final productId = Platform.isIOS
         ? (isYearly ? plan.yearlyAppleProductId : plan.monthlyAppleProductId)
-        : (isYearly
-            ? plan.yearlyGoogleProductId
-            : plan.monthlyGoogleProductId);
+        : (isYearly ? plan.yearlyGoogleProductId : plan.monthlyGoogleProductId);
 
     if (productId == null || productId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -210,16 +208,16 @@ class SubscriptionDetailView extends StatelessWidget {
       }
     } on PlatformException catch (e) {
       if (context.mounted) Navigator.pop(context); // Dismiss loading
-      
+
       final errorCode = PurchasesErrorHelper.getErrorCode(e);
       if (errorCode == PurchasesErrorCode.purchaseCancelledError) {
         return; // User intentionally cancelled, do nothing
       }
-      
+
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Purchase error: ${e.message}')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Purchase error: ${e.message}')));
       }
     } catch (e) {
       if (context.mounted) Navigator.pop(context); // Dismiss loading
@@ -243,16 +241,19 @@ class SubscriptionDetailView extends StatelessWidget {
         return Icons.show_chart_outlined;
       }
       if (name.contains('steps')) return Icons.directions_walk_outlined;
-      if (name.contains('parent') || name.contains('login'))
+      if (name.contains('parent') || name.contains('login')) {
         return Icons.people_outline;
+      }
       if (name.contains('support')) return Icons.headset_mic_outlined;
-      if (name.contains('emergency') || name.contains('share'))
+      if (name.contains('emergency') || name.contains('share')) {
         return Icons.share_outlined;
+      }
       if (name.contains('mood')) return Icons.favorite_border;
       if (name.contains('tamper')) return Icons.volume_off_outlined;
       if (name.contains('call')) return Icons.phone_missed_outlined;
-      if (name.contains('block') || name.contains('18+'))
+      if (name.contains('block') || name.contains('18+')) {
         return Icons.language_outlined;
+      }
       return Icons.check_circle_outline;
     }
 

@@ -8,10 +8,6 @@ abstract class SubscriptionEvent extends Equatable {
   List<Object?> get props => [];
 }
 
-class LoadOfferingsEvent extends SubscriptionEvent {
-  const LoadOfferingsEvent();
-}
-
 class SelectPlanEvent extends SubscriptionEvent {
   final int index;
   const SelectPlanEvent(this.index);
@@ -27,5 +23,3 @@ class PurchasePackageEvent extends SubscriptionEvent {
   @override
   List<Object?> get props => [package];
 }
-
-

@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -21,16 +22,17 @@ class RevenueCatService {
           ? dotenv.env['APPLE_API_KEY']
           : dotenv.env['PLAYSTORE_API_KEY'];
 
-      if (apiKey == null || apiKey.isEmpty || apiKey.startsWith('appl_REPLACE') || apiKey.startsWith('goog_REPLACE')) {
+      if (apiKey == null ||
+          apiKey.isEmpty ||
+          apiKey.startsWith('appl_REPLACE') ||
+          apiKey.startsWith('goog_REPLACE')) {
         AppLogger.warning(
           'RevenueCat: API key not configured in .env — purchases disabled.',
         );
         return;
       }
 
-      await Purchases.setLogLevel(
-        kDebugMode ? LogLevel.debug : LogLevel.error,
-      );
+      await Purchases.setLogLevel(kDebugMode ? LogLevel.debug : LogLevel.error);
 
       final config = PurchasesConfiguration(apiKey);
       await Purchases.configure(config);
@@ -89,11 +91,27 @@ class RevenueCatService {
   /// Triggers the native OS payment sheet for a specific product ID.
   /// Fetches the product from the store first.
   Future<CustomerInfo> purchaseProductById(String productId) async {
-    final products = await Purchases.getProducts([productId]);
-    if (products.isEmpty) {
-      throw Exception('Product $productId not found in stores.');
+    final offerings = await getOfferings();
+    log("offerings ${offerings?.all}");
+
+    if (offerings == null || offerings.all.isEmpty) {
+      throw Exception('No offerings configured in RevenueCat.');
     }
-    return await Purchases.purchaseStoreProduct(products.first);
+
+    final currentOffering = offerings.current ?? offerings.all.values.first;
+
+    try {
+      // Find the package inside the offering whose store product identifier
+      // exactly matches the productId (works for both iOS and Android).
+      final packageToBuy = currentOffering.availablePackages.firstWhere(
+        (pkg) => pkg.storeProduct.identifier == productId,
+      );
+
+      log("Found package to buy: ${packageToBuy.identifier}");
+      return await Purchases.purchasePackage(packageToBuy);
+    } catch (_) {
+      throw Exception('Product $productId not found in RevenueCat Offering.');
+    }
   }
 
   // ── Customer Info ─────────────────────────────────────────────────────────
@@ -103,17 +121,6 @@ class RevenueCatService {
       return await Purchases.getCustomerInfo();
     } catch (e) {
       AppLogger.error('RevenueCat getCustomerInfo error: $e');
-      return null;
-    }
-  }
-
-  // ── Restore ───────────────────────────────────────────────────────────────
-
-  Future<CustomerInfo?> restorePurchases() async {
-    try {
-      return await Purchases.restorePurchases();
-    } catch (e) {
-      AppLogger.error('RevenueCat restorePurchases error: $e');
       return null;
     }
   }
