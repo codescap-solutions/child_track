@@ -8,7 +8,6 @@ import 'package:child_track/core/services/background_location_service.dart';
 import 'package:child_track/core/utils/app_logger.dart';
 import 'package:child_track/core/utils/app_snackbar.dart';
 import 'package:flutter/cupertino.dart' show CupertinoSwitch, CupertinoIcons;
-import 'package:child_track/core/services/revenue_cat_service.dart';
 import 'package:flutter/material.dart';
 import 'package:child_track/core/constants/app_colors.dart';
 import 'package:child_track/core/constants/app_sizes.dart';
@@ -441,20 +440,6 @@ class _SettingsViewState extends State<SettingsView> {
                     indent: 56,
                     endIndent: 16,
                   ),
-                  _buildSettingsTile(
-                    leading: const Icon(
-                      Icons.restore,
-                      color: AppColors.primaryColor,
-                      size: 24,
-                    ),
-                    title: 'Restore Purchases',
-                    trailing: const Icon(
-                      CupertinoIcons.chevron_right,
-                      color: Color(0xFF94A3B8),
-                      size: 16,
-                    ),
-                    onTap: () => _handleRestorePurchases(context),
-                  ),
                 ],
               ),
 
@@ -733,39 +718,6 @@ class _SettingsViewState extends State<SettingsView> {
         ],
       ),
     );
-  }
-
-  Future<void> _handleRestorePurchases(BuildContext context) async {
-    // Show loading overlay
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator()),
-    );
-
-    try {
-      final customerInfo = await RevenueCatService.instance.restorePurchases();
-      if (context.mounted) Navigator.pop(context); // Dismiss loading
-      
-      if (context.mounted) {
-        if (customerInfo != null && customerInfo.entitlements.active.containsKey('premium_access')) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Purchases successfully restored! Premium unlocked.')),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('No active subscriptions found to restore.')),
-          );
-        }
-      }
-    } catch (e) {
-      if (context.mounted) Navigator.pop(context); // Dismiss loading
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to restore purchases: ${e.toString()}')),
-        );
-      }
-    }
   }
 
   Future<void> _openDeleteForm() async {

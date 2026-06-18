@@ -153,7 +153,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _foregroundSubscription = injector<FirebaseNotificationService>()
         .messageStream
         .listen((message) {
-          AppLogger.info('🔥 [FCM FG STREAM] Received message: data=${message.data}');
+          AppLogger.info(
+            '🔥 [FCM FG STREAM] Received message: data=${message.data}',
+          );
           print('🔥 [FCM FG STREAM] Received message: data=${message.data}');
           if (message.data['type'] == 'location_share_request') {
             WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -261,8 +263,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   void _checkAndShowPendingLocationRequest() {
-    AppLogger.info('💡 _checkAndShowPendingLocationRequest check: mounted=$mounted, open=$_isLocationShareSheetOpen');
-    print('💡 [FCM CHECK] _checkAndShowPendingLocationRequest check: mounted=$mounted, open=$_isLocationShareSheetOpen');
+    AppLogger.info(
+      '💡 _checkAndShowPendingLocationRequest check: mounted=$mounted, open=$_isLocationShareSheetOpen',
+    );
+    print(
+      '💡 [FCM CHECK] _checkAndShowPendingLocationRequest check: mounted=$mounted, open=$_isLocationShareSheetOpen',
+    );
     if (!mounted || _isLocationShareSheetOpen) return;
     final pendingJson = _sharedPrefsService.getString(
       'pending_location_share_request',
@@ -287,16 +293,21 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   void _handleIncomingLocationShareAccepted(Map<String, dynamic> data) {
-    AppLogger.info('💡 _handleIncomingLocationShareAccepted called with data: $data');
+    AppLogger.info(
+      '💡 _handleIncomingLocationShareAccepted called with data: $data',
+    );
     print('💡 [FCM ACCEPTED] Handling accepted share request: $data');
     try {
       final String childId = data['child_id'] ?? 'mock_rohan';
       final String childName = data['child_name'] ?? 'Rohan';
-      final double lat = double.tryParse(data['lat']?.toString() ?? '') ?? 12.9716;
-      final double lng = double.tryParse(data['lng']?.toString() ?? '') ?? 77.5946;
+      final double lat =
+          double.tryParse(data['lat']?.toString() ?? '') ?? 12.9716;
+      final double lng =
+          double.tryParse(data['lng']?.toString() ?? '') ?? 77.5946;
       final String? expiresAtStr = data['expires_at'];
-      final DateTime expiresAt = expiresAtStr != null 
-          ? DateTime.tryParse(expiresAtStr) ?? DateTime.now().add(const Duration(minutes: 30))
+      final DateTime expiresAt = expiresAtStr != null
+          ? DateTime.tryParse(expiresAtStr) ??
+                DateTime.now().add(const Duration(minutes: 30))
           : DateTime.now().add(const Duration(minutes: 30));
 
       setState(() {
@@ -313,7 +324,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('$childName\'s shared location is now visible on your map'),
+          content: Text(
+            '$childName\'s shared location is now visible on your map',
+          ),
           backgroundColor: const Color(0xFF10B981),
         ),
       );
@@ -561,12 +574,20 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   void _showLocationShareApprovalSheet(Map<String, dynamic> data) {
-    AppLogger.info('💡 _showLocationShareApprovalSheet called with data: $data');
-    print('💡 [FCM SHEET] _showLocationShareApprovalSheet called with data: $data');
-    
+    AppLogger.info(
+      '💡 _showLocationShareApprovalSheet called with data: $data',
+    );
+    print(
+      '💡 [FCM SHEET] _showLocationShareApprovalSheet called with data: $data',
+    );
+
     if (_isLocationShareSheetOpen) {
-      AppLogger.warning('⚠️ location share sheet is already open. Skipping duplicate show call.');
-      print('⚠️ [FCM SHEET] location share sheet is already open. Skipping duplicate show call.');
+      AppLogger.warning(
+        '⚠️ location share sheet is already open. Skipping duplicate show call.',
+      );
+      print(
+        '⚠️ [FCM SHEET] location share sheet is already open. Skipping duplicate show call.',
+      );
       return;
     }
 
@@ -629,514 +650,532 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
         builder: (sheetContext) {
-        bool isResponding = false;
-        return StatefulBuilder(
-          builder: (BuildContext context, StateSetter setSheetState) {
-            return Padding(
-              padding: EdgeInsets.only(
-                left: 20,
-                right: 20,
-                top: 10,
-                bottom: 24 + MediaQuery.of(sheetContext).viewInsets.bottom,
-              ),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 5,
-                      margin: const EdgeInsets.only(bottom: 16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE2E8F0),
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                    ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          width: 38,
-                          height: 38,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFEFF6FF),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.location_on_rounded,
-                            color: Color(0xFF0066FF),
-                            size: 20,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Location Share',
-                          style: GoogleFonts.manrope(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            color: const Color(0xFF0C1D37),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 18),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFF1EE),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: const Color(0xFFFFE5DE),
-                          width: 1.0,
+          bool isResponding = false;
+          return StatefulBuilder(
+            builder: (BuildContext context, StateSetter setSheetState) {
+              return Padding(
+                padding: EdgeInsets.only(
+                  left: 20,
+                  right: 20,
+                  top: 10,
+                  bottom: 24 + MediaQuery.of(sheetContext).viewInsets.bottom,
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 5,
+                        margin: const EdgeInsets.only(bottom: 16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE2E8F0),
+                          borderRadius: BorderRadius.circular(3),
                         ),
                       ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Container(
-                            width: 32,
-                            height: 32,
+                            width: 38,
+                            height: 38,
                             decoration: const BoxDecoration(
-                              color: Color(0xFFFFE5DE),
+                              color: Color(0xFFEFF6FF),
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(
-                              Icons.warning_amber_rounded,
-                              color: Color(0xFFF97316),
-                              size: 18,
+                              Icons.location_on_rounded,
+                              color: Color(0xFF0066FF),
+                              size: 20,
                             ),
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  '$requesterName is requesting for your kids location',
-                                  style: GoogleFonts.manrope(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w800,
-                                    color: const Color(0xFF0C1D37),
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Sent just now',
-                                  style: GoogleFonts.manrope(
-                                    fontSize: 12,
-                                    color: const Color(0xFF64748B),
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                if (notes != null &&
-                                    notes.trim().isNotEmpty) ...[
-                                  const SizedBox(height: 8),
-                                  Container(
-                                    width: double.infinity,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 8,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(
-                                        color: const Color(0xFFFFE5DE),
-                                      ),
-                                    ),
-                                    child: Text(
-                                      'Note: "$notes"',
-                                      style: GoogleFonts.manrope(
-                                        fontSize: 12,
-                                        fontStyle: FontStyle.italic,
-                                        fontWeight: FontWeight.w500,
-                                        color: const Color(0xFF475569),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ],
+                          const SizedBox(width: 8),
+                          Text(
+                            'Location Share',
+                            style: GoogleFonts.manrope(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: const Color(0xFF0C1D37),
                             ),
                           ),
                         ],
                       ),
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      children: [
-                        Container(
-                          width: 24,
-                          height: 24,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFEFF6FF),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.access_time_filled,
-                            color: Color(0xFF0066FF),
-                            size: 14,
+                      const SizedBox(height: 18),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFF1EE),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: const Color(0xFFFFE5DE),
+                            width: 1.0,
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Share location for',
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: 32,
+                              height: 32,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFFFFE5DE),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.warning_amber_rounded,
+                                color: Color(0xFFF97316),
+                                size: 18,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '$requesterName is requesting for your kids location',
+                                    style: GoogleFonts.manrope(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w800,
+                                      color: const Color(0xFF0C1D37),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Sent just now',
+                                    style: GoogleFonts.manrope(
+                                      fontSize: 12,
+                                      color: const Color(0xFF64748B),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  if (notes != null &&
+                                      notes.trim().isNotEmpty) ...[
+                                    const SizedBox(height: 8),
+                                    Container(
+                                      width: double.infinity,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 8,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: const Color(0xFFFFE5DE),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        'Note: "$notes"',
+                                        style: GoogleFonts.manrope(
+                                          fontSize: 12,
+                                          fontStyle: FontStyle.italic,
+                                          fontWeight: FontWeight.w500,
+                                          color: const Color(0xFF475569),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Row(
+                        children: [
+                          Container(
+                            width: 24,
+                            height: 24,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFEFF6FF),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.access_time_filled,
+                              color: Color(0xFF0066FF),
+                              size: 14,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Share location for',
+                            style: GoogleFonts.manrope(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: const Color(0xFF0C1D37),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: ['15 min', '30 min', '1 hour', '2 hours'].map(
+                          (duration) {
+                            final isSelected = selectedDuration == duration;
+                            return GestureDetector(
+                              onTap: isResponding
+                                  ? null
+                                  : () {
+                                      setSheetState(() {
+                                        selectedDuration = duration;
+                                      });
+                                    },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? const Color(0xFF0066FF)
+                                      : Colors.white,
+                                  border: Border.all(
+                                    color: isSelected
+                                        ? const Color(0xFF0066FF)
+                                        : const Color(0xFFE2E8F0),
+                                  ),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  duration,
+                                  style: GoogleFonts.manrope(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: isSelected
+                                        ? Colors.white
+                                        : const Color(0xFF0C1D37),
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ).toList(),
+                      ),
+                      const SizedBox(height: 24),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Select kids to share location',
                           style: GoogleFonts.manrope(
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
                             color: const Color(0xFF0C1D37),
                           ),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: ['15 min', '30 min', '1 hour', '2 hours'].map((
-                        duration,
-                      ) {
-                        final isSelected = selectedDuration == duration;
-                        return GestureDetector(
-                          onTap: isResponding
-                              ? null
-                              : () {
-                                  setSheetState(() {
-                                    selectedDuration = duration;
-                                  });
-                                },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 10,
-                            ),
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? const Color(0xFF0066FF)
-                                  : Colors.white,
-                              border: Border.all(
-                                color: isSelected
-                                    ? const Color(0xFF0066FF)
-                                    : const Color(0xFFE2E8F0),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        children: localChildren.map((kid) {
+                          final isSelected = selectedKids.contains(kid.childId);
+                          final name = kid.childName;
+                          final displayAge = childAges[name] ?? '8 yrs';
+                          String initials = name.length >= 2
+                              ? name.substring(0, 2).toUpperCase()
+                              : name.toUpperCase();
+
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 20),
+                            child: GestureDetector(
+                              onTap: isResponding
+                                  ? null
+                                  : () {
+                                      setSheetState(() {
+                                        if (isSelected) {
+                                          selectedKids.remove(kid.childId);
+                                        } else {
+                                          selectedKids.add(kid.childId);
+                                        }
+                                      });
+                                    },
+                              child: Column(
+                                children: [
+                                  Stack(
+                                    children: [
+                                      Container(
+                                        width: 64,
+                                        height: 64,
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          border: isSelected
+                                              ? Border.all(
+                                                  color: const Color(
+                                                    0xFF0066FF,
+                                                  ),
+                                                  width: 2,
+                                                )
+                                              : null,
+                                          color: isSelected
+                                              ? const Color(0xFFEFF6FF)
+                                              : const Color(0xFFECFDF5),
+                                        ),
+                                        alignment: Alignment.center,
+                                        child:
+                                            kid.avatar != null &&
+                                                kid.avatar!.isNotEmpty
+                                            ? CircleAvatar(
+                                                radius: 30,
+                                                backgroundImage:
+                                                    (kid.avatar!.startsWith(
+                                                          'http://',
+                                                        ) ||
+                                                        kid.avatar!.startsWith(
+                                                          'https://',
+                                                        ))
+                                                    ? NetworkImage(kid.avatar!)
+                                                    : AssetImage(
+                                                            kid.avatar!
+                                                                    .startsWith(
+                                                                      'assets/',
+                                                                    )
+                                                                ? kid.avatar!
+                                                                : 'assets/images/childavatar/${kid.avatar!}',
+                                                          )
+                                                          as ImageProvider,
+                                              )
+                                            : Text(
+                                                initials,
+                                                style: GoogleFonts.manrope(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: isSelected
+                                                      ? const Color(0xFF0066FF)
+                                                      : const Color(0xFF059669),
+                                                ),
+                                              ),
+                                      ),
+                                      if (isSelected)
+                                        Positioned(
+                                          bottom: 0,
+                                          right: 0,
+                                          child: Container(
+                                            width: 20,
+                                            height: 20,
+                                            decoration: const BoxDecoration(
+                                              color: Color(0xFF0066FF),
+                                              shape: BoxShape.circle,
+                                            ),
+                                            alignment: Alignment.center,
+                                            child: const Icon(
+                                              Icons.check,
+                                              color: Colors.white,
+                                              size: 12,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    name,
+                                    style: GoogleFonts.manrope(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: const Color(0xFF0C1D37),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    displayAge,
+                                    style: GoogleFonts.manrope(
+                                      fontSize: 10,
+                                      color: const Color(0xFF94A3B8),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
                               ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 28),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 52,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0066FF),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: Text(
-                              duration,
-                              style: GoogleFonts.manrope(
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                                color: isSelected
-                                    ? Colors.white
-                                    : const Color(0xFF0C1D37),
-                              ),
-                            ),
+                            elevation: 0,
                           ),
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 24),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'Select kids to share location',
-                        style: GoogleFonts.manrope(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: const Color(0xFF0C1D37),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.start,
-                      children: localChildren.map((kid) {
-                        final isSelected = selectedKids.contains(kid.childId);
-                        final name = kid.childName;
-                        final displayAge = childAges[name] ?? '8 yrs';
-                        String initials = name.length >= 2
-                            ? name.substring(0, 2).toUpperCase()
-                            : name.toUpperCase();
-
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 20),
-                          child: GestureDetector(
-                            onTap: isResponding
-                                ? null
-                                : () {
-                                    setSheetState(() {
-                                      if (isSelected) {
-                                        selectedKids.remove(kid.childId);
-                                      } else {
-                                        selectedKids.add(kid.childId);
-                                      }
-                                    });
-                                  },
-                            child: Column(
-                              children: [
-                                Stack(
-                                  children: [
-                                    Container(
-                                      width: 64,
-                                      height: 64,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        border: isSelected
-                                            ? Border.all(
-                                                color: const Color(0xFF0066FF),
-                                                width: 2,
-                                              )
-                                            : null,
-                                        color: isSelected
-                                            ? const Color(0xFFEFF6FF)
-                                            : const Color(0xFFECFDF5),
-                                      ),
-                                      alignment: Alignment.center,
-                                      child:
-                                          kid.avatar != null &&
-                                              kid.avatar!.isNotEmpty
-                                          ? CircleAvatar(
-                                              radius: 30,
-                                              backgroundImage: (kid.avatar!.startsWith('http://') || kid.avatar!.startsWith('https://'))
-                                                  ? NetworkImage(kid.avatar!)
-                                                  : AssetImage(
-                                                      kid.avatar!.startsWith('assets/')
-                                                          ? kid.avatar!
-                                                          : 'assets/images/childavatar/${kid.avatar!}',
-                                                    ) as ImageProvider,
-                                            )
-                                          : Text(
-                                              initials,
-                                              style: GoogleFonts.manrope(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.bold,
-                                                color: isSelected
-                                                    ? const Color(0xFF0066FF)
-                                                    : const Color(0xFF059669),
-                                              ),
-                                            ),
-                                    ),
-                                    if (isSelected)
-                                      Positioned(
-                                        bottom: 0,
-                                        right: 0,
-                                        child: Container(
-                                          width: 20,
-                                          height: 20,
-                                          decoration: const BoxDecoration(
-                                            color: Color(0xFF0066FF),
-                                            shape: BoxShape.circle,
-                                          ),
-                                          alignment: Alignment.center,
-                                          child: const Icon(
-                                            Icons.check,
-                                            color: Colors.white,
-                                            size: 12,
-                                          ),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  name,
-                                  style: GoogleFonts.manrope(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: const Color(0xFF0C1D37),
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  displayAge,
-                                  style: GoogleFonts.manrope(
-                                    fontSize: 10,
-                                    color: const Color(0xFF94A3B8),
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 28),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0066FF),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          elevation: 0,
-                        ),
-                        onPressed: selectedKids.isEmpty || isResponding
-                            ? null
-                            : () async {
-                                setSheetState(() {
-                                  isResponding = true;
-                                });
-
-                                int durationMin = 30;
-                                if (selectedDuration.contains('15')) {
-                                  durationMin = 15;
-                                } else if (selectedDuration.contains('30')) {
-                                  durationMin = 30;
-                                } else if (selectedDuration.contains(
-                                  '1 hour',
-                                )) {
-                                  durationMin = 60;
-                                } else if (selectedDuration.contains(
-                                  '2 hours',
-                                )) {
-                                  durationMin = 120;
-                                }
-
-                                final repo = injector<HomeRepository>();
-                                final response = await repo
-                                    .respondToLocationRequest(
-                                      requestId: requestId,
-                                      action: 'accept',
-                                      childIds: selectedKids,
-                                      durationMinutes: durationMin,
-                                    );
-
-                                if (response.isSuccess) {
-                                  await SharedPrefsService.prefs.remove(
-                                    'pending_location_share_request',
-                                  );
-                                  injector<FirebaseNotificationService>()
-                                      .clearPendingLocationShareRequest();
-
-                                  if (sheetContext.mounted) {
-                                    Navigator.pop(sheetContext);
-                                  }
-
-                                  final List<String> sharedNames = localChildren
-                                      .where(
-                                        (k) => selectedKids.contains(k.childId),
-                                      )
-                                      .map((k) => k.childName)
-                                      .toList();
-
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          'Accepted share request for: ${sharedNames.join(', ')}',
-                                        ),
-                                        backgroundColor: const Color(
-                                          0xFF10B981,
-                                        ),
-                                      ),
-                                    );
-                                  }
-
-                                  // Parent B is the sharing parent, so we do not show the shared child as an active incoming share on their own map.
-                                  // The shared child is already visible as their own child on the home map.
-                                  final activeOutgoingShares =
-                                      SharedPrefsService.prefs.getStringList(
-                                        'active_outgoing_shares',
-                                      ) ??
-                                      [];
-                                  final newShareJson =
-                                      '{"share_id":"share_${DateTime.now().millisecondsSinceEpoch}","recipient_phone":"+14987889999","child_id":"${selectedKids.first}","child_name":"${sharedNames.first}","expires_at":"${DateTime.now().add(const Duration(minutes: 30)).toIso8601String()}"}';
-                                  activeOutgoingShares.add(newShareJson);
-                                  await SharedPrefsService.prefs.setStringList(
-                                    'active_outgoing_shares',
-                                    activeOutgoingShares,
-                                  );
-                                } else {
+                          onPressed: selectedKids.isEmpty || isResponding
+                              ? null
+                              : () async {
                                   setSheetState(() {
-                                    isResponding = false;
+                                    isResponding = true;
                                   });
-                                  if (sheetContext.mounted) {
-                                    ScaffoldMessenger.of(
-                                      sheetContext,
-                                    ).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          'Failed to accept request: ${response.message}',
-                                        ),
-                                        backgroundColor: Colors.redAccent,
-                                      ),
-                                    );
+
+                                  int durationMin = 30;
+                                  if (selectedDuration.contains('15')) {
+                                    durationMin = 15;
+                                  } else if (selectedDuration.contains('30')) {
+                                    durationMin = 30;
+                                  } else if (selectedDuration.contains(
+                                    '1 hour',
+                                  )) {
+                                    durationMin = 60;
+                                  } else if (selectedDuration.contains(
+                                    '2 hours',
+                                  )) {
+                                    durationMin = 120;
                                   }
-                                }
-                              },
-                        child: isResponding
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2,
+
+                                  final repo = injector<HomeRepository>();
+                                  final response = await repo
+                                      .respondToLocationRequest(
+                                        requestId: requestId,
+                                        action: 'accept',
+                                        childIds: selectedKids,
+                                        durationMinutes: durationMin,
+                                      );
+
+                                  if (response.isSuccess) {
+                                    await SharedPrefsService.prefs.remove(
+                                      'pending_location_share_request',
+                                    );
+                                    injector<FirebaseNotificationService>()
+                                        .clearPendingLocationShareRequest();
+
+                                    if (sheetContext.mounted) {
+                                      Navigator.pop(sheetContext);
+                                    }
+
+                                    final List<String> sharedNames =
+                                        localChildren
+                                            .where(
+                                              (k) => selectedKids.contains(
+                                                k.childId,
+                                              ),
+                                            )
+                                            .map((k) => k.childName)
+                                            .toList();
+
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            'Accepted share request for: ${sharedNames.join(', ')}',
+                                          ),
+                                          backgroundColor: const Color(
+                                            0xFF10B981,
+                                          ),
+                                        ),
+                                      );
+                                    }
+
+                                    // Parent B is the sharing parent, so we do not show the shared child as an active incoming share on their own map.
+                                    // The shared child is already visible as their own child on the home map.
+                                    final activeOutgoingShares =
+                                        SharedPrefsService.prefs.getStringList(
+                                          'active_outgoing_shares',
+                                        ) ??
+                                        [];
+                                    final newShareJson =
+                                        '{"share_id":"share_${DateTime.now().millisecondsSinceEpoch}","recipient_phone":"+14987889999","child_id":"${selectedKids.first}","child_name":"${sharedNames.first}","expires_at":"${DateTime.now().add(const Duration(minutes: 30)).toIso8601String()}"}';
+                                    activeOutgoingShares.add(newShareJson);
+                                    await SharedPrefsService.prefs
+                                        .setStringList(
+                                          'active_outgoing_shares',
+                                          activeOutgoingShares,
+                                        );
+                                  } else {
+                                    setSheetState(() {
+                                      isResponding = false;
+                                    });
+                                    if (sheetContext.mounted) {
+                                      ScaffoldMessenger.of(
+                                        sheetContext,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            'Failed to accept request: ${response.message}',
+                                          ),
+                                          backgroundColor: Colors.redAccent,
+                                        ),
+                                      );
+                                    }
+                                  }
+                                },
+                          child: isResponding
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : Text(
+                                  'Accept Request',
+                                  style: GoogleFonts.manrope(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
-                              )
-                            : Text(
-                                'Accept Request',
-                                style: GoogleFonts.manrope(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: OutlinedButton(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFFDC2626),
-                          side: const BorderSide(
-                            color: Color(0xFFDC2626),
-                            width: 1.5,
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 52,
+                        child: OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFFDC2626),
+                            side: const BorderSide(
+                              color: Color(0xFFDC2626),
+                              width: 1.5,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                          onPressed: isResponding
+                              ? null
+                              : () {
+                                  Navigator.pop(sheetContext);
+                                  _showRejectionReasonDialog(requestId);
+                                },
+                          child: Text(
+                            'Reject Request',
+                            style: GoogleFonts.manrope(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
-                        onPressed: isResponding
-                            ? null
-                            : () {
-                                Navigator.pop(sheetContext);
-                                _showRejectionReasonDialog(requestId);
-                              },
-                        child: Text(
-                          'Reject Request',
-                          style: GoogleFonts.manrope(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Location will only be shared for the selected duration. You can revoke access anytime.',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.manrope(
+                          fontSize: 11,
+                          color: const Color(0xFF94A3B8),
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Location will only be shared for the selected duration. You can revoke access anytime.',
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.manrope(
-                        fontSize: 11,
-                        color: const Color(0xFF94A3B8),
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            );
-          },
-        );
-      },
-    ).whenComplete(() {
-      _isLocationShareSheetOpen = false;
-      AppLogger.info('💡 [FCM SHEET] Sheet closed/dismissed');
-      print('💡 [FCM SHEET] Sheet closed/dismissed');
-    });
+              );
+            },
+          );
+        },
+      ).whenComplete(() {
+        _isLocationShareSheetOpen = false;
+        AppLogger.info('💡 [FCM SHEET] Sheet closed/dismissed');
+        print('💡 [FCM SHEET] Sheet closed/dismissed');
+      });
     } catch (e, stack) {
       _isLocationShareSheetOpen = false;
       AppLogger.error('❌ Error in _showLocationShareApprovalSheet: $e');
@@ -1676,7 +1715,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           activeSharedChildData: _activeSharedChildData,
                           viewingSharedChild: _viewingSharedChild,
                           ownChildLocation: state.currentLocation != null
-                              ? LatLng(state.currentLocation!.lat, state.currentLocation!.lng)
+                              ? LatLng(
+                                  state.currentLocation!.lat,
+                                  state.currentLocation!.lng,
+                                )
                               : null,
                         ),
                       ),
@@ -1687,32 +1729,44 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       final floatingChildren = state.sharedChildren.isNotEmpty
                           ? state.sharedChildren
                           : (_activeSharedChildData != null
-                              ? [
-                                  SharedChild(
-                                    shareId: _activeSharedChildData!['child_id'],
-                                    childId: _activeSharedChildData!['child_id'],
-                                    childName: _activeSharedChildData!['child_name'],
-                                    latitude: _activeSharedChildData!['lat'],
-                                    longitude: _activeSharedChildData!['lng'],
-                                    batteryPercentage: _activeSharedChildData!['battery_percentage'] ?? 50,
-                                    avatar: _activeSharedChildData!['avatar'],
-                                    expiresAt: _activeSharedChildData!['expires_at'],
-                                    lastSyncAt: _activeSharedChildData!['last_sync_at'],
-                                  )
-                                ]
-                              : <SharedChild>[]);
+                                ? [
+                                    SharedChild(
+                                      shareId:
+                                          _activeSharedChildData!['child_id'],
+                                      childId:
+                                          _activeSharedChildData!['child_id'],
+                                      childName:
+                                          _activeSharedChildData!['child_name'],
+                                      latitude: _activeSharedChildData!['lat'],
+                                      longitude: _activeSharedChildData!['lng'],
+                                      batteryPercentage:
+                                          _activeSharedChildData!['battery_percentage'] ??
+                                          50,
+                                      avatar: _activeSharedChildData!['avatar'],
+                                      expiresAt:
+                                          _activeSharedChildData!['expires_at'],
+                                      lastSyncAt:
+                                          _activeSharedChildData!['last_sync_at'],
+                                    ),
+                                  ]
+                                : <SharedChild>[]);
 
-                      if (floatingChildren.isEmpty) return const SizedBox.shrink();
+                      if (floatingChildren.isEmpty)
+                        return const SizedBox.shrink();
 
                       return Positioned(
                         top: 80,
                         right: 16,
                         child: Column(
                           children: floatingChildren.map((child) {
-                            final isSelected = _viewingSharedChild &&
+                            final isSelected =
+                                _viewingSharedChild &&
                                 _activeSharedChildData != null &&
-                                _activeSharedChildData!['child_id'] == child.childId;
-                            final hasAvatar = child.avatar != null && child.avatar!.isNotEmpty;
+                                _activeSharedChildData!['child_id'] ==
+                                    child.childId;
+                            final hasAvatar =
+                                child.avatar != null &&
+                                child.avatar!.isNotEmpty;
                             final String initials = child.childName
                                 .substring(0, min(2, child.childName.length))
                                 .toUpperCase();
@@ -1727,11 +1781,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                         _activeSharedChildData = {
                                           'child_id': child.childId,
                                           'child_name': child.childName,
-                                          'avatar': child.avatar ?? 'Boy 03.png',
+                                          'avatar':
+                                              child.avatar ?? 'Boy 03.png',
                                           'lat': child.latitude,
                                           'lng': child.longitude,
                                           'expires_at': child.expiresAt,
-                                          'battery_percentage': child.batteryPercentage,
+                                          'battery_percentage':
+                                              child.batteryPercentage,
                                           'last_sync_at': child.lastSyncAt,
                                         };
                                         _viewingSharedChild = true;
@@ -1751,7 +1807,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                         ),
                                         boxShadow: [
                                           BoxShadow(
-                                            color: Colors.black.withValues(alpha: 0.15),
+                                            color: Colors.black.withValues(
+                                              alpha: 0.15,
+                                            ),
                                             blurRadius: 8,
                                             offset: const Offset(0, 4),
                                           ),
@@ -1764,26 +1822,50 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                           if (hasAvatar)
                                             ClipOval(
                                               child: Image(
-                                                image: (child.avatar!.startsWith('http://') || child.avatar!.startsWith('https://'))
-                                                    ? NetworkImage(child.avatar!)
+                                                image:
+                                                    (child.avatar!.startsWith(
+                                                          'http://',
+                                                        ) ||
+                                                        child.avatar!
+                                                            .startsWith(
+                                                              'https://',
+                                                            ))
+                                                    ? NetworkImage(
+                                                        child.avatar!,
+                                                      )
                                                     : AssetImage(
-                                                        child.avatar!.startsWith('assets/')
-                                                            ? child.avatar!
-                                                            : 'assets/images/childavatar/${child.avatar!}',
-                                                      ) as ImageProvider,
+                                                            child.avatar!
+                                                                    .startsWith(
+                                                                      'assets/',
+                                                                    )
+                                                                ? child.avatar!
+                                                                : 'assets/images/childavatar/${child.avatar!}',
+                                                          )
+                                                          as ImageProvider,
                                                 width: 50,
                                                 height: 50,
                                                 fit: BoxFit.cover,
-                                                errorBuilder: (context, error, stackTrace) {
-                                                  return Text(
-                                                    initials,
-                                                    style: GoogleFonts.manrope(
-                                                      fontSize: 14,
-                                                      fontWeight: FontWeight.bold,
-                                                      color: const Color(0xFF0066FF),
-                                                    ),
-                                                  );
-                                                },
+                                                errorBuilder:
+                                                    (
+                                                      context,
+                                                      error,
+                                                      stackTrace,
+                                                    ) {
+                                                      return Text(
+                                                        initials,
+                                                        style:
+                                                            GoogleFonts.manrope(
+                                                              fontSize: 14,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .bold,
+                                                              color:
+                                                                  const Color(
+                                                                    0xFF0066FF,
+                                                                  ),
+                                                            ),
+                                                      );
+                                                    },
                                               ),
                                             )
                                           else
@@ -1822,11 +1904,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                       vertical: 4,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: Colors.white.withValues(alpha: 0.9),
+                                      color: Colors.white.withValues(
+                                        alpha: 0.9,
+                                      ),
                                       borderRadius: BorderRadius.circular(8),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: Colors.black.withValues(alpha: 0.05),
+                                          color: Colors.black.withValues(
+                                            alpha: 0.05,
+                                          ),
                                           blurRadius: 4,
                                         ),
                                       ],
@@ -1894,7 +1980,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                         ),
                                       ),
                                       Text(
-                                        _getRemainingTimeText(_activeSharedChildData!['expires_at']),
+                                        _getRemainingTimeText(
+                                          _activeSharedChildData!['expires_at'],
+                                        ),
                                         style: GoogleFonts.manrope(
                                           fontSize: 11,
                                           color: const Color(0xFF64748B),
@@ -1959,92 +2047,93 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             // Sliver 2: Scrollable content cards below the map
             if (!_viewingSharedChild)
               SliverPadding(
-              padding: const EdgeInsets.all(16.0),
-              sliver: SliverList(
-                delegate: SliverChildListDelegate([
-                  // 2. Scroll & Geo Guard Feature Cards
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildFeatureCard(
-                          title: 'Scroll',
-                          subtitle: 'Social Media & Apps',
-                          statusText:
-                              state.features?.scrollStatusText ??
-                              '0 Apps Locked',
-                          icon: Icons.smartphone_rounded,
-                          cardBg: const Color(0xFFEFF6FF),
-                          borderCol: const Color(0xFFDBEAFE),
-                          iconCol: const Color(0xFF3B82F6),
-                          statusBg: const Color(0xFFDBEAFE),
-                          statusTextCol: const Color(0xFF1D4ED8),
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const SocialAppsView(),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _buildFeatureCard(
-                          title: 'Geo Guard',
-                          subtitle: 'Places & Geofencing',
-                          statusText:
-                              state.features?.geoGuardStatusText ?? '0 Fencing',
-                          icon: Icons.location_on_outlined,
-                          cardBg: const Color(0xFFFFF7ED),
-                          borderCol: const Color(0xFFFFEDD5),
-                          iconCol: const Color(0xFFF97316),
-                          statusBg: const Color(0xFFFFEDD5),
-                          statusTextCol: const Color(0xFFC2410C),
-                          onTap: () {
-                            final childId = _sharedPrefsService.getString(
-                              'child_id',
-                            );
-                            final parentId = _sharedPrefsService.getString(
-                              'parent_id',
-                            );
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => GeoFencingView(
-                                  childId: childId,
-                                  parentId: parentId,
+                padding: const EdgeInsets.all(16.0),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate([
+                    // 2. Scroll & Geo Guard Feature Cards
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildFeatureCard(
+                            title: 'Scroll',
+                            subtitle: 'Social Media & Apps',
+                            statusText:
+                                state.features?.scrollStatusText ??
+                                '0 Apps Locked',
+                            icon: Icons.smartphone_rounded,
+                            cardBg: const Color(0xFFEFF6FF),
+                            borderCol: const Color(0xFFDBEAFE),
+                            iconCol: const Color(0xFF3B82F6),
+                            statusBg: const Color(0xFFDBEAFE),
+                            statusTextCol: const Color(0xFF1D4ED8),
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const SocialAppsView(),
                                 ),
-                              ),
-                            );
-                          },
+                              );
+                            },
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildFeatureCard(
+                            title: 'Geo Guard',
+                            subtitle: 'Places & Geofencing',
+                            statusText:
+                                state.features?.geoGuardStatusText ??
+                                '0 Fencing',
+                            icon: Icons.location_on_outlined,
+                            cardBg: const Color(0xFFFFF7ED),
+                            borderCol: const Color(0xFFFFEDD5),
+                            iconCol: const Color(0xFFF97316),
+                            statusBg: const Color(0xFFFFEDD5),
+                            statusTextCol: const Color(0xFFC2410C),
+                            onTap: () {
+                              final childId = _sharedPrefsService.getString(
+                                'child_id',
+                              );
+                              final parentId = _sharedPrefsService.getString(
+                                'parent_id',
+                              );
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => GeoFencingView(
+                                    childId: childId,
+                                    parentId: parentId,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
 
-                  // 3. Today's Route Map Card
-                  _buildRouteMapCard(context),
-                  const SizedBox(height: 16),
+                    // 3. Today's Route Map Card
+                    _buildRouteMapCard(context),
+                    const SizedBox(height: 16),
 
-                  // 4. Upgrade to Pro Banner
-                  _buildUpgradeProBanner(),
-                  const SizedBox(height: 24),
+                    // 4. Upgrade to Pro Banner
+                    _buildUpgradeProBanner(),
+                    const SizedBox(height: 24),
 
-                  // 5. Screentime Today Section
-                  _buildScreentimeSection(context),
-                  const SizedBox(height: 24),
+                    // 5. Screentime Today Section
+                    _buildScreentimeSection(context),
+                    const SizedBox(height: 24),
 
-                  // 6. Shortcuts Section
-                  _buildShortcutsSection(context),
-                  const SizedBox(height: 24),
+                    // 6. Shortcuts Section
+                    _buildShortcutsSection(context),
+                    const SizedBox(height: 24),
 
-                  // 7. Help Centre Section
-                  _buildHelpCentreSection(context),
-                ]),
+                    // 7. Help Centre Section
+                    _buildHelpCentreSection(context),
+                  ]),
+                ),
               ),
-            ),
           ],
         );
       },
@@ -2179,7 +2268,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               _buildLocationStatusPill(
                 Icons.access_time_rounded,
                 _viewingSharedChild && _activeSharedChildData != null
-                    ? _formatSinceTime(_activeSharedChildData!['last_sync_at']?.toString())
+                    ? _formatSinceTime(
+                        _activeSharedChildData!['last_sync_at']?.toString(),
+                      )
                     : _formatSinceTime(state.currentLocation?.since),
               ),
               const SizedBox(width: 8),
@@ -2187,8 +2278,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 _viewingSharedChild && _activeSharedChildData != null
                     ? Icons.battery_std_rounded
                     : (state.deviceInfo?.isCharging == true
-                        ? Icons.battery_charging_full_rounded
-                        : Icons.battery_std_rounded),
+                          ? Icons.battery_charging_full_rounded
+                          : Icons.battery_std_rounded),
                 _viewingSharedChild && _activeSharedChildData != null
                     ? '${_activeSharedChildData!['battery_percentage'] ?? 0}%'
                     : '${state.deviceInfo?.batteryPercentage ?? 0}%',
@@ -2198,7 +2289,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 _buildLocationStatusPill(
                   state.deviceInfo?.soundProfile.toLowerCase() == 'silent'
                       ? Icons.volume_off_rounded
-                      : (state.deviceInfo?.soundProfile.toLowerCase() == 'vibrate'
+                      : (state.deviceInfo?.soundProfile.toLowerCase() ==
+                                'vibrate'
                             ? Icons.vibration_rounded
                             : Icons.volume_up_rounded),
                   state.deviceInfo?.soundProfile ?? 'Vibrate',
@@ -2778,7 +2870,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                               style: GoogleFonts.manrope(
                                 fontSize: 10.5,
                                 fontWeight: FontWeight.w500,
-                                color: const Color(0xFF1E40AF).withValues(alpha: 0.8),
+                                color: const Color(
+                                  0xFF1E40AF,
+                                ).withValues(alpha: 0.8),
                               ),
                             ),
                           ],
@@ -3267,7 +3361,8 @@ class _HomeMapBackgroundState extends State<_HomeMapBackground> {
             widget.activeSharedChildData!['lng'],
           );
           _animateTo(target);
-        } else if (!widget.viewingSharedChild && widget.ownChildLocation != null) {
+        } else if (!widget.viewingSharedChild &&
+            widget.ownChildLocation != null) {
           _animateTo(widget.ownChildLocation!);
         }
       }
@@ -3289,8 +3384,13 @@ class _HomeMapBackgroundState extends State<_HomeMapBackground> {
     });
   }
 
-  Future<void> _loadSharedMarkerIcon(String childId, int batteryPercentage, String? avatar) async {
-    if (_cachedSharedMarkers.containsKey(childId) || _loadingSharedMarkers.contains(childId)) {
+  Future<void> _loadSharedMarkerIcon(
+    String childId,
+    int batteryPercentage,
+    String? avatar,
+  ) async {
+    if (_cachedSharedMarkers.containsKey(childId) ||
+        _loadingSharedMarkers.contains(childId)) {
       return;
     }
     _loadingSharedMarkers.add(childId);
@@ -3352,7 +3452,9 @@ class _HomeMapBackgroundState extends State<_HomeMapBackground> {
           if (_mapController != null && !widget.viewingSharedChild) {
             // Use a small delay to ensure map is ready
             Future.delayed(const Duration(milliseconds: 100), () {
-              if (mounted && _mapController != null && !widget.viewingSharedChild) {
+              if (mounted &&
+                  _mapController != null &&
+                  !widget.viewingSharedChild) {
                 _animateTo(loc, zoom: _isFirstLocationAfterLoad ? 15.0 : null);
                 _isFirstLocationAfterLoad = false;
               }
@@ -3394,7 +3496,11 @@ class _HomeMapBackgroundState extends State<_HomeMapBackground> {
 
           if (state is HomepageSuccess) {
             for (final child in state.sharedChildren) {
-              _loadSharedMarkerIcon(child.childId, child.batteryPercentage, child.avatar);
+              _loadSharedMarkerIcon(
+                child.childId,
+                child.batteryPercentage,
+                child.avatar,
+              );
             }
           }
 
@@ -3418,13 +3524,18 @@ class _HomeMapBackgroundState extends State<_HomeMapBackground> {
                 Marker(
                   markerId: MarkerId(child.childId),
                   position: LatLng(child.latitude, child.longitude),
-                  icon: _cachedSharedMarkers[child.childId] ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
+                  icon:
+                      _cachedSharedMarkers[child.childId] ??
+                      BitmapDescriptor.defaultMarkerWithHue(
+                        BitmapDescriptor.hueOrange,
+                      ),
                   infoWindow: InfoWindow(
                     title: child.childName,
-                    snippet: 'Battery: ${child.batteryPercentage}%${child.expiresAt != null ? " • Expires: ${TimeOfDay.fromDateTime(child.expiresAt!.toLocal()).format(context)}" : ""}',
+                    snippet:
+                        'Battery: ${child.batteryPercentage}%${child.expiresAt != null ? " • Expires: ${TimeOfDay.fromDateTime(child.expiresAt!.toLocal()).format(context)}" : ""}',
                   ),
                 ),
-              }
+              },
             },
             if (widget.activeSharedChildData != null) ...{
               Marker(

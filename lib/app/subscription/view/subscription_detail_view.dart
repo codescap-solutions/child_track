@@ -175,9 +175,7 @@ class SubscriptionDetailView extends StatelessWidget {
 
     final productId = Platform.isIOS
         ? (isYearly ? plan.yearlyAppleProductId : plan.monthlyAppleProductId)
-        : (isYearly
-            ? plan.yearlyGoogleProductId
-            : plan.monthlyGoogleProductId);
+        : (isYearly ? plan.yearlyGoogleProductId : plan.monthlyGoogleProductId);
 
     if (productId == null || productId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -210,16 +208,16 @@ class SubscriptionDetailView extends StatelessWidget {
       }
     } on PlatformException catch (e) {
       if (context.mounted) Navigator.pop(context); // Dismiss loading
-      
+
       final errorCode = PurchasesErrorHelper.getErrorCode(e);
       if (errorCode == PurchasesErrorCode.purchaseCancelledError) {
         return; // User intentionally cancelled, do nothing
       }
-      
+
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Purchase error: ${e.message}')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Purchase error: ${e.message}')));
       }
     } catch (e) {
       if (context.mounted) Navigator.pop(context); // Dismiss loading
