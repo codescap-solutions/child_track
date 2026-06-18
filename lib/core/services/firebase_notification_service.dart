@@ -39,7 +39,6 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   
   AppLogger.info('Background message received: ${message.messageId}');
   AppLogger.info('Background message data: ${message.data}');
-  print('🔥 [FCM BACKGROUND] Received: data=${message.data}, title=${message.notification?.title}, body=${message.notification?.body}');
 
   // Save background notification locally for parent app
   try {
@@ -437,7 +436,6 @@ class FirebaseNotificationService {
     AppLogger.info('Foreground message received: ${message.messageId}');
     AppLogger.info('Message data: ${message.data}');
     AppLogger.info('Message notification: ${message.notification?.title}');
-    print('🔥 [FCM FOREGROUND] Received: data=${message.data}, title=${message.notification?.title}, body=${message.notification?.body}');
 
     // Log to CSV for offline analysis
     CsvFileLogger.instance.write(
@@ -530,7 +528,6 @@ class FirebaseNotificationService {
 
     // Diagnostic logging for parent app fcm
     AppLogger.info('🔥 [FCM DEBUG] type="$type", data=$data, notificationTitle="${notification?.title}", notificationBody="${notification?.body}"');
-    print('🔥 [FCM DEBUG] type="$type", data=$data, notificationTitle="${notification?.title}", notificationBody="${notification?.body}"');
 
     String title = notification?.title ?? '';
     String body = notification?.body ?? '';

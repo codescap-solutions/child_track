@@ -133,7 +133,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         .notificationTapStream
         .listen((message) {
           AppLogger.info('🔥 [FCM TAP] Received message: data=${message.data}');
-          print('🔥 [FCM TAP] Received message: data=${message.data}');
           if (message.data['type'] == 'location_share_request') {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted) {
@@ -156,7 +155,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           AppLogger.info(
             '🔥 [FCM FG STREAM] Received message: data=${message.data}',
           );
-          print('🔥 [FCM FG STREAM] Received message: data=${message.data}');
           if (message.data['type'] == 'location_share_request') {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted) {
@@ -266,28 +264,22 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     AppLogger.info(
       '💡 _checkAndShowPendingLocationRequest check: mounted=$mounted, open=$_isLocationShareSheetOpen',
     );
-    print(
-      '💡 [FCM CHECK] _checkAndShowPendingLocationRequest check: mounted=$mounted, open=$_isLocationShareSheetOpen',
-    );
     if (!mounted || _isLocationShareSheetOpen) return;
     final pendingJson = _sharedPrefsService.getString(
       'pending_location_share_request',
     );
     AppLogger.info('💡 pendingJson: $pendingJson');
-    print('💡 [FCM CHECK] pendingJson: $pendingJson');
     if (pendingJson != null && pendingJson.isNotEmpty) {
       try {
         final data = json.decode(pendingJson) as Map<String, dynamic>;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted && !_isLocationShareSheetOpen) {
             AppLogger.info('💡 Triggering approval sheet for data: $data');
-            print('💡 [FCM CHECK] Triggering approval sheet for data: $data');
             _showLocationShareApprovalSheet(data);
           }
         });
       } catch (e) {
         AppLogger.error('Failed to parse pending location request JSON: $e');
-        print('❌ [FCM CHECK] Failed to parse pending JSON: $e');
       }
     }
   }
@@ -296,7 +288,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     AppLogger.info(
       '💡 _handleIncomingLocationShareAccepted called with data: $data',
     );
-    print('💡 [FCM ACCEPTED] Handling accepted share request: $data');
     try {
       final String childId = data['child_id'] ?? 'mock_rohan';
       final String childName = data['child_name'] ?? 'Rohan';
@@ -330,9 +321,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           backgroundColor: const Color(0xFF10B981),
         ),
       );
-    } catch (e, stack) {
+    } catch (e) {
       AppLogger.error('❌ Error handling location_share_accepted: $e');
-      print('❌ [FCM ACCEPTED ERROR] Error: $e\n$stack');
     }
   }
 
@@ -577,16 +567,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     AppLogger.info(
       '💡 _showLocationShareApprovalSheet called with data: $data',
     );
-    print(
-      '💡 [FCM SHEET] _showLocationShareApprovalSheet called with data: $data',
-    );
 
     if (_isLocationShareSheetOpen) {
       AppLogger.warning(
         '⚠️ location share sheet is already open. Skipping duplicate show call.',
-      );
-      print(
-        '⚠️ [FCM SHEET] location share sheet is already open. Skipping duplicate show call.',
       );
       return;
     }
@@ -598,7 +582,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
       List<ChildProfile> localChildren = _sharedPrefsService.getChildren();
       AppLogger.info('💡 Children count: ${localChildren.length}');
-      print('💡 [FCM SHEET] Children count: ${localChildren.length}');
       if (localChildren.isEmpty) {
         localChildren = [
           ChildProfile(
@@ -1174,12 +1157,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       ).whenComplete(() {
         _isLocationShareSheetOpen = false;
         AppLogger.info('💡 [FCM SHEET] Sheet closed/dismissed');
-        print('💡 [FCM SHEET] Sheet closed/dismissed');
       });
-    } catch (e, stack) {
+    } catch (e) {
       _isLocationShareSheetOpen = false;
       AppLogger.error('❌ Error in _showLocationShareApprovalSheet: $e');
-      print('❌ [FCM SHEET ERROR] Error: $e\n$stack');
     }
   }
 
@@ -1751,8 +1732,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                   ]
                                 : <SharedChild>[]);
 
-                      if (floatingChildren.isEmpty)
+                      if (floatingChildren.isEmpty) {
                         return const SizedBox.shrink();
+                      }
 
                       return Positioned(
                         top: 80,

@@ -140,7 +140,7 @@ class _SubscriptionMultiPlanViewState extends State<SubscriptionMultiPlanView> {
                 boxShadow: !_isYearly
                     ? [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
+                          color: Colors.black.withValues(alpha: 0.05),
                           blurRadius: 4,
                           offset: const Offset(0, 2),
                         ),
@@ -296,7 +296,7 @@ class _SubscriptionMultiPlanViewState extends State<SubscriptionMultiPlanView> {
                               shape: BoxShape.circle,
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.05),
+                                  color: Colors.black.withValues(alpha: 0.05),
                                   blurRadius: 4,
                                 ),
                               ],

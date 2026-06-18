@@ -9,10 +9,12 @@ enum SubscriptionTier {
 
   static SubscriptionTier fromId(String id) {
     final lowerId = id.toLowerCase();
-    if (lowerId.contains('premium') || lowerId.contains('ultimate'))
+    if (lowerId.contains('premium') || lowerId.contains('ultimate')) {
       return SubscriptionTier.premium;
-    if (lowerId.contains('smart') || lowerId.contains('plus'))
+    }
+    if (lowerId.contains('smart') || lowerId.contains('plus')) {
       return SubscriptionTier.smart;
+    }
     if (lowerId.contains('basic')) return SubscriptionTier.basic;
     return SubscriptionTier.starter;
   }
