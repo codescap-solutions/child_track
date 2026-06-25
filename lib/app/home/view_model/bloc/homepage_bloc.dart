@@ -42,6 +42,7 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
     on<GetTripDetail>(_onGetTripDetail);
     on<UpdateSocketLocation>(_onUpdateSocketLocation);
     on<UpdateSocketStatus>(_onUpdateSocketStatus);
+    on<UpdateCurrentLocationName>(_onUpdateCurrentLocationName);
   }
 
   void _initSocketListeners(String childId) {
@@ -432,6 +433,19 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
       emit(currentState.copyWith(deviceInfo: updatedDeviceInfo));
     } catch (e) {
       AppLogger.error('Error handling socket status update: $e');
+    }
+  }
+
+  void _onUpdateCurrentLocationName(
+    UpdateCurrentLocationName event,
+    Emitter<HomepageState> emit,
+  ) {
+    final currentState = state;
+    if (currentState is HomepageSuccess && currentState.currentLocation != null) {
+      final updatedLocation = currentState.currentLocation!.copyWith(
+        placeName: event.newName,
+      );
+      emit(currentState.copyWith(currentLocation: updatedLocation));
     }
   }
 }

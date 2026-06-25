@@ -64,6 +64,7 @@ class AuthRepository extends BaseService {
           // Save auth token and user ID (parent ID)
           // Handle different response structures
           final token = data['token'] as String?;
+          final refreshToken = data['refresh_token'] as String?;
           final userData = data['user'] as Map<String, dynamic>?;
           final parentId =
               userData?['id'] as String? ??
@@ -79,6 +80,9 @@ class AuthRepository extends BaseService {
           }
           if (token != null) {
             await _sharedPrefsService.setAuthToken(token);
+          }
+          if (refreshToken != null) {
+            await _sharedPrefsService.setRefreshToken(refreshToken);
           }
           if (name != null) {
             await _sharedPrefsService.setString('parent_name', name);
@@ -158,12 +162,24 @@ class AuthRepository extends BaseService {
   // Refresh Token
   Future<BaseResponse> refreshToken() async {
     try {
-      final response = await post(ApiEndpoints.refreshToken);
+      final currentRefreshToken = _sharedPrefsService.getRefreshToken();
+      if (currentRefreshToken == null) {
+        return BaseResponse.error(message: 'No refresh token available.');
+      }
+
+      final response = await post(
+        ApiEndpoints.refreshToken,
+        data: {'refresh_token': currentRefreshToken},
+      );
 
       if (response.isSuccess && response.data != null) {
         final token = response.data!['token'] as String?;
+        final newRefreshToken = response.data!['refresh_token'] as String?;
         if (token != null) {
           await _sharedPrefsService.setAuthToken(token);
+        }
+        if (newRefreshToken != null) {
+          await _sharedPrefsService.setRefreshToken(newRefreshToken);
         }
       }
 
@@ -226,6 +242,7 @@ class AuthRepository extends BaseService {
         // Save auth token and user ID (parent ID) after registration
         final responseData = response.data!;
         final token = responseData['token'] as String?;
+        final refreshToken = responseData['refresh_token'] as String?;
         final parentId =
             responseData['user']?['id'] as String? ??
             responseData['_id'] as String?;
@@ -237,6 +254,9 @@ class AuthRepository extends BaseService {
         }
         if (token != null) {
           await _sharedPrefsService.setAuthToken(token);
+        }
+        if (refreshToken != null) {
+          await _sharedPrefsService.setRefreshToken(refreshToken);
         }
         if (savedName != null) {
           await _sharedPrefsService.setString('parent_name', savedName);

@@ -44,20 +44,22 @@ class _ProfileViewState extends State<ProfileView> {
     try {
       final repo = injector<HomeRepository>();
       final response = await repo.getChildrenProfiles();
-      
+
       if (response.isSuccess && response.data != null) {
         final List<dynamic> data = response.data!;
         final apiChildren = data.map((json) {
           final apiChild = ChildProfile.fromMap(json as Map<String, dynamic>);
-          final existingIdx = list.indexWhere((c) => c.childId == apiChild.childId);
+          final existingIdx = list.indexWhere(
+            (c) => c.childId == apiChild.childId,
+          );
           if (existingIdx != -1) {
             return apiChild.copyWith(authToken: list[existingIdx].authToken);
           }
           return apiChild;
         }).toList();
-        
+
         await _sharedPrefsService.saveChildren(apiChildren);
-        
+
         if (mounted) {
           setState(() {
             _children = apiChildren;
@@ -109,9 +111,7 @@ class _ProfileViewState extends State<ProfileView> {
                   final updated = await Navigator.push<bool>(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => AddKidView(
-                        childToEdit: child,
-                      ),
+                      builder: (_) => AddKidView(childToEdit: child),
                     ),
                   );
                   if (updated == true) {
@@ -144,7 +144,9 @@ class _ProfileViewState extends State<ProfileView> {
                     );
                     if (activeChildId == child.childId) {
                       if (list.isNotEmpty) {
-                        await _sharedPrefsService.switchChild(list.first.childId);
+                        await _sharedPrefsService.switchChild(
+                          list.first.childId,
+                        );
                         injector<HomepageBloc>().add(GetHomepageData());
                       } else {
                         await _sharedPrefsService.removeChildId();
@@ -305,19 +307,17 @@ class _ProfileViewState extends State<ProfileView> {
                 // Stats calculation
                 String screenTime = isActive
                     ? activeScreenTime
-                    : (child.childName.contains('Rohan')
-                        ? '01 hrs'
-                        : '00 hrs');
+                    : (child.childName.contains('Rohan') ? '01 hrs' : '00 hrs');
                 String avgSpeed = isActive
                     ? activeAvgSpeed
                     : (child.childName.contains('Rohan')
-                        ? '42 km/hr'
-                        : '0 km/hr');
+                          ? '42 km/hr'
+                          : '0 km/hr');
                 String entireRoute = isActive
                     ? activeEntireRoute
                     : (child.childName.contains('Rohan')
-                        ? '18.3 km'
-                        : '0.0 km');
+                          ? '18.3 km'
+                          : '0.0 km');
 
                 return Padding(
                   padding: const EdgeInsets.symmetric(
@@ -376,146 +376,147 @@ class _ProfileViewState extends State<ProfileView> {
         child: Column(
           children: [
             // Top Section (Blue Gradient)
-            Container(
-              height: 200,
-              width: double.infinity,
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Color(0xFF5F9EFA),
-                    Color(0xFF3B82F6),
-                    Color(0xFF1D4ED8),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+            GestureDetector(
+              onTap: onTap,
+              child: Container(
+                height: 200,
+                width: double.infinity,
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Color(0xFF5F9EFA),
+                      Color(0xFF3B82F6),
+                      Color(0xFF1D4ED8),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
                 ),
-              ),
-              child: Stack(
-                children: [
-                  // Decorative Circle 1
-                  Positioned(
-                    top: -40,
-                    right: -40,
-                    child: Container(
-                      width: 200,
-                      height: 200,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.white.withValues(alpha: 0.06),
+                child: Stack(
+                  children: [
+                    // Decorative Circle 1
+                    Positioned(
+                      top: -40,
+                      right: -40,
+                      child: Container(
+                        width: 200,
+                        height: 200,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white.withValues(alpha: 0.06),
+                        ),
                       ),
                     ),
-                  ),
-                  // Decorative Circle 2
-                  Positioned(
-                    bottom: -60,
-                    left: -20,
-                    child: Container(
-                      width: 180,
-                      height: 180,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.white.withValues(alpha: 0.06),
+                    // Decorative Circle 2
+                    Positioned(
+                      bottom: -60,
+                      left: -20,
+                      child: Container(
+                        width: 180,
+                        height: 180,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white.withValues(alpha: 0.06),
+                        ),
                       ),
                     ),
-                  ),
-                  // Active Badge
-                  if (isActive)
+                    // Active Badge
+                    if (isActive)
+                      Positioned(
+                        top: 16,
+                        left: 16,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFDCFCE7),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            'active',
+                            style: GoogleFonts.manrope(
+                              color: const Color(0xFF15803D),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                    // More Button
                     Positioned(
                       top: 16,
-                      left: 16,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFDCFCE7),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          'active',
-                          style: GoogleFonts.manrope(
-                            color: const Color(0xFF15803D),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
+                      right: 16,
+                      child: GestureDetector(
+                        onTap: onMorePressed,
+                        child: Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            shape: BoxShape.circle,
                           ),
-                        ),
-                      ),
-                    ),
-                  // More Button
-                  Positioned(
-                    top: 16,
-                    right: 16,
-                    child: GestureDetector(
-                      onTap: onMorePressed,
-                      child: Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.2),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.more_horiz_rounded,
-                          color: Colors.white,
-                          size: 18,
-                        ),
-                      ),
-                    ),
-                  ),
-                  // Avatar & Text info
-                  Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const SizedBox(height: 20),
-                        // Profile Avatar image/placeholder
-                        GestureDetector(
-                          onTap: onTap,
-                          child: Container(
-                            width: 88,
-                            height: 88,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(
-                                    alpha: 0.1,
-                                  ),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: _buildAvatarWidget(avatar),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        // Name text
-                        Text(
-                          '$name ($childCode)',
-                          style: GoogleFonts.manrope(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w800,
+                          child: const Icon(
+                            Icons.more_horiz_rounded,
                             color: Colors.white,
+                            size: 18,
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        // Status text
-                        Text(
-                          status,
-                          style: GoogleFonts.manrope(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.white.withValues(alpha: 0.8),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                      ],
+                      ),
                     ),
-                  ),
-                ],
+                    // Avatar & Text info
+                    Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const SizedBox(height: 20),
+                          // Profile Avatar image/placeholder
+                          GestureDetector(
+                            onTap: onTap,
+                            child: Container(
+                              width: 88,
+                              height: 88,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.1),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: _buildAvatarWidget(avatar),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          // Name text
+                          Text(
+                            '$name ($childCode)',
+                            style: GoogleFonts.manrope(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          // Status text
+                          Text(
+                            status,
+                            style: GoogleFonts.manrope(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.white.withValues(alpha: 0.8),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
             // Bottom Section (Stats Row)

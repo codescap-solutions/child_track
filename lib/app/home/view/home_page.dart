@@ -24,6 +24,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../geofencing/view/geo_fencing_view.dart';
+import '../../geofencing/view_model/bloc/geofence_bloc.dart';
+import '../../geofencing/view_model/bloc/geofence_event.dart';
 import '../../settings/view/settings_view.dart';
 import '../../settings/view/devices_view.dart';
 import '../../notification/view/notification_page.dart';
@@ -73,6 +75,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     });
 
     injector<HomepageBloc>().add(const GetHomepageData());
+
+    final childId = _sharedPrefsService.getString('child_id');
+    if (childId != null) {
+      final now = DateTime.now();
+      final todayStr = "\${now.year}-\${now.month.toString().padLeft(2, '0')}-\${now.day.toString().padLeft(2, '0')}";
+      context.read<GeofenceBloc>().add(GetGeofencesRequested(childId: childId, date: todayStr));
+    }
+
+    _loadSavedPlaces();
 
     _progressTimer = Timer.periodic(const Duration(milliseconds: 15), (timer) {
       if (!mounted) {
@@ -2014,7 +2025,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                   parentId: parentId,
                                 ),
                               ),
-                            );
+                            ).then((_) {
+                              injector<HomepageBloc>().add(const GetHomepageData());
+                              _loadSavedPlaces();
+                            });
                           },
                         ),
                       ),

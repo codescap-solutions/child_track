@@ -426,6 +426,7 @@ class _GeoFencingViewState extends State<GeoFencingView> {
                 GetGeofencesRequested(childId: widget.childId!, date: _lastDateParam!),
               );
             }
+            injector<HomepageBloc>().add(const GetHomepageData());
           });
         },
         leading: Container(
@@ -470,7 +471,27 @@ class _GeoFencingViewState extends State<GeoFencingView> {
           geofence: geofence,
         ),
       ),
-    );
+    ).then((result) {
+      if (!mounted) return;
+      if (widget.childId != null && _lastDateParam != null) {
+        context.read<GeofenceBloc>().add(
+          GetGeofencesRequested(childId: widget.childId!, date: _lastDateParam!),
+        );
+      }
+      
+      if (result != null && result is Map && result['action'] == 'updated' && result['geofence'] != null) {
+        final updatedGeofence = result['geofence'] as Geofence;
+        final homeBloc = injector<HomepageBloc>();
+        final currentState = homeBloc.state;
+        if (currentState is HomepageSuccess && currentState.currentLocation != null) {
+          if (geofence != null && geofence.name != null && currentState.currentLocation!.placeName == geofence.name) {
+            homeBloc.add(UpdateCurrentLocationName(updatedGeofence.name ?? "Unknown"));
+          }
+        }
+      }
+
+      injector<HomepageBloc>().add(const GetHomepageData());
+    });
   }
 
   void _navigateToPlaceSelection() {
@@ -490,6 +511,7 @@ class _GeoFencingViewState extends State<GeoFencingView> {
           GetGeofencesRequested(childId: widget.childId!, date: _lastDateParam!),
         );
       }
+      injector<HomepageBloc>().add(const GetHomepageData());
     });
   }
 
@@ -615,6 +637,7 @@ class _GeoFencingViewState extends State<GeoFencingView> {
               GetGeofencesRequested(childId: widget.childId!, date: _lastDateParam!),
             );
           }
+          injector<HomepageBloc>().add(const GetHomepageData());
         });
       },
       child: Container(

@@ -10,6 +10,7 @@ class SharedPrefsService {
   // Initialize SharedPreferences
   static final _secureStorage = FlutterSecureStorage();
   static String? _cachedAuthToken;
+  static String? _cachedRefreshToken;
 
   // Initialize SharedPreferences and load secure token
   // Initialize SharedPreferences and load secure token
@@ -47,6 +48,15 @@ class SharedPrefsService {
     } else {
       // Load from whichever source is available
       _cachedAuthToken = secureToken ?? legacyToken;
+    }
+
+    // Load refresh token if secure storage is working
+    if (secureStorageWorking) {
+      try {
+        _cachedRefreshToken = await _secureStorage.read(key: 'refresh_token');
+      } catch (e) {
+        AppLogger.error('Error reading refresh token from secure storage: $e');
+      }
     }
 
     AppLogger.info(
@@ -110,6 +120,41 @@ class SharedPrefsService {
       return true;
     } catch (e) {
       AppLogger.error('Error removing auth token: $e');
+      return false;
+    }
+  }
+
+  // Refresh Token
+  Future<bool> setRefreshToken(String token) async {
+    try {
+      await _secureStorage.write(key: 'refresh_token', value: token);
+      _cachedRefreshToken = token;
+      return true;
+    } catch (e) {
+      AppLogger.error('Error saving refresh token: $e');
+      return false;
+    }
+  }
+
+  Future<void> reloadRefreshToken() async {
+    try {
+      _cachedRefreshToken = await _secureStorage.read(key: 'refresh_token');
+    } catch (e) {
+      AppLogger.error('Error reloading refresh token: $e');
+    }
+  }
+
+  String? getRefreshToken() {
+    return _cachedRefreshToken;
+  }
+
+  Future<bool> removeRefreshToken() async {
+    try {
+      await _secureStorage.delete(key: 'refresh_token');
+      _cachedRefreshToken = null;
+      return true;
+    } catch (e) {
+      AppLogger.error('Error removing refresh token: $e');
       return false;
     }
   }
@@ -259,12 +304,12 @@ class SharedPrefsService {
   Future<bool> logout() async {
     try {
       await removeAuthToken();
+      await removeRefreshToken();
       await removeUserId();
       await removeUserPhone();
       await removeChildId();
       await removeParentId();
 
-      await removeAuthToken();
       AppLogger.info('User logged out successfully');
       return true;
     } catch (e) {

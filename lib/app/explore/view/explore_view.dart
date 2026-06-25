@@ -1,4 +1,5 @@
 import 'dart:math' show min;
+import 'package:child_track/app/home/view_model/bloc/homepage_bloc.dart';
 import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -15,17 +16,16 @@ import 'package:child_track/app/home/view_model/home_repo.dart';
 class ExploreView extends StatelessWidget {
   final VoidCallback onNavigateToHome;
 
-  const ExploreView({
-    super.key,
-    required this.onNavigateToHome,
-  });
+  const ExploreView({super.key, required this.onNavigateToHome});
 
   @override
   Widget build(BuildContext context) {
     final sharedPrefsService = injector<SharedPrefsService>();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC), // Off-white background matching mockup
+      backgroundColor: const Color(
+        0xFFF8FAFC,
+      ), // Off-white background matching mockup
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -130,7 +130,9 @@ class ExploreView extends StatelessWidget {
                     subtitle: 'Set virtual location boundaries',
                     onTap: () {
                       final childId = sharedPrefsService.getString('child_id');
-                      final parentId = sharedPrefsService.getString('parent_id');
+                      final parentId = sharedPrefsService.getString(
+                        'parent_id',
+                      );
                       Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -139,7 +141,9 @@ class ExploreView extends StatelessWidget {
                             parentId: parentId,
                           ),
                         ),
-                      );
+                      ).then((_) {
+                        injector<HomepageBloc>().add(const GetHomepageData());
+                      });
                     },
                   ),
                   _buildDivider(),
@@ -152,9 +156,7 @@ class ExploreView extends StatelessWidget {
                     onTap: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(
-                          builder: (_) => const TripsView(),
-                        ),
+                        MaterialPageRoute(builder: (_) => const TripsView()),
                       );
                     },
                   ),
@@ -258,9 +260,7 @@ class ExploreView extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24),
-        child: Column(
-          children: children,
-        ),
+        child: Column(children: children),
       ),
     );
   }
@@ -286,13 +286,7 @@ class ExploreView extends StatelessWidget {
                 color: iconBgColor,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Center(
-                child: Icon(
-                  icon,
-                  color: iconColor,
-                  size: 20,
-                ),
-              ),
+              child: Center(child: Icon(icon, color: iconColor, size: 20)),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -380,7 +374,8 @@ class __ActiveOutgoingSharesSheetContentState
     });
 
     try {
-      final response = await injector<HomeRepository>().getActiveOutgoingShares();
+      final response = await injector<HomeRepository>()
+          .getActiveOutgoingShares();
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -442,9 +437,7 @@ class __ActiveOutgoingSharesSheetContentState
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 40),
               child: Center(
-                child: CircularProgressIndicator(
-                  color: Color(0xFF0066FF),
-                ),
+                child: CircularProgressIndicator(color: Color(0xFF0066FF)),
               ),
             )
           else if (_errorMessage != null)
@@ -480,19 +473,29 @@ class __ActiveOutgoingSharesSheetContentState
               child: ListView.separated(
                 shrinkWrap: true,
                 itemCount: _activeShares!.length,
-                separatorBuilder: (context, index) => const SizedBox(height: 12),
+                separatorBuilder: (context, index) =>
+                    const SizedBox(height: 12),
                 itemBuilder: (context, index) {
-                  final shareData = _activeShares![index] as Map<String, dynamic>;
-                  final String shareId = shareData['share_id']?.toString() ?? shareData['id']?.toString() ?? '';
-                  final String phone = shareData['recipient_phone']?.toString() ?? '';
-                  final String childName = shareData['child_name']?.toString() ?? 'Child';
-                  final String expiresAtStr = shareData['expires_at']?.toString() ?? '';
+                  final shareData =
+                      _activeShares![index] as Map<String, dynamic>;
+                  final String shareId =
+                      shareData['share_id']?.toString() ??
+                      shareData['id']?.toString() ??
+                      '';
+                  final String phone =
+                      shareData['recipient_phone']?.toString() ?? '';
+                  final String childName =
+                      shareData['child_name']?.toString() ?? 'Child';
+                  final String expiresAtStr =
+                      shareData['expires_at']?.toString() ?? '';
 
                   int minutesLeft = 0;
                   try {
                     if (expiresAtStr.isNotEmpty) {
                       final expiresAt = DateTime.parse(expiresAtStr);
-                      minutesLeft = expiresAt.difference(DateTime.now()).inMinutes;
+                      minutesLeft = expiresAt
+                          .difference(DateTime.now())
+                          .inMinutes;
                       if (minutesLeft < 0) minutesLeft = 0;
                     }
                   } catch (e) {
@@ -520,7 +523,9 @@ class __ActiveOutgoingSharesSheetContentState
                               ),
                               alignment: Alignment.center,
                               child: Text(
-                                childName.substring(0, min(2, childName.length)).toUpperCase(),
+                                childName
+                                    .substring(0, min(2, childName.length))
+                                    .toUpperCase(),
                                 style: GoogleFonts.manrope(
                                   fontSize: 14,
                                   fontWeight: FontWeight.bold,
@@ -565,7 +570,10 @@ class __ActiveOutgoingSharesSheetContentState
                             backgroundColor: const Color(0xFFFEF2F2),
                             foregroundColor: const Color(0xFFEF4444),
                             elevation: 0,
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8),
                             ),
@@ -575,13 +583,16 @@ class __ActiveOutgoingSharesSheetContentState
                               _isLoading = true;
                             });
 
-                            final revokeRes = await injector<HomeRepository>().revokeLocationSharing(shareId: shareId);
+                            final revokeRes = await injector<HomeRepository>()
+                                .revokeLocationSharing(shareId: shareId);
 
                             if (mounted) {
                               if (revokeRes.isSuccess) {
                                 ScaffoldMessenger.of(this.context).showSnackBar(
                                   SnackBar(
-                                    content: Text('Stopped sharing location of $childName successfully'),
+                                    content: Text(
+                                      'Stopped sharing location of $childName successfully',
+                                    ),
                                     backgroundColor: const Color(0xFFEF4444),
                                   ),
                                 );
@@ -590,7 +601,9 @@ class __ActiveOutgoingSharesSheetContentState
                               } else {
                                 ScaffoldMessenger.of(this.context).showSnackBar(
                                   SnackBar(
-                                    content: Text('Failed to stop sharing: ${revokeRes.message}'),
+                                    content: Text(
+                                      'Failed to stop sharing: ${revokeRes.message}',
+                                    ),
                                     backgroundColor: Colors.redAccent,
                                   ),
                                 );

@@ -158,9 +158,17 @@ class DioClient {
                 // 2. Token is still the same, try to refresh via API
                 AppLogger.info('Token is truly expired, calling refresh API');
 
+                final currentRefreshToken = _sharedPrefsService.getRefreshToken();
+                if (currentRefreshToken == null) {
+                  throw Exception('No refresh token available');
+                }
+
                 // Note: ApiEndpoints.refreshToken should be called using _dio directly.
                 // The interceptor already handles recursion by checking for 'refresh-token' path.
-                final response = await _dio.post(ApiEndpoints.refreshToken);
+                final response = await _dio.post(
+                  ApiEndpoints.refreshToken,
+                  data: {'refresh_token': currentRefreshToken},
+                );
 
                 if (response.statusCode == 200 || response.statusCode == 201) {
                   // Structure based on AuthRepository usage: response.data!['token']
@@ -168,18 +176,24 @@ class DioClient {
                   // or response.data['token'] depending on server wrapper.
                   final responseData = response.data;
                   dynamic newToken;
+                  dynamic newRefreshToken;
 
                   if (responseData is Map) {
                     if (responseData.containsKey('data') &&
                         responseData['data'] is Map) {
                       newToken = responseData['data']['token'];
+                      newRefreshToken = responseData['data']['refresh_token'];
                     } else {
                       newToken = responseData['token'];
+                      newRefreshToken = responseData['refresh_token'];
                     }
                   }
 
                   if (newToken != null && newToken is String) {
                     await _sharedPrefsService.setAuthToken(newToken);
+                    if (newRefreshToken != null && newRefreshToken is String) {
+                      await _sharedPrefsService.setRefreshToken(newRefreshToken);
+                    }
                     AppLogger.info('Token refreshed successfully via API');
                   } else {
                     throw Exception('Token not found in refresh response');

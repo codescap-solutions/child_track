@@ -58,3 +58,12 @@ final class UpdateSocketStatus extends HomepageEvent {
   @override
   List<Object> get props => [statusData];
 }
+
+final class UpdateCurrentLocationName extends HomepageEvent {
+  final String newName;
+
+  const UpdateCurrentLocationName(this.newName);
+
+  @override
+  List<Object> get props => [newName];
+}

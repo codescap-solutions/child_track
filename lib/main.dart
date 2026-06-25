@@ -106,16 +106,43 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+class _SplashScreenState extends State<SplashScreen>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _opacityAnimation;
+
   @override
   void initState() {
     super.initState();
+
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    );
+
+    _scaleAnimation = Tween<double>(begin: 0.5, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOutBack),
+    );
+
+    _opacityAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeIn),
+    );
+
+    _animationController.forward();
+
     _checkAuthStatus();
   }
 
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
   Future<void> _checkAuthStatus() async {
-    // Add a small delay for splash screen
-    await Future.delayed(const Duration(seconds: 2));
+    // Add a small delay for splash screen to let the animation finish
+    await Future.delayed(const Duration(milliseconds: 2000));
 
     final childId = injector<SharedPrefsService>().getString('child_id');
     final parentId = injector<SharedPrefsService>().getString('parent_id');
@@ -138,40 +165,39 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.primaryColor,
+      backgroundColor: Colors.white,
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                color: AppColors.surfaceColor,
-                borderRadius: BorderRadius.circular(60),
-              ),
-              child: const Icon(
-                Icons.child_care,
-                size: 60,
-                color: AppColors.primaryColor,
-              ),
+        child: FadeTransition(
+          opacity: _opacityAnimation,
+          child: ScaleTransition(
+            scale: _scaleAnimation,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Image.asset(
+                  'assets/icons/splash image.png',
+                  width: 300,
+                  fit: BoxFit.contain,
+                ),
+                const SizedBox(height: 32),
+                Text(
+                  AppStrings.appName,
+                  style: AppTextStyles.headline2.copyWith(
+                    color: AppColors.primaryColor,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                // const SizedBox(height: 8),
+                // Text(
+                //   'Keeping children safe',
+                //   style: AppTextStyles.body1.copyWith(
+                //     color: Colors.grey[700],
+                //   ),
+                // ),
+                // const SizedBox(height: 48),
+              ],
             ),
-            const SizedBox(height: 24),
-            Text(
-              AppStrings.appName,
-              style: AppTextStyles.headline2.copyWith(
-                color: AppColors.surfaceColor,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Keeping children safe',
-              style: AppTextStyles.body1.copyWith(
-                color: AppColors.surfaceColor.withValues(alpha: 0.8),
-              ),
-            ),
-            const SizedBox(height: 48),
-          ],
+          ),
         ),
       ),
     );
