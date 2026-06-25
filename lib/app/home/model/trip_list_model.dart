@@ -2,17 +2,34 @@ class TripPoint {
   final double lat;
   final double lng;
   final String ts;
+  final double speed; // m/s (0.0 if not provided)
+  final double accuracy; // metres
+  final double bearing; // degrees
 
-  TripPoint({required this.lat, required this.lng, required this.ts});
+  TripPoint({
+    required this.lat,
+    required this.lng,
+    required this.ts,
+    this.speed = 0.0,
+    this.accuracy = 0.0,
+    this.bearing = 0.0,
+  });
+
+  /// Speed in km/h for convenience.
+  double get speedKmh => speed * 3.6;
 
   factory TripPoint.fromJson(Map<String, dynamic> json) {
     return TripPoint(
       lat: (json['lat'] ?? 0).toDouble(),
       lng: (json['lng'] ?? 0).toDouble(),
       ts: json['ts'] ?? '',
+      speed: (json['speed'] ?? 0).toDouble(),
+      accuracy: (json['accuracy'] ?? 0).toDouble(),
+      bearing: (json['bearing'] ?? 0).toDouble(),
     );
   }
 }
+
 
 class Trip {
   final String tripId;

@@ -34,6 +34,9 @@ import os.log
     /// (set by requestFreshLocationWithTimeout, consumed in didUpdateLocations).
     private var pendingFreshLocationCompletion: ((CLLocation?) -> Void)?
 
+    /// Rate limiting for background native syncs from didUpdateLocations
+    private var lastBackgroundSyncTime: Date?
+
     /// Standard URLSession configured for background execution window syncs.
     /// Data tasks with completion handlers are fully supported here.
     private lazy var backgroundSession: URLSession = {
@@ -115,6 +118,17 @@ import os.log
         let controller = window?.rootViewController as! FlutterViewController
         setupDeviceInfoChannel(controller: controller)
         setupParentalControlChannel(controller: controller)
+        setupGeofenceMethodChannel(controller: controller)
+
+        // Initialize Native Geofence Manager
+        IOSNativeGeofenceManager.shared.initialize(locationManager: locationManager)
+
+        // Handle relaunch by iOS location event (e.g. SLC, visits, geofences after swipe-kill)
+        if let launchOptions = launchOptions, launchOptions[.location] != nil {
+            os_log("📍 App relaunched in background by iOS Location Event after swipe-kill", log: log, type: .info)
+            logToExtension("📍 App relaunched by iOS location event")
+            handleNativeDataSync(completionHandler: { _ in })
+        }
 
         return super.application(application, didFinishLaunchingWithOptions: launchOptions)
     }
@@ -130,6 +144,7 @@ import os.log
         locationManager.pausesLocationUpdatesAutomatically = false
         locationManager.requestAlwaysAuthorization()
         locationManager.startMonitoringSignificantLocationChanges()
+        locationManager.startMonitoringVisits()
         locationManager.startUpdatingLocation()
     }
 
@@ -643,6 +658,46 @@ import os.log
         }
     }
 
+    private func setupGeofenceMethodChannel(controller: FlutterViewController) {
+        let channel = FlutterMethodChannel(
+            name: "com.truenyx.naviq/geofence",
+            binaryMessenger: controller.binaryMessenger
+        )
+        IOSNativeGeofenceManager.shared.methodChannel = channel
+        
+        channel.setMethodCallHandler { call, result in
+            switch call.method {
+            case "syncGeofences":
+                guard let args = call.arguments as? [[String: Any]] else {
+                    result(FlutterError(code: "INVALID_ARGS", message: "Expected list of geofences", details: nil))
+                    return
+                }
+                
+                var geofences: [NativeGeofence] = []
+                for dict in args {
+                    if let id = dict["id"] as? String,
+                       let name = dict["name"] as? String,
+                       let lat = dict["lat"] as? Double,
+                       let lng = dict["lng"] as? Double,
+                       let radius = dict["radius"] as? Double,
+                       let priority = dict["priority"] as? Int {
+                        geofences.append(NativeGeofence(id: id, name: name, lat: lat, lng: lng, radius: radius, priority: priority))
+                    }
+                }
+                
+                IOSNativeGeofenceManager.shared.syncRegions(with: geofences)
+                result(true)
+                
+            case "fetchGeofences":
+                IOSNativeGeofenceManager.shared.fetchGeofencesFromBackend()
+                result(true)
+                
+            default:
+                result(FlutterMethodNotImplemented)
+            }
+        }
+    }
+
     // MARK: - Sound Profile
 
     private func getSoundProfile() -> String {
@@ -807,6 +862,19 @@ extension AppDelegate: CLLocationManagerDelegate {
         d?.set(max(0, loc.speed),                     forKey: kCachedSpd)
         d?.set(loc.horizontalAccuracy,                forKey: kCachedAcc)
         d?.set(Date().timeIntervalSince1970,          forKey: kCachedLocTs)
+
+        // Trigger background sync if in background with 60-second rate limiting
+        if UIApplication.shared.applicationState != .active {
+            let now = Date()
+            if lastBackgroundSyncTime == nil || now.timeIntervalSince(lastBackgroundSyncTime!) > 60 {
+                lastBackgroundSyncTime = now
+                os_log("🔄 CoreLocation update triggering native background sync", log: log, type: .info)
+                handleNativeDataSync(completionHandler: { _ in })
+            }
+        }
+
+        // Check geofence dwell status (Fix 1)
+        IOSNativeGeofenceManager.shared.checkDwellStatus(currentLocation: loc)
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
@@ -827,6 +895,39 @@ extension AppDelegate: CLLocationManagerDelegate {
         default:
             break
         }
+    }
+
+    // MARK: - Visit Monitoring (Relaunches and updates when user stays/leaves a place)
+    func locationManager(_ manager: CLLocationManager, didVisit visit: CLVisit) {
+        let lat = visit.coordinate.latitude
+        let lng = visit.coordinate.longitude
+        let ts = visit.arrivalDate.timeIntervalSince1970
+        let d = sharedDefaults
+        d?.set(lat, forKey: kCachedLat)
+        d?.set(lng, forKey: kCachedLng)
+        d?.set(0.0, forKey: kCachedSpd)
+        d?.set(10.0, forKey: kCachedAcc)
+        d?.set(ts, forKey: kCachedLocTs)
+        
+        os_log("📍 iOS Visit detected: lat=%f, lng=%f", log: log, type: .info, lat, lng)
+        logToExtension("📍 Visit detected: \(lat),\(lng)")
+        
+        if UIApplication.shared.applicationState != .active {
+            handleNativeDataSync(completionHandler: { _ in })
+        }
+    }
+
+    // MARK: - Region Monitoring (Geofence relaunch triggers)
+    func locationManager(_ manager: CLLocationManager, didEnterRegion region: CLRegion) {
+        os_log("📍 Entered region: %{public}@", log: log, type: .info, region.identifier)
+        logToExtension("📍 Entered region: \(region.identifier)")
+        IOSNativeGeofenceManager.shared.handleEnter(region: region)
+    }
+    
+    func locationManager(_ manager: CLLocationManager, didExitRegion region: CLRegion) {
+        os_log("📍 Exited region: %{public}@", log: log, type: .info, region.identifier)
+        logToExtension("📍 Exited region: \(region.identifier)")
+        IOSNativeGeofenceManager.shared.handleExit(region: region)
     }
 }
 

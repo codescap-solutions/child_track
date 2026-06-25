@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:child_track/app/home/model/home_model.dart';
+import 'package:child_track/app/home/model/trip_detail_model.dart';
 import 'package:child_track/app/home/model/trip_list_model.dart';
 import 'package:child_track/core/services/api_endpoints.dart';
 import 'package:child_track/core/services/base_service.dart';
@@ -81,9 +82,22 @@ class HomeRepository extends BaseService {
     );
   }
 
-  Future<BaseResponse> getTripDetail(String tripId) async {
+  Future<BaseResponse<TripDetailResponse>> getTripDetail(String tripId) async {
     final response = await get(ApiEndpoints.getTripDetail(tripId));
-    return response;
+    if (response.isSuccess && response.data != null) {
+      try {
+        final detail = TripDetailResponse.fromJson(response.data!);
+        return BaseResponse.success(data: detail, message: response.message);
+      } catch (e) {
+        return BaseResponse.error(
+          message: 'Failed to parse trip detail: ${e.toString()}',
+        );
+      }
+    }
+    return BaseResponse.error(
+      message: response.message,
+      statusCode: response.statusCode,
+    );
   }
 
   Future<BaseResponse> linkChild({required String childCode}) async {
@@ -95,9 +109,7 @@ class HomeRepository extends BaseService {
   }
 
   Future<BaseResponse> deleteChild(String childId) async {
-    final response = await delete(
-      ApiEndpoints.deleteChild(childId),
-    );
+    final response = await delete(ApiEndpoints.deleteChild(childId));
     return response;
   }
 
@@ -107,9 +119,7 @@ class HomeRepository extends BaseService {
     int? age,
     String? avatar,
   }) async {
-    final Map<String, dynamic> dataMap = {
-      'name': name,
-    };
+    final Map<String, dynamic> dataMap = {'name': name};
     if (age != null) {
       dataMap['age'] = age;
     }
@@ -125,9 +135,7 @@ class HomeRepository extends BaseService {
   }
 
   Future<BaseResponse<List<dynamic>>> getChildrenProfiles() async {
-    final response = await get<List<dynamic>>(
-      ApiEndpoints.parentChildren,
-    );
+    final response = await get<List<dynamic>>(ApiEndpoints.parentChildren);
 
     if (response.isSuccess && response.data != null) {
       return BaseResponse.success(
@@ -147,10 +155,7 @@ class HomeRepository extends BaseService {
   }) async {
     final response = await put(
       ApiEndpoints.updateChildSettings,
-      data: {
-        'child_id': childId,
-        'web_filtering_enabled': webFilteringEnabled,
-      },
+      data: {'child_id': childId, 'web_filtering_enabled': webFilteringEnabled},
     );
     return response;
   }
@@ -161,15 +166,14 @@ class HomeRepository extends BaseService {
   }) async {
     final response = await post(
       ApiEndpoints.webFilter,
-      data: {
-        'childId': childId,
-        'enabled': enabled,
-      },
+      data: {'childId': childId, 'enabled': enabled},
     );
     return response;
   }
 
-  Future<BaseResponse<bool>> getWebFilterStatus({required String childId}) async {
+  Future<BaseResponse<bool>> getWebFilterStatus({
+    required String childId,
+  }) async {
     final response = await get(
       ApiEndpoints.webFilter,
       queryParameters: {'childId': childId},
@@ -190,13 +194,16 @@ class HomeRepository extends BaseService {
       ApiEndpoints.restrictDeletion,
       data: {
         'child_id': childId,
-        'isallowdelete': !enabled, // If deletion restriction is enabled, isallowdelete is false
+        'isallowdelete':
+            !enabled, // If deletion restriction is enabled, isallowdelete is false
       },
     );
     return response;
   }
 
-  Future<BaseResponse<bool>> getDeletionRestrictionStatus({required String childId}) async {
+  Future<BaseResponse<bool>> getDeletionRestrictionStatus({
+    required String childId,
+  }) async {
     final response = await get(
       ApiEndpoints.restrictDeletion,
       queryParameters: {'childId': childId},
@@ -204,7 +211,10 @@ class HomeRepository extends BaseService {
 
     if (response.isSuccess && response.data != null) {
       final isAllowDelete = response.data['isallowdelete'] ?? true;
-      return BaseResponse.success(data: !isAllowDelete, message: response.message);
+      return BaseResponse.success(
+        data: !isAllowDelete,
+        message: response.message,
+      );
     }
     return BaseResponse.error(message: response.message);
   }
@@ -243,9 +253,7 @@ class HomeRepository extends BaseService {
   }
 
   Future<BaseResponse> revokeLocationSharing({required String shareId}) async {
-    final response = await post(
-      ApiEndpoints.revokeLocationShare(shareId),
-    );
+    final response = await post(ApiEndpoints.revokeLocationShare(shareId));
     return response;
   }
 
@@ -266,9 +274,7 @@ class HomeRepository extends BaseService {
   }
 
   Future<BaseResponse<List<dynamic>>> getParentsContacts() async {
-    final response = await get<List<dynamic>>(
-      ApiEndpoints.parentContacts,
-    );
+    final response = await get<List<dynamic>>(ApiEndpoints.parentContacts);
     if (response.isSuccess && response.data != null) {
       return BaseResponse.success(
         data: response.data!,
@@ -288,11 +294,7 @@ class HomeRepository extends BaseService {
   }) async {
     final response = await post(
       ApiEndpoints.parentContacts,
-      data: {
-        'name': name,
-        'relation': relation,
-        'phone': phone,
-      },
+      data: {'name': name, 'relation': relation, 'phone': phone},
     );
     return response;
   }
@@ -305,19 +307,13 @@ class HomeRepository extends BaseService {
   }) async {
     final response = await put(
       ApiEndpoints.parentContactDetail(id),
-      data: {
-        'name': name,
-        'relation': relation,
-        'phone': phone,
-      },
+      data: {'name': name, 'relation': relation, 'phone': phone},
     );
     return response;
   }
 
   Future<BaseResponse> deleteParentContact(String id) async {
-    final response = await delete(
-      ApiEndpoints.parentContactDetail(id),
-    );
+    final response = await delete(ApiEndpoints.parentContactDetail(id));
     return response;
   }
 }

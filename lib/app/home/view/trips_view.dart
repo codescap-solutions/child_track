@@ -419,6 +419,7 @@ class _SimpleTripCard extends StatelessWidget {
                           );
                           return;
                         }
+                        injector<HomepageBloc>().add(GetTripDetail(tripId: trip.tripId));
                         final tripSegment = TripSegment.fromTrip(trip);
                         Navigator.of(context).push(
                           MaterialPageRoute(

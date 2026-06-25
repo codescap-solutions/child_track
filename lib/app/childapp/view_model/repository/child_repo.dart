@@ -229,6 +229,17 @@ class ChildRepo extends BaseService {
     return response;
   }
 
+  Future<BaseResponse> postTripEnd({
+    required String childId,
+    required Map<String, dynamic> data,
+  }) async {
+    final response = await post(
+      ApiEndpoints.postTripEnd(childId),
+      data: data,
+    );
+    return response;
+  }
+
   // Register child FCM token with server
   Future<BaseResponse> registerChildFcmToken({
     required String childId,

@@ -35,6 +35,8 @@ class ApiEndpoints {
   static String getTripDetail(String tripId) => 'parent/trip/$tripId';
   static String postTripLocation(String childId) =>
       'trip-tracking/$childId/locations';
+  static String postTripEnd(String childId) =>
+      'trip-tracking/$childId/end';
   static const String getAppUsage = 'app-usage';
   static const String getAppUsageSummary = 'app-usage/summary';
 

@@ -10,6 +10,7 @@ import 'package:child_track/core/services/dio_client.dart';
 import 'package:child_track/core/services/connectivity/bloc/connectivity_bloc.dart';
 import 'package:child_track/core/utils/structured_logger.dart';
 import 'package:child_track/core/services/location_state_machine.dart';
+import 'package:child_track/core/services/tracking/tracking_profile_manager.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -27,11 +28,11 @@ class BackgroundLocationService {
     final service = FlutterBackgroundService();
 
     const AndroidNotificationChannel channel = AndroidNotificationChannel(
-      'child_track_location', // id
-      'Location Tracking', // title
-      description: 'Tracking your location in background', // description
-      importance: Importance.low, // Lower importance to be less intrusive
-      showBadge: false, // This removes the badge from the app icon
+      'child_track_location',
+      'Location Tracking',
+      description: 'Tracking your location in background',
+      importance: Importance.low,
+      showBadge: false,
     );
 
     final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
@@ -48,13 +49,12 @@ class BackgroundLocationService {
     await service.configure(
       androidConfiguration: AndroidConfiguration(
         onStart: onStart,
-        autoStart: false, // Manual start for control
+        autoStart: false,
         isForegroundMode: true,
         notificationChannelId: 'child_track_location',
         initialNotificationTitle: 'Location Tracking',
         initialNotificationContent: 'Tracking Active',
         foregroundServiceNotificationId: 888,
-        // Crucial for foreground service type
         foregroundServiceTypes: [AndroidForegroundType.location],
       ),
       iosConfiguration: IosConfiguration(
@@ -65,16 +65,12 @@ class BackgroundLocationService {
     );
   }
 
-  /// Start the background service
   Future<void> start() async {
     try {
       final service = FlutterBackgroundService();
       final running = await service.isRunning();
       if (running) {
-        StructuredLogger.log(
-          LogTag.BG,
-          'Service already running, skipping start',
-        );
+        StructuredLogger.log(LogTag.BG, 'Service already running, skipping start');
         return;
       }
       StructuredLogger.log(LogTag.BG, 'Starting service manually');
@@ -84,7 +80,6 @@ class BackgroundLocationService {
     }
   }
 
-  /// Stop the background service
   Future<void> stop() async {
     try {
       final service = FlutterBackgroundService();
@@ -95,42 +90,75 @@ class BackgroundLocationService {
     }
   }
 
-  /// Check if service is running
   Future<bool> isRunning() async {
     final service = FlutterBackgroundService();
     return await service.isRunning();
   }
 }
 
-// Global reference for stream subscription to handle cancellation
+// ── Global stream state ──────────────────────────────────────────────────────
+
 StreamSubscription<Position>? _positionSubscription;
 StreamSubscription<ServiceStatus>? _serviceStatusSubscription;
 LocationStateMachine? _stateMachine;
 
-void _startLocationStream(ServiceInstance service, LocationSettings locationSettings) {
+/// Adaptive tracking profile manager (shared between stream restarts).
+final _profileManager = TrackingProfileManager();
+
+/// Restart the location stream whenever the profile changes.
+void _startLocationStream(ServiceInstance service) {
   _positionSubscription?.cancel();
-  StructuredLogger.log(LogTag.BG, 'Subscribing to location stream');
-  _positionSubscription = Geolocator.getPositionStream(locationSettings: locationSettings).listen(
+
+  final LocationSettings settings;
+  if (Platform.isAndroid) {
+    settings = _profileManager.buildAndroidSettings();
+  } else if (Platform.isIOS) {
+    settings = _profileManager.buildAppleSettings();
+  } else {
+    settings = LocationSettings(
+      accuracy: LocationAccuracy.high,
+      distanceFilter: _profileManager.currentConfig.distanceFilter,
+    );
+  }
+
+  StructuredLogger.log(
+    LogTag.BG,
+    'Starting stream • profile=${_profileManager.currentProfile.name} '
+    '• interval=${_profileManager.currentConfig.interval.inSeconds}s '
+    '• filter=${_profileManager.currentConfig.distanceFilter}m',
+  );
+
+  _positionSubscription =
+      Geolocator.getPositionStream(locationSettings: settings).listen(
     (Position position) {
-      // Pass to State Machine (handles location posting + trip detection)
       _stateMachine?.processLocation(position);
 
-      // Update Android Notification to show trip/location status
+      // Dynamically adapt tracking profile based on speed
+      final changed =
+          _profileManager.updateFromSpeed(position.speed < 0 ? 0 : position.speed);
+      if (changed) {
+        StructuredLogger.log(
+          LogTag.BG,
+          'Profile changed → ${_profileManager.currentProfile.name}. Restarting stream.',
+        );
+        // Restart stream with new settings
+        _startLocationStream(service);
+      }
+
+      // Update notification
       if (service is AndroidServiceInstance) {
         final sm = _stateMachine;
         String content;
         if (sm != null && sm.isTripTracking) {
-          final mode = sm.tripMode == BgTripMode.walking
-              ? 'Walking'
-              : 'Vehicle';
+          final mode = sm.tripMode == BgTripMode.walking ? 'Walking' : 'Vehicle';
           content =
-              "Trip ($mode) • ${position.speed.toStringAsFixed(1)} m/s";
+              'Trip ($mode) • ${(position.speed * 3.6).toStringAsFixed(1)} km/h';
         } else {
-          content = "Tracking • ${position.speed.toStringAsFixed(1)} m/s";
+          content =
+              'Tracking • ${_profileManager.currentConfig.label} mode';
         }
-
         service.setForegroundNotificationInfo(
-          title: "NaviQ Active",
+          title: 'NaviQ Active',
           content: content,
         );
       }
@@ -145,59 +173,61 @@ void _startLocationStream(ServiceInstance service, LocationSettings locationSett
 void onStart(ServiceInstance service) async {
   try {
     DartPluginRegistrant.ensureInitialized();
-    await dotenv.load(fileName: ".env");
+    await dotenv.load(fileName: '.env');
 
-    // Initialize CSV file logger FIRST so all subsequent logs are captured
     await CsvFileLogger.instance.init();
-
     StructuredLogger.log(LogTag.BG, 'Service onStart initiated');
 
-    // CRITICAL: Set foreground IMMEDIATELY to satisfy Android's timeout
-    // requirement (must call startForeground within ~10s of startForegroundService)
     if (service is AndroidServiceInstance) {
       await service.setAsForegroundService();
     }
 
-    // 1. Service Controls
+    // Service control listeners
     if (service is AndroidServiceInstance) {
-      service.on('setAsForeground').listen((event) {
-        service.setAsForegroundService();
-      });
-      service.on('setAsBackground').listen((event) {
-        service.setAsBackgroundService();
-      });
+      service.on('setAsForeground').listen((_) => service.setAsForegroundService());
+      service.on('setAsBackground').listen((_) => service.setAsBackgroundService());
     }
 
-    service.on('stopService').listen((event) {
+    service.on('stopService').listen((_) {
       StructuredLogger.log(LogTag.BG, 'Stop signal received');
       _positionSubscription?.cancel();
       _serviceStatusSubscription?.cancel();
+      _stateMachine?.dispose();
       service.stopSelf();
     });
 
-    // 2. Initialize Dependencies
+    // Allow profile override from UI isolate
+    service.on('setProfile').listen((event) {
+      final profileName = event?['profile'] as String?;
+      if (profileName != null) {
+        final p = TrackingProfile.values.firstWhere(
+          (e) => e.name == profileName,
+          orElse: () => TrackingProfile.still,
+        );
+        final changed = _profileManager.setProfile(p);
+        if (changed) _startLocationStream(service);
+      }
+    });
+
+    // Dependencies
     await SharedPrefsService.init();
     final sharedPrefsService = SharedPrefsService();
 
-    // CRITICAL: Prevent parents from being tracked if OS restarts service!
     if (sharedPrefsService.isParent) {
       StructuredLogger.log(
         LogTag.BG,
-        'Parent device detected in separate isolate. Forcing service kill.',
+        'Parent device detected – killing service',
       );
       service.stopSelf();
       return;
     }
+
     final connectivity = Connectivity();
     final connectivityBloc = ConnectivityBloc(connectivity: connectivity);
-
-    // CRITICAL: Must pass sharedPrefsService explicitly here in background isolate
-    // otherwise DioClient falls back to GetIt (injector) which is not initialized here.
     final dioClient = DioClient(
       connectivityBloc: connectivityBloc,
       sharedPrefsService: sharedPrefsService,
     );
-
     final childRepo = ChildRepo(
       dioClient: dioClient,
       sharedPrefsService: sharedPrefsService,
@@ -205,7 +235,6 @@ void onStart(ServiceInstance service) async {
     final childLocationRepo = ChildGoogleMapsRepo();
     final battery = Battery();
 
-    // 3. Initialize State Machine (now with full trip + location posting logic)
     _stateMachine = LocationStateMachine(
       childRepo: childRepo,
       locationRepo: childLocationRepo,
@@ -213,59 +242,24 @@ void onStart(ServiceInstance service) async {
       battery: battery,
     );
 
-    // 4. Configure Location Settings
-    // Use platform-specific settings for best performance/uptime
-    LocationSettings locationSettings;
+    // Start with 'still' profile — adapts on first position
+    _startLocationStream(service);
 
-    if (Platform.isAndroid) {
-      locationSettings = AndroidSettings(
-        accuracy: LocationAccuracy.high,
-        distanceFilter: 10, // 10m filter to save battery
-        forceLocationManager: true,
-        intervalDuration: const Duration(
-          seconds: 30,
-        ), // Min interval to avoid bad behavior flag
-        foregroundNotificationConfig: const ForegroundNotificationConfig(
-          notificationTitle: "NaviQ Active",
-          notificationText: "Tracking location...",
-          notificationIcon: AndroidResource(
-            name: 'ic_launcher',
-          ), // Ensure this icon exists
-        ),
-      );
-    } else if (Platform.isIOS) {
-      locationSettings = AppleSettings(
-        accuracy: LocationAccuracy.high,
-        activityType: ActivityType.fitness, // Helps keep alive during movement
-        distanceFilter: 10,
-        pauseLocationUpdatesAutomatically: false, // CRITICAL for background
-        showBackgroundLocationIndicator: true,
-      );
-    } else {
-      locationSettings = const LocationSettings(
-        accuracy: LocationAccuracy.high,
-        distanceFilter: 10,
-      );
-    }
-
-    // 5. Start Stream
-    _startLocationStream(service, locationSettings);
-
-    // 6. Listen to Service Status
     _serviceStatusSubscription = Geolocator.getServiceStatusStream().listen(
       (ServiceStatus status) {
-        StructuredLogger.log(LogTag.BG, 'Location Service Status changed: $status');
+        StructuredLogger.log(
+          LogTag.BG,
+          'Location Service Status: $status',
+        );
         if (status == ServiceStatus.enabled) {
-          StructuredLogger.log(LogTag.BG, 'Location Service re-enabled, restarting stream');
-          _startLocationStream(service, locationSettings);
+          _startLocationStream(service);
         } else {
-          StructuredLogger.log(LogTag.BG, 'Location Service disabled, cancelling stream');
           _positionSubscription?.cancel();
         }
       },
       onError: (e) {
         StructuredLogger.log(LogTag.BG, 'Service Status Stream Error', error: e);
-      }
+      },
     );
   } catch (e) {
     StructuredLogger.log(LogTag.BG, 'onStart Fatal Error', error: e);

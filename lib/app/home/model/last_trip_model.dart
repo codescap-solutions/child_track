@@ -1,4 +1,5 @@
 import 'package:child_track/app/home/model/trip_list_model.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class TripSegment {
@@ -78,7 +79,7 @@ class TripSegment {
       endPlace: trip.toPlace.isNotEmpty ? trip.toPlace : 'Unknown Location',
       distanceKm: double.tryParse(trip.distanceKm) ?? 0.0,
       durationMinutes: _calculateDurationMinutes(trip.startTime, trip.endTime),
-      maxSpeedKmph: 0.0,
+      maxSpeedKmph: _calculateMaxSpeedKmph(trip.points),
       polylinePoints: trip.points.map((p) => LatLng(p.lat, p.lng)).toList(),
       startLocation: trip.points.isNotEmpty
           ? LatLng(trip.points.first.lat, trip.points.first.lng)
@@ -92,19 +93,42 @@ class TripSegment {
     );
   }
 
-  static int _calculateDurationMinutes(String start, String end) {
-    try {
-      String toIso(String s) {
-        final parts = s.split(' ');
-        if (parts.length != 2) return s;
-        final dateParts = parts[0].split('-');
-        if (dateParts.length != 3) return s;
-        return "${dateParts[2]}-${dateParts[1]}-${dateParts[0]} ${parts[1]}";
+  /// Derive max speed (km/h) from successive GPS points.
+  /// Falls back to 0.0 if insufficient data.
+  static double _calculateMaxSpeedKmph(List<TripPoint> points) {
+    if (points.length < 2) return 0.0;
+    double maxKmh = 0.0;
+    for (int i = 1; i < points.length; i++) {
+      final prev = points[i - 1];
+      final curr = points[i];
+      // Use point-level speed if available (Phase 1 enhanced points)
+      final pointSpeedKmh = curr.speedKmh;
+      if (pointSpeedKmh > 0 && pointSpeedKmh < 250) {
+        if (pointSpeedKmh > maxKmh) maxKmh = pointSpeedKmh;
+        continue;
       }
+      // Fallback: haversine distance ÷ time delta
+      try {
+        final distM = Geolocator.distanceBetween(
+          prev.lat, prev.lng, curr.lat, curr.lng,
+        );
+        final prevTs = DateTime.parse(prev.ts);
+        final currTs = DateTime.parse(curr.ts);
+        final deltaS = currTs.difference(prevTs).inSeconds.abs();
+        if (deltaS > 0 && deltaS < 120) {
+          final speedKmh = (distM / deltaS) * 3.6;
+          if (speedKmh > maxKmh && speedKmh < 250) maxKmh = speedKmh;
+        }
+      } catch (_) {}
+    }
+    return double.parse(maxKmh.toStringAsFixed(1));
+  }
 
-      final s = DateTime.parse(toIso(start));
-      final e = DateTime.parse(toIso(end));
-      return e.difference(s).inMinutes;
+  static int _calculateDurationMinutes(String startStr, String endStr) {
+    try {
+      final start = DateTime.parse(startStr);
+      final end = DateTime.parse(endStr);
+      return end.difference(start).inMinutes;
     } catch (_) {
       return 0;
     }

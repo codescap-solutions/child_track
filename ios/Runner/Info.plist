@@ -43,6 +43,8 @@
 	<string>This app tracks device location for parental safety.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>This app tracks device location for parental safety.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>This app requires access to motion data to detect when your child starts a trip (walking, running, in-vehicle).</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UIBackgroundModes</key>
