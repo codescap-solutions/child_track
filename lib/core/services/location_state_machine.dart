@@ -12,31 +12,24 @@ import 'package:child_track/core/services/tracking/trip_classification_engine.da
 import 'package:child_track/core/services/tracking/stop_detection_service.dart';
 import 'package:child_track/core/services/tracking/offline_trip_queue.dart';
 import 'package:child_track/core/services/tracking/local_geofence_engine.dart';
+import 'package:child_track/core/services/tracking/tracking_config_service.dart';
 
 export 'package:child_track/core/services/tracking/trip_classification_engine.dart'
     show BgTripMode;
 
-/// Internal state of the trip state machine.
 enum BgTripState { idle, candidate, tracking }
 
-/// Enhanced LocationStateMachine — integrates:
-///   • EnhancedTripPoint (full GPS metadata)
-///   • ActivityRecognitionService (AR-fused mode detection)
-///   • TripClassificationEngine (hybrid confidence scoring)
-///   • StopDetectionService (local stop without server dependency)
-///   • OfflineTripQueue (connectivity-failure recovery)
-///   • LocalGeofenceEngine (immediate geofence events)
 class LocationStateMachine {
   // ── Dependencies ──────────────────────────────────────────────────────────
   final ChildRepo _childRepo;
-  final ChildGoogleMapsRepo _locationRepo;
   final SharedPrefsService _prefs;
   final Battery _battery;
+  final TrackingConfigService _configService;
 
   // ── New services ──────────────────────────────────────────────────────────
   final ActivityRecognitionService _ar = ActivityRecognitionService();
   final TripClassificationEngine _classifier = TripClassificationEngine();
-  final StopDetectionService _stopDetector = StopDetectionService();
+  late final StopDetectionService _stopDetector;
   final OfflineTripQueue _offlineQueue = OfflineTripQueue();
   final LocalGeofenceEngine _geoEngine = LocalGeofenceEngine();
 
@@ -49,18 +42,21 @@ class LocationStateMachine {
   bool _isTripTracking = false;
   BgTripMode _tripMode = BgTripMode.unknown;
 
-  // Pending offline drain cooldown
   DateTime? _lastDrainAttempt;
+  DateTime? _lastConfigFetch;
 
   LocationStateMachine({
     required ChildRepo childRepo,
     required ChildGoogleMapsRepo locationRepo,
     required SharedPrefsService prefs,
+    required TrackingConfigService configService,
     Battery? battery,
   }) : _childRepo = childRepo,
-       _locationRepo = locationRepo,
        _prefs = prefs,
+       _configService = configService,
        _battery = battery ?? Battery() {
+    _stopDetector = StopDetectionService(config: _configService);
+
     // Start activity recognition
     _ar.start();
 
@@ -124,6 +120,12 @@ class LocationStateMachine {
     _ar.updateSpeedFallback(position.speed);
     _stopDetector.processPosition(position, _ar.current);
 
+    // ── Fetch config periodically ──────────────────────────────────────────
+    if (_lastConfigFetch == null || DateTime.now().difference(_lastConfigFetch!).inHours >= 1) {
+      _lastConfigFetch = DateTime.now();
+      _configService.fetchConfigFromServer();
+    }
+
     // ── Post plain location ────────────────────────────────────────────────
     await _postChildLocation(position, childId);
 
@@ -144,24 +146,27 @@ class LocationStateMachine {
 
   Future<void> _postChildLocation(Position pos, String childId) async {
     try {
-      final locationInfo = await _locationRepo.getAddressAndPlaceName(
-        pos.latitude,
-        pos.longitude,
-      );
+      int batteryLevel = 100;
+      try {
+        batteryLevel = await _battery.batteryLevel;
+      } catch (_) {}
+
+      final activityName = _ar.current.type.name;
 
       final requestBody = {
-        'address': locationInfo?['address'] ?? locationInfo?.values.first,
-        'place_name':
-            locationInfo?['place_name'] ?? locationInfo?.values.last,
         'child_id': childId,
         'lat': pos.latitude,
         'lng': pos.longitude,
+        'accuracy': pos.accuracy,
         'accuracy_m': pos.accuracy,
+        'speed': pos.speed < 0 ? 0.0 : pos.speed,
         'speed_mps': pos.speed < 0 ? 0.0 : pos.speed,
         'bearing': pos.heading < 0 ? 0.0 : pos.heading,
         'altitude': pos.altitude,
         'speed_accuracy': pos.speedAccuracy,
+        'activity': activityName,
         'timestamp': DateTime.now().toUtc().toIso8601String(),
+        'battery': batteryLevel,
       };
 
       StructuredLogger.log(LogTag.BG, 'Posting location → $requestBody');
@@ -172,7 +177,6 @@ class LocationStateMachine {
       );
     } catch (e) {
       StructuredLogger.log(LogTag.BG, 'Failed to post location', error: e);
-      // Offline queue for location updates
       try {
         final int battery = await _battery.batteryLevel;
         await _offlineQueue.enqueueLocation(
@@ -196,7 +200,6 @@ class LocationStateMachine {
   // ══════════════════════════════════════════════════════════════════════════
 
   Future<void> _processTripStartLogic(Position location, String childId) async {
-    // Filter poor GPS
     if (location.accuracy > 30.0) {
       StructuredLogger.log(
         LogTag.TRIP,
@@ -205,17 +208,14 @@ class LocationStateMachine {
       return;
     }
 
-    // Hybrid classification
     final classification = _classifier.classify(
       position: location,
       arState: _ar.current,
     );
 
-    // Sliding window
     List<Position> newWindow = List.from(_candidatePoints)..add(location);
     if (newWindow.length > 15) newWindow.removeAt(0);
 
-    // Gap reset
     if (newWindow.length > 1) {
       final gap = newWindow.last.timestamp
           .difference(newWindow[newWindow.length - 2].timestamp)
@@ -232,7 +232,6 @@ class LocationStateMachine {
       return;
     }
 
-    // Metrics over window
     double totalDistance = 0;
     for (int i = 0; i < newWindow.length - 1; i++) {
       totalDistance += Geolocator.distanceBetween(
@@ -266,7 +265,6 @@ class LocationStateMachine {
     bool rulesMet = false;
     BgTripMode estimatedMode = BgTripMode.unknown;
 
-    // GPS speed rules
     if (avgSpeed >= 0.6 && avgSpeed <= 1.8) {
       if (totalDistance >= 30 && durationSeconds >= 30) {
         estimatedMode = BgTripMode.walking;
@@ -284,7 +282,6 @@ class LocationStateMachine {
       }
     }
 
-    // Boost confidence if AR agrees (or override if AR is high-confidence)
     if (classification.confidence >= 0.7 &&
         classification.type != NaviQActivityType.stationary &&
         classification.type != NaviQActivityType.unknown) {
@@ -292,7 +289,6 @@ class LocationStateMachine {
       rulesMet = totalDistance >= 20 && durationSeconds >= 20;
     }
 
-    // Direction consistency check
     if (rulesMet && consistencyRatio < 0.6) {
       StructuredLogger.log(
         LogTag.TRIP,
@@ -391,7 +387,6 @@ class LocationStateMachine {
           _stopTripTracking();
         }
       } else {
-        // Connectivity failure — queue for retry
         await _offlineQueue.enqueuePoints(
           childId: childId,
           points: enhancedPoints,
@@ -446,7 +441,7 @@ class LocationStateMachine {
     final now = DateTime.now();
     if (_lastDrainAttempt != null &&
         now.difference(_lastDrainAttempt!).inSeconds < 30) {
-      return; // Cooldown limit — try every 30 seconds
+      return;
     }
 
     _lastDrainAttempt = now;

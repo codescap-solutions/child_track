@@ -1,4 +1,6 @@
 import 'package:child_track/app/home/model/point_model.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:child_track/core/utils/parser_utils.dart';
 
 class YesterdayTripSummary {
   final String tripId;
@@ -6,7 +8,7 @@ class YesterdayTripSummary {
   final String endTime;
   final Point startPoint;
   final Point endPoint;
-  final List<String> polylinePoints;
+  final List<LatLng> polylinePoints;
   final double totalDistanceKm;
   final int totalDurationMinutes;
   final double maxSpeedKmph;
@@ -40,19 +42,15 @@ class YesterdayTripSummary {
       endTime: json['end_time'] ?? '',
       startPoint: Point.fromJson(json['start_point'] ?? {}),
       endPoint: Point.fromJson(json['end_point'] ?? {}),
-      polylinePoints: (json['polyline_points'] as List<dynamic>?)
-              ?.map((e) => e.toString())
-              .toList() ??
-          [],
-      totalDistanceKm: (json['total_distance_km'] ?? 0).toDouble(),
-      totalDurationMinutes: json['total_duration_minutes'] ?? 0,
-      maxSpeedKmph: (json['max_speed_kmph'] ?? 0).toDouble(),
-      steps: json['steps'] ?? 0,
-      walkingKm: (json['walking_km'] ?? 0).toDouble(),
-      percentageVsPreviousDay: json['percentage_vs_previous_day'] ?? 0,
-      totalScreenTimeSeconds: json['total_screen_time_seconds'] ?? 0,
-      eventsCount: json['events_count'] ?? 0,
+      polylinePoints: PolylineParser.parse(json['polyline_points']),
+      totalDistanceKm: safeToDouble(json['total_distance_km']),
+      totalDurationMinutes: safeToInt(json['total_duration_minutes']),
+      maxSpeedKmph: safeToDouble(json['max_speed_kmph']),
+      steps: safeToInt(json['steps']),
+      walkingKm: safeToDouble(json['walking_km']),
+      percentageVsPreviousDay: safeToInt(json['percentage_vs_previous_day']),
+      totalScreenTimeSeconds: safeToInt(json['total_screen_time_seconds']),
+      eventsCount: safeToInt(json['events_count']),
     );
   }
 }
-

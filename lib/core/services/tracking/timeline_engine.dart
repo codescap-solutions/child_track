@@ -1,7 +1,6 @@
 import 'package:geolocator/geolocator.dart';
 import 'package:child_track/core/services/tracking/activity_recognition_service.dart';
-
-// ── Event types ──────────────────────────────────────────────────────────────
+import 'package:child_track/core/utils/parser_utils.dart';
 
 enum TimelineEventType {
   tripStart,
@@ -65,17 +64,10 @@ class TimelineEvent {
   }
 }
 
-// ── Engine ───────────────────────────────────────────────────────────────────
-
-/// Generates a [List<TimelineEvent>] from a sequence of GPS positions.
-///
-/// Detects mode transitions and stops by scanning consecutive points.
 class TimelineEngine {
   static const double _stopSpeedMs = 0.5;
   static const int _stopMinSeconds = 60;
 
-  /// Generate timeline from raw trip points.
-  /// [rideMode] is the initial mode from API (used as seed if AR unavailable).
   static List<TimelineEvent> generate({
     required List<Map<String, dynamic>> points,
     String initialRideMode = 'vehicle',
@@ -87,17 +79,15 @@ class TimelineEngine {
     int stopStartIdx = -1;
     double cumulativeDistKm = 0;
 
-    // Trip start
     final first = points.first;
     events.add(TimelineEvent(
       type: TimelineEventType.tripStart,
       time: _parseTs(first['ts']),
       label: 'Trip Started',
-      lat: (first['lat'] as num).toDouble(),
-      lng: (first['lng'] as num).toDouble(),
+      lat: safeToDouble(first['lat']),
+      lng: safeToDouble(first['lng']),
     ));
 
-    // Seed first mode from rideMode string
     lastMode = _modeFromString(initialRideMode);
     events.add(_modeEvent(lastMode, _parseTs(first['ts']), distanceKm: 0));
 
@@ -105,15 +95,14 @@ class TimelineEngine {
       final pt = points[i];
       final prev = points[i - 1];
 
-      final speed = (pt['speed'] as num? ?? 0).toDouble(); // m/s
-      final lat = (pt['lat'] as num).toDouble();
-      final lng = (pt['lng'] as num).toDouble();
+      final speed = safeToDouble(pt['speed']);
+      final lat = safeToDouble(pt['lat']);
+      final lng = safeToDouble(pt['lng']);
       final ts = _parseTs(pt['ts']);
 
-      // Accumulate distance
       final segDist = Geolocator.distanceBetween(
-        (prev['lat'] as num).toDouble(),
-        (prev['lng'] as num).toDouble(),
+        safeToDouble(prev['lat']),
+        safeToDouble(prev['lng']),
         lat,
         lng,
       );
@@ -121,9 +110,7 @@ class TimelineEngine {
 
       final mode = _modeFromSpeed(speed);
 
-      // Mode transition
       if (mode != lastMode && mode != NaviQActivityType.unknown) {
-        // If leaving a stop, record it
         if (lastMode == NaviQActivityType.stationary && stopStartIdx != -1) {
           final stopStart = _parseTs(points[stopStartIdx]['ts']);
           final stopDur = ts.difference(stopStart);
@@ -144,7 +131,6 @@ class TimelineEngine {
         lastMode = mode;
       }
 
-      // Detect stop start
       if (speed < _stopSpeedMs && stopStartIdx == -1) {
         stopStartIdx = i;
       } else if (speed >= _stopSpeedMs) {
@@ -152,7 +138,6 @@ class TimelineEngine {
       }
     }
 
-    // Sort chronologically (modes and stops can interleave)
     events.sort((a, b) => a.time.compareTo(b.time));
 
     return events;

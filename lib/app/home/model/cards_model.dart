@@ -1,3 +1,5 @@
+import 'package:child_track/core/utils/parser_utils.dart';
+
 class ActivityCard {
   final int steps;
   final double walkingKm;
@@ -14,23 +16,12 @@ class ActivityCard {
   });
 
   factory ActivityCard.fromJson(Map<String, dynamic> json) {
-    // Helper function to safely convert to double (handles both string and number)
-    double toDouble(dynamic value) {
-      if (value == null) return 0.0;
-      if (value is double) return value;
-      if (value is int) return value.toDouble();
-      if (value is String) {
-        return double.tryParse(value) ?? 0.0;
-      }
-      return 0.0;
-    }
-
     return ActivityCard(
-      steps: json['steps'] ?? 0,
-      walkingKm: toDouble(json['walking_km']),
-      routeKm: toDouble(json['route_km']),
-      maxSpeedKmph: toDouble(json['max_speed_kmph']),
-      improvementPercentage: json['improvement_percentage'] ?? 0,
+      steps: safeToInt(json['steps']),
+      walkingKm: safeToDouble(json['walking_km']),
+      routeKm: safeToDouble(json['route_km']),
+      maxSpeedKmph: safeToDouble(json['max_speed_kmph']),
+      improvementPercentage: safeToInt(json['improvement_percentage']),
     );
   }
 }
@@ -44,7 +35,7 @@ class ScreenTimeCard {
 
   factory ScreenTimeCard.fromJson(Map<String, dynamic> json) {
     return ScreenTimeCard(
-      totalSeconds: json['total_seconds'] ?? 0,
+      totalSeconds: safeToInt(json['total_seconds']),
     );
   }
 }
@@ -69,4 +60,3 @@ class Cards {
     );
   }
 }
-

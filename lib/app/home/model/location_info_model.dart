@@ -1,3 +1,5 @@
+import 'package:child_track/core/utils/parser_utils.dart';
+
 class LocationInfo {
   final double lat;
   final double lng;
@@ -16,24 +18,13 @@ class LocationInfo {
   });
 
   factory LocationInfo.fromJson(Map<String, dynamic> json) {
-    // Helper function to safely convert to double (handles both string and number)
-    double toDouble(dynamic value) {
-      if (value == null) return 0.0;
-      if (value is double) return value;
-      if (value is int) return value.toDouble();
-      if (value is String) {
-        return double.tryParse(value) ?? 0.0;
-      }
-      return 0.0;
-    }
-
     return LocationInfo(
-      lat: toDouble(json['lat']),
-      lng: toDouble(json['lng']),
+      lat: safeToDouble(json['lat']),
+      lng: safeToDouble(json['lng']),
       address: json['address'] ?? '',
       placeName: json['place_name'] ?? '',
       since: json['last_update'] ?? '',
-      durationMinutes: json['duration_minutes'] ?? 0,
+      durationMinutes: safeToInt(json['duration_minutes']),
     );
   }
 

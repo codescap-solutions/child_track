@@ -39,6 +39,7 @@ class _TripDetailViewState extends State<TripDetailView> {
 
   List<LatLng> _smoothedPoints = [];
   List<TimelineEvent> _timelineEvents = [];
+  bool _detailPointsFitted = false; // prevents repeated camera fits
 
   // Playback values to rebuild UI
   LatLng? _currentPlaybackPosition;
@@ -52,14 +53,32 @@ class _TripDetailViewState extends State<TripDetailView> {
     _homepageBloc = injector<HomepageBloc>();
     _kalmanService = KalmanFilterService();
 
-    // 1. Smooth route points using Kalman Filter
+    // ── DEBUG: trace point counts entering TripDetailView ──────────
+    debugPrint('[TripDetailView] widget.trip.segmentId   = ${widget.trip.segmentId}');
+    debugPrint('[TripDetailView] widget.trip.polylinePoints.length = ${widget.trip.polylinePoints.length}');
+    debugPrint('[TripDetailView] widget.polylines.length = ${widget.polylines.length}');
+    // ───────────────────────────────────────────────────────────────
+
+    // DIAGNOSTIC: Kalman bypassed — raw points to rule out filter coordinate collapse
     if (widget.trip.polylinePoints.isNotEmpty) {
-      _smoothedPoints = widget.trip.polylinePoints.map((p) {
-        final (lat, lng) = _kalmanService.smooth(p.latitude, p.longitude);
-        return LatLng(lat, lng);
-      }).toList();
+      _smoothedPoints = List<LatLng>.from(widget.trip.polylinePoints);
     } else {
       _smoothedPoints = [];
+    }
+
+    debugPrint('[TripDetailView] _smoothedPoints.length (Kalman OFF, raw) = ${_smoothedPoints.length}');
+    if (_smoothedPoints.isNotEmpty) {
+      debugPrint('[TripDetailView] first point = ${_smoothedPoints.first}');
+      debugPrint('[TripDetailView] last  point = ${_smoothedPoints.last}');
+      final first10 = _smoothedPoints.take(10).toList();
+      for (var i = 0; i < first10.length; i++) {
+        debugPrint('[TripDetailView]   raw[$i] = ${first10[i]}');
+      }
+      final uniqueCount = _smoothedPoints
+          .map((e) => '${e.latitude},${e.longitude}')
+          .toSet()
+          .length;
+      debugPrint('[TripDetailView] unique coords = $uniqueCount / ${_smoothedPoints.length}');
     }
 
     // 2. Generate local timeline events as a fallback/offline view
@@ -347,22 +366,71 @@ class _TripDetailViewState extends State<TripDetailView> {
           }
 
           final polylines = <Polyline>{};
-          if (_smoothedPoints.isNotEmpty) {
+
+          // Determine the best available route points:
+          // 1. Kalman-smoothed points from widget.trip (pre-populated)
+          // 2. Route from fetched TripDetailResponse (arrives async)
+          // 3. Polylines passed from parent screen
+          final detailResponse = (state is HomepageSuccess &&
+              state.selectedTripDetail != null)
+              ? state.selectedTripDetail!
+              : null;
+
+          // ── DEBUG: log ID comparison on every rebuild ────────────
+          if (detailResponse != null) {
+            debugPrint('[TripDetailView] detail.tripId      = ${detailResponse.tripId}');
+            debugPrint('[TripDetailView] widget.segmentId   = ${widget.trip.segmentId}');
+            debugPrint('[TripDetailView] IDs match          = ${detailResponse.tripId == widget.trip.segmentId}');
+            debugPrint('[TripDetailView] detail route pts   = ${detailResponse.polylinePoints.length}');
+          }
+          debugPrint('[TripDetailView] _smoothedPoints.length = ${_smoothedPoints.length}');
+          // ────────────────────────────────────────────────────────
+
+          final detailPoints = (detailResponse != null &&
+              detailResponse.tripId == widget.trip.segmentId)
+              ? detailResponse.polylinePoints
+              : <LatLng>[];
+
+          final activePoints = _smoothedPoints.isNotEmpty
+              ? _smoothedPoints
+              : detailPoints;
+
+          debugPrint('[TripDetailView] activePoints.length = ${activePoints.length}');
+
+          if (activePoints.isNotEmpty) {
+            // ── DIAGNOSTIC COORD LOGS ──────────────────────────────────
+            debugPrint('[TripDetailView] activePoints.first = ${activePoints.first}');
+            debugPrint('[TripDetailView] activePoints.last  = ${activePoints.last}');
+            final uniqueCoords = activePoints
+                .map((e) => '${e.latitude},${e.longitude}')
+                .toSet();
+            debugPrint('[TripDetailView] unique coords = ${uniqueCoords.length} / ${activePoints.length}');
+            // ─────────────────────────────────────────────────────────
+
             polylines.add(
               Polyline(
                 polylineId: const PolylineId('smoothed_route'),
-                points: _smoothedPoints,
-                color: AppColors.tripPolyline,
-                width: 4,
+                points: activePoints,
+                color: Colors.red,    // DIAGNOSTIC: bright red
+                width: 8,             // DIAGNOSTIC: thick
+                geodesic: true,       // DIAGNOSTIC: geodesic
                 startCap: Cap.roundCap,
                 endCap: Cap.roundCap,
-                patterns: widget.trip.rideMode.toLowerCase() == 'walking'
-                    ? [PatternItem.dot, PatternItem.gap(10)]
-                    : [],
+                patterns: [],
               ),
             );
+            // DIAGNOSTIC: delayed fitBounds to ensure map controller is ready
+            if (!_detailPointsFitted) {
+              _detailPointsFitted = true;
+              Future.delayed(const Duration(milliseconds: 500), () {
+                if (mounted) _fitBounds(activePoints);
+              });
+            }
           } else if (widget.polylines.isNotEmpty) {
+            debugPrint('[TripDetailView] Falling back to widget.polylines (${widget.polylines.length})');
             polylines.addAll(widget.polylines);
+          } else {
+            debugPrint('[TripDetailView] ⚠️ NO POINTS AVAILABLE — polyline will be empty');
           }
 
           return Scaffold(
@@ -488,6 +556,25 @@ class _TripDetailViewState extends State<TripDetailView> {
                               ),
                               children: [
                                 _buildTripHeaderStats(totalDistance, durationMinutes, maxSpeed),
+
+                                // Activities Used: compact chip row derived from segments[].type
+                                if (state is HomepageSuccess &&
+                                    state.selectedTripDetail != null &&
+                                    state.selectedTripDetail!.segments.isNotEmpty) ...
+                                  [
+                                    const SizedBox(height: AppSizes.spacingL),
+                                    _buildActivitiesUsedSummary(state.selectedTripDetail!.segments),
+                                  ],
+
+                                // Activity Breakdown: per-segment detail cards
+                                if (state is HomepageSuccess &&
+                                    state.selectedTripDetail != null &&
+                                    state.selectedTripDetail!.segments.isNotEmpty) ...
+                                  [
+                                    const SizedBox(height: AppSizes.spacingL),
+                                    _buildActivityBreakdown(state.selectedTripDetail!.segments),
+                                  ],
+
                                 const SizedBox(height: AppSizes.spacingL),
                                 const Divider(),
                                 const SizedBox(height: AppSizes.spacingM),
@@ -639,6 +726,202 @@ class _TripDetailViewState extends State<TripDetailView> {
       ],
     );
   }
+
+  // ─────────────────────────────────────────────────────────
+  // Activities Used – compact horizontal chip row
+  // ─────────────────────────────────────────────────────────
+  Widget _buildActivitiesUsedSummary(List<ActivitySegment> segments) {
+    // Extract unique types, preserving order of first occurrence
+    final seen = <String>{};
+    final types = <String>[];
+    for (final seg in segments) {
+      final t = seg.type.toLowerCase();
+      if (seen.add(t)) types.add(t);
+    }
+
+    if (types.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Activities Used',
+          style: AppTextStyles.subtitle1.copyWith(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: AppSizes.spacingS),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: types.map((type) {
+            final data = _activityData(type);
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: (data['color'] as Color).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: (data['color'] as Color).withOpacity(0.4),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    data['emoji'] as String,
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    data['label'] as String,
+                    style: AppTextStyles.caption.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: data['color'] as Color,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────
+  // Activity Breakdown – detailed card for each segment
+  // ─────────────────────────────────────────────────────────
+  Widget _buildActivityBreakdown(List<ActivitySegment> segments) {
+    if (segments.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Activity Breakdown',
+          style: AppTextStyles.subtitle1.copyWith(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: AppSizes.spacingS),
+        ...segments.map((seg) => _buildSegmentCard(seg)),
+      ],
+    );
+  }
+
+  Widget _buildSegmentCard(ActivitySegment seg) {
+    final data = _activityData(seg.type.toLowerCase());
+    final color = data['color'] as Color;
+    final emoji = data['emoji'] as String;
+    final label = data['label'] as String;
+
+    // Unit conversions at UI layer only
+    final distanceKm = (seg.distanceMeters / 1000.0);
+    final durationMin = (seg.durationSeconds / 60.0).round();
+    final avgKmh = seg.averageSpeedMps * 3.6;
+    final maxKmh = seg.maxSpeedMps * 3.6;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppSizes.spacingM),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.borderColor),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            // Icon circle
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: Text(emoji, style: const TextStyle(fontSize: 22)),
+              ),
+            ),
+            const SizedBox(width: 14),
+
+            // Details
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: AppTextStyles.subtitle2.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${distanceKm.toStringAsFixed(1)} km  •  $durationMin min',
+                    style: AppTextStyles.body2.copyWith(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  if (avgKmh > 0) ...
+                    [
+                      const SizedBox(height: 2),
+                      Text(
+                        'Avg Speed: ${avgKmh.toStringAsFixed(1)} km/h',
+                        style: AppTextStyles.caption.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  if (maxKmh > 0) ...
+                    [
+                      const SizedBox(height: 2),
+                      Text(
+                        'Max Speed: ${maxKmh.toStringAsFixed(1)} km/h',
+                        style: AppTextStyles.caption.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Returns display data for an activity type. Falls back gracefully for
+  /// unknown types, keeping forward-compatibility.
+  Map<String, dynamic> _activityData(String type) {
+    switch (type) {
+      case 'vehicle':
+      case 'car':
+        return {'emoji': '🚗', 'label': 'Vehicle', 'color': Colors.purple};
+      case 'walking':
+        return {'emoji': '🚶', 'label': 'Walking', 'color': Colors.green};
+      case 'running':
+        return {'emoji': '🏃', 'label': 'Running', 'color': Colors.teal};
+      case 'cycling':
+        return {'emoji': '🚴', 'label': 'Cycling', 'color': Colors.orange};
+      case 'stationary':
+      case 'stopped':
+        return {'emoji': '⏸️', 'label': 'Stationary', 'color': Colors.grey};
+      default:
+        return {'emoji': '📍', 'label': _capitalize(type), 'color': AppColors.primaryColor};
+    }
+  }
+
+  String _capitalize(String s) =>
+      s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
 
   Widget _buildEnhancedTimelineItem(TimelineEvent event) {
     Color color = AppColors.primaryColor;

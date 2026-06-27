@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:child_track/core/utils/structured_logger.dart';
+import 'package:child_track/core/utils/parser_utils.dart';
 
 // ── Geofence model ───────────────────────────────────────────────────────────
 
@@ -93,8 +94,8 @@ class LocalGeofenceEngine {
           final args = Map<String, dynamic>.from(call.arguments as Map);
           final typeStr = args['type'] as String;
           final geofenceId = args['geofenceId'] as String;
-          final lat = (args['lat'] as num).toDouble();
-          final lng = (args['lng'] as num).toDouble();
+          final lat = safeToDouble(args['lat']);
+          final lng = safeToDouble(args['lng']);
           final timestamp = args['timestamp'] != null 
               ? DateTime.parse(args['timestamp'] as String) 
               : DateTime.now();

@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/dio_client.dart';
 import 'package:child_track/core/services/screen_time_sync_service.dart';
 import '../services/shared_prefs_service.dart';
+import '../services/tracking/tracking_config_service.dart';
 import '../../app/auth/view_model/auth_repository.dart';
 import '../../app/auth/view_model/bloc/auth_bloc.dart';
 import '../../app/home/view_model/bloc/homepage_bloc.dart';
@@ -52,6 +53,14 @@ Future<void> initializeDependencies() async {
   // Register DioClient (requires ConnectivityBloc)
   injector.registerSingleton<DioClient>(
     DioClient(connectivityBloc: injector<ConnectivityBloc>()),
+  );
+
+  // Register TrackingConfigService
+  injector.registerLazySingleton<TrackingConfigService>(
+    () => TrackingConfigService(
+      dio: injector<DioClient>(),
+      prefs: injector<SharedPrefsService>(),
+    ),
   );
 
   // Register Repositories

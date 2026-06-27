@@ -6,6 +6,9 @@ import 'package:child_track/app/childapp/view_model/repository/child_repo.dart';
 import 'package:child_track/app/childapp/view_model/repository/child_location_repo.dart';
 import 'package:child_track/core/services/shared_prefs_service.dart';
 import 'package:child_track/core/services/base_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'package:child_track/core/services/tracking/tracking_config_service.dart';
 
 class MockChildRepo extends Mock implements ChildRepo {}
 
@@ -13,18 +16,29 @@ class MockChildGoogleMapsRepo extends Mock implements ChildGoogleMapsRepo {}
 
 class MockSharedPrefsService extends Mock implements SharedPrefsService {}
 
+class MockTrackingConfigService extends Mock implements TrackingConfigService {}
+
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   late LocationStateMachine stateMachine;
   late MockChildRepo mockChildRepo;
   late MockChildGoogleMapsRepo mockLocationRepo;
   late MockSharedPrefsService mockPrefs;
+  late MockTrackingConfigService mockConfigService;
 
   setUp(() {
+    SharedPreferences.setMockInitialValues({});
     mockChildRepo = MockChildRepo();
     mockLocationRepo = MockChildGoogleMapsRepo();
     mockPrefs = MockSharedPrefsService();
+    mockConfigService = MockTrackingConfigService();
 
     when(() => mockPrefs.getString('child_id')).thenReturn('test_child_123');
+    when(() => mockConfigService.stopRadius).thenReturn(30.0);
+    when(() => mockConfigService.stopDuration).thenReturn(120);
+    when(() => mockConfigService.speedThreshold).thenReturn(0.28);
+    when(() => mockConfigService.geofenceRadius).thenReturn(150.0);
+    when(() => mockConfigService.fetchConfigFromServer()).thenAnswer((_) async {});
 
     // Mock Location Repo answers
     when(
@@ -52,6 +66,7 @@ void main() {
       childRepo: mockChildRepo,
       locationRepo: mockLocationRepo,
       prefs: mockPrefs,
+      configService: mockConfigService,
     );
   });
 

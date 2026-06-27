@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:child_track/core/utils/parser_utils.dart';
 
 class Geofence extends Equatable {
   final String? id;
@@ -49,8 +50,8 @@ class Geofence extends Equatable {
       radius: json['radius'] as int?,
       childId: firstChild,
       parentId: json['userId'] as String?,
-      latitude: (addressData['latitude'] as num?)?.toDouble(),
-      longitude: (addressData['longitude'] as num?)?.toDouble(),
+      latitude: safeToDoubleNullable(addressData['latitude']),
+      longitude: safeToDoubleNullable(addressData['longitude']),
       address: addressData['place'] as String?,
       isLocked: json['notifyOnArrival'] as bool? ?? json['isLocked'] as bool?,
       isChildInside: json['isChildInside'] as bool?,

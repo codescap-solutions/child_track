@@ -82,8 +82,14 @@ class HomeRepository extends BaseService {
     );
   }
 
-  Future<BaseResponse<TripDetailResponse>> getTripDetail(String tripId) async {
-    final response = await get(ApiEndpoints.getTripDetail(tripId));
+  Future<BaseResponse<TripDetailResponse>> getTripDetail(String tripId, {String? childId}) async {
+    final url = childId != null
+        ? 'parent/child/$childId/trips/$tripId'
+        : ApiEndpoints.getTripDetail(tripId);
+    final response = await get(
+      url,
+      queryParameters: childId != null ? {'child_id': childId} : null,
+    );
     if (response.isSuccess && response.data != null) {
       try {
         final detail = TripDetailResponse.fromJson(response.data!);

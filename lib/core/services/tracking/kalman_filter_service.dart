@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:child_track/core/utils/structured_logger.dart';
+import 'package:child_track/core/utils/parser_utils.dart';
 
 /// Physically-correct 2-D Kalman Filter designed for GPS latitude and longitude tracking.
 /// Models movement states, dynamically adjusts noise covariance based on velocity,
@@ -160,17 +161,11 @@ class KalmanFilterService {
     List<Map<String, dynamic>> rawPoints,
   ) {
     return rawPoints.map((pt) {
-      final lat = (pt['lat'] as num).toDouble();
-      final lng = (pt['lng'] as num).toDouble();
-      final accuracy = pt['accuracy'] != null
-          ? (pt['accuracy'] as num).toDouble()
-          : null;
-      final speed = pt['speed'] != null
-          ? (pt['speed'] as num).toDouble()
-          : null;
-      final heading = pt['heading'] != null
-          ? (pt['heading'] as num).toDouble()
-          : null;
+      final lat = safeToDouble(pt['lat']);
+      final lng = safeToDouble(pt['lng']);
+      final accuracy = safeToDoubleNullable(pt['accuracy']);
+      final speed = safeToDoubleNullable(pt['speed']);
+      final heading = safeToDoubleNullable(pt['heading']);
       final timestamp = pt['timestamp'] != null
           ? (pt['timestamp'] is String 
               ? DateTime.parse(pt['timestamp'] as String) 

@@ -30,7 +30,7 @@ class TrackingProfileManager {
     ),
     TrackingProfile.still: TrackingProfileConfig(
       interval: Duration(seconds: 15),
-      distanceFilter: 10,
+      distanceFilter: 5,
       label: 'Still',
     ),
   };

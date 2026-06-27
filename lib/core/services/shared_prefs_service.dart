@@ -270,6 +270,24 @@ class SharedPrefsService {
     }
   }
 
+  Future<bool> setDouble(String key, double value) async {
+    try {
+      return await prefs.setDouble(key, value);
+    } catch (e) {
+      AppLogger.error('Error saving double $key: $e');
+      return false;
+    }
+  }
+
+  double? getDouble(String key) {
+    try {
+      return prefs.getDouble(key);
+    } catch (e) {
+      AppLogger.error('Error getting double $key: $e');
+      return null;
+    }
+  }
+
   // Clear all data
   Future<bool> clearAll() async {
     try {

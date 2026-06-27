@@ -278,7 +278,11 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
       ),
     );
     try {
-      final response = await _homeRepository.getTripDetail(event.tripId);
+      final childId = _sharedPrefsService.getString('child_id');
+      final response = await _homeRepository.getTripDetail(
+        event.tripId,
+        childId: childId,
+      );
 
       final freshState = state is HomepageSuccess
           ? state as HomepageSuccess

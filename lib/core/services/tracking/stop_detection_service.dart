@@ -2,8 +2,8 @@ import 'dart:async';
 import 'package:geolocator/geolocator.dart';
 import 'package:child_track/core/services/tracking/activity_recognition_service.dart';
 import 'package:child_track/core/utils/structured_logger.dart';
+import 'package:child_track/core/services/tracking/tracking_config_service.dart';
 
-/// Triggered when a stop has been confidently detected.
 class StopEvent {
   final DateTime startedAt;
   final DateTime detectedAt;
@@ -22,22 +22,14 @@ class StopEvent {
   Duration get duration => detectedAt.difference(startedAt);
 }
 
-/// Detects when the device becomes stationary for long enough to end a trip.
-///
-/// Rules (matching Find My Kids behaviour):
-///   • radius ≤ 30 m for all recent points
-///   • duration ≥ 120 seconds
-///   • activity == STILL  (when AR available)
-///   • average speed < 1 km/h (0.28 m/s)
 class StopDetectionService {
-  static const double _stopRadiusMeters = 30.0;
-  static const int _stopDurationSeconds = 120;
-  static const double _stopSpeedThresholdMs = 0.28; // 1 km/h
+  final TrackingConfigService _config;
+
+  StopDetectionService({required TrackingConfigService config}) : _config = config;
 
   final _stopController = StreamController<StopEvent>.broadcast();
   Stream<StopEvent> get onStop => _stopController.stream;
 
-  // Rolling window of recent positions
   final List<Position> _window = [];
   DateTime? _windowStart;
   bool _stopped = false;
@@ -52,10 +44,12 @@ class StopDetectionService {
     _stopController.close();
   }
 
-  /// Call on every new GPS position. Returns true if a stop was just detected.
   bool processPosition(Position pos, ActivityState arState) {
-    // If already stopped, keep resetting on movement
-    if (pos.speed > _stopSpeedThresholdMs ||
+    final stopRadius = _config.stopRadius;
+    final stopDuration = _config.stopDuration;
+    final speedThreshold = _config.speedThreshold;
+
+    if (pos.speed > speedThreshold ||
         arState.type == NaviQActivityType.walking ||
         arState.type == NaviQActivityType.running ||
         arState.type == NaviQActivityType.cycling ||
@@ -64,15 +58,12 @@ class StopDetectionService {
       return false;
     }
 
-    // Add to window
     _window.add(pos);
     if (_window.length > 30) _window.removeAt(0);
     _windowStart ??= pos.timestamp;
 
-    // Need at least 3 points
     if (_window.length < 3) return false;
 
-    // Check radius of all points from centroid
     final centroid = _centroid(_window);
     final maxRadius = _window
         .map(
@@ -85,17 +76,14 @@ class StopDetectionService {
         )
         .reduce((a, b) => a > b ? a : b);
 
-    if (maxRadius > _stopRadiusMeters) {
-      // Points scattered too far — not a clean stop
+    if (maxRadius > stopRadius) {
       reset();
       return false;
     }
 
-    // Duration check
-    final duration =
-        pos.timestamp.difference(_windowStart!).inSeconds;
+    final duration = pos.timestamp.difference(_windowStart!).inSeconds;
 
-    if (duration >= _stopDurationSeconds && !_stopped) {
+    if (duration >= stopDuration && !_stopped) {
       _stopped = true;
       final event = StopEvent(
         startedAt: _windowStart!,
@@ -117,8 +105,7 @@ class StopDetectionService {
 
   static (double, double) _centroid(List<Position> pts) {
     final lat = pts.map((p) => p.latitude).reduce((a, b) => a + b) / pts.length;
-    final lng =
-        pts.map((p) => p.longitude).reduce((a, b) => a + b) / pts.length;
+    final lng = pts.map((p) => p.longitude).reduce((a, b) => a + b) / pts.length;
     return (lat, lng);
   }
 }

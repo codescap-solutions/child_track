@@ -1,9 +1,11 @@
+import 'package:child_track/core/utils/parser_utils.dart';
+
 class TripPoint {
   final double lat;
   final double lng;
   final String ts;
-  final double speed; // m/s (0.0 if not provided)
-  final double accuracy; // metres
+  final double speed; // m/s
+  final double accuracy; // meters
   final double bearing; // degrees
 
   TripPoint({
@@ -15,21 +17,19 @@ class TripPoint {
     this.bearing = 0.0,
   });
 
-  /// Speed in km/h for convenience.
   double get speedKmh => speed * 3.6;
 
   factory TripPoint.fromJson(Map<String, dynamic> json) {
     return TripPoint(
-      lat: (json['lat'] ?? 0).toDouble(),
-      lng: (json['lng'] ?? 0).toDouble(),
+      lat: safeToDouble(json['lat']),
+      lng: safeToDouble(json['lng']),
       ts: json['ts'] ?? '',
-      speed: (json['speed'] ?? 0).toDouble(),
-      accuracy: (json['accuracy'] ?? 0).toDouble(),
-      bearing: (json['bearing'] ?? 0).toDouble(),
+      speed: safeToDouble(json['speed']),
+      accuracy: safeToDouble(json['accuracy']),
+      bearing: safeToDouble(json['bearing']),
     );
   }
 }
-
 
 class Trip {
   final String tripId;
@@ -57,8 +57,7 @@ class Trip {
   });
 
   factory Trip.fromJson(Map<String, dynamic> json) {
-    final points =
-        (json['points'] as List<dynamic>?)
+    final points = (json['points'] as List<dynamic>?)
             ?.map((e) => TripPoint.fromJson(e as Map<String, dynamic>))
             .toList() ??
         [];
@@ -68,24 +67,29 @@ class Trip {
       endTimeRaw = points.last.ts;
     }
 
+    // Defensive parsing for distance_km
+    String parsedDistance = '0.0';
+    if (json['distance_km'] != null) {
+      parsedDistance = safeToDouble(json['distance_km']).toString();
+    }
+
     return Trip(
       tripId: json['trip_id'] ?? '',
       dayLabel: json['day_label'] ?? '',
       startTime: _getData(json['start_time']),
       endTime: _getData(endTimeRaw),
-      distanceKm: (json['distance_km'] ?? 0).toString(),
-      eventsCount: json['events_count'] ?? 0,
+      distanceKm: parsedDistance,
+      eventsCount: safeToInt(json['events_count']),
       fromPlace: json['from_place'] ?? '',
       toPlace: json['to_place'] ?? '',
       points: points,
-      rideMode: json['ride_mode'] ?? 'vehicle',
+      rideMode: json['ride_mode'] ?? json['rideMode'] ?? 'vehicle',
     );
   }
 }
 
 String _getData(String? time) {
   if (time == null || time.isEmpty) return '';
-  // Pass through the raw ISO 8601 string so the UI can parse it uniformly.
   return time;
 }
 
@@ -104,14 +108,13 @@ class TripListResponse {
 
   factory TripListResponse.fromJson(Map<String, dynamic> json) {
     return TripListResponse(
-      trips:
-          (json['trips'] as List<dynamic>?)
+      trips: (json['trips'] as List<dynamic>?)
               ?.map((trip) => Trip.fromJson(trip as Map<String, dynamic>))
               .toList() ??
           [],
-      page: json['page'] ?? 1,
-      pageSize: json['page_size'] ?? 10,
-      totalItems: json['total_items'] ?? 0,
+      page: safeToInt(json['page'], 1),
+      pageSize: safeToInt(json['page_size'], 10),
+      totalItems: safeToInt(json['total_items']),
     );
   }
 }

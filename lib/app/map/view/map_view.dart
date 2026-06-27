@@ -148,8 +148,9 @@ class _MapViewWidgetState extends State<MapViewWidget> {
   @override
   void didUpdateWidget(MapViewWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Update polylines when widget markers change
-    if (widget.markers != oldWidget.markers) {
+    // Refresh polylines when either markers or polylines change
+    if (widget.markers != oldWidget.markers ||
+        widget.polylines != oldWidget.polylines) {
       if (mounted) {
         getPolylines();
       }
@@ -159,16 +160,14 @@ class _MapViewWidgetState extends State<MapViewWidget> {
   Future<void> getPolylines() async {
     if (!mounted) return;
 
-    // Start with provided polylines if any
     final Map<PolylineId, Polyline> initialPolylines = {};
     if (widget.polylines != null && widget.polylines!.isNotEmpty) {
+      // Explicit polylines provided (trip detail mode) — use them directly
       for (var polyline in widget.polylines!) {
         initialPolylines[polyline.polylineId] = polyline;
       }
-      // If explicit polylines are provided, we likley don't want to fetch automatic ones from markers
-      // unless we want to merge them. For detail views, we usually want EXACTLY what we passed.
     } else {
-      // Attempt to get polylines from markers via Bloc ONLY if no polylines provided
+      // No explicit polylines — try to fetch via Directions API from markers
       try {
         final blocPolylines = await injector<MapBloc>().getPolyLines(
           widget.markers ?? [],
@@ -182,6 +181,16 @@ class _MapViewWidgetState extends State<MapViewWidget> {
     polylines = initialPolylines;
 
     if (mounted) {
+      // If MapBloc is still in MapInitial (no live tracking running),
+      // emit MapLoaded so the GoogleMap widget renders.
+      final mapBloc = injector<MapBloc>();
+      if (mapBloc.state is! MapLoaded) {
+        mapBloc.add(
+          UpdateChildLocation(
+            widget.currentPosition ?? const LatLng(11.258753, 75.780410),
+          ),
+        );
+      }
       setState(() {});
     }
   }
@@ -195,7 +204,15 @@ class _MapViewWidgetState extends State<MapViewWidget> {
         value: injector<MapBloc>(),
         child: BlocBuilder<MapBloc, MapState>(
           builder: (context, state) {
-            if (state is MapLoaded) {
+            // Trip detail mode: explicit polylines provided — render map
+            // immediately, no need to wait for MapLoaded from live tracking.
+            // Live tracking mode: wait for MapLoaded so shimmer shows while
+            // the tracking BLoC initialises.
+            final hasExplicitPolylines =
+                widget.polylines != null && widget.polylines!.isNotEmpty;
+            final canRenderMap = state is MapLoaded || hasExplicitPolylines;
+
+            if (canRenderMap) {
               return Stack(
                 children: [
                   IgnorePointer(
@@ -222,27 +239,41 @@ class _MapViewWidgetState extends State<MapViewWidget> {
                           widget.minZoom,
                           widget.maxZoom,
                         ),
-
                         zoomGesturesEnabled: widget.interactive,
                         tiltGesturesEnabled: widget.interactive,
                         rotateGesturesEnabled: widget.interactive,
-
                         onMapCreated: (controller) {
                           injector<MapBloc>().add(MapCreated(controller));
-                          // Call custom onMapCreated callback if provided
                           widget.onMapCreated?.call(controller);
                         },
-                        polylines: Set<Polyline>.of(polylines.values),
+                        // Polylines: explicit ones take priority (trip detail),
+                        // then fall back to BLoC-computed ones (live map).
+                        polylines: () {
+                          if (hasExplicitPolylines) {
+                            final pts = widget.polylines!;
+                            debugPrint('[MapViewWidget] passing ${pts.length} polyline(s) to GoogleMap');
+                            for (var i = 0; i < pts.length; i++) {
+                              debugPrint('[MapViewWidget]   polyline[$i].points.length = ${pts[i].points.length}');
+                              if (pts[i].points.isNotEmpty) {
+                                debugPrint('[MapViewWidget]   polyline[$i].first = ${pts[i].points.first}');
+                                debugPrint('[MapViewWidget]   polyline[$i].last  = ${pts[i].points.last}');
+                              }
+                            }
+                            return pts.toSet();
+                          }
+                          return Set<Polyline>.of(polylines.values);
+                        }(),
                         circles: widget.circles ?? {},
                         initialCameraPosition: _initialCameraPosition,
                         markers: () {
-                          final markersToUse =
-                              widget.markers != null &&
-                                  widget.markers!.isNotEmpty
-                              ? widget.markers!.toSet()
-                              : state.markers.toSet();
-
-                          return markersToUse;
+                          if (widget.markers != null &&
+                              widget.markers!.isNotEmpty) {
+                            return widget.markers!.toSet();
+                          }
+                          if (state is MapLoaded) {
+                            return state.markers.toSet();
+                          }
+                          return <Marker>{};
                         }(),
                         onCameraMove: widget.onCameraMove,
                         onCameraMoveStarted: () {},
@@ -259,9 +290,7 @@ class _MapViewWidgetState extends State<MapViewWidget> {
                     child: InkWell(
                       onTap: () => _showMapTypeOptions(context),
                       child: CircleAvatar(
-                        backgroundColor: Colors.black.withValues(
-                          alpha: 0.6,
-                        ), // Standard map button style
+                        backgroundColor: Colors.black.withValues(alpha: 0.6),
                         child: const Icon(Icons.layers, color: Colors.white),
                       ),
                     ),

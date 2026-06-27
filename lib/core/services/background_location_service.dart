@@ -11,6 +11,7 @@ import 'package:child_track/core/services/connectivity/bloc/connectivity_bloc.da
 import 'package:child_track/core/utils/structured_logger.dart';
 import 'package:child_track/core/services/location_state_machine.dart';
 import 'package:child_track/core/services/tracking/tracking_profile_manager.dart';
+import 'package:child_track/core/services/tracking/tracking_config_service.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -235,11 +236,17 @@ void onStart(ServiceInstance service) async {
     final childLocationRepo = ChildGoogleMapsRepo();
     final battery = Battery();
 
+    final trackingConfigService = TrackingConfigService(
+      dio: dioClient,
+      prefs: sharedPrefsService,
+    );
+
     _stateMachine = LocationStateMachine(
       childRepo: childRepo,
       locationRepo: childLocationRepo,
       prefs: sharedPrefsService,
       battery: battery,
+      configService: trackingConfigService,
     );
 
     // Start with 'still' profile — adapts on first position

@@ -3,6 +3,7 @@ import 'package:child_track/app/home/model/location_info_model.dart';
 import 'package:child_track/app/home/model/last_trip_model.dart';
 import 'package:child_track/app/home/model/yesterday_trip_summary_model.dart';
 import 'package:child_track/app/home/model/cards_model.dart';
+import 'package:child_track/core/utils/parser_utils.dart';
 
 class FeatureSummary {
   final int lockedAppsCount;
@@ -21,9 +22,9 @@ class FeatureSummary {
     final scrollJson = json['scroll'] ?? {};
     final geoJson = json['geo_guard'] ?? {};
     return FeatureSummary(
-      lockedAppsCount: scrollJson['locked_apps_count'] ?? 0,
+      lockedAppsCount: safeToInt(scrollJson['locked_apps_count']),
       scrollStatusText: scrollJson['status_text'] ?? '',
-      activeFencesCount: geoJson['active_fences_count'] ?? 0,
+      activeFencesCount: safeToInt(geoJson['active_fences_count']),
       geoGuardStatusText: geoJson['status_text'] ?? '',
     );
   }
@@ -61,18 +62,10 @@ class RouteMapSummary {
   });
 
   factory RouteMapSummary.fromJson(Map<String, dynamic> json) {
-    double toDouble(dynamic value) {
-      if (value == null) return 0.0;
-      if (value is double) return value;
-      if (value is int) return value.toDouble();
-      if (value is String) return double.tryParse(value) ?? 0.0;
-      return 0.0;
-    }
-
     final list = json['timeline'] as List<dynamic>? ?? [];
     return RouteMapSummary(
-      totalDistanceKm: toDouble(json['total_distance_km']),
-      newLocationsCount: json['new_locations_count'] ?? 0,
+      totalDistanceKm: safeToDouble(json['total_distance_km']),
+      newLocationsCount: safeToInt(json['new_locations_count']),
       timeline: list.map((e) => TimelineNode.fromJson(e as Map<String, dynamic>)).toList(),
     );
   }
@@ -98,7 +91,7 @@ class AppUsage {
       appName: json['app_name'] ?? '',
       appIcon: json['appIcon'] ?? '',
       usageDuration: json['usage_duration'] ?? '',
-      usageMinutes: json['usage_minutes'] ?? 0,
+      usageMinutes: safeToInt(json['usage_minutes']),
       brandColor: json['brand_color'] ?? '',
     );
   }
@@ -124,9 +117,9 @@ class ScreentimeTodaySummary {
   factory ScreentimeTodaySummary.fromJson(Map<String, dynamic> json) {
     final list = json['app_usages'] as List<dynamic>? ?? [];
     return ScreentimeTodaySummary(
-      totalMinutes: json['total_minutes'] ?? 0,
+      totalMinutes: safeToInt(json['total_minutes']),
       formattedTotalTime: json['formatted_total_time'] ?? '',
-      dailyLimitMinutes: json['daily_limit_minutes'] ?? 0,
+      dailyLimitMinutes: safeToInt(json['daily_limit_minutes']),
       limitExceeded: json['limit_exceeded'] ?? false,
       limitMessage: json['limit_message'] ?? '',
       appUsages: list.map((e) => AppUsage.fromJson(e as Map<String, dynamic>)).toList(),
@@ -143,14 +136,12 @@ class HomeResponse {
   final LocationInfo currentLocation;
   final YesterdayTripSummary? yesterdayTripSummary;
   final Cards? cards;
-  final List<TripSegment> yesterdayTrips; // kept for backward compatibility
+  final List<TripSegment> yesterdayTrips;
 
-  // New visual section models
   final FeatureSummary? features;
   final RouteMapSummary? todayRoute;
   final ScreentimeTodaySummary? screentimeToday;
   
-  // Shared children tracking list
   final List<SharedChild>? sharedChildren;
 
   HomeResponse({
@@ -235,21 +226,13 @@ class SharedChild {
   });
 
   factory SharedChild.fromJson(Map<String, dynamic> json) {
-    double toDouble(dynamic value) {
-      if (value == null) return 0.0;
-      if (value is double) return value;
-      if (value is int) return value.toDouble();
-      if (value is String) return double.tryParse(value) ?? 0.0;
-      return 0.0;
-    }
-
     return SharedChild(
       shareId: json['share_id']?.toString() ?? json['id']?.toString() ?? '',
       childId: json['child_id']?.toString() ?? '',
       childName: json['child_name']?.toString() ?? '',
-      latitude: toDouble(json['latitude'] ?? json['lat']),
-      longitude: toDouble(json['longitude'] ?? json['lng']),
-      batteryPercentage: json['battery_percentage'] ?? json['battery'] ?? 0,
+      latitude: safeToDouble(json['latitude'] ?? json['lat']),
+      longitude: safeToDouble(json['longitude'] ?? json['lng']),
+      batteryPercentage: safeToInt(json['battery_percentage'] ?? json['battery']),
       lastSyncAt: json['last_sync_at'] != null ? DateTime.tryParse(json['last_sync_at']) : null,
       avatar: (json['avatar'] ?? json['child_avatar'])?.toString(),
       expiresAt: json['expires_at'] != null ? DateTime.tryParse(json['expires_at']) : null,
