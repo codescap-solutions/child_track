@@ -62,10 +62,8 @@ class Trip {
             .toList() ??
         [];
 
-    String? endTimeRaw = json['end_time'];
-    if ((endTimeRaw == null || endTimeRaw.isEmpty) && points.isNotEmpty) {
-      endTimeRaw = points.last.ts;
-    }
+    final String parsedStartTime = points.isNotEmpty ? points.first.ts : (json['start_time'] ?? '');
+    final String parsedEndTime = points.isNotEmpty ? points.last.ts : (json['end_time'] ?? '');
 
     // Defensive parsing for distance_km
     String parsedDistance = '0.0';
@@ -76,8 +74,8 @@ class Trip {
     return Trip(
       tripId: json['trip_id'] ?? '',
       dayLabel: json['day_label'] ?? '',
-      startTime: _getData(json['start_time']),
-      endTime: _getData(endTimeRaw),
+      startTime: _getData(parsedStartTime),
+      endTime: _getData(parsedEndTime),
       distanceKm: parsedDistance,
       eventsCount: safeToInt(json['events_count']),
       fromPlace: json['from_place'] ?? '',

@@ -29,6 +29,19 @@ class ScreenTimeSyncService {
         _cacheDuration.inMinutes;
   }
 
+  /// Public entry point: icon sync only.
+  /// Call this after a screen-time upload to upload any missing app icons.
+  /// Skips the usage-permission check and data-fetching overhead.
+  Future<void> syncAppIconsOnly(List<AppScreenTimeModel> mergedScreenTime) async {
+    if (!Platform.isAndroid) return;
+    final childId = _prefs.getString('child_id');
+    if (childId == null || childId.isEmpty) {
+      AppLogger.warning('ScreenTimeSyncService [syncAppIconsOnly]: child_id missing, skipping');
+      return;
+    }
+    await _syncAppIcons(mergedScreenTime);
+  }
+
   Future<void> syncScreenTime() async {
     final childId = _prefs.getString('child_id');
     if (childId == null || childId.isEmpty) {
@@ -323,33 +336,122 @@ class ScreenTimeSyncService {
     }
   }
 
-  /// Check which app icons are missing on backend and upload them
+  /// Check which app icons are missing on backend and upload them.
+  ///
+  /// Fixes applied:
+  ///   1. Parses both `"packages"` and `"icons"` response keys (backward compat)
+  ///   2. Normalises package names into a `Set<String>` (trim + lowercase)
+  ///   3. Uploads only icons that are NOT already on the server
+  ///   4. Gracefully skips null / empty icon bytes — never throws
+  ///   5. Structured logging: server count, check count, missing count, per-icon result
+  ///   6. Uploads up to 5 icons concurrently using Future.wait()
+  ///   7. Calls GET /available-icons exactly once per sync cycle (cached in `availableIcons`)
   Future<void> _syncAppIcons(List<AppScreenTimeModel> mergedScreenTime) async {
+    // Icon extraction only makes sense on Android — iOS always returns null.
+    if (!Platform.isAndroid) return;
+
     try {
+      // ── Step 7: Fetch available icons list — ONE call per sync cycle ──────
       final response = await _childRepo.getAvailableIcons();
-      List<String> availableIcons = [];
+
+      // ── Step 1 + 2: Parse both key formats, normalize, deduplicate ────────
+      Set<String> availableIcons = {};
       if (response.isSuccess && response.data != null) {
-        if (response.data is List) {
-          availableIcons = (response.data as List)
-              .map((e) => e.toString())
-              .toList();
-        } else if (response.data is Map &&
-            (response.data as Map).containsKey('icons')) {
-          final iconsData = (response.data as Map)['icons'];
-          if (iconsData is List) {
-            availableIcons = iconsData.map((e) => e.toString()).toList();
-          }
+        final data = response.data;
+        List<dynamic> rawList = [];
+
+        if (data is List) {
+          // Legacy: bare array at root
+          rawList = data;
+        } else if (data is Map) {
+          // Current backend: { "packages": [...] }
+          // Older backend:   { "icons": [...] }
+          // Support BOTH for backward compatibility.
+          rawList = (data['packages'] as List?)
+              ?? (data['icons'] as List?)
+              ?? [];
         }
+
+        availableIcons = rawList
+            .map((e) => e.toString().trim().toLowerCase())
+            .where((e) => e.isNotEmpty)
+            .toSet();
       }
 
-      for (var app in mergedScreenTime) {
-        if (!availableIcons.contains(app.package)) {
-          final iconBytes = await _deviceInfoService.getAppIcon(app.package);
-          if (iconBytes != null && iconBytes.isNotEmpty) {
-            await _childRepo.uploadAppIcon(app.package, iconBytes);
-          }
-        }
+      // Filter to apps with a non-empty package name
+      final appsToCheck = mergedScreenTime
+          .where((app) => app.package.trim().isNotEmpty)
+          .toList();
+
+      // ── Step 5: Structured logging ────────────────────────────────────────
+      AppLogger.info(
+        'ScreenTimeSyncService [IconSync] '
+        'Available on server : ${availableIcons.length} | '
+        'Installed apps      : ${appsToCheck.length}',
+      );
+
+      // ── Step 3: Build list of apps whose icons are missing ────────────────
+      final List<AppScreenTimeModel> missingApps = appsToCheck
+          .where((app) =>
+              !availableIcons.contains(app.package.trim().toLowerCase()))
+          .toList();
+
+      AppLogger.info(
+        'ScreenTimeSyncService [IconSync] Missing icons : ${missingApps.length}',
+      );
+
+      if (missingApps.isEmpty) {
+        AppLogger.info(
+          'ScreenTimeSyncService [IconSync] All icons already on server — no upload needed.',
+        );
+        return;
       }
+
+      // ── Step 6: Upload with concurrency limit of 5 ────────────────────────
+      const int concurrencyLimit = 5;
+      int uploadedCount = 0;
+      int skippedCount  = 0;
+      int failedCount   = 0;
+
+      for (int i = 0; i < missingApps.length; i += concurrencyLimit) {
+        final batch = missingApps.skip(i).take(concurrencyLimit).toList();
+
+        await Future.wait(batch.map((app) async {
+          try {
+            // ── Step 4: Skip null / empty bytes gracefully ─────────────────
+            final iconBytes =
+                await _deviceInfoService.getAppIcon(app.package);
+
+            if (iconBytes == null || iconBytes.isEmpty) {
+              AppLogger.warning(
+                'ScreenTimeSyncService [IconSync] '
+                'Skipping ${app.package} — no icon bytes returned.',
+              );
+              skippedCount++;
+              return;
+            }
+
+            await _childRepo.uploadAppIcon(app.package, iconBytes);
+            AppLogger.info(
+              'ScreenTimeSyncService [IconSync] ✓ Uploaded : ${app.package}',
+            );
+            uploadedCount++;
+          } catch (e) {
+            // Non-fatal: log and continue with remaining icons
+            AppLogger.error(
+              'ScreenTimeSyncService [IconSync] ✗ Failed  : ${app.package} — $e',
+            );
+            failedCount++;
+          }
+        }));
+      }
+
+      AppLogger.info(
+        'ScreenTimeSyncService [IconSync] Done — '
+        'Uploaded: $uploadedCount | '
+        'Skipped: $skippedCount | '
+        'Failed: $failedCount',
+      );
     } catch (e) {
       AppLogger.error('ScreenTimeSyncService: Icon sync failed: $e');
     }

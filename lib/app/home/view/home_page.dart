@@ -69,6 +69,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   int _refreshProgress = 0;
   bool _isRefreshing = false;
   Timer? _progressTimer;
+  String? _currentLoadedChildId;
 
   void _onHomeScroll() {
     if (!mounted) return;
@@ -170,6 +171,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _savedPlacesService = injector<SavedPlacesService>();
+    _currentLoadedChildId = _sharedPrefsService.getString('child_id');
     _loadSavedPlaces();
 
     _homeScrollController = ScrollController();
@@ -1659,14 +1661,31 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       value: injector<HomepageBloc>(),
       child: BlocListener<HomepageBloc, HomepageState>(
         listenWhen: (prev, curr) {
-          if (prev is HomepageSuccess && curr is HomepageSuccess) {
-            return prev.isLoading != curr.isLoading;
+          if (curr is HomepageSuccess) {
+            final activeId = _sharedPrefsService.getString('child_id');
+            if (prev is HomepageSuccess) {
+              return prev.isLoading != curr.isLoading || activeId != _currentLoadedChildId;
+            }
+            return true;
           }
           return false;
         },
         listener: (context, state) {
-          if (state is HomepageSuccess && !state.isLoading) {
-            _finishRefreshProgress();
+          if (state is HomepageSuccess) {
+            if (!state.isLoading) {
+              _finishRefreshProgress();
+            }
+            final activeId = _sharedPrefsService.getString('child_id');
+            if (activeId != null && activeId != _currentLoadedChildId) {
+              _currentLoadedChildId = activeId;
+              _loadSavedPlaces();
+              final now = DateTime.now();
+              final todayStr =
+                  "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+              context.read<GeofenceBloc>().add(
+                GetGeofencesRequested(childId: activeId, date: todayStr),
+              );
+            }
           }
         },
         child: Scaffold(
@@ -2221,6 +2240,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 padding: const EdgeInsets.all(16.0),
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
+                    // Live Trip Status Card — shown only when actively travelling
+                    _LiveTripCard(activeTrip: state.activeTrip),
+
                     // 2. Scroll & Geo Guard Feature Cards
                     Row(
                       children: [
@@ -3854,12 +3876,222 @@ class _DynamicLocationTextState extends State<_DynamicLocationText> {
   Widget build(BuildContext context) {
     final displayText = _resolvedAddress ?? widget.initialPlaceName;
     return Text(
-      '${widget.childName} is at \n$displayText',
+      '${widget.childName} is  \n$displayText',
       style: GoogleFonts.manrope(
         fontSize: 24,
         fontWeight: FontWeight.w800,
         color: const Color(0xFF0C1D37),
         height: 1.2,
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Live Trip Status Card
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _LiveTripCard extends StatelessWidget {
+  final ActiveTrip? activeTrip;
+
+  const _LiveTripCard({this.activeTrip});
+
+  static IconData _activityIcon(String? activity) {
+    switch (activity?.toLowerCase()) {
+      case 'walking':
+      case 'walk':
+        return Icons.directions_walk;
+      case 'cycling':
+      case 'bike':
+        return Icons.pedal_bike;
+      case 'running':
+      case 'run':
+        return Icons.directions_run;
+      case 'stationary':
+      case 'still':
+        return Icons.location_on;
+      case 'vehicle':
+      case 'driving':
+      default:
+        return Icons.directions_car;
+    }
+  }
+
+  static String _activityLabel(String? activity) {
+    switch (activity?.toLowerCase()) {
+      case 'walking':
+      case 'walk':
+        return 'Walking';
+      case 'cycling':
+      case 'bike':
+        return 'Cycling';
+      case 'running':
+      case 'run':
+        return 'Running';
+      case 'stationary':
+      case 'still':
+        return 'Stationary';
+      case 'vehicle':
+      case 'driving':
+      default:
+        return 'Vehicle';
+    }
+  }
+
+  static String _formatDistance(double meters) {
+    final km = meters / 1000.0;
+    return '${km.toStringAsFixed(1)} km';
+  }
+
+  static String _formatDuration(int seconds) {
+    if (seconds < 60) return '< 1 min';
+    final hours = seconds ~/ 3600;
+    final mins = (seconds % 3600) ~/ 60;
+    if (hours > 0) {
+      return '${hours} hr ${mins} min';
+    }
+    return '${mins} min';
+  }
+
+  static String _startedAgoLabel(DateTime? startedAt) {
+    if (startedAt == null) return '';
+    final diff = DateTime.now().toUtc().difference(startedAt.toUtc());
+    final mins = diff.inMinutes;
+    if (mins < 1) return 'Started just now';
+    if (mins < 60) return 'Started $mins min ago';
+    return 'Started ${diff.inHours} hr ago';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bool show = activeTrip != null && activeTrip!.isActive;
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 200),
+      transitionBuilder: (child, animation) =>
+          FadeTransition(opacity: animation, child: child),
+      child: show
+          ? _buildCard(context, activeTrip!)
+          : const SizedBox.shrink(key: ValueKey('live_trip_hidden')),
+    );
+  }
+
+  Widget _buildCard(BuildContext context, ActiveTrip trip) {
+    final icon = _activityIcon(trip.activity);
+    final label = _activityLabel(trip.activity);
+    final distance = _formatDistance(trip.distanceMeters);
+    final duration = _formatDuration(trip.durationSeconds);
+    final agoLabel = _startedAgoLabel(trip.startedAt);
+
+    return Container(
+      key: const ValueKey('live_trip_card'),
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFDCFCE7), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF16A34A).withValues(alpha: 0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            // Left: icon + labels
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: const Color(0xFFDCFCE7),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, size: 22, color: const Color(0xFF16A34A)),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Currently Travelling',
+                    style: GoogleFonts.manrope(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF0C1D37),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    label,
+                    style: GoogleFonts.manrope(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: const Color(0xFF64748B),
+                    ),
+                  ),
+                  if (agoLabel.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      agoLabel,
+                      style: GoogleFonts.manrope(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w400,
+                        color: const Color(0xFF94A3B8),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            // Center: stats
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  distance,
+                  style: GoogleFonts.manrope(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF0C1D37),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  duration,
+                  style: GoogleFonts.manrope(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: const Color(0xFF64748B),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(width: 10),
+            // Right: LIVE badge
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFF16A34A),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                'LIVE',
+                style: GoogleFonts.manrope(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

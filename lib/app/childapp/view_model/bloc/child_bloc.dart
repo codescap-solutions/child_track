@@ -514,6 +514,15 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> with WidgetsBindingObserver
         event.appScreenTimes,
         childId,
       );
+
+      // Icon sync: run after every successful screen-time upload.
+      // Uses the same list already fetched — no extra native call.
+      // Non-blocking: icon upload failures are caught internally.
+      _screenTimeSyncService
+          .syncAppIconsOnly(event.appScreenTimes)
+          .catchError((e) {
+        AppLogger.error('ChildBloc: Icon sync error (non-fatal): $e');
+      });
     } catch (e) {
       AppLogger.error('Failed to post screen time: ${e.toString()}');
     }

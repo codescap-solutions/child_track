@@ -39,6 +39,9 @@ final class HomepageSuccess extends HomepageState {
   final bool isLoadingTripDetail;
   final String? selectedTripId;
 
+  // Live active trip (from /parent/home active_trip)
+  final ActiveTrip? activeTrip;
+
   const HomepageSuccess({
     required this.deviceInfo,
     this.currentLocation,
@@ -63,6 +66,7 @@ final class HomepageSuccess extends HomepageState {
     this.selectedTripDetail,
     this.isLoadingTripDetail = false,
     this.selectedTripId,
+    this.activeTrip,
   });
 
   // initial
@@ -91,6 +95,7 @@ final class HomepageSuccess extends HomepageState {
         selectedTripDetail: null,
         isLoadingTripDetail: false,
         selectedTripId: null,
+        activeTrip: null,
       );
 
   @override
@@ -118,6 +123,7 @@ final class HomepageSuccess extends HomepageState {
     if (selectedTripDetail != null) selectedTripDetail!,
     isLoadingTripDetail,
     if (selectedTripId != null) selectedTripId!,
+    if (activeTrip != null) activeTrip!,
   ];
 
   HomepageSuccess copyWith({
@@ -144,6 +150,7 @@ final class HomepageSuccess extends HomepageState {
     TripDetailResponse? selectedTripDetail,
     bool? isLoadingTripDetail,
     String? selectedTripId,
+    ActiveTrip? activeTrip,
   }) {
     return HomepageSuccess(
       deviceInfo: deviceInfo ?? this.deviceInfo,
@@ -169,6 +176,7 @@ final class HomepageSuccess extends HomepageState {
       selectedTripDetail: selectedTripDetail ?? this.selectedTripDetail,
       isLoadingTripDetail: isLoadingTripDetail ?? this.isLoadingTripDetail,
       selectedTripId: selectedTripId ?? this.selectedTripId,
+      activeTrip: activeTrip ?? this.activeTrip,
     );
   }
 }

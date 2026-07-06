@@ -7,6 +7,7 @@ import 'package:child_track/core/services/shared_prefs_service.dart';
 import 'package:child_track/core/models/child_profile.dart';
 import 'package:child_track/core/services/socket_service.dart';
 import 'package:dio/dio.dart';
+import 'package:http_parser/http_parser.dart' show MediaType;
 import 'package:flutter/services.dart';
 import 'package:child_track/core/utils/app_logger.dart';
 import 'package:child_track/core/services/device_info_service.dart';
@@ -201,6 +202,7 @@ class ChildRepo extends BaseService {
       packageName: MultipartFile.fromBytes(
         iconBytes,
         filename: '$packageName.png',
+        contentType: MediaType('image', 'png'),
       ),
     });
     final response = await post(

@@ -19,11 +19,11 @@ class LocationInfo {
 
   factory LocationInfo.fromJson(Map<String, dynamic> json) {
     return LocationInfo(
-      lat: safeToDouble(json['lat']),
-      lng: safeToDouble(json['lng']),
+      lat: safeToDouble(json['lat'] ?? json['latitude']),
+      lng: safeToDouble(json['lng'] ?? json['longitude']),
       address: json['address'] ?? '',
       placeName: json['place_name'] ?? '',
-      since: json['last_update'] ?? '',
+      since: json['last_update'] ?? json['since_time'] ?? '',
       durationMinutes: safeToInt(json['duration_minutes']),
     );
   }

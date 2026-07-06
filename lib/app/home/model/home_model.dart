@@ -5,6 +5,42 @@ import 'package:child_track/app/home/model/yesterday_trip_summary_model.dart';
 import 'package:child_track/app/home/model/cards_model.dart';
 import 'package:child_track/core/utils/parser_utils.dart';
 
+// ─── Active Trip ─────────────────────────────────────────────────────────────
+class ActiveTrip {
+  final bool isActive;
+  final String? tripId;
+  final String? tripStatus;
+  final String? activity;
+  final DateTime? startedAt;
+  final int durationSeconds;
+  final double distanceMeters;
+
+  const ActiveTrip({
+    required this.isActive,
+    this.tripId,
+    this.tripStatus,
+    this.activity,
+    this.startedAt,
+    this.durationSeconds = 0,
+    this.distanceMeters = 0.0,
+  });
+
+  factory ActiveTrip.fromJson(Map<String, dynamic> json) {
+    return ActiveTrip(
+      isActive: json['is_active'] as bool? ?? false,
+      tripId: json['trip_id'] as String?,
+      tripStatus: json['trip_status'] as String?,
+      activity: json['activity'] as String?,
+      startedAt: json['started_at'] != null
+          ? DateTime.tryParse(json['started_at'] as String)
+          : null,
+      durationSeconds: safeToInt(json['duration_seconds']),
+      distanceMeters: safeToDouble(json['distance_m']),
+    );
+  }
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 class FeatureSummary {
   final int lockedAppsCount;
   final String scrollStatusText;
@@ -144,6 +180,9 @@ class HomeResponse {
   
   final List<SharedChild>? sharedChildren;
 
+  // Live trip currently in progress
+  final ActiveTrip? activeTrip;
+
   HomeResponse({
     this.childName,
     this.childCode,
@@ -158,6 +197,7 @@ class HomeResponse {
     this.todayRoute,
     this.screentimeToday,
     this.sharedChildren,
+    this.activeTrip,
   });
 
   factory HomeResponse.fromJson(Map<String, dynamic> json) {
@@ -168,7 +208,7 @@ class HomeResponse {
       childAvatar: (json['child_avatar'] ?? json['avatar']) as String?,
       webFilteringEnabled: json['web_filtering_enabled'] ?? false,
       deviceInfo: DeviceInfo.fromJson(json['device_info'] ?? {}),
-      currentLocation: LocationInfo.fromJson(json['current_location'] ?? {}),
+      currentLocation: LocationInfo.fromJson(json['current_location'] ?? json['location'] ?? {}),
       yesterdayTripSummary: json['yesterday_trip_summary'] != null
           ? YesterdayTripSummary.fromJson(
               json['yesterday_trip_summary'] as Map<String, dynamic>,
@@ -198,6 +238,9 @@ class HomeResponse {
       sharedChildren: sharedList
           .map((e) => SharedChild.fromJson(e as Map<String, dynamic>))
           .toList(),
+      activeTrip: json['active_trip'] != null
+          ? ActiveTrip.fromJson(json['active_trip'] as Map<String, dynamic>)
+          : null,
     );
   }
 }

@@ -12,9 +12,9 @@ PODS:
     - Flutter
     - Google-Maps-iOS-Utils (< 7.0, >= 5.0)
     - GoogleMaps (< 11.0, >= 8.4)
-  - GoogleMaps (10.14.0):
-    - GoogleMaps/Maps (= 10.14.0)
-  - GoogleMaps/Maps (10.14.0)
+  - GoogleMaps (10.15.0):
+    - GoogleMaps/Maps (= 10.15.0)
+  - GoogleMaps/Maps (10.15.0)
   - permission_handler_apple (9.3.0):
     - Flutter
   - purchases_flutter (8.11.0):
@@ -68,7 +68,7 @@ SPEC CHECKSUMS:
   flutter_local_notifications: df98d66e515e1ca797af436137b4459b160ad8c9
   Google-Maps-iOS-Utils: bed22fa703c919259b3901449434d60d994fae20
   google_maps_flutter_ios: 11687ec5d93f8e025e12daab0a5636fa9f71d53e
-  GoogleMaps: 23807b5617f32664952c04220b3b292df87ee884
+  GoogleMaps: 306f6ea18af2dc9ef85d98b0d1b41bc7d506df5f
   permission_handler_apple: 9878588469a2b0d0fc1e048d9f43605f92e6cec2
   purchases_flutter: c1245d908efb42739b626d03905302c003d26811
   PurchasesHybridCommon: 7f0944cc5411bdcd1ea5d69affa6a6f9aaf87b13
