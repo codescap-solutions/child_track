@@ -1,5 +1,6 @@
 import 'package:child_track/app/home/model/trip_list_model.dart';
 import 'package:child_track/app/home/view_model/bloc/homepage_bloc.dart';
+import 'package:child_track/app/home/view_model/bloc/homepage_state.dart';
 import 'package:child_track/core/di/injector.dart';
 import 'package:flutter/material.dart';
 import 'package:child_track/core/constants/app_colors.dart';
@@ -419,7 +420,9 @@ class _SimpleTripCard extends StatelessWidget {
                           );
                           return;
                         }
-                        injector<HomepageBloc>().add(GetTripDetail(tripId: trip.tripId));
+                        injector<HomepageBloc>().add(
+                          GetTripDetail(tripId: trip.tripId),
+                        );
                         final tripSegment = TripSegment.fromTrip(trip);
                         Navigator.of(context).push(
                           MaterialPageRoute(
@@ -469,6 +472,7 @@ class _SimpleTripCard extends StatelessWidget {
       final start = DateTime.parse(startStr);
       final end = DateTime.parse(endStr);
       final duration = end.difference(start);
+      if (duration.isNegative) return '(Invalid Trip Data)';
       final hours = duration.inHours;
       final minutes = duration.inMinutes.remainder(60);
 

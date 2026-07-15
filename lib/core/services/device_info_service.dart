@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:child_track/app/home/model/device_model.dart';
 import 'package:child_track/app/social_apps/model/installed_app_model.dart';
 import 'package:child_track/core/utils/app_logger.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class DeviceInfoService {
   static final DeviceInfoService _instance = DeviceInfoService._internal();
@@ -30,6 +32,32 @@ class DeviceInfoService {
       // Get charging status
       final chargingStatus = await isCharging();
 
+      // Get location tracking context
+      bool gpsEnabled = false;
+      String locationPermissionStatus = 'unknown';
+      try {
+        gpsEnabled = await Geolocator.isLocationServiceEnabled();
+        
+        final permissionStatus = await Permission.locationAlways.status;
+        if (permissionStatus.isGranted) {
+          locationPermissionStatus = 'granted';
+        } else if (permissionStatus.isDenied) {
+          locationPermissionStatus = 'denied';
+        } else if (permissionStatus.isPermanentlyDenied) {
+          locationPermissionStatus = 'denied_forever';
+        } else {
+          // Check if only while in use is granted (which means background is restricted)
+          final inUseStatus = await Permission.locationWhenInUse.status;
+          if (inUseStatus.isGranted) {
+            locationPermissionStatus = 'while_using';
+          } else {
+            locationPermissionStatus = permissionStatus.name;
+          }
+        }
+      } catch (e) {
+        AppLogger.error('Error getting location status: $e');
+      }
+
       return DeviceInfo(
         batteryPercentage: batteryPercentage,
         networkStatus: networkInfo['status'] ?? 'unknown',
@@ -38,6 +66,8 @@ class DeviceInfoService {
         isOnline: networkInfo['isOnline'] ?? false,
         onlineSince: _getCurrentTime(),
         isCharging: chargingStatus,
+        gpsEnabled: gpsEnabled,
+        locationPermissionStatus: locationPermissionStatus,
       );
     } catch (e) {
       AppLogger.error('Error getting device info: $e');
@@ -50,6 +80,8 @@ class DeviceInfoService {
         soundProfile: 'unknown',
         isOnline: false,
         onlineSince: _getCurrentTime(),
+        gpsEnabled: false,
+        locationPermissionStatus: 'unknown',
       );
     }
   }

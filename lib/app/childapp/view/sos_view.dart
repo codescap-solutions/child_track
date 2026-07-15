@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:geolocator/geolocator.dart';
+import 'package:child_track/core/services/device_info_service.dart';
 import 'package:flutter/services.dart';
 import 'package:child_track/app/childapp/view_model/repository/child_repo.dart';
 import 'package:child_track/app/home/model/device_model.dart';
@@ -23,7 +25,10 @@ import 'package:child_track/core/navigation/route_names.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:child_track/app/childapp/view_model/repository/device_info_service.dart'
+    as child_info;
 import 'package:child_track/app/childapp/view/widgets/child_app_drawer.dart';
+import 'package:child_track/app/auth/view/onboarding/app_catalog_screen.dart';
 
 class SosView extends StatefulWidget {
   const SosView({super.key});
@@ -120,8 +125,7 @@ class _SosViewState extends State<SosView> with WidgetsBindingObserver {
   }
 
   Future<void> _checkOtherPermissions() async {
-    final locStatus = await Permission.locationAlways.status;
-    final locWhenInUse = await Permission.location.status;
+    final locStatus = await Geolocator.checkPermission();
     final notifStatus = await Permission.notification.status;
     final bgStatus = Platform.isAndroid
         ? await Permission.ignoreBatteryOptimizations.status
@@ -129,8 +133,12 @@ class _SosViewState extends State<SosView> with WidgetsBindingObserver {
 
     if (mounted) {
       setState(() {
-        _hasLocationPermission = locStatus.isGranted || locWhenInUse.isGranted;
-        _hasNotificationPermission = notifStatus.isGranted;
+        _hasLocationPermission =
+            locStatus == LocationPermission.always ||
+            locStatus == LocationPermission.whileInUse;
+        _hasNotificationPermission =
+            notifStatus.isGranted ||
+            (Platform.isIOS && notifStatus.isProvisional);
         _hasBackgroundPermission = Platform.isAndroid
             ? bgStatus.isGranted
             : true;
@@ -147,6 +155,10 @@ class _SosViewState extends State<SosView> with WidgetsBindingObserver {
         hasLocationPermission: _hasLocationPermission,
         hasNotificationPermission: _hasNotificationPermission,
         hasBackgroundPermission: _hasBackgroundPermission,
+        onPermissionUpdated: () {
+          _checkAccessibilityPermission();
+          _checkOtherPermissions();
+        },
       ),
     );
   }
@@ -522,12 +534,14 @@ class _SosViewContent extends StatefulWidget {
   final bool hasLocationPermission;
   final bool hasNotificationPermission;
   final bool hasBackgroundPermission;
+  final VoidCallback onPermissionUpdated;
 
   const _SosViewContent({
     required this.hasAccessibilityPermission,
     required this.hasLocationPermission,
     required this.hasNotificationPermission,
     required this.hasBackgroundPermission,
+    required this.onPermissionUpdated,
   });
 
   @override
@@ -537,12 +551,45 @@ class _SosViewContent extends StatefulWidget {
 class _SosViewContentState extends State<_SosViewContent> {
   List<Map<String, dynamic>> _contacts = [];
   int _selectedContactIndex = 0;
+  List<Map<String, dynamic>> _localMappedApps = [];
 
   @override
   void initState() {
     super.initState();
     _loadCachedContacts();
     _fetchContactsFromBackend();
+    _loadLocalMappedApps();
+  }
+
+  Future<void> _loadLocalMappedApps() async {
+    if (!Platform.isIOS) return;
+    try {
+      final prefs = SharedPrefsService.prefs;
+      final list = prefs.getStringList('local_mapped_apps') ?? [];
+      if (mounted) {
+        setState(() {
+          _localMappedApps = list
+              .map((e) => jsonDecode(e) as Map<String, dynamic>)
+              .toList();
+        });
+      }
+    } catch (e) {
+      AppLogger.error("Failed to load local mapped apps: $e");
+    }
+  }
+
+  void _addMoreScreenTimeApps() async {
+    final granted = await injector<child_info.ChildInfoService>()
+        .openUsageSettings();
+    if (granted) {
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const AppCatalogScreen()),
+      ).then((_) {
+        _loadLocalMappedApps();
+      });
+    }
   }
 
   void _loadCachedContacts() {
@@ -817,6 +864,23 @@ class _SosViewContentState extends State<_SosViewContent> {
       } catch (e) {
         // Ignore errors if service wasn't running
         AppLogger.warning('Error stopping background service: $e');
+      }
+
+      // Stop native app blocking and clear iOS credentials
+      try {
+        await injector<LockSyncService>().syncLockedAppsToNative([]);
+        await injector<ChildRepo>().clearAppGroupCredentials();
+        AppLogger.info('Cleared native lock list and App Group credentials');
+      } catch (e) {
+        AppLogger.error('Error clearing native credentials: $e');
+      }
+
+      // Stop web filtering
+      try {
+        await injector<DeviceInfoService>().setWebFiltering(false);
+        AppLogger.info('Disabled web filtering on logout');
+      } catch (e) {
+        AppLogger.error('Error disabling web filtering: $e');
       }
 
       // Disconnect socket service
@@ -1276,33 +1340,22 @@ class _SosViewContentState extends State<_SosViewContent> {
                                         'Location',
                                         widget.hasLocationPermission,
                                         () async {
-                                          final currentStatus =
-                                              await Permission.location.status;
-                                          if (currentStatus.isGranted ||
-                                              currentStatus.isLimited) {
-                                            final statusAlways =
-                                                await Permission.locationAlways
-                                                    .request();
-                                            if (!statusAlways.isGranted) {
-                                              await openAppSettings();
-                                            }
-                                          } else {
-                                            final status = await Permission
-                                                .location
-                                                .request();
-                                            if (status.isGranted ||
-                                                status.isLimited) {
-                                              final statusAlways =
-                                                  await Permission
-                                                      .locationAlways
-                                                      .request();
-                                              if (!statusAlways.isGranted) {
-                                                await openAppSettings();
-                                              }
-                                            } else {
-                                              await openAppSettings();
-                                            }
+                                          LocationPermission permission =
+                                              await Geolocator.checkPermission();
+                                          if (permission ==
+                                              LocationPermission.denied) {
+                                            permission =
+                                                await Geolocator.requestPermission();
                                           }
+                                          if (permission ==
+                                                  LocationPermission
+                                                      .deniedForever ||
+                                              permission ==
+                                                  LocationPermission
+                                                      .whileInUse) {
+                                            await Geolocator.openAppSettings();
+                                          }
+                                          widget.onPermissionUpdated();
                                         },
                                       ),
                                       _buildPermissionItem(
@@ -1312,37 +1365,52 @@ class _SosViewContentState extends State<_SosViewContent> {
                                           context,
                                         ),
                                       ),
-                                      _buildPermissionItem(
-                                        'Notifications',
-                                        widget.hasNotificationPermission,
-                                        () async {
-                                          final status = await Permission
-                                              .notification
-                                              .request();
-                                          if (!status.isGranted) {
-                                            await openAppSettings();
-                                          }
-                                        },
-                                      ),
+                                      // _buildPermissionItem(
+                                      //   'Notifications',
+                                      //   widget.hasNotificationPermission,
+                                      //   () async {
+                                      //     final status = await Permission
+                                      //         .notification
+                                      //         .request();
+                                      //     if (!status.isGranted) {
+                                      //       await openAppSettings();
+                                      //     }
+                                      //     widget.onPermissionUpdated();
+                                      //   },
+                                      // ),
                                     ] else ...[
                                       _buildPermissionItem(
                                         'Location',
                                         widget.hasLocationPermission,
                                         () async {
-                                          final status = await Permission
-                                              .locationAlways
-                                              .request();
-                                          if (status.isPermanentlyDenied) {
-                                            await openAppSettings();
+                                          LocationPermission permission =
+                                              await Geolocator.checkPermission();
+                                          if (permission ==
+                                              LocationPermission.denied) {
+                                            permission =
+                                                await Geolocator.requestPermission();
                                           }
+                                          if (permission ==
+                                                  LocationPermission
+                                                      .deniedForever ||
+                                              permission ==
+                                                  LocationPermission
+                                                      .whileInUse) {
+                                            // If they denied it forever or only gave whileInUse, direct to settings.
+                                            await Geolocator.openAppSettings();
+                                          }
+                                          widget.onPermissionUpdated();
                                         },
                                       ),
                                       _buildPermissionItem(
                                         'Background Work',
                                         widget.hasBackgroundPermission,
-                                        () => Permission
-                                            .ignoreBatteryOptimizations
-                                            .request(),
+                                        () async {
+                                          await Permission
+                                              .ignoreBatteryOptimizations
+                                              .request();
+                                          widget.onPermissionUpdated();
+                                        },
                                       ),
                                       _buildPermissionItem(
                                         'App Usage',
@@ -1370,6 +1438,7 @@ class _SosViewContentState extends State<_SosViewContent> {
                                           if (status.isPermanentlyDenied) {
                                             await openAppSettings();
                                           }
+                                          widget.onPermissionUpdated();
                                         },
                                       ),
                                     ],
@@ -1415,6 +1484,60 @@ class _SosViewContentState extends State<_SosViewContent> {
                                         ),
                                       ],
                                     ),
+                                    if (Platform.isIOS &&
+                                        _localMappedApps.isNotEmpty) ...[
+                                      const SizedBox(height: 16),
+                                      const Divider(color: Color(0xFF2C2C2E)),
+                                      const SizedBox(height: 12),
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            'Monitored Apps',
+                                            style: GoogleFonts.manrope(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                          TextButton(
+                                            onPressed: _addMoreScreenTimeApps,
+                                            child: Text(
+                                              '+ Add More',
+                                              style: GoogleFonts.manrope(
+                                                fontWeight: FontWeight.bold,
+                                                color: const Color(0xFF0066FF),
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Wrap(
+                                        spacing: 8,
+                                        runSpacing: 8,
+                                        children: _localMappedApps.map((app) {
+                                          return Chip(
+                                            backgroundColor: const Color(
+                                              0xFF1C1C1E,
+                                            ),
+                                            side: const BorderSide(
+                                              color: Color(0xFF2C2C2E),
+                                            ),
+                                            label: Text(
+                                              app['customName'] ??
+                                                  'Unknown App',
+                                              style: GoogleFonts.manrope(
+                                                color: Colors.white,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          );
+                                        }).toList(),
+                                      ),
+                                    ],
                                   ],
                                 ),
                               ),

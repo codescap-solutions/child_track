@@ -1,6 +1,7 @@
 import 'package:child_track/app/home/model/last_trip_model.dart';
 import 'package:child_track/app/home/view/trips_view.dart';
 import 'package:child_track/app/home/view_model/bloc/homepage_bloc.dart';
+import 'package:child_track/app/home/view_model/bloc/homepage_state.dart';
 import 'package:child_track/app/map/view/map_view.dart';
 import 'package:child_track/core/di/injector.dart';
 import 'package:child_track/app/home/model/cards_model.dart';

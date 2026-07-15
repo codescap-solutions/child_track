@@ -32,6 +32,21 @@ class HomeRepository extends BaseService {
     );
   }
 
+  Future<BaseResponse<Map<String, dynamic>>> getTrackingSnapshot(String childId) async {
+    final response = await get<Map<String, dynamic>>(
+      ApiEndpoints.getTrackingSnapshot(childId),
+    );
+
+    if (response.isSuccess && response.data != null) {
+      return BaseResponse.success(data: response.data!, message: response.message);
+    }
+    
+    return BaseResponse.error(
+      message: response.message,
+      statusCode: response.statusCode,
+    );
+  }
+
   Future<BaseResponse> getCurrentLocationDetails() async {
     await Future.delayed(const Duration(seconds: 1));
     return BaseResponse(

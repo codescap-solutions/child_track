@@ -1,4 +1,13 @@
-part of 'homepage_bloc.dart';
+import 'package:child_track/app/home/model/cards_model.dart';
+import 'package:child_track/app/home/model/child_tracking_snapshot.dart';
+import 'package:child_track/app/home/model/device_model.dart';
+import 'package:child_track/app/home/model/home_model.dart';
+import 'package:child_track/app/home/model/last_trip_model.dart';
+import 'package:child_track/app/home/model/location_info_model.dart';
+import 'package:child_track/app/home/model/trip_detail_model.dart';
+import 'package:child_track/app/home/model/trip_list_model.dart';
+import 'package:child_track/app/home/model/yesterday_trip_summary_model.dart';
+import 'package:equatable/equatable.dart';
 
 sealed class HomepageState extends Equatable {
   const HomepageState();
@@ -18,7 +27,7 @@ final class HomepageSuccess extends HomepageState {
   final bool webFilteringEnabled;
   final bool waitingForSilentSyncResponse;
   final String? childAvatar;
-  
+
   // New Visual Section models from updated HomeResponse
   final FeatureSummary? features;
   final RouteMapSummary? todayRoute;
@@ -41,6 +50,9 @@ final class HomepageSuccess extends HomepageState {
 
   // Live active trip (from /parent/home active_trip)
   final ActiveTrip? activeTrip;
+
+  // Tracking snapshot
+  final ChildTrackingSnapshot? trackingSnapshot;
 
   const HomepageSuccess({
     required this.deviceInfo,
@@ -67,6 +79,7 @@ final class HomepageSuccess extends HomepageState {
     this.isLoadingTripDetail = false,
     this.selectedTripId,
     this.activeTrip,
+    this.trackingSnapshot,
   });
 
   // initial
@@ -96,6 +109,7 @@ final class HomepageSuccess extends HomepageState {
         isLoadingTripDetail: false,
         selectedTripId: null,
         activeTrip: null,
+        trackingSnapshot: null,
       );
 
   @override
@@ -124,6 +138,7 @@ final class HomepageSuccess extends HomepageState {
     isLoadingTripDetail,
     if (selectedTripId != null) selectedTripId!,
     if (activeTrip != null) activeTrip!,
+    if (trackingSnapshot != null) trackingSnapshot!,
   ];
 
   HomepageSuccess copyWith({
@@ -151,6 +166,7 @@ final class HomepageSuccess extends HomepageState {
     bool? isLoadingTripDetail,
     String? selectedTripId,
     ActiveTrip? activeTrip,
+    ChildTrackingSnapshot? trackingSnapshot,
   }) {
     return HomepageSuccess(
       deviceInfo: deviceInfo ?? this.deviceInfo,
@@ -161,7 +177,8 @@ final class HomepageSuccess extends HomepageState {
       isLoading: isLoading ?? this.isLoading,
       hasNoChild: hasNoChild ?? this.hasNoChild,
       webFilteringEnabled: webFilteringEnabled ?? this.webFilteringEnabled,
-      waitingForSilentSyncResponse: waitingForSilentSyncResponse ?? this.waitingForSilentSyncResponse,
+      waitingForSilentSyncResponse:
+          waitingForSilentSyncResponse ?? this.waitingForSilentSyncResponse,
       childAvatar: childAvatar ?? this.childAvatar,
       features: features ?? this.features,
       todayRoute: todayRoute ?? this.todayRoute,
@@ -177,6 +194,7 @@ final class HomepageSuccess extends HomepageState {
       isLoadingTripDetail: isLoadingTripDetail ?? this.isLoadingTripDetail,
       selectedTripId: selectedTripId ?? this.selectedTripId,
       activeTrip: activeTrip ?? this.activeTrip,
+      trackingSnapshot: trackingSnapshot ?? this.trackingSnapshot,
     );
   }
 }

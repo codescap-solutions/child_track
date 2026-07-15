@@ -6,6 +6,8 @@ class DeviceInfo {
   final bool isOnline;
   final String onlineSince;
   final bool isCharging;
+  final bool gpsEnabled;
+  final String locationPermissionStatus;
 
   DeviceInfo({
     required this.batteryPercentage,
@@ -15,6 +17,8 @@ class DeviceInfo {
     required this.isOnline,
     required this.onlineSince,
     required this.isCharging,
+    this.gpsEnabled = true,
+    this.locationPermissionStatus = 'unknown',
   });
 
   factory DeviceInfo.fromJson(Map<String, dynamic> json) {
@@ -26,6 +30,8 @@ class DeviceInfo {
       isOnline: json['is_online'] ?? false,
       onlineSince: json['last_update'] ?? '',
       isCharging: json['is_charging'] ?? false,
+      gpsEnabled: json['gps_enabled'] ?? true,
+      locationPermissionStatus: json['location_permission'] ?? 'unknown',
     );
   }
 
@@ -37,6 +43,8 @@ class DeviceInfo {
     bool? isOnline,
     String? onlineSince,
     bool? isCharging,
+    bool? gpsEnabled,
+    String? locationPermissionStatus,
   }) {
     return DeviceInfo(
       batteryPercentage: batteryPercentage ?? this.batteryPercentage,
@@ -46,6 +54,8 @@ class DeviceInfo {
       isOnline: isOnline ?? this.isOnline,
       onlineSince: onlineSince ?? this.onlineSince,
       isCharging: isCharging ?? this.isCharging,
+      gpsEnabled: gpsEnabled ?? this.gpsEnabled,
+      locationPermissionStatus: locationPermissionStatus ?? this.locationPermissionStatus,
     );
   }
 }

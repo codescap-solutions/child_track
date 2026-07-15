@@ -7,6 +7,8 @@ import 'package:child_track/app/home/model/yesterday_trip_summary_model.dart';
 import 'package:child_track/app/home/model/cards_model.dart';
 import 'package:child_track/app/home/model/trip_list_model.dart';
 import 'package:child_track/app/home/model/trip_detail_model.dart';
+import 'package:child_track/app/home/model/child_tracking_snapshot.dart';
+import 'package:child_track/app/home/view_model/bloc/homepage_state.dart';
 import 'package:child_track/app/home/view_model/home_repo.dart';
 import 'package:child_track/app/map/view_model/map_bloc.dart';
 import 'package:child_track/core/services/shared_prefs_service.dart';
@@ -17,7 +19,6 @@ import 'package:equatable/equatable.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 part 'homepage_event.dart';
-part 'homepage_state.dart';
 
 class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
   final HomeRepository _homeRepository;
@@ -89,7 +90,9 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
         startingState.copyWith(
           isLoading: true,
           trips: event.isProgressFetching ? startingState.trips : [],
-          hasReachedMax: event.isProgressFetching ? startingState.hasReachedMax : false,
+          hasReachedMax: event.isProgressFetching
+              ? startingState.hasReachedMax
+              : false,
           tripsPage: event.isProgressFetching ? startingState.tripsPage : 1,
           waitingForSilentSyncResponse: !event.isProgressFetching,
         ),
@@ -98,6 +101,18 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
 
     try {
       final response = await _homeRepository.getHomeData(childId: childId);
+
+      ChildTrackingSnapshot? trackingSnapshot;
+      if (childId != null) {
+        final snapshotResponse = await _homeRepository.getTrackingSnapshot(
+          childId,
+        );
+        if (snapshotResponse.isSuccess && snapshotResponse.data != null) {
+          trackingSnapshot = ChildTrackingSnapshot.fromJson(
+            snapshotResponse.data!,
+          );
+        }
+      }
 
       // Get the freshest state after the async gap to prevent overwriting other events
       final freshState = state is HomepageSuccess
@@ -140,9 +155,11 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
             screentimeToday: homeData.screentimeToday,
             sharedChildren: homeData.sharedChildren ?? [],
             activeTrip: homeData.activeTrip,
+            trackingSnapshot: trackingSnapshot ?? freshState.trackingSnapshot,
             isLoading: false,
             hasNoChild: false,
-            waitingForSilentSyncResponse: (event.isSilentRefresh || event.isProgressFetching)
+            waitingForSilentSyncResponse:
+                (event.isSilentRefresh || event.isProgressFetching)
                 ? false
                 : freshState.waitingForSilentSyncResponse,
           ),
@@ -160,7 +177,13 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
         // Check if error is due to no child connected
         if (response.message.toLowerCase().contains('child') ||
             response.message.toLowerCase().contains('not found')) {
-          emit(startingState.copyWith(isLoading: false, hasNoChild: true, waitingForSilentSyncResponse: false));
+          emit(
+            startingState.copyWith(
+              isLoading: false,
+              hasNoChild: true,
+              waitingForSilentSyncResponse: false,
+            ),
+          );
         } else {
           if (event.isProgressFetching || event.isSilentRefresh) {
             emit(freshState.copyWith(isLoading: false));
@@ -171,11 +194,15 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
       }
     } catch (e) {
       AppLogger.error('Error fetching home data: ${e.toString()}');
-      final freshState = state is HomepageSuccess ? state as HomepageSuccess : startingState;
+      final freshState = state is HomepageSuccess
+          ? state as HomepageSuccess
+          : startingState;
       if (event.isProgressFetching || event.isSilentRefresh) {
         emit(freshState.copyWith(isLoading: false));
       } else {
-        emit(HomepageError(message: 'Failed to load home data: ${e.toString()}'));
+        emit(
+          HomepageError(message: 'Failed to load home data: ${e.toString()}'),
+        );
       }
     }
   }
@@ -446,7 +473,8 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
     Emitter<HomepageState> emit,
   ) {
     final currentState = state;
-    if (currentState is HomepageSuccess && currentState.currentLocation != null) {
+    if (currentState is HomepageSuccess &&
+        currentState.currentLocation != null) {
       final updatedLocation = currentState.currentLocation!.copyWith(
         placeName: event.newName,
       );

@@ -1,6 +1,7 @@
 import 'package:child_track/app/home/model/last_trip_model.dart';
 import 'package:child_track/app/home/model/trip_detail_model.dart';
 import 'package:child_track/app/home/view_model/bloc/homepage_bloc.dart';
+import 'package:child_track/app/home/view_model/bloc/homepage_state.dart';
 import 'package:child_track/app/map/view/map_view.dart';
 import 'package:child_track/core/constants/app_colors.dart';
 import 'package:child_track/core/constants/app_sizes.dart';
@@ -54,9 +55,15 @@ class _TripDetailViewState extends State<TripDetailView> {
     _kalmanService = KalmanFilterService();
 
     // ── DEBUG: trace point counts entering TripDetailView ──────────
-    debugPrint('[TripDetailView] widget.trip.segmentId   = ${widget.trip.segmentId}');
-    debugPrint('[TripDetailView] widget.trip.polylinePoints.length = ${widget.trip.polylinePoints.length}');
-    debugPrint('[TripDetailView] widget.polylines.length = ${widget.polylines.length}');
+    debugPrint(
+      '[TripDetailView] widget.trip.segmentId   = ${widget.trip.segmentId}',
+    );
+    debugPrint(
+      '[TripDetailView] widget.trip.polylinePoints.length = ${widget.trip.polylinePoints.length}',
+    );
+    debugPrint(
+      '[TripDetailView] widget.polylines.length = ${widget.polylines.length}',
+    );
     // ───────────────────────────────────────────────────────────────
 
     // DIAGNOSTIC: Kalman bypassed — raw points to rule out filter coordinate collapse
@@ -66,7 +73,9 @@ class _TripDetailViewState extends State<TripDetailView> {
       _smoothedPoints = [];
     }
 
-    debugPrint('[TripDetailView] _smoothedPoints.length (Kalman OFF, raw) = ${_smoothedPoints.length}');
+    debugPrint(
+      '[TripDetailView] _smoothedPoints.length (Kalman OFF, raw) = ${_smoothedPoints.length}',
+    );
     if (_smoothedPoints.isNotEmpty) {
       debugPrint('[TripDetailView] first point = ${_smoothedPoints.first}');
       debugPrint('[TripDetailView] last  point = ${_smoothedPoints.last}');
@@ -78,7 +87,9 @@ class _TripDetailViewState extends State<TripDetailView> {
           .map((e) => '${e.latitude},${e.longitude}')
           .toSet()
           .length;
-      debugPrint('[TripDetailView] unique coords = $uniqueCount / ${_smoothedPoints.length}');
+      debugPrint(
+        '[TripDetailView] unique coords = $uniqueCount / ${_smoothedPoints.length}',
+      );
     }
 
     // 2. Generate local timeline events as a fallback/offline view
@@ -87,9 +98,15 @@ class _TripDetailViewState extends State<TripDetailView> {
     // 3. Initialize Playback Controller if route exists
     if (_smoothedPoints.isNotEmpty) {
       _playbackController = TripPlaybackController(route: _smoothedPoints);
-      _playbackController!.positionNotifier.addListener(_onPlaybackPositionChanged);
-      _playbackController!.progressNotifier.addListener(_onPlaybackProgressChanged);
-      _playbackController!.isPlayingNotifier.addListener(_onPlaybackPlayingChanged);
+      _playbackController!.positionNotifier.addListener(
+        _onPlaybackPositionChanged,
+      );
+      _playbackController!.progressNotifier.addListener(
+        _onPlaybackProgressChanged,
+      );
+      _playbackController!.isPlayingNotifier.addListener(
+        _onPlaybackPlayingChanged,
+      );
       _playbackController!.speedNotifier.addListener(_onPlaybackSpeedChanged);
       _currentPlaybackPosition = _smoothedPoints.first;
     }
@@ -134,9 +151,15 @@ class _TripDetailViewState extends State<TripDetailView> {
 
   @override
   void dispose() {
-    _playbackController?.positionNotifier.removeListener(_onPlaybackPositionChanged);
-    _playbackController?.progressNotifier.removeListener(_onPlaybackProgressChanged);
-    _playbackController?.isPlayingNotifier.removeListener(_onPlaybackPlayingChanged);
+    _playbackController?.positionNotifier.removeListener(
+      _onPlaybackPositionChanged,
+    );
+    _playbackController?.progressNotifier.removeListener(
+      _onPlaybackProgressChanged,
+    );
+    _playbackController?.isPlayingNotifier.removeListener(
+      _onPlaybackPlayingChanged,
+    );
     _playbackController?.speedNotifier.removeListener(_onPlaybackSpeedChanged);
     _playbackController?.dispose();
     super.dispose();
@@ -146,19 +169,27 @@ class _TripDetailViewState extends State<TripDetailView> {
     try {
       final List<Map<String, dynamic>> rawPoints = [];
       final points = widget.trip.polylinePoints;
-      final startTime = DateTime.tryParse(widget.trip.startTime) ?? DateTime.now();
+      final startTime =
+          DateTime.tryParse(widget.trip.startTime) ?? DateTime.now();
       final endTime = DateTime.tryParse(widget.trip.endTime) ?? DateTime.now();
       final totalSeconds = endTime.difference(startTime).inSeconds;
-      final stepSeconds = points.length > 1 ? totalSeconds ~/ (points.length - 1) : 0;
+      final stepSeconds = points.length > 1
+          ? totalSeconds ~/ (points.length - 1)
+          : 0;
 
       for (int i = 0; i < points.length; i++) {
         final p = points[i];
-        final ts = startTime.add(Duration(seconds: i * stepSeconds)).toIso8601String();
+        final ts = startTime
+            .add(Duration(seconds: i * stepSeconds))
+            .toIso8601String();
         double speed = 0.0;
         if (i > 0) {
           final prev = points[i - 1];
           final dist = Geolocator.distanceBetween(
-            prev.latitude, prev.longitude, p.latitude, p.longitude,
+            prev.latitude,
+            prev.longitude,
+            p.latitude,
+            p.longitude,
           );
           if (stepSeconds > 0) {
             speed = dist / stepSeconds; // m/s
@@ -211,7 +242,10 @@ class _TripDetailViewState extends State<TripDetailView> {
     final prev = _smoothedPoints[idx - 1];
     final curr = _smoothedPoints[idx];
     final dist = Geolocator.distanceBetween(
-      prev.latitude, prev.longitude, curr.latitude, curr.longitude,
+      prev.latitude,
+      prev.longitude,
+      curr.latitude,
+      curr.longitude,
     );
     // Estimate speed based on a default time interval of 5 seconds
     final speedMps = dist / 5.0;
@@ -225,7 +259,9 @@ class _TripDetailViewState extends State<TripDetailView> {
     final start = DateTime.tryParse(widget.trip.startTime) ?? DateTime.now();
     final end = DateTime.tryParse(widget.trip.endTime) ?? DateTime.now();
     final totalSec = end.difference(start).inSeconds;
-    final stepSec = _smoothedPoints.length > 1 ? totalSec ~/ (_smoothedPoints.length - 1) : 0;
+    final stepSec = _smoothedPoints.length > 1
+        ? totalSec ~/ (_smoothedPoints.length - 1)
+        : 0;
     final currentTs = start.add(Duration(seconds: idx * stepSec));
     return DateFormat('h:mm:ss a').format(currentTs).toLowerCase();
   }
@@ -291,9 +327,9 @@ class _TripDetailViewState extends State<TripDetailView> {
             maxSpeed = detail.maxSpeedKmph;
             totalDistance = detail.totalDistanceKm;
             try {
-              durationMinutes = DateTime.parse(detail.endTime)
-                  .difference(DateTime.parse(detail.startTime))
-                  .inMinutes;
+              durationMinutes = DateTime.parse(
+                detail.endTime,
+              ).difference(DateTime.parse(detail.startTime)).inMinutes;
             } catch (_) {}
 
             displayEvents = detail.events.map((e) {
@@ -339,7 +375,9 @@ class _TripDetailViewState extends State<TripDetailView> {
                 type: type,
                 time: DateTime.tryParse(e.time)?.toLocal() ?? DateTime.now(),
                 label: e.title,
-                stopDuration: e.durationMinutes != null ? Duration(minutes: e.durationMinutes!) : null,
+                stopDuration: e.durationMinutes != null
+                    ? Duration(minutes: e.durationMinutes!)
+                    : null,
                 speedKmh: e.maxSpeedKmph,
                 distanceKm: e.distanceKm,
               );
@@ -356,7 +394,9 @@ class _TripDetailViewState extends State<TripDetailView> {
               Marker(
                 markerId: const MarkerId('playback_marker'),
                 position: _currentPlaybackPosition!,
-                icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+                icon: BitmapDescriptor.defaultMarkerWithHue(
+                  BitmapDescriptor.hueAzure,
+                ),
                 infoWindow: InfoWindow(
                   title: 'Current Playback',
                   snippet: '${_currentSpeedKmh} km/h • ${_currentTimestamp}',
@@ -371,23 +411,34 @@ class _TripDetailViewState extends State<TripDetailView> {
           // 1. Kalman-smoothed points from widget.trip (pre-populated)
           // 2. Route from fetched TripDetailResponse (arrives async)
           // 3. Polylines passed from parent screen
-          final detailResponse = (state is HomepageSuccess &&
-              state.selectedTripDetail != null)
+          final detailResponse =
+              (state is HomepageSuccess && state.selectedTripDetail != null)
               ? state.selectedTripDetail!
               : null;
 
           // ── DEBUG: log ID comparison on every rebuild ────────────
           if (detailResponse != null) {
-            debugPrint('[TripDetailView] detail.tripId      = ${detailResponse.tripId}');
-            debugPrint('[TripDetailView] widget.segmentId   = ${widget.trip.segmentId}');
-            debugPrint('[TripDetailView] IDs match          = ${detailResponse.tripId == widget.trip.segmentId}');
-            debugPrint('[TripDetailView] detail route pts   = ${detailResponse.polylinePoints.length}');
+            debugPrint(
+              '[TripDetailView] detail.tripId      = ${detailResponse.tripId}',
+            );
+            debugPrint(
+              '[TripDetailView] widget.segmentId   = ${widget.trip.segmentId}',
+            );
+            debugPrint(
+              '[TripDetailView] IDs match          = ${detailResponse.tripId == widget.trip.segmentId}',
+            );
+            debugPrint(
+              '[TripDetailView] detail route pts   = ${detailResponse.polylinePoints.length}',
+            );
           }
-          debugPrint('[TripDetailView] _smoothedPoints.length = ${_smoothedPoints.length}');
+          debugPrint(
+            '[TripDetailView] _smoothedPoints.length = ${_smoothedPoints.length}',
+          );
           // ────────────────────────────────────────────────────────
 
-          final detailPoints = (detailResponse != null &&
-              detailResponse.tripId == widget.trip.segmentId)
+          final detailPoints =
+              (detailResponse != null &&
+                  detailResponse.tripId == widget.trip.segmentId)
               ? detailResponse.polylinePoints
               : <LatLng>[];
 
@@ -395,25 +446,33 @@ class _TripDetailViewState extends State<TripDetailView> {
               ? _smoothedPoints
               : detailPoints;
 
-          debugPrint('[TripDetailView] activePoints.length = ${activePoints.length}');
+          debugPrint(
+            '[TripDetailView] activePoints.length = ${activePoints.length}',
+          );
 
           if (activePoints.isNotEmpty) {
             // ── DIAGNOSTIC COORD LOGS ──────────────────────────────────
-            debugPrint('[TripDetailView] activePoints.first = ${activePoints.first}');
-            debugPrint('[TripDetailView] activePoints.last  = ${activePoints.last}');
+            debugPrint(
+              '[TripDetailView] activePoints.first = ${activePoints.first}',
+            );
+            debugPrint(
+              '[TripDetailView] activePoints.last  = ${activePoints.last}',
+            );
             final uniqueCoords = activePoints
                 .map((e) => '${e.latitude},${e.longitude}')
                 .toSet();
-            debugPrint('[TripDetailView] unique coords = ${uniqueCoords.length} / ${activePoints.length}');
+            debugPrint(
+              '[TripDetailView] unique coords = ${uniqueCoords.length} / ${activePoints.length}',
+            );
             // ─────────────────────────────────────────────────────────
 
             polylines.add(
               Polyline(
                 polylineId: const PolylineId('smoothed_route'),
                 points: activePoints,
-                color: Colors.red,    // DIAGNOSTIC: bright red
-                width: 8,             // DIAGNOSTIC: thick
-                geodesic: true,       // DIAGNOSTIC: geodesic
+                color: Colors.red, // DIAGNOSTIC: bright red
+                width: 8, // DIAGNOSTIC: thick
+                geodesic: true, // DIAGNOSTIC: geodesic
                 startCap: Cap.roundCap,
                 endCap: Cap.roundCap,
                 patterns: [],
@@ -427,10 +486,14 @@ class _TripDetailViewState extends State<TripDetailView> {
               });
             }
           } else if (widget.polylines.isNotEmpty) {
-            debugPrint('[TripDetailView] Falling back to widget.polylines (${widget.polylines.length})');
+            debugPrint(
+              '[TripDetailView] Falling back to widget.polylines (${widget.polylines.length})',
+            );
             polylines.addAll(widget.polylines);
           } else {
-            debugPrint('[TripDetailView] ⚠️ NO POINTS AVAILABLE — polyline will be empty');
+            debugPrint(
+              '[TripDetailView] ⚠️ NO POINTS AVAILABLE — polyline will be empty',
+            );
           }
 
           return Scaffold(
@@ -439,7 +502,11 @@ class _TripDetailViewState extends State<TripDetailView> {
               children: [
                 // Map Section (Full screen)
                 Positioned.fill(
-                  child: _buildMapSection(context, markers.toList(), polylines.toList()),
+                  child: _buildMapSection(
+                    context,
+                    markers.toList(),
+                    polylines.toList(),
+                  ),
                 ),
 
                 // Playback info overlay (top-mid)
@@ -455,7 +522,10 @@ class _TripDetailViewState extends State<TripDetailView> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
                         child: Row(
                           children: [
                             Container(
@@ -497,7 +567,7 @@ class _TripDetailViewState extends State<TripDetailView> {
                                 _playbackController?.pause();
                                 _playbackController?.seekTo(0.0);
                               },
-                            )
+                            ),
                           ],
                         ),
                       ),
@@ -555,25 +625,37 @@ class _TripDetailViewState extends State<TripDetailView> {
                                 vertical: AppSizes.paddingM,
                               ),
                               children: [
-                                _buildTripHeaderStats(totalDistance, durationMinutes, maxSpeed),
+                                _buildTripHeaderStats(
+                                  totalDistance,
+                                  durationMinutes,
+                                  maxSpeed,
+                                ),
 
                                 // Activities Used: compact chip row derived from segments[].type
                                 if (state is HomepageSuccess &&
                                     state.selectedTripDetail != null &&
-                                    state.selectedTripDetail!.segments.isNotEmpty) ...
-                                  [
-                                    const SizedBox(height: AppSizes.spacingL),
-                                    _buildActivitiesUsedSummary(state.selectedTripDetail!.segments),
-                                  ],
+                                    state
+                                        .selectedTripDetail!
+                                        .segments
+                                        .isNotEmpty) ...[
+                                  const SizedBox(height: AppSizes.spacingL),
+                                  _buildActivitiesUsedSummary(
+                                    state.selectedTripDetail!.segments,
+                                  ),
+                                ],
 
                                 // Activity Breakdown: per-segment detail cards
                                 if (state is HomepageSuccess &&
                                     state.selectedTripDetail != null &&
-                                    state.selectedTripDetail!.segments.isNotEmpty) ...
-                                  [
-                                    const SizedBox(height: AppSizes.spacingL),
-                                    _buildActivityBreakdown(state.selectedTripDetail!.segments),
-                                  ],
+                                    state
+                                        .selectedTripDetail!
+                                        .segments
+                                        .isNotEmpty) ...[
+                                  const SizedBox(height: AppSizes.spacingL),
+                                  _buildActivityBreakdown(
+                                    state.selectedTripDetail!.segments,
+                                  ),
+                                ],
 
                                 const SizedBox(height: AppSizes.spacingL),
                                 const Divider(),
@@ -585,7 +667,8 @@ class _TripDetailViewState extends State<TripDetailView> {
                                   ),
                                 ),
                                 const SizedBox(height: AppSizes.spacingM),
-                                if (state is HomepageSuccess && state.isLoadingTripDetail)
+                                if (state is HomepageSuccess &&
+                                    state.isLoadingTripDetail)
                                   const Center(
                                     child: Padding(
                                       padding: EdgeInsets.all(24.0),
@@ -593,7 +676,10 @@ class _TripDetailViewState extends State<TripDetailView> {
                                     ),
                                   )
                                 else
-                                  ...displayEvents.map((event) => _buildEnhancedTimelineItem(event)),
+                                  ...displayEvents.map(
+                                    (event) =>
+                                        _buildEnhancedTimelineItem(event),
+                                  ),
                               ],
                             ),
                           ),
@@ -623,7 +709,9 @@ class _TripDetailViewState extends State<TripDetailView> {
                 icon: Icon(
                   _playbackController!.isAtEnd
                       ? Icons.replay
-                      : (_isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled),
+                      : (_isPlaying
+                            ? Icons.pause_circle_filled
+                            : Icons.play_circle_filled),
                 ),
                 onPressed: () {
                   if (_playbackController!.isAtEnd) {
@@ -640,8 +728,12 @@ class _TripDetailViewState extends State<TripDetailView> {
                 child: SliderTheme(
                   data: SliderTheme.of(context).copyWith(
                     trackHeight: 4,
-                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
-                    overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
+                    thumbShape: const RoundSliderThumbShape(
+                      enabledThumbRadius: 8,
+                    ),
+                    overlayShape: const RoundSliderOverlayShape(
+                      overlayRadius: 16,
+                    ),
                   ),
                   child: Slider(
                     value: _playbackProgress,
@@ -678,7 +770,11 @@ class _TripDetailViewState extends State<TripDetailView> {
     );
   }
 
-  Widget _buildTripHeaderStats(double distanceKm, int durationMinutes, double maxSpeedKmph) {
+  Widget _buildTripHeaderStats(
+    double distanceKm,
+    int durationMinutes,
+    double maxSpeedKmph,
+  ) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
@@ -719,9 +815,7 @@ class _TripDetailViewState extends State<TripDetailView> {
         ),
         Text(
           label,
-          style: AppTextStyles.caption.copyWith(
-            color: AppColors.textSecondary,
-          ),
+          style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary),
         ),
       ],
     );
@@ -870,26 +964,24 @@ class _TripDetailViewState extends State<TripDetailView> {
                       fontWeight: FontWeight.w500,
                     ),
                   ),
-                  if (avgKmh > 0) ...
-                    [
-                      const SizedBox(height: 2),
-                      Text(
-                        'Avg Speed: ${avgKmh.toStringAsFixed(1)} km/h',
-                        style: AppTextStyles.caption.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
+                  if (avgKmh > 0) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      'Avg Speed: ${avgKmh.toStringAsFixed(1)} km/h',
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.textSecondary,
                       ),
-                    ],
-                  if (maxKmh > 0) ...
-                    [
-                      const SizedBox(height: 2),
-                      Text(
-                        'Max Speed: ${maxKmh.toStringAsFixed(1)} km/h',
-                        style: AppTextStyles.caption.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
+                    ),
+                  ],
+                  if (maxKmh > 0) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      'Max Speed: ${maxKmh.toStringAsFixed(1)} km/h',
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.textSecondary,
                       ),
-                    ],
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -916,7 +1008,11 @@ class _TripDetailViewState extends State<TripDetailView> {
       case 'stopped':
         return {'emoji': '⏸️', 'label': 'Stationary', 'color': Colors.grey};
       default:
-        return {'emoji': '📍', 'label': _capitalize(type), 'color': AppColors.primaryColor};
+        return {
+          'emoji': '📍',
+          'label': _capitalize(type),
+          'color': AppColors.primaryColor,
+        };
     }
   }
 
@@ -991,10 +1087,7 @@ class _TripDetailViewState extends State<TripDetailView> {
                   child: Icon(icon, color: color, size: 16),
                 ),
                 Expanded(
-                  child: Container(
-                    width: 2,
-                    color: AppColors.borderColor,
-                  ),
+                  child: Container(width: 2, color: AppColors.borderColor),
                 ),
               ],
             ),
@@ -1071,7 +1164,11 @@ class _TripDetailViewState extends State<TripDetailView> {
           child: MapViewWidget(
             onMapCreated: (controller) {
               _mapController = controller;
-              _fitBounds(_smoothedPoints.isNotEmpty ? _smoothedPoints : widget.trip.polylinePoints);
+              _fitBounds(
+                _smoothedPoints.isNotEmpty
+                    ? _smoothedPoints
+                    : widget.trip.polylinePoints,
+              );
             },
             interactive: true,
             width: double.infinity,
@@ -1079,7 +1176,9 @@ class _TripDetailViewState extends State<TripDetailView> {
             height: double.infinity,
             currentPosition: _smoothedPoints.isNotEmpty
                 ? _smoothedPoints.first
-                : (widget.markers.isNotEmpty ? widget.markers.first.position : const LatLng(0, 0)),
+                : (widget.markers.isNotEmpty
+                      ? widget.markers.first.position
+                      : const LatLng(0, 0)),
             markers: markers,
             useEagerGestures: true,
             polylines: polylines,

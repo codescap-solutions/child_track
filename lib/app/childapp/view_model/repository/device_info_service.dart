@@ -427,4 +427,49 @@ class ChildInfoService {
       return [];
     }
   }
+
+  /// Remove a specific app mapping from iOS native selection and cache
+  Future<bool> removeMapping(String id) async {
+    try {
+      if (Platform.isIOS) {
+        const iosChannel = MethodChannel('com.truenyx.naviq/parental_control');
+        final result = await iosChannel.invokeMethod<bool>('removeMapping', id);
+        return result ?? false;
+      }
+      return false;
+    } catch (e) {
+      AppLogger.error('Error removing mapping: $e');
+      return false;
+    }
+  }
+
+  /// Clear all mappings and selection tokens on iOS native side
+  Future<bool> clearAllMappings() async {
+    try {
+      if (Platform.isIOS) {
+        const iosChannel = MethodChannel('com.truenyx.naviq/parental_control');
+        final result = await iosChannel.invokeMethod<bool>('clearAllMappings');
+        return result ?? false;
+      }
+      return false;
+    } catch (e) {
+      AppLogger.error('Error clearing all mappings: $e');
+      return false;
+    }
+  }
+
+  /// Get unique device identifier on iOS / fallback
+  Future<String> getDeviceId() async {
+    try {
+      if (Platform.isIOS) {
+        const iosChannel = MethodChannel('com.truenyx.naviq/parental_control');
+        final result = await iosChannel.invokeMethod<String>('getDeviceId');
+        return result ?? 'unknown_ios_device';
+      }
+      return 'android_device';
+    } catch (e) {
+      AppLogger.error('Error getting device ID: $e');
+      return 'unknown_device';
+    }
+  }
 }

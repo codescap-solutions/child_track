@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:ui' as ui;
+import 'package:child_track/app/home/view_model/bloc/homepage_state.dart';
 import 'package:child_track/core/services/firebase_notification_service.dart';
 import 'package:child_track/core/models/child_profile.dart';
 import 'package:http/http.dart' as http;
@@ -1664,7 +1665,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           if (curr is HomepageSuccess) {
             final activeId = _sharedPrefsService.getString('child_id');
             if (prev is HomepageSuccess) {
-              return prev.isLoading != curr.isLoading || activeId != _currentLoadedChildId;
+              return prev.isLoading != curr.isLoading ||
+                  activeId != _currentLoadedChildId;
             }
             return true;
           }
@@ -3713,11 +3715,23 @@ class _HomeMapBackgroundState extends State<_HomeMapBackground>
                   position: location,
                   icon: _cachedMarkerIcon!,
                   anchor: const Offset(0.5, 1.0),
+                  alpha:
+                      (state is HomepageSuccess &&
+                          state.trackingSnapshot?.uiDirective.showStaleMarker ==
+                              true)
+                      ? 0.5
+                      : 1.0,
                 )
               else
                 Marker(
                   markerId: const MarkerId('child_location'),
                   position: location,
+                  alpha:
+                      (state is HomepageSuccess &&
+                          state.trackingSnapshot?.uiDirective.showStaleMarker ==
+                              true)
+                      ? 0.5
+                      : 1.0,
                 ),
             },
             if (state is HomepageSuccess) ...{
@@ -3753,44 +3767,71 @@ class _HomeMapBackgroundState extends State<_HomeMapBackground>
             },
           };
 
-          return MapViewWidget(
-            key: const ValueKey('home_map_static'),
-            width: double.infinity,
-            height: double.infinity,
-            interactive: true,
-            useEagerGestures: true,
-            currentPosition:
-                widget.viewingSharedChild &&
-                    widget.activeSharedChildData != null
-                ? LatLng(
-                    widget.activeSharedChildData!['lat'],
-                    widget.activeSharedChildData!['lng'],
-                  )
-                : location,
-            markers: markers.toList(),
-            myLocationEnabled: true,
-            minZoom: 0.0,
-            maxZoom: 20,
-            myLocationButtonEnabled:
-                false, // replaced by our custom Locate Me FAB
-            onMapCreated: (controller) {
-              _mapController = controller;
-              final target =
-                  widget.viewingSharedChild &&
-                      widget.activeSharedChildData != null
-                  ? LatLng(
-                      widget.activeSharedChildData!['lat'],
-                      widget.activeSharedChildData!['lng'],
-                    )
-                  : location;
-              if (target != null) {
-                Future.delayed(const Duration(milliseconds: 300), () {
-                  if (mounted && _mapController != null) {
-                    _animateTo(target);
+          return Stack(
+            children: [
+              MapViewWidget(
+                key: const ValueKey('home_map_static'),
+                width: double.infinity,
+                height: double.infinity,
+                interactive: true,
+                useEagerGestures: true,
+                currentPosition:
+                    widget.viewingSharedChild &&
+                        widget.activeSharedChildData != null
+                    ? LatLng(
+                        widget.activeSharedChildData!['lat'],
+                        widget.activeSharedChildData!['lng'],
+                      )
+                    : location,
+                markers: markers.toList(),
+                myLocationEnabled: true,
+                minZoom: 0.0,
+                maxZoom: 20,
+                myLocationButtonEnabled:
+                    false, // replaced by our custom Locate Me FAB
+                onMapCreated: (controller) {
+                  _mapController = controller;
+                  final target =
+                      widget.viewingSharedChild &&
+                          widget.activeSharedChildData != null
+                      ? LatLng(
+                          widget.activeSharedChildData!['lat'],
+                          widget.activeSharedChildData!['lng'],
+                        )
+                      : location;
+                  if (target != null) {
+                    Future.delayed(const Duration(milliseconds: 300), () {
+                      if (mounted && _mapController != null) {
+                        _animateTo(target);
+                      }
+                    });
                   }
-                });
-              }
-            },
+                },
+              ),
+              if (state is HomepageSuccess &&
+                  state.trackingSnapshot != null &&
+                  state.trackingSnapshot!.uiDirective.bannerMessage.isNotEmpty)
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    color: Colors.redAccent.withOpacity(0.9),
+                    child: Text(
+                      state.trackingSnapshot!.uiDirective.bannerMessage,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
           );
         },
       ),

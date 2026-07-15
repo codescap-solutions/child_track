@@ -1,3 +1,4 @@
+import 'package:child_track/app/home/view_model/bloc/homepage_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -227,11 +228,19 @@ class _GeoFencingViewState extends State<GeoFencingView> {
                             toggleValue: geofence.isLocked ?? false,
                             category: geofence.category,
                             onTap: _isPrimaryParent
-                                ? () => _navigateToLocationSelection(geofence: geofence)
-                                : () => AppSnackbar.showError(context, 'Guardians have view-only access. Only primary parents can edit geofences.'),
+                                ? () => _navigateToLocationSelection(
+                                    geofence: geofence,
+                                  )
+                                : () => AppSnackbar.showError(
+                                    context,
+                                    'Guardians have view-only access. Only primary parents can edit geofences.',
+                                  ),
                             onToggle: (value) {
                               if (!_isPrimaryParent) {
-                                AppSnackbar.showError(context, 'Guardians have view-only access. Only primary parents can edit geofences.');
+                                AppSnackbar.showError(
+                                  context,
+                                  'Guardians have view-only access. Only primary parents can edit geofences.',
+                                );
                                 return;
                               }
                               if (geofence.id != null) {
@@ -243,7 +252,9 @@ class _GeoFencingViewState extends State<GeoFencingView> {
                                 );
                               } else {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Invalid geofence ID')),
+                                  const SnackBar(
+                                    content: Text('Invalid geofence ID'),
+                                  ),
                                 );
                               }
                             },
@@ -294,11 +305,7 @@ class _GeoFencingViewState extends State<GeoFencingView> {
               onPressed: _navigateToPlaceSelection,
               backgroundColor: const Color(0xFF0066FF),
               shape: const CircleBorder(),
-              child: const Icon(
-                Icons.add,
-                color: Colors.white,
-                size: 28,
-              ),
+              child: const Icon(Icons.add, color: Colors.white, size: 28),
             )
           : null,
     );
@@ -399,7 +406,10 @@ class _GeoFencingViewState extends State<GeoFencingView> {
       child: ListTile(
         onTap: () {
           if (!_isPrimaryParent) {
-            AppSnackbar.showError(context, 'Guardians have view-only access. Only primary parents can edit geofences.');
+            AppSnackbar.showError(
+              context,
+              'Guardians have view-only access. Only primary parents can edit geofences.',
+            );
             return;
           }
           Navigator.push(
@@ -423,7 +433,10 @@ class _GeoFencingViewState extends State<GeoFencingView> {
             if (!mounted) return;
             if (widget.childId != null && _lastDateParam != null) {
               context.read<GeofenceBloc>().add(
-                GetGeofencesRequested(childId: widget.childId!, date: _lastDateParam!),
+                GetGeofencesRequested(
+                  childId: widget.childId!,
+                  date: _lastDateParam!,
+                ),
               );
             }
             injector<HomepageBloc>().add(const GetHomepageData());
@@ -475,17 +488,28 @@ class _GeoFencingViewState extends State<GeoFencingView> {
       if (!mounted) return;
       if (widget.childId != null && _lastDateParam != null) {
         context.read<GeofenceBloc>().add(
-          GetGeofencesRequested(childId: widget.childId!, date: _lastDateParam!),
+          GetGeofencesRequested(
+            childId: widget.childId!,
+            date: _lastDateParam!,
+          ),
         );
       }
-      
-      if (result != null && result is Map && result['action'] == 'updated' && result['geofence'] != null) {
+
+      if (result != null &&
+          result is Map &&
+          result['action'] == 'updated' &&
+          result['geofence'] != null) {
         final updatedGeofence = result['geofence'] as Geofence;
         final homeBloc = injector<HomepageBloc>();
         final currentState = homeBloc.state;
-        if (currentState is HomepageSuccess && currentState.currentLocation != null) {
-          if (geofence != null && geofence.name != null && currentState.currentLocation!.placeName == geofence.name) {
-            homeBloc.add(UpdateCurrentLocationName(updatedGeofence.name ?? "Unknown"));
+        if (currentState is HomepageSuccess &&
+            currentState.currentLocation != null) {
+          if (geofence != null &&
+              geofence.name != null &&
+              currentState.currentLocation!.placeName == geofence.name) {
+            homeBloc.add(
+              UpdateCurrentLocationName(updatedGeofence.name ?? "Unknown"),
+            );
           }
         }
       }
@@ -508,7 +532,10 @@ class _GeoFencingViewState extends State<GeoFencingView> {
       // Refresh geofences list on return
       if (widget.childId != null && _lastDateParam != null) {
         context.read<GeofenceBloc>().add(
-          GetGeofencesRequested(childId: widget.childId!, date: _lastDateParam!),
+          GetGeofencesRequested(
+            childId: widget.childId!,
+            date: _lastDateParam!,
+          ),
         );
       }
       injector<HomepageBloc>().add(const GetHomepageData());
@@ -599,7 +626,9 @@ class _GeoFencingViewState extends State<GeoFencingView> {
     final homeState = injector<HomepageBloc>().state;
     LatLng? currentLatLng;
     String? currentAddress;
-    if (isCurrentLocation && homeState is HomepageSuccess && homeState.currentLocation != null) {
+    if (isCurrentLocation &&
+        homeState is HomepageSuccess &&
+        homeState.currentLocation != null) {
       final loc = homeState.currentLocation!;
       currentLatLng = LatLng(loc.lat, loc.lng);
       currentAddress = loc.address;
@@ -608,7 +637,10 @@ class _GeoFencingViewState extends State<GeoFencingView> {
     return GestureDetector(
       onTap: () {
         if (!_isPrimaryParent) {
-          AppSnackbar.showError(context, 'Guardians have view-only access. Only primary parents can edit geofences.');
+          AppSnackbar.showError(
+            context,
+            'Guardians have view-only access. Only primary parents can edit geofences.',
+          );
           return;
         }
         Navigator.push(
@@ -634,7 +666,10 @@ class _GeoFencingViewState extends State<GeoFencingView> {
           if (!mounted) return;
           if (widget.childId != null && _lastDateParam != null) {
             context.read<GeofenceBloc>().add(
-              GetGeofencesRequested(childId: widget.childId!, date: _lastDateParam!),
+              GetGeofencesRequested(
+                childId: widget.childId!,
+                date: _lastDateParam!,
+              ),
             );
           }
           injector<HomepageBloc>().add(const GetHomepageData());
@@ -662,11 +697,7 @@ class _GeoFencingViewState extends State<GeoFencingView> {
                 color: circleBg,
                 shape: BoxShape.circle,
               ),
-              child: Icon(
-                icon,
-                color: Colors.white,
-                size: 24,
-              ),
+              child: Icon(icon, color: Colors.white, size: 24),
             ),
             const SizedBox(height: 10),
             Text(

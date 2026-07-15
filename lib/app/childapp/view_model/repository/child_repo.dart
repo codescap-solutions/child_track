@@ -317,9 +317,80 @@ class ChildRepo extends BaseService {
     }
   }
 
+  Future<void> clearAppGroupCredentials() async {
+    if (!Platform.isIOS) return;
+    try {
+      const channel = MethodChannel('com.truenyx.naviq/parental_control');
+      await channel.invokeMethod<bool>('saveAuthToken', '');
+      await channel.invokeMethod<bool>('saveApiBaseUrl', '');
+      await channel.invokeMethod<bool>('saveChildId', '');
+      AppLogger.info('ChildRepo: iOS App Group credentials cleared ✅');
+    } catch (e) {
+      AppLogger.error('ChildRepo: Failed to clear App Group credentials: $e');
+    }
+  }
+
   Future<BaseResponse<List<dynamic>>> getChildContacts() async {
     final response = await get<List<dynamic>>(
       ApiEndpoints.childContacts,
+    );
+    if (response.isSuccess && response.data != null) {
+      return BaseResponse.success(
+        data: response.data!,
+        message: response.message,
+      );
+    }
+    return BaseResponse.error(
+      message: response.message,
+      statusCode: response.statusCode,
+    );
+  }
+
+  /// Fetch categorized catalog apps from backend
+  Future<BaseResponse<Map<String, dynamic>>> getScreenTimeApps() async {
+    final response = await get<Map<String, dynamic>>(
+      ApiEndpoints.screenTimeApps,
+    );
+    if (response.isSuccess && response.data != null) {
+      return BaseResponse.success(
+        data: response.data!,
+        message: response.message,
+      );
+    }
+    return BaseResponse.error(
+      message: response.message,
+      statusCode: response.statusCode,
+    );
+  }
+
+  /// Bulk upload device app mappings to backend
+  Future<BaseResponse<dynamic>> postAppMappings(Map<String, dynamic> body) async {
+    final childId = _sharedPrefsService.getString('child_id');
+    if (childId != null) {
+      body['childId'] = childId;
+    }
+    final response = await post<dynamic>(
+      ApiEndpoints.appMappings,
+      data: body,
+    );
+    if (response.isSuccess) {
+      return BaseResponse.success(
+        data: response.data,
+        message: response.message,
+      );
+    }
+    return BaseResponse.error(
+      message: response.message,
+      statusCode: response.statusCode,
+    );
+  }
+
+  /// Fetch existing mappings for this device to support resuming session
+  Future<BaseResponse<List<dynamic>>> getAppMappings(String deviceId) async {
+    final childId = _sharedPrefsService.getString('child_id');
+    final query = childId != null ? '?deviceId=$deviceId&childId=$childId' : '?deviceId=$deviceId';
+    final response = await get<List<dynamic>>(
+      '${ApiEndpoints.appMappings}$query',
     );
     if (response.isSuccess && response.data != null) {
       return BaseResponse.success(

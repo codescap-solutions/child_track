@@ -9,9 +9,13 @@ import 'package:child_track/core/services/location_service.dart';
 import 'package:child_track/core/services/background_location_service.dart';
 import 'package:child_track/core/services/device_info_service.dart';
 import 'package:child_track/app/childapp/view_model/repository/device_info_service.dart';
+import 'package:child_track/app/childapp/view_model/repository/child_repo.dart';
 import 'package:child_track/core/di/injector.dart';
 import 'package:child_track/core/utils/app_logger.dart';
 import 'package:child_track/app/childapp/view/sos_view.dart';
+import 'package:child_track/app/auth/view/onboarding/mapping_context_screen.dart';
+import 'package:child_track/app/auth/view/onboarding/app_catalog_screen.dart';
+import 'package:flutter/cupertino.dart';
 
 enum PermissionStep {
   location,
@@ -94,16 +98,26 @@ class _PermissionSequenceScreenState extends State<PermissionSequenceScreen>
       switch (step) {
         case PermissionStep.location:
           final permission = await Geolocator.checkPermission();
-          isGranted = permission == LocationPermission.always;
+          isGranted = permission == LocationPermission.always || permission == LocationPermission.whileInUse;
           break;
         case PermissionStep.notification:
-          isGranted = await Permission.notification.isGranted;
+          final status = await Permission.notification.status;
+          isGranted = status.isGranted || (Platform.isIOS && status.isProvisional);
           break;
         case PermissionStep.battery:
           isGranted = await Permission.ignoreBatteryOptimizations.isGranted;
           break;
         case PermissionStep.usageData:
           isGranted = await injector<ChildInfoService>().checkUsagePermission();
+          if (Platform.isIOS && isGranted) {
+            final deviceId = await injector<ChildInfoService>().getDeviceId();
+            final res = await injector<ChildRepo>().getAppMappings(deviceId);
+            if (res.isSuccess && res.data != null && res.data!.isNotEmpty) {
+              isGranted = true;
+            } else {
+              isGranted = false;
+            }
+          }
           break;
         case PermissionStep.accessibility:
           isGranted = await injector<DeviceInfoService>()
@@ -199,12 +213,50 @@ class _PermissionSequenceScreenState extends State<PermissionSequenceScreen>
           break;
 
         case PermissionStep.usageData:
-          final granted = await injector<ChildInfoService>()
-              .checkUsagePermission();
-          if (granted) {
-            _advanceToNextStep();
+          if (Platform.isIOS) {
+            // First: Request raw Screen Time authorization if not granted
+            final authorized = await injector<ChildInfoService>().checkUsagePermission();
+            if (!authorized) {
+              final granted = await injector<ChildInfoService>().openUsageSettings();
+              if (!granted) {
+                // User rejected permission request
+                return;
+              }
+            }
+
+            // Once Screen Time authorized: Navigate through App Mapping Context & Catalog sequence
+            if (mounted) {
+              Navigator.push(
+                context,
+                CupertinoPageRoute(
+                  builder: (context) => MappingContextScreen(
+                    onContinue: () {
+                      Navigator.pushReplacement(
+                        context,
+                        CupertinoPageRoute(
+                          builder: (context) => const AppCatalogScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ).then((_) async {
+                // When returning, verify if mappings successfully configured on backend
+                final deviceId = await injector<ChildInfoService>().getDeviceId();
+                final res = await injector<ChildRepo>().getAppMappings(deviceId);
+                if (res.isSuccess && res.data != null && res.data!.isNotEmpty) {
+                  _advanceToNextStep();
+                }
+              });
+            }
           } else {
-            await injector<ChildInfoService>().openUsageSettings();
+            final granted = await injector<ChildInfoService>()
+                .checkUsagePermission();
+            if (granted) {
+              _advanceToNextStep();
+            } else {
+              await injector<ChildInfoService>().openUsageSettings();
+            }
           }
           break;
 

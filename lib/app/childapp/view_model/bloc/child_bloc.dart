@@ -432,7 +432,8 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> with WidgetsBindingObserver
         "network_type": event.deviceInfo.networkType,
         "sound_profile": event.deviceInfo.soundProfile,
         "is_online": event.deviceInfo.isOnline,
-
+        "gps_enabled": event.deviceInfo.gpsEnabled,
+        "location_permission": event.deviceInfo.locationPermissionStatus,
         "timestamp": DateTime.now().toUtc().toIso8601String(),
       };
       await _childRepo.postChildData(requestBody);

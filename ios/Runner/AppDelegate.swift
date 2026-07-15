@@ -635,8 +635,18 @@ import os.log
                 result(nil)
             case "openFamilyActivityPicker":
                 self.openFamilyActivityPicker(result: result)
+            case "removeMapping":
+                if let id = call.arguments as? String {
+                    self.removeMapping(id: id, result: result)
+                } else {
+                    result(FlutterError(code: "INVALID_ARGS", message: "Expected string id", details: nil))
+                }
+            case "clearAllMappings":
+                self.clearAllMappings(result: result)
             case "getMonitoredApps":
                 self.getMonitoredApps(result: result)
+            case "getDeviceId":
+                result(UIDevice.current.identifierForVendor?.uuidString ?? "unknown_ios_device")
             case "setWebFiltering":
                 if let enabled = call.arguments as? Bool {
                     self.setWebFiltering(enabled: enabled, result: result)
@@ -803,6 +813,46 @@ import os.log
         let pickerVC = FamilyActivityPickerController()
         pickerVC.onComplete = { tokens in result(tokens) }
         controller.present(pickerVC, animated: true)
+    }
+
+    private func removeMapping(id: String, result: @escaping FlutterResult) {
+        guard #available(iOS 16.0, *) else { result(false); return }
+        let defaults = UserDefaults(suiteName: "group.com.truenyx.naviq")
+        
+        // 1. Remove from token_map
+        if let data = defaults?.data(forKey: "com.truenyx.naviq.token_map"),
+           var tokenMap = try? JSONSerialization.jsonObject(with: data) as? [String: [String: Any]] {
+            tokenMap.removeValue(forKey: id)
+            if let updatedData = try? JSONSerialization.data(withJSONObject: tokenMap) {
+                defaults?.set(updatedData, forKey: "com.truenyx.naviq.token_map")
+            }
+        }
+        
+        // 2. Remove tokenData key
+        defaults?.removeObject(forKey: "token_data_\(id)")
+        
+        // 3. Remove from selection and re-register
+        if let selectionData = defaults?.data(forKey: "com.truenyx.naviq.selection"),
+           var selection = try? JSONDecoder().decode(FamilyActivitySelection.self, from: selectionData) {
+            selection.applicationTokens = Set(selection.applicationTokens.filter { "usage_app_\($0.hashValue)" != id })
+            selection.categoryTokens = Set(selection.categoryTokens.filter { "usage_cat_\($0.hashValue)" != id })
+            ScreenTimeManager.shared.registerSelectedApps(selection: selection)
+        }
+        
+        result(true)
+    }
+
+    private func clearAllMappings(result: @escaping FlutterResult) {
+        guard #available(iOS 16.0, *) else { result(false); return }
+        let defaults = UserDefaults(suiteName: "group.com.truenyx.naviq")
+        defaults?.removeObject(forKey: "com.truenyx.naviq.token_map")
+        defaults?.removeObject(forKey: "com.truenyx.naviq.selection")
+        
+        let center = DeviceActivityCenter()
+        center.stopMonitoring([DeviceActivityName("com.truenyx.naviq.daily")])
+        defaults?.removeObject(forKey: "com.truenyx.naviq.screentime_data")
+        
+        result(true)
     }
 
     private func updateLockList(ids: [String], result: @escaping FlutterResult) {
@@ -1248,9 +1298,16 @@ class FamilyActivityPickerController: UIViewController {
         // ── Persist token_map to App Group UserDefaults ────────────────────────
         let defaults = UserDefaults(suiteName: "group.com.truenyx.naviq")
         var tokenMap: [String: [String: Any]] = [:]
+        
+        if let existingMapData = defaults?.data(forKey: "com.truenyx.naviq.token_map"),
+           let existingMap = try? JSONSerialization.jsonObject(with: existingMapData) as? [String: [String: Any]] {
+            tokenMap = existingMap
+        }
+        
         for item in selectedItems {
             if let id = item["id"] as? String { tokenMap[id] = item }
         }
+        
         if let data = try? JSONSerialization.data(withJSONObject: tokenMap) {
             defaults?.set(data, forKey: "com.truenyx.naviq.token_map")
             PickerLogger.log("token_map written — \(tokenMap.count) entries")
@@ -1258,7 +1315,15 @@ class FamilyActivityPickerController: UIViewController {
             PickerLogger.log("⚠️ token_map serialization FAILED")
         }
 
-        ScreenTimeManager.shared.registerSelectedApps(selection: selection)
+        var combinedSelection = selection
+        if let selectionData = defaults?.data(forKey: "com.truenyx.naviq.selection"),
+           let existingSelection = try? JSONDecoder().decode(FamilyActivitySelection.self, from: selectionData) {
+            combinedSelection.applicationTokens.formUnion(existingSelection.applicationTokens)
+            combinedSelection.categoryTokens.formUnion(existingSelection.categoryTokens)
+            combinedSelection.webDomainTokens.formUnion(existingSelection.webDomainTokens)
+        }
+        
+        ScreenTimeManager.shared.registerSelectedApps(selection: combinedSelection)
         onComplete?(selectedItems)
     }
 

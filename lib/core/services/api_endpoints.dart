@@ -20,6 +20,8 @@ class ApiEndpoints {
   static const String childAvailableIcons = 'child/available-icons';
   static const String childUploadAppIcons = 'child/upload-icons';
   static const String childContacts = 'child/contacts';
+  static const String screenTimeApps = 'screen-time/apps';
+  static const String appMappings = 'app-mappings';
 
   //parent Endpoints
   static const String getHome = 'parent/home';
@@ -35,6 +37,8 @@ class ApiEndpoints {
   static String getTripDetail(String tripId) => 'parent/trip/$tripId';
   static String postTripLocation(String childId) =>
       'trip-tracking/$childId/locations';
+  static String getTrackingSnapshot(String childId) =>
+      'parent/child/$childId/tracking/snapshot';
   static String postTripEnd(String childId) =>
       'trip-tracking/$childId/end';
   static const String getAppUsage = 'app-usage';
