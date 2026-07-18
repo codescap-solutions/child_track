@@ -18,7 +18,7 @@ import 'package:child_track/core/services/csv_file_logger.dart';
 import 'account_view.dart';
 import 'devices_view.dart';
 import 'notification_settings_view.dart';
-import 'subscription_view.dart';
+import '../../subscription/view/subscription_multi_plan_view.dart';
 import 'family_management_view.dart';
 import '../../chat/view/chat_screen.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -34,12 +34,12 @@ class SettingsView extends StatefulWidget {
 
 class _SettingsViewState extends State<SettingsView> {
   final _sharedPrefsService = SharedPrefsService();
-  String? _childCode;
+
   String? _currentChildId;
   String? _childName;
   bool _restrictDeletion = false;
   bool _block18Plus = false;
-  bool _notificationSettings = true;
+
   bool _isExpanded = false;
   bool _isPrimaryParent = true;
   List<ChildProfile> _children = [];
@@ -52,15 +52,10 @@ class _SettingsViewState extends State<SettingsView> {
 
   void _loadChildData() {
     _isPrimaryParent = _sharedPrefsService.isPrimaryParent;
-    _childCode = _sharedPrefsService.getString('child_code');
     _currentChildId = _sharedPrefsService.getString('child_id');
     _childName = _sharedPrefsService.getString('child_name');
     _restrictDeletion = _sharedPrefsService.getBool('restrict_deletion');
     _block18Plus = _sharedPrefsService.getBool('block_18plus');
-    _notificationSettings = _sharedPrefsService.getBool(
-      'notification_settings',
-      defaultValue: true,
-    );
     _children = _sharedPrefsService.getChildren();
     setState(() {});
     _fetchServerSettings();
@@ -187,7 +182,7 @@ class _SettingsViewState extends State<SettingsView> {
                       alignment: Alignment.centerRight,
                       scale: 0.8,
                       child: CupertinoSwitch(
-                        activeColor: const Color(0xFF22C55E),
+                        activeTrackColor: const Color(0xFF22C55E),
                         value: _restrictDeletion,
                         onChanged: (value) async {
                           if (!_isPrimaryParent) {
@@ -237,7 +232,7 @@ class _SettingsViewState extends State<SettingsView> {
                       alignment: Alignment.centerRight,
                       scale: 0.8,
                       child: CupertinoSwitch(
-                        activeColor: const Color(0xFF22C55E),
+                        activeTrackColor: const Color(0xFF22C55E),
                         value: _block18Plus,
                         onChanged: (value) async {
                           if (!_isPrimaryParent) {
@@ -414,6 +409,37 @@ class _SettingsViewState extends State<SettingsView> {
                       MaterialPageRoute(builder: (_) => const AccountView()),
                     ),
                   ),
+                  const Divider(
+                    height: 1,
+                    color: Color(0xFFF1F5F9),
+                    indent: 56,
+                    endIndent: 16,
+                  ),
+                  _buildSettingsTile(
+                    leading: const Icon(
+                      Icons.workspace_premium,
+                      color: AppColors.primaryColor,
+                      size: 24,
+                    ),
+                    title: 'Subscriptions',
+                    trailing: const Icon(
+                      CupertinoIcons.chevron_right,
+                      color: Color(0xFF94A3B8),
+                      size: 16,
+                    ),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const SubscriptionMultiPlanView(),
+                      ),
+                    ),
+                  ),
+                  const Divider(
+                    height: 1,
+                    color: Color(0xFFF1F5F9),
+                    indent: 56,
+                    endIndent: 16,
+                  ),
                 ],
               ),
 
@@ -535,7 +561,7 @@ class _SettingsViewState extends State<SettingsView> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => const SubscriptionView(),
+                        builder: (_) => const SubscriptionMultiPlanView(),
                       ),
                     );
                   },
@@ -865,7 +891,7 @@ class _SettingsViewState extends State<SettingsView> {
               borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.08),
+                  color: Colors.black.withValues(alpha: 0.08),
                   blurRadius: 20,
                   offset: const Offset(0, 8),
                 ),
@@ -946,7 +972,7 @@ class _SettingsViewState extends State<SettingsView> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const SubscriptionView(),
+                          builder: (_) => const SubscriptionMultiPlanView(),
                         ),
                       );
                     },
@@ -1101,7 +1127,7 @@ class _SettingsViewState extends State<SettingsView> {
           child: Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppColors.containerBackground.withOpacity(0.5),
+              color: AppColors.containerBackground.withValues(alpha: 0.5),
               borderRadius: BorderRadius.circular(AppSizes.radiusM),
               border: Border.all(color: Colors.white.withAlpha(50)),
             ),
@@ -1109,7 +1135,9 @@ class _SettingsViewState extends State<SettingsView> {
               children: [
                 CircleAvatar(
                   radius: 20,
-                  backgroundColor: AppColors.primaryColor.withOpacity(0.1),
+                  backgroundColor: AppColors.primaryColor.withValues(
+                    alpha: 0.1,
+                  ),
                   child: const Icon(
                     Icons.person,
                     size: 20,
@@ -1166,10 +1194,10 @@ class _SettingsViewState extends State<SettingsView> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppColors.primaryColor.withOpacity(0.05),
+          color: AppColors.primaryColor.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(AppSizes.radiusM),
           border: Border.all(
-            color: AppColors.primaryColor.withOpacity(0.2),
+            color: AppColors.primaryColor.withValues(alpha: 0.2),
             style: BorderStyle.solid,
           ),
         ),

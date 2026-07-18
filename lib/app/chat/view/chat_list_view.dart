@@ -90,7 +90,7 @@ class _ChatListViewState extends State<ChatListView> {
 
     return ListTile(
       leading: CircleAvatar(
-        backgroundColor: AppColors.primaryColor.withOpacity(0.1),
+        backgroundColor: AppColors.primaryColor.withValues(alpha: 0.1),
         child: Text(
           otherParticipant.name.substring(0, 1).toUpperCase(),
           style: const TextStyle(color: AppColors.primaryColor, fontWeight: FontWeight.bold),

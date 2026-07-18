@@ -7,6 +7,7 @@ import 'package:child_track/core/services/background_location_service.dart';
 import 'package:child_track/core/services/background_task_service.dart';
 import 'package:child_track/core/services/lock_sync_service.dart';
 import 'package:child_track/core/services/revenue_cat_service.dart';
+import 'package:child_track/core/services/subscription_manager.dart';
 import 'package:child_track/core/utils/app_snackbar.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -32,6 +33,9 @@ void main() async {
 
   // Initialize RevenueCat
   await RevenueCatService.instance.initialize();
+  
+  // Initialize SubscriptionManager to start listening for premium status
+  await SubscriptionManager.instance.initialize();
 
   // Initialize Firebase
   await Firebase.initializeApp();
@@ -92,7 +96,6 @@ class ChildTrackApp extends StatelessWidget {
             child: widget ?? const SizedBox.shrink(),
           );
         },
-        // home: HomePage(),
         home: SplashScreen(),
       ),
     );

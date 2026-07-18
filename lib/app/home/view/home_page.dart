@@ -10,6 +10,7 @@ import 'package:flutter/services.dart';
 import 'package:child_track/app/home/view_model/bloc/homepage_bloc.dart';
 import 'package:child_track/app/home/view_model/home_repo.dart';
 import 'package:child_track/app/home/model/home_model.dart';
+import 'package:child_track/app/subscription/view_model/subscription_repository.dart';
 import 'package:child_track/app/map/view/map_view.dart';
 import 'package:child_track/core/di/injector.dart';
 import 'package:child_track/core/services/shared_prefs_service.dart';
@@ -182,12 +183,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     // Fetch home data once on initialization
     injector<HomepageBloc>().add(GetHomepageData());
 
+    // Preload subscription plans
+    injector<SubscriptionRepository>().getPlans();
+
     // Listen to notification taps
     _notificationSubscription = injector<FirebaseNotificationService>()
         .notificationTapStream
         .listen((message) {
           AppLogger.info('🔥 [FCM TAP] Received message: data=${message.data}');
-          print('🔥 [FCM TAP] Received message: data=${message.data}');
           if (message.data['type'] == 'location_share_request') {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted) {
@@ -330,20 +333,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       'pending_location_share_request',
     );
     AppLogger.info('💡 pendingJson: $pendingJson');
-    print('💡 [FCM CHECK] pendingJson: $pendingJson');
     if (pendingJson != null && pendingJson.isNotEmpty) {
       try {
         final data = json.decode(pendingJson) as Map<String, dynamic>;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted && !_isLocationShareSheetOpen) {
             AppLogger.info('💡 Triggering approval sheet for data: $data');
-            print('💡 [FCM CHECK] Triggering approval sheet for data: $data');
             _showLocationShareApprovalSheet(data);
           }
         });
       } catch (e) {
         AppLogger.error('Failed to parse pending location request JSON: $e');
-        print('❌ [FCM CHECK] Failed to parse pending JSON: $e');
       }
     }
   }
@@ -386,9 +386,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           backgroundColor: const Color(0xFF10B981),
         ),
       );
-    } catch (e, stack) {
+    } catch (e) {
       AppLogger.error('❌ Error handling location_share_accepted: $e');
-      print('❌ [FCM ACCEPTED ERROR] Error: $e\n$stack');
     }
   }
 
@@ -654,7 +653,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
       List<ChildProfile> localChildren = _sharedPrefsService.getChildren();
       AppLogger.info('💡 Children count: ${localChildren.length}');
-      print('💡 [FCM SHEET] Children count: ${localChildren.length}');
       if (localChildren.isEmpty) {
         localChildren = [
           ChildProfile(
@@ -933,7 +931,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           String initials = name.length >= 2
                               ? name.substring(0, 2).toUpperCase()
                               : name.toUpperCase();
-
                           return Padding(
                             padding: const EdgeInsets.only(right: 20),
                             child: GestureDetector(
@@ -1049,6 +1046,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           );
                         }).toList(),
                       ),
+
                       const SizedBox(height: 28),
                       SizedBox(
                         width: double.infinity,
@@ -1114,6 +1112,20 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                             .map((k) => k.childName)
                                             .toList();
 
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            'Accepted share request for: ${sharedNames.join(', ')}',
+                                          ),
+                                          backgroundColor: const Color(
+                                            0xFF10B981,
+                                          ),
+                                        ),
+                                      );
+                                    }
                                     if (context.mounted) {
                                       ScaffoldMessenger.of(
                                         context,
@@ -1235,7 +1247,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     } catch (e, stack) {
       _isLocationShareSheetOpen = false;
       AppLogger.error('❌ Error in _showLocationShareApprovalSheet: $e');
-      print('❌ [FCM SHEET ERROR] Error: $e\n$stack');
     }
   }
 
@@ -1578,7 +1589,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Colors.black.withValues(alpha: 0.08),
             blurRadius: 10,
             offset: const Offset(0, -2),
           ),
@@ -1986,11 +1997,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                       vertical: 4,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.9),
+                                      color: Colors.white.withValues(
+                                        alpha: 0.9,
+                                      ),
                                       borderRadius: BorderRadius.circular(8),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: Colors.black.withOpacity(0.05),
+                                          color: Colors.black.withValues(
+                                            alpha: 0.05,
+                                          ),
                                           blurRadius: 4,
                                         ),
                                       ],
@@ -2028,7 +2043,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             borderRadius: BorderRadius.circular(16),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
+                                color: Colors.black.withValues(alpha: 0.1),
                                 blurRadius: 10,
                                 offset: const Offset(0, 4),
                               ),
@@ -2354,7 +2369,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0C1D37).withOpacity(0.08),
+            color: const Color(0xFF0C1D37).withValues(alpha: 0.08),
             blurRadius: 16,
             offset: const Offset(0, 4),
           ),
@@ -2552,7 +2567,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             border: Border.all(color: borderCol, width: 1.5),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF0C1D37).withOpacity(0.03),
+                color: const Color(0xFF0C1D37).withValues(alpha: 0.03),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -2656,7 +2671,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF0C1D37).withOpacity(0.04),
+                color: const Color(0xFF0C1D37).withValues(alpha: 0.04),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -2947,7 +2962,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF1D4ED8).withOpacity(0.2),
+            color: const Color(0xFF1D4ED8).withValues(alpha: 0.2),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -2959,7 +2974,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.15),
+              color: Colors.white.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(10),
             ),
             child: const Icon(
@@ -2984,7 +2999,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 "Unlock all premium features",
                 style: GoogleFonts.manrope(
                   fontSize: 11.5,
-                  color: Colors.white.withOpacity(0.85),
+                  color: Colors.white.withValues(alpha: 0.85),
                 ),
               ),
             ],
@@ -3035,7 +3050,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF0C1D37).withOpacity(0.04),
+                    color: const Color(0xFF0C1D37).withValues(alpha: 0.04),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -3070,7 +3085,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                               style: GoogleFonts.manrope(
                                 fontSize: 10.5,
                                 fontWeight: FontWeight.w500,
-                                color: const Color(0xFF1E40AF).withOpacity(0.8),
+                                color: const Color(
+                                  0xFF1E40AF,
+                                ).withValues(alpha: 0.8),
                               ),
                             ),
                           ],
@@ -3121,7 +3138,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             Icon(
               Icons.insights_rounded,
               size: 48,
-              color: const Color(0xFF94A3B8).withOpacity(0.6),
+              color: const Color(0xFF94A3B8).withValues(alpha: 0.6),
             ),
             const SizedBox(height: 12),
             Text(
@@ -3231,7 +3248,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           height: 34,
           padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
-            color: brandColor.withOpacity(0.1),
+            color: brandColor.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(8),
           ),
           child: iconWidget,
@@ -3393,7 +3410,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF0C1D37).withOpacity(0.04),
+                color: const Color(0xFF0C1D37).withValues(alpha: 0.04),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -3851,11 +3868,10 @@ class _DynamicLocationText extends StatefulWidget {
   final LatLng position;
 
   const _DynamicLocationText({
-    Key? key,
     required this.childName,
     required this.initialPlaceName,
     required this.position,
-  }) : super(key: key);
+  });
 
   @override
   State<_DynamicLocationText> createState() => _DynamicLocationTextState();

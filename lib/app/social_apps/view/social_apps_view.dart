@@ -821,7 +821,7 @@ class _BlockAllDurationDialogState extends State<_BlockAllDurationDialog> {
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.12),
+              color: Colors.black.withValues(alpha: 0.12),
               blurRadius: 24,
               offset: const Offset(0, 8),
             ),
@@ -838,7 +838,7 @@ class _BlockAllDurationDialogState extends State<_BlockAllDurationDialog> {
                 gradient: LinearGradient(
                   colors: [
                     AppColors.primaryColor,
-                    AppColors.primaryColor.withOpacity(0.75),
+                    AppColors.primaryColor.withValues(alpha: 0.75),
                   ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -870,10 +870,10 @@ class _BlockAllDurationDialogState extends State<_BlockAllDurationDialog> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                     decoration: BoxDecoration(
-                      color: AppColors.primaryColor.withOpacity(0.08),
+                      color: AppColors.primaryColor.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: AppColors.primaryColor.withOpacity(0.25),
+                        color: AppColors.primaryColor.withValues(alpha: 0.25),
                       ),
                     ),
                     child: Row(
@@ -992,10 +992,10 @@ class _BlockAllDurationDialogState extends State<_BlockAllDurationDialog> {
                   child: Container(
                     height: itemH,
                     decoration: BoxDecoration(
-                      color: AppColors.primaryColor.withOpacity(0.10),
+                      color: AppColors.primaryColor.withValues(alpha: 0.10),
                       border: Border.symmetric(
                         horizontal: BorderSide(
-                          color: AppColors.primaryColor.withOpacity(0.25),
+                          color: AppColors.primaryColor.withValues(alpha: 0.25),
                         ),
                       ),
                     ),
@@ -1071,7 +1071,7 @@ class FilterTabs extends StatelessWidget {
                 color: isSelected ? const Color(0xffE8EEFF) : Colors.white,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: isSelected ? AppColors.primaryColor.withOpacity(0.3) : Colors.transparent,
+                  color: isSelected ? AppColors.primaryColor.withValues(alpha: 0.3) : Colors.transparent,
                 ),
               ),
               child: Text(

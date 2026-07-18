@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'package:battery_plus/battery_plus.dart';
 import 'package:child_track/app/childapp/model/scree_time_model.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/services.dart';
@@ -8,7 +7,6 @@ import 'package:child_track/app/social_apps/model/installed_app_model.dart';
 import 'package:child_track/core/utils/app_logger.dart';
 
 class ChildInfoService {
-  final Battery _battery = Battery();
   final Connectivity _connectivity = Connectivity();
   static const MethodChannel _channel = MethodChannel(
     'com.truenyx.naviq/device_info',

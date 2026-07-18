@@ -1,5 +1,6 @@
 import 'dart:math' show min;
 import 'package:child_track/app/home/view_model/bloc/homepage_bloc.dart';
+import 'package:child_track/app/subscription/view/subscription_multi_plan_view.dart';
 import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -8,7 +9,6 @@ import 'package:child_track/core/di/injector.dart';
 import 'package:child_track/app/home/view/trips_view.dart';
 import 'package:child_track/app/geofencing/view/geo_fencing_view.dart';
 import 'package:child_track/app/social_apps/view/social_apps_view.dart';
-import 'package:child_track/app/settings/view/subscription_view.dart';
 import 'package:child_track/app/explore/view/emergency_contacts_view.dart';
 import 'package:child_track/app/explore/view/parents_contact_view.dart';
 import 'package:child_track/app/home/view_model/home_repo.dart';
@@ -230,7 +230,7 @@ class ExploreView extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const SubscriptionView(),
+                          builder: (_) => const SubscriptionMultiPlanView(),
                         ),
                       );
                     },

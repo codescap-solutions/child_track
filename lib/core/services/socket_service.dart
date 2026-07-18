@@ -45,7 +45,7 @@ class SocketService {
 
     final url = _serverUrl;
 
-    final extraHeaders = <String, dynamic>{};
+    final extraHeaders = <String, String>{};
     if (token != null && token.isNotEmpty) {
       extraHeaders['Authorization'] = 'Bearer $token';
     }

@@ -82,4 +82,7 @@ class ApiEndpoints {
   static String respondToLocationRequest(String id) => 'location/request/$id/respond';
   static String revokeLocationShare(String id) => 'location/share/$id/revoke';
   static const String activeOutgoingShares = 'location/shares/active';
+
+  // Subscription Endpoints
+  static const String getSubscriptionPlans = 'subscriptions/plans';
 }
