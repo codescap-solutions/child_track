@@ -27,6 +27,7 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
   final SocketService _socketService;
   StreamSubscription? _locationSubscription;
   StreamSubscription? _statusSubscription;
+  Timer? _snapshotPollTimer;
 
   HomepageBloc({
     required HomeRepository homeRepository,
@@ -44,10 +45,24 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
     on<UpdateSocketLocation>(_onUpdateSocketLocation);
     on<UpdateSocketStatus>(_onUpdateSocketStatus);
     on<UpdateCurrentLocationName>(_onUpdateCurrentLocationName);
+    on<RefreshTrackingSnapshot>(_onRefreshTrackingSnapshot);
   }
 
   void _initSocketListeners(String childId) {
-    _socketService.initSocket();
+    // Only tear down and recreate the socket when it isn't already connected.
+    // This used to run unconditionally on every GetHomepageData dispatch —
+    // including the internal 2.5s "progress fetch" that follows every initial
+    // load, the "silent refresh" fired after a socket update, and the resume
+    // refresh — which meant a perfectly healthy, actively-streaming connection
+    // got disposed and rebuilt from scratch on a routine basis. Rebuilding the
+    // connection takes a moment (disconnect + reconnect + re-auth + rejoin the
+    // room), and any location_update the child emits during that window is
+    // lost — most noticeable exactly while the child is moving and posting
+    // updates frequently. Listener subscriptions are still refreshed every
+    // call since they're cheap and idempotent.
+    if (!_socketService.isConnected) {
+      _socketService.initSocket();
+    }
     _socketService.joinRoom(childId);
 
     _locationSubscription?.cancel();
@@ -59,12 +74,50 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
     _statusSubscription = _socketService.statusStream.listen((data) {
       add(UpdateSocketStatus(data));
     });
+
+    // The tracking-snapshot-driven stale/offline banner (see home_page.dart)
+    // otherwise only refreshes on initial load, app resume, or manual
+    // pull-to-refresh — so a child going stale/offline while the parent sits
+    // on an already-open Home screen wouldn't be reflected until one of those
+    // happens. Poll it lightly in the background instead.
+    _snapshotPollTimer?.cancel();
+    _snapshotPollTimer = Timer.periodic(const Duration(seconds: 60), (_) {
+      add(const RefreshTrackingSnapshot());
+    });
+  }
+
+  Future<void> _onRefreshTrackingSnapshot(
+    RefreshTrackingSnapshot event,
+    Emitter<HomepageState> emit,
+  ) async {
+    final currentState = state;
+    if (currentState is! HomepageSuccess) return;
+
+    final childId = _sharedPrefsService.getString('child_id');
+    if (childId == null || childId.isEmpty) return;
+
+    try {
+      final response = await _homeRepository.getTrackingSnapshot(childId);
+      if (response.isSuccess && response.data != null) {
+        final freshState = state is HomepageSuccess
+            ? state as HomepageSuccess
+            : currentState;
+        emit(
+          freshState.copyWith(
+            trackingSnapshot: ChildTrackingSnapshot.fromJson(response.data!),
+          ),
+        );
+      }
+    } catch (e) {
+      AppLogger.error('Error polling tracking snapshot: ${e.toString()}');
+    }
   }
 
   @override
   Future<void> close() {
     _locationSubscription?.cancel();
     _statusSubscription?.cancel();
+    _snapshotPollTimer?.cancel();
     _socketService.disconnect();
     return super.close();
   }

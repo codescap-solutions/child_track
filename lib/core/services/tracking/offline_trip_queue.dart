@@ -6,7 +6,7 @@ import 'package:child_track/core/utils/structured_logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// The types of entries that can be queued.
-enum OfflineEntryType { tripPoints, tripEnd, location }
+enum OfflineEntryType { tripPoints, tripEnd, location, geofenceEvent }
 
 /// Represents a strongly typed queue entry with retry and backoff properties.
 class QueueEntry {
@@ -156,6 +156,34 @@ class OfflineTripQueue {
       createdAt: DateTime.now(),
     ));
     await _persist();
+  }
+
+  Future<void> enqueueGeofenceEvent({
+    required String childId,
+    required Map<String, dynamic> payload,
+  }) async {
+    await load();
+    // Anti-duplicate: same geofence + event type + timestamp already queued
+    final exists = _entries.any((e) =>
+        e.type == OfflineEntryType.geofenceEvent &&
+        e.childId == childId &&
+        e.payload['geofenceId'] == payload['geofenceId'] &&
+        e.payload['eventType'] == payload['eventType'] &&
+        e.payload['timestamp'] == payload['timestamp']);
+
+    if (exists) return;
+
+    _entries.add(QueueEntry(
+      type: OfflineEntryType.geofenceEvent,
+      childId: childId,
+      payload: payload,
+      createdAt: DateTime.now(),
+    ));
+    await _persist();
+    StructuredLogger.log(
+      LogTag.BG,
+      '[OfflineQ] Queued geofence event (${payload['eventType']}) for $childId',
+    );
   }
 
   bool get hasPending => _entries.isNotEmpty;

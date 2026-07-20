@@ -15,6 +15,8 @@ class ApiEndpoints {
   static const String uploadAvatar = 'child/upload-avatar';
   static const String postDeviceInfo = 'child/device-status';
   static const String postLocation = 'child/location';
+  static const String postGeofenceEvent = 'child/geofence-event';
+  static const String getChildGeofences = 'child/geofences';
   static const String postActivity = 'child/activity';
   static const String postAppUsage = 'app-usage';
   static const String childAvailableIcons = 'child/available-icons';

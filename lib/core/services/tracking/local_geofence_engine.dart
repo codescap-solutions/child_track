@@ -85,6 +85,13 @@ class LocalGeofenceEngine {
 
   Stream<GeofenceTrigger> get triggers => _controller.stream;
 
+  /// IDs of fences the engine currently considers the device inside.
+  /// Used to preserve inside/outside state across a [updateFences] refresh
+  /// (otherwise every periodic fence-list refresh would reset `isInside` to
+  /// false and spuriously re-fire an ENTER for a child who never left).
+  List<String> get insideFenceIds =>
+      _fences.values.where((f) => f.isInside).map((f) => f.id).toList();
+
   // ── Method Channel Listener ────────────────────────────────────────────────
 
   void _initializeMethodChannel() {

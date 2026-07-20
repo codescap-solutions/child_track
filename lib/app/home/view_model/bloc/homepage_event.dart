@@ -67,3 +67,10 @@ final class UpdateCurrentLocationName extends HomepageEvent {
   @override
   List<Object> get props => [newName];
 }
+
+/// Lightweight periodic refresh of just the tracking snapshot (device/GPS
+/// status, staleness banner) — deliberately does not touch trips, home data,
+/// or loading flags, so it can run on a short timer without disrupting the UI.
+final class RefreshTrackingSnapshot extends HomepageEvent {
+  const RefreshTrackingSnapshot();
+}

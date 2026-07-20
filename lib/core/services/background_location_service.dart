@@ -277,5 +277,57 @@ void onStart(ServiceInstance service) async {
 Future<bool> onIosBackground(ServiceInstance service) async {
   DartPluginRegistrant.ensureInitialized();
   StructuredLogger.log(LogTag.BG, 'iOS Background Fetch Triggered');
+
+  // Previously a no-op. iOS invokes this — instead of keeping the continuous
+  // position stream from onStart/onForeground alive — once the app has been
+  // backgrounded long enough for iOS to suspend it. iOS schedules background
+  // fetch opportunistically (commonly tens of minutes apart, entirely OS
+  // controlled), so doing nothing here meant location pings — and therefore
+  // geofence detection, which depends on them (see LocationStateMachine) —
+  // could stall for that entire window until the app was foregrounded again.
+  // Take a single quick fix and post it so the server's existing near-real-time
+  // geofence pipeline (QueueService → geofence.service.checkGeofencesBatch)
+  // has something fresh to evaluate instead of waiting for app resume.
+  try {
+    await dotenv.load(fileName: '.env');
+    await SharedPrefsService.init();
+    final prefs = SharedPrefsService();
+
+    if (prefs.isParent) return true;
+
+    final childId = prefs.getString('child_id');
+    if (childId == null || childId.isEmpty) {
+      StructuredLogger.log(LogTag.BG, 'iOS Background Fetch: no child_id – skipping');
+      return true;
+    }
+
+    final position = await Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.high,
+      timeLimit: const Duration(seconds: 20),
+    );
+
+    final dioClient = DioClient(sharedPrefsService: prefs);
+    final childRepo = ChildRepo(dioClient: dioClient, sharedPrefsService: prefs);
+
+    final response = await childRepo.postChildLocation({
+      'child_id': childId,
+      'lat': position.latitude,
+      'lng': position.longitude,
+      'accuracy': position.accuracy,
+      'accuracy_m': position.accuracy,
+      'speed': position.speed < 0 ? 0.0 : position.speed,
+      'speed_mps': position.speed < 0 ? 0.0 : position.speed,
+      'bearing': position.heading < 0 ? 0.0 : position.heading,
+      'timestamp': DateTime.now().toUtc().toIso8601String(),
+    });
+
+    StructuredLogger.log(
+      LogTag.BG,
+      'iOS Background Fetch: posted location fix (success=${response.isSuccess})',
+    );
+  } catch (e) {
+    StructuredLogger.log(LogTag.BG, 'iOS Background Fetch: failed to post location', error: e);
+  }
+
   return true;
 }

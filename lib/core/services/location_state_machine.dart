@@ -34,6 +34,7 @@ class LocationStateMachine {
   final LocalGeofenceEngine _geoEngine = LocalGeofenceEngine();
 
   StreamSubscription<StopEvent>? _stopSub;
+  StreamSubscription<GeofenceTrigger>? _geoTriggerSub;
 
   // ── State ─────────────────────────────────────────────────────────────────
   Position? _lastPostedLocation;
@@ -44,6 +45,7 @@ class LocationStateMachine {
 
   DateTime? _lastDrainAttempt;
   DateTime? _lastConfigFetch;
+  DateTime? _lastGeofenceFetch;
 
   LocationStateMachine({
     required ChildRepo childRepo,
@@ -65,11 +67,18 @@ class LocationStateMachine {
 
     // Load offline queue
     _offlineQueue.load();
+
+    // Report client-detected geofence transitions (incl. native iOS region
+    // monitoring bridged through this same stream) to the backend immediately,
+    // instead of relying solely on the server inferring transitions from the
+    // next routine location ping.
+    _geoTriggerSub = _geoEngine.triggers.listen(_onGeofenceTrigger);
   }
 
   void dispose() {
     _ar.stop();
     _stopSub?.cancel();
+    _geoTriggerSub?.cancel();
     _stopDetector.dispose();
   }
 
@@ -124,6 +133,17 @@ class LocationStateMachine {
     if (_lastConfigFetch == null || DateTime.now().difference(_lastConfigFetch!).inHours >= 1) {
       _lastConfigFetch = DateTime.now();
       _configService.fetchConfigFromServer();
+    }
+
+    // ── Refresh geofence list periodically ──────────────────────────────────
+    // LocalGeofenceEngine.processPosition() (called above) has nothing to check
+    // against until this runs at least once — it starts with zero registered
+    // fences. Kept on a short-ish cadence since a parent can add/edit a saved
+    // place at any time and the child device should pick it up promptly.
+    if (_lastGeofenceFetch == null ||
+        DateTime.now().difference(_lastGeofenceFetch!).inMinutes >= 10) {
+      _lastGeofenceFetch = DateTime.now();
+      _refreshGeofences(childId);
     }
 
     // ── Post plain location ────────────────────────────────────────────────
@@ -432,6 +452,91 @@ class LocationStateMachine {
   }
 
   // ══════════════════════════════════════════════════════════════════════════
+  // LOCAL GEOFENCE REPORTING (client-side ENTER/EXIT/DWELL → backend, immediately)
+  // ══════════════════════════════════════════════════════════════════════════
+
+  Future<void> _refreshGeofences(String childId) async {
+    try {
+      final response = await _childRepo.getChildGeofences(childId);
+      if (response.isSuccess && response.data != null) {
+        final fenceList = response.data!
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+        _geoEngine.updateFences(
+          fenceList,
+          currentlyInsideIds: _geoEngine.insideFenceIds,
+        );
+        StructuredLogger.log(
+          LogTag.BG,
+          '[Geofence] Refreshed ${fenceList.length} fences from server',
+        );
+      }
+    } catch (e) {
+      StructuredLogger.log(LogTag.BG, '[Geofence] Failed to refresh fences', error: e);
+    }
+  }
+
+  void _onGeofenceTrigger(GeofenceTrigger trigger) {
+    final childId = _prefs.getString('child_id');
+    if (childId == null || childId.isEmpty) return;
+
+    final eventType = switch (trigger.event) {
+      GeofenceEvent.enter => 'ENTER',
+      GeofenceEvent.exit => 'EXIT',
+      GeofenceEvent.dwell => 'DWELL',
+    };
+
+    StructuredLogger.log(
+      LogTag.BG,
+      '[Geofence] Reporting $eventType on "${trigger.geofenceName}" to backend',
+    );
+
+    _postGeofenceEvent(
+      childId: childId,
+      geofenceId: trigger.geofenceId,
+      eventType: eventType,
+      timestamp: trigger.timestamp.toUtc().toIso8601String(),
+    );
+  }
+
+  Future<void> _postGeofenceEvent({
+    required String childId,
+    required String geofenceId,
+    required String eventType,
+    required String timestamp,
+  }) async {
+    try {
+      final response = await _childRepo.postGeofenceEvent(
+        childId: childId,
+        geofenceId: geofenceId,
+        eventType: eventType,
+        timestamp: timestamp,
+      );
+      if (!response.isSuccess) {
+        await _offlineQueue.enqueueGeofenceEvent(
+          childId: childId,
+          payload: {
+            'geofenceId': geofenceId,
+            'eventType': eventType,
+            'timestamp': timestamp,
+          },
+        );
+      }
+    } catch (e) {
+      StructuredLogger.log(LogTag.BG, '[Geofence] Failed to post event – queuing', error: e);
+      await _offlineQueue.enqueueGeofenceEvent(
+        childId: childId,
+        payload: {
+          'geofenceId': geofenceId,
+          'eventType': eventType,
+          'timestamp': timestamp,
+        },
+      );
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
   // OFFLINE QUEUE DRAIN
   // ══════════════════════════════════════════════════════════════════════════
 
@@ -462,6 +567,14 @@ class LocationStateMachine {
             final response = await _childRepo.postTripEnd(
               childId: entry.childId,
               data: entry.payload,
+            );
+            return response.isSuccess;
+          case OfflineEntryType.geofenceEvent:
+            final response = await _childRepo.postGeofenceEvent(
+              childId: entry.childId,
+              geofenceId: entry.payload['geofenceId'] as String,
+              eventType: entry.payload['eventType'] as String,
+              timestamp: entry.payload['timestamp'] as String,
             );
             return response.isSuccess;
         }

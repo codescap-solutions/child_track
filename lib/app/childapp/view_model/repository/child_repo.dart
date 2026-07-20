@@ -220,6 +220,47 @@ class ChildRepo extends BaseService {
     return response;
   }
 
+  /// Report a client-detected geofence transition (ENTER/EXIT/DWELL) immediately.
+  /// Backed by the existing authenticated `/child/geofence-event` endpoint
+  /// (see naviQ-server child.routes.js), which requires `childId` in the body.
+  Future<BaseResponse> postGeofenceEvent({
+    required String childId,
+    required String geofenceId,
+    required String eventType,
+    required String timestamp,
+    String source = 'local_engine',
+  }) async {
+    final response = await post(
+      ApiEndpoints.postGeofenceEvent,
+      data: {
+        'childId': childId,
+        'geofenceId': geofenceId,
+        'eventType': eventType,
+        'timestamp': timestamp,
+        'source': source,
+      },
+    );
+    return response;
+  }
+
+  /// Fetch the geofences (saved places) assigned to this child, so the
+  /// client-side LocalGeofenceEngine has something to check GPS fixes against.
+  Future<BaseResponse<List<dynamic>>> getChildGeofences(String childId) async {
+    final response = await get<List<dynamic>>(
+      '${ApiEndpoints.getChildGeofences}?childId=$childId',
+    );
+    if (response.isSuccess && response.data != null) {
+      return BaseResponse.success(
+        data: response.data!,
+        message: response.message,
+      );
+    }
+    return BaseResponse.error(
+      message: response.message,
+      statusCode: response.statusCode,
+    );
+  }
+
   Future<BaseResponse> postTripLocation({
     required String childId,
     required Map<String, dynamic> data,

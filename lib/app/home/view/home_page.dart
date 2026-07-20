@@ -64,6 +64,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   bool _viewingSharedChild = false;
   bool _isLocationShareSheetOpen = false;
   Timer? _sharedChildTimer;
+  DateTime? _lastResumeRefreshAt;
 
   late final SavedPlacesService _savedPlacesService;
   List<SavedPlace> _savedPlaces = [];
@@ -318,7 +319,26 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _checkAndShowPendingLocationRequest();
+      _refreshOnResume();
     }
+  }
+
+  /// Self-heal the map/home screen on resume instead of relying on a manual
+  /// pull-to-refresh. Backgrounding suspends the socket connection (mobile OSes
+  /// don't keep the Dart isolate scheduled while backgrounded), so without this
+  /// the screen keeps showing whatever location/status it last received before
+  /// being backgrounded. Dispatching GetHomepageData(isSilentRefresh: true)
+  /// both refetches current data AND re-runs _initSocketListeners (which fully
+  /// recreates + reconnects the socket and rejoins the child room) — see
+  /// HomepageBloc._onGetHomepageData / _initSocketListeners.
+  void _refreshOnResume() {
+    final now = DateTime.now();
+    if (_lastResumeRefreshAt != null &&
+        now.difference(_lastResumeRefreshAt!) < const Duration(seconds: 5)) {
+      return; // Avoid redundant refreshes on rapid pause/resume flicker.
+    }
+    _lastResumeRefreshAt = now;
+    injector<HomepageBloc>().add(const GetHomepageData(isSilentRefresh: true));
   }
 
   void _checkAndShowPendingLocationRequest() {
@@ -1562,6 +1582,20 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
       final dateTime = DateTime.tryParse(sinceStr);
       if (dateTime != null) {
+        // Relative "last active" wording so the parent can tell freshness at
+        // a glance, instead of only a wall-clock time they'd have to compare
+        // against the current time themselves.
+        final diff = DateTime.now().toUtc().difference(dateTime.toUtc());
+        if (!diff.isNegative) {
+          if (diff.inSeconds < 90) return 'Active now';
+          if (diff.inMinutes < 60) {
+            return 'Active ${diff.inMinutes} min ago';
+          }
+          if (diff.inHours < 24) return 'Active ${diff.inHours}h ago';
+          if (diff.inDays == 1) return 'Active yesterday';
+          if (diff.inDays < 7) return 'Active ${diff.inDays}d ago';
+        }
+
         final localDateTime = dateTime.toLocal();
         final hour = localDateTime.hour;
         final minute = localDateTime.minute.toString().padLeft(2, '0');
@@ -2464,6 +2498,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           ),
           const SizedBox(height: 8),
           _DynamicLocationText(
+            key: ValueKey(childName),
             childName: childName,
             initialPlaceName: placeName,
             position: _viewingSharedChild && _activeSharedChildData != null
@@ -3868,6 +3903,7 @@ class _DynamicLocationText extends StatefulWidget {
   final LatLng position;
 
   const _DynamicLocationText({
+    super.key,
     required this.childName,
     required this.initialPlaceName,
     required this.position,
@@ -3898,7 +3934,8 @@ class _DynamicLocationTextState extends State<_DynamicLocationText> {
 
   void _resolveAddressIfNeeded() {
     if (widget.initialPlaceName == 'Unknown Location' ||
-        widget.initialPlaceName == 'Unknown') {
+        widget.initialPlaceName == 'Unknown' ||
+        widget.initialPlaceName == 'Shared Location') {
       _fetchAddress();
     }
   }
