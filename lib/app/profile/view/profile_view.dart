@@ -1,7 +1,5 @@
-import 'package:child_track/app/home/view_model/bloc/homepage_state.dart';
 import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:child_track/core/services/shared_prefs_service.dart';
 import 'package:child_track/core/di/injector.dart';
@@ -253,97 +251,56 @@ class _ProfileViewState extends State<ProfileView> {
           ),
         ],
       ),
-      body: BlocBuilder<HomepageBloc, HomepageState>(
-        builder: (context, state) {
-          final activeChildId = _sharedPrefsService.getString('child_id') ?? '';
+      body: _children.isEmpty
+          ? SafeArea(child: _buildEmptyState())
+          : SafeArea(
+              child: ListView.builder(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                itemCount: _children.length,
+                itemBuilder: (context, index) {
+                  final child = _children[index];
 
-          // Fetch active child metrics dynamically if homepage sync has loaded
-          String activeScreenTime = '02 hrs';
-          String activeAvgSpeed = '65 km/hr';
-          String activeEntireRoute = '26.6 km';
-
-          if (state is HomepageSuccess) {
-            if (state.screentimeToday != null) {
-              activeScreenTime = state.screentimeToday!.formattedTotalTime;
-              if (activeScreenTime.isEmpty || activeScreenTime == '0m') {
-                activeScreenTime = '02 hrs';
-              }
-            }
-            if (state.yesterdayTripSummary != null &&
-                state.yesterdayTripSummary!.maxSpeedKmph > 0) {
-              activeAvgSpeed =
-                  '${state.yesterdayTripSummary!.maxSpeedKmph.toStringAsFixed(0)} km/hr';
-            }
-            if (state.todayRoute != null &&
-                state.todayRoute!.totalDistanceKm > 0) {
-              activeEntireRoute =
-                  '${state.todayRoute!.totalDistanceKm.toStringAsFixed(1)} km';
-            }
-          }
-
-          if (_children.isEmpty) {
-            return SafeArea(child: _buildEmptyState());
-          }
-
-          return SafeArea(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              itemCount: _children.length,
-              itemBuilder: (context, index) {
-                final child = _children[index];
-                final isActive = child.childId == activeChildId;
-
-                // Status info
-                String status;
-                if (child.childName.contains('Ananya')) {
-                  status = 'at school since 09:40 am';
-                } else if (child.childName.contains('Rohan')) {
-                  status = 'at home since 03:15 pm';
-                } else {
-                  status = isActive
+                  final status = child.isActive
                       ? 'online & tracking'
-                      : 'last active: just now';
-                }
+                      : 'last active: ${_formatLastActive(child.lastActiveAt)}';
+                  final screenTime = child.formattedScreenTimeToday;
+                  final maxSpeed =
+                      '${child.todayMaxSpeedKmph.toStringAsFixed(0)} km/hr';
+                  final entireRoute =
+                      '${child.todayRouteKm.toStringAsFixed(1)} km';
 
-                // Stats calculation
-                String screenTime = isActive
-                    ? activeScreenTime
-                    : (child.childName.contains('Rohan') ? '01 hrs' : '00 hrs');
-                String avgSpeed = isActive
-                    ? activeAvgSpeed
-                    : (child.childName.contains('Rohan')
-                          ? '42 km/hr'
-                          : '0 km/hr');
-                String entireRoute = isActive
-                    ? activeEntireRoute
-                    : (child.childName.contains('Rohan')
-                          ? '18.3 km'
-                          : '0.0 km');
-
-                return Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24.0,
-                    vertical: 8.0,
-                  ),
-                  child: _buildProfileCard(
-                    name: child.childName,
-                    childCode: child.childCode,
-                    avatar: child.avatar,
-                    status: status,
-                    screenTime: screenTime,
-                    avgSpeed: avgSpeed,
-                    entireRoute: entireRoute,
-                    isActive: isActive,
-                    onTap: () => _setActiveChild(child),
-                    onMorePressed: () => _showMoreActions(child),
-                  ),
-                );
-              },
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24.0,
+                      vertical: 8.0,
+                    ),
+                    child: _buildProfileCard(
+                      name: child.childName,
+                      childCode: child.childCode,
+                      avatar: child.avatar,
+                      status: status,
+                      screenTime: screenTime,
+                      maxSpeed: maxSpeed,
+                      entireRoute: entireRoute,
+                      isActive: child.isActive,
+                      onTap: () => _setActiveChild(child),
+                      onMorePressed: () => _showMoreActions(child),
+                    ),
+                  );
+                },
+              ),
             ),
-          );
-        },
-      ),
     );
+  }
+
+  /// Formats a past timestamp as a short relative string, e.g. "just now",
+  /// "5m ago", "3h ago", "2d ago".
+  String _formatLastActive(DateTime lastActiveAt) {
+    final diff = DateTime.now().difference(lastActiveAt);
+    if (diff.inSeconds < 60) return 'just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    return '${diff.inDays}d ago';
   }
 
   Widget _buildProfileCard({
@@ -352,7 +309,7 @@ class _ProfileViewState extends State<ProfileView> {
     required String? avatar,
     required String status,
     required String screenTime,
-    required String avgSpeed,
+    required String maxSpeed,
     required String entireRoute,
     required bool isActive,
     required VoidCallback onTap,
@@ -543,8 +500,8 @@ class _ProfileViewState extends State<ProfileView> {
                     Expanded(
                       child: _buildStatItem(
                         icon: Icons.bolt_rounded,
-                        value: avgSpeed,
-                        label: 'avg speed',
+                        value: maxSpeed,
+                        label: 'max speed',
                       ),
                     ),
                     Container(
