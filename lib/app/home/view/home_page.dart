@@ -2395,6 +2395,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     String placeName,
     HomepageSuccess state,
   ) {
+    // Location is considered "off" (GPS disabled, permission denied, device
+    // offline/unreachable, or stale beyond the server's staleness threshold)
+    // whenever the tracking snapshot says not to show a live marker. Shared
+    // children don't carry a tracking snapshot, so always treat as active.
+    final trackingSnapshot = state.trackingSnapshot;
+    final isLocationOff =
+        !_viewingSharedChild &&
+        trackingSnapshot != null &&
+        !trackingSnapshot.uiDirective.showLiveMarker;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
@@ -2417,18 +2427,22 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               Container(
                 width: 8,
                 height: 8,
-                decoration: const BoxDecoration(
-                  color: Color(0xFF10B981),
+                decoration: BoxDecoration(
+                  color: isLocationOff
+                      ? const Color(0xFFEF4444)
+                      : const Color(0xFF10B981),
                   shape: BoxShape.circle,
                 ),
               ),
               const SizedBox(width: 6),
               Text(
-                'ACTIVE NOW',
+                isLocationOff ? 'LOCATION OFF' : 'ACTIVE NOW',
                 style: GoogleFonts.manrope(
                   fontSize: 11,
                   fontWeight: FontWeight.w800,
-                  color: const Color(0xFF94A3B8),
+                  color: isLocationOff
+                      ? const Color(0xFFEF4444)
+                      : const Color(0xFF94A3B8),
                   letterSpacing: 0.5,
                 ),
               ),
@@ -2516,12 +2530,21 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _buildLocationStatusPill(
-                Icons.access_time_rounded,
-                _viewingSharedChild && _activeSharedChildData != null
-                    ? _formatSinceTime(
-                        _activeSharedChildData!['last_sync_at']?.toString(),
-                      )
-                    : _formatSinceTime(state.currentLocation?.since),
+                isLocationOff
+                    ? Icons.location_off_rounded
+                    : Icons.access_time_rounded,
+                isLocationOff
+                    ? 'Location off'
+                    : (_viewingSharedChild && _activeSharedChildData != null
+                          ? _formatSinceTime(
+                              _activeSharedChildData!['last_sync_at']
+                                  ?.toString(),
+                            )
+                          : _formatSinceTime(state.currentLocation?.since)),
+                backgroundColor: isLocationOff
+                    ? const Color(0xFFFEE2E2)
+                    : null,
+                contentColor: isLocationOff ? const Color(0xFFDC2626) : null,
               ),
               const SizedBox(width: 8),
               _buildLocationStatusPill(
@@ -2553,17 +2576,24 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildLocationStatusPill(IconData icon, String text) {
+  Widget _buildLocationStatusPill(
+    IconData icon,
+    String text, {
+    Color? backgroundColor,
+    Color? contentColor,
+  }) {
+    final bg = backgroundColor ?? const Color(0xFFF1F5F9);
+    final content = contentColor ?? const Color(0xFF64748B);
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF1F5F9),
+        color: bg,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: 14, color: const Color(0xFF64748B)),
+          Icon(icon, size: 14, color: content),
           const SizedBox(width: 4),
           Text(
             text,
@@ -2571,7 +2601,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             style: GoogleFonts.manrope(
               fontSize: 12,
               fontWeight: FontWeight.bold,
-              color: const Color(0xFF64748B),
+              color: content,
             ),
           ),
         ],
