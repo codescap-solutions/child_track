@@ -104,6 +104,22 @@
             </intent-filter>
         </receiver>
 
+        <!-- Native geofence transitions (GeofencingClient / Play Services).
+             Manifest-registered so the OS can invoke it even with the app process
+             fully killed — this is what makes geofence detection survive force-kill.
+             Only triggered by an explicit PendingIntent from this app (see
+             NativeGeofenceManager), not by any external broadcast, so exported=false. -->
+        <receiver
+            android:name=".GeofenceBroadcastReceiver"
+            android:exported="false" />
+
+        <!-- Native periodic background location fixes (FusedLocationProviderClient /
+             Play Services). Same force-kill-survival rationale as above — see
+             NativeLocationPingManager. -->
+        <receiver
+            android:name=".LocationPingBroadcastReceiver"
+            android:exported="false" />
+
         <!-- App Lock Accessibility Service -->
         <service
             android:name=".AppLockService"

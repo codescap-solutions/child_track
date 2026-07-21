@@ -332,26 +332,36 @@ class _TripDetailViewState extends State<TripDetailView> {
               ).difference(DateTime.parse(detail.startTime)).inMinutes;
             } catch (_) {}
 
-            displayEvents = detail.events.map((e) {
+            displayEvents = detail.events
+                // LOCATION_RESUMED is deliberately not rendered as its own
+                // node — the paired LOST_LOCATION card's duration already
+                // conveys the full gap (matches the reference UI's single
+                // grey "Lost location" node per gap, not two).
+                .where((e) => e.eventType.toLowerCase() != 'location_resumed')
+                .map((e) {
+              // NOTE: these case strings match TimelineEvent.model.js's actual
+              // eventType enum values (verified against the backend schema).
+              // Several previously didn't (e.g. 'trip_start' vs the real
+              // 'trip_started', 'walking'/'started_walking' vs the real
+              // 'start_walking', 'left_place' vs the real 'left',
+              // 'geofence_entered'/'geofence_exited' vs the real
+              // 'geofence_enter'/'geofence_exit') — silently falling through
+              // to the tripStart default for every one of those event types.
               TimelineEventType type = TimelineEventType.tripStart;
               switch (e.eventType.toLowerCase()) {
-                case 'trip_start':
+                case 'trip_started':
                   type = TimelineEventType.tripStart;
                   break;
-                case 'walking':
-                case 'started_walking':
+                case 'start_walking':
                   type = TimelineEventType.startedWalking;
                   break;
-                case 'running':
-                case 'started_running':
+                case 'start_running':
                   type = TimelineEventType.startedRunning;
                   break;
-                case 'cycling':
-                case 'started_cycling':
+                case 'start_cycling':
                   type = TimelineEventType.startedCycling;
                   break;
-                case 'vehicle':
-                case 'started_vehicle':
+                case 'start_vehicle':
                   type = TimelineEventType.startedVehicle;
                   break;
                 case 'stopped':
@@ -360,21 +370,30 @@ class _TripDetailViewState extends State<TripDetailView> {
                 case 'arrived':
                   type = TimelineEventType.arrived;
                   break;
-                case 'left_place':
+                case 'left':
                   type = TimelineEventType.leftPlace;
                   break;
-                case 'geofence_entered':
+                case 'geofence_enter':
                   type = TimelineEventType.geofenceEntered;
                   break;
-                case 'geofence_exited':
+                case 'geofence_exit':
                   type = TimelineEventType.geofenceExited;
+                  break;
+                case 'lost_location':
+                  type = TimelineEventType.lostLocation;
                   break;
               }
 
               return TimelineEvent(
                 type: type,
                 time: DateTime.tryParse(e.time)?.toLocal() ?? DateTime.now(),
-                label: e.title,
+                // Short, fixed label for lost-location cards (matches the
+                // reference UI's "Lost location" node) rather than the
+                // backend's duration-embedding description, which would
+                // otherwise duplicate the duration line rendered below it.
+                label: type == TimelineEventType.lostLocation
+                    ? 'Lost location'
+                    : e.title,
                 stopDuration: e.durationMinutes != null
                     ? Duration(minutes: e.durationMinutes!)
                     : null,
@@ -629,6 +648,9 @@ class _TripDetailViewState extends State<TripDetailView> {
                                   totalDistance,
                                   durationMinutes,
                                   maxSpeed,
+                                  detail: state is HomepageSuccess
+                                      ? state.selectedTripDetail
+                                      : null,
                                 ),
 
                                 // Activities Used: compact chip row derived from segments[].type
@@ -644,24 +666,11 @@ class _TripDetailViewState extends State<TripDetailView> {
                                   ),
                                 ],
 
-                                // Activity Breakdown: per-segment detail cards
-                                if (state is HomepageSuccess &&
-                                    state.selectedTripDetail != null &&
-                                    state
-                                        .selectedTripDetail!
-                                        .segments
-                                        .isNotEmpty) ...[
-                                  const SizedBox(height: AppSizes.spacingL),
-                                  _buildActivityBreakdown(
-                                    state.selectedTripDetail!.segments,
-                                  ),
-                                ],
-
                                 const SizedBox(height: AppSizes.spacingL),
                                 const Divider(),
                                 const SizedBox(height: AppSizes.spacingM),
                                 Text(
-                                  'Activity Timeline',
+                                  'Trip Timeline',
                                   style: AppTextStyles.subtitle1.copyWith(
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -676,9 +685,18 @@ class _TripDetailViewState extends State<TripDetailView> {
                                     ),
                                   )
                                 else
-                                  ...displayEvents.map(
-                                    (event) =>
-                                        _buildEnhancedTimelineItem(event),
+                                  // Unified, chronologically-ordered stepper:
+                                  // activity segments (walk/ride, colored) +
+                                  // lost-location gaps (grey) + notable place
+                                  // events (arrived/left/geofence), matching
+                                  // the reference UI's single continuous
+                                  // timeline rather than two separate lists.
+                                  ..._buildUnifiedTimeline(
+                                    state is HomepageSuccess &&
+                                            state.selectedTripDetail != null
+                                        ? state.selectedTripDetail!.segments
+                                        : const [],
+                                    displayEvents,
                                   ),
                               ],
                             ),
@@ -773,27 +791,86 @@ class _TripDetailViewState extends State<TripDetailView> {
   Widget _buildTripHeaderStats(
     double distanceKm,
     int durationMinutes,
-    double maxSpeedKmph,
-  ) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+    double maxSpeedKmph, {
+    TripDetailResponse? detail,
+  }) {
+    final showSplit = detail?.hasEstimatedDistance == true;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildStatItem(
-          icon: Icons.directions_run,
-          value: '${distanceKm.toStringAsFixed(2)} km',
-          label: 'Distance',
-        ),
-        _buildStatItem(
-          icon: Icons.timer,
-          value: '${durationMinutes} min',
-          label: 'Duration',
-        ),
-        _buildStatItem(
-          icon: Icons.speed,
-          value: '${maxSpeedKmph.toStringAsFixed(1)} km/h',
-          label: 'Max Speed',
+        if (detail?.hasDangerousDriving == true)
+          _buildDangerousDrivingBanner(detail!),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _buildStatItem(
+              icon: Icons.directions_run,
+              value: '${distanceKm.toStringAsFixed(2)} km',
+              label: 'Distance',
+              // Confirmed + Estimated split (Part B) — shown as a subtext
+              // rather than blended into the headline number, so it's always
+              // visible, not hidden behind an extra tap, in a child-safety
+              // context.
+              subtitle: showSplit
+                  ? '${detail!.distanceConfirmedKm.toStringAsFixed(1)} confirmed + '
+                      '${detail.distanceEstimatedKm.toStringAsFixed(1)} est.'
+                  : null,
+            ),
+            _buildStatItem(
+              icon: Icons.timer,
+              value: '${durationMinutes} min',
+              label: 'Duration',
+            ),
+            _buildStatItem(
+              icon: Icons.speed,
+              value: '${maxSpeedKmph.toStringAsFixed(1)} km/h',
+              label: 'Max Speed',
+            ),
+          ],
         ),
       ],
+    );
+  }
+
+  Widget _buildDangerousDrivingBanner(TripDetailResponse detail) {
+    final eventLabels = detail.drivingEvents.map((e) => e.label).toSet();
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: AppSizes.spacingM),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.orange.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.orange.withOpacity(0.4)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Dangerous driving',
+                  style: AppTextStyles.subtitle2.copyWith(
+                    color: Colors.orange.shade800,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                if (eventLabels.isNotEmpty)
+                  Text(
+                    eventLabels.join(' • '),
+                    style: AppTextStyles.caption.copyWith(
+                      color: Colors.orange.shade800,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -801,6 +878,7 @@ class _TripDetailViewState extends State<TripDetailView> {
     required IconData icon,
     required String value,
     required String label,
+    String? subtitle,
   }) {
     return Column(
       children: [
@@ -817,6 +895,17 @@ class _TripDetailViewState extends State<TripDetailView> {
           label,
           style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary),
         ),
+        if (subtitle != null) ...[
+          const SizedBox(height: 2),
+          Text(
+            subtitle,
+            textAlign: TextAlign.center,
+            style: AppTextStyles.caption.copyWith(
+              color: AppColors.textSecondary,
+              fontSize: 10,
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -884,104 +973,132 @@ class _TripDetailViewState extends State<TripDetailView> {
   // ─────────────────────────────────────────────────────────
   // Activity Breakdown – detailed card for each segment
   // ─────────────────────────────────────────────────────────
-  Widget _buildActivityBreakdown(List<ActivitySegment> segments) {
-    if (segments.isEmpty) return const SizedBox.shrink();
+  /// Merges activity segments + notable timeline events into one
+  /// chronologically-ordered list of stepper widgets. Segment-redundant
+  /// event types (start_walking/start_vehicle/stopped/trip_start — segments
+  /// already convey these more richly with distance+duration) are excluded;
+  /// lost-location gaps and place events (arrived/left/geofence) are kept.
+  List<Widget> _buildUnifiedTimeline(
+    List<ActivitySegment> segments,
+    List<TimelineEvent> events,
+  ) {
+    const redundantWithSegments = {
+      TimelineEventType.tripStart,
+      TimelineEventType.startedWalking,
+      TimelineEventType.startedRunning,
+      TimelineEventType.startedCycling,
+      TimelineEventType.startedVehicle,
+      TimelineEventType.stopped,
+    };
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Activity Breakdown',
-          style: AppTextStyles.subtitle1.copyWith(fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: AppSizes.spacingS),
-        ...segments.map((seg) => _buildSegmentCard(seg)),
-      ],
+    // A stop under this length is just GPS noise or a momentary pause (a red
+    // light, checking a phone mid-walk) — not worth its own timeline entry.
+    // Only genuinely meaningful pauses (lunch stop, waiting somewhere) show up.
+    const minStationarySeconds = 5 * 60;
+
+    final items = <(DateTime time, Widget Function(bool isLast) build)>[];
+
+    for (final seg in segments) {
+      final startTime = DateTime.tryParse(seg.startTime);
+      if (startTime == null) continue;
+      final isTrivialStop = seg.type.toLowerCase() == 'stationary' &&
+          seg.durationSeconds < minStationarySeconds;
+      if (isTrivialStop) continue;
+      items.add((
+        startTime,
+        (isLast) => _buildSegmentStepperItem(seg, isLast: isLast),
+      ));
+    }
+
+    for (final event in events) {
+      if (redundantWithSegments.contains(event.type)) continue;
+      items.add((
+        event.time,
+        (isLast) => _buildEnhancedTimelineItem(event, isLast: isLast),
+      ));
+    }
+
+    items.sort((a, b) => a.$1.compareTo(b.$1));
+
+    if (items.isEmpty) return const [];
+    return List.generate(
+      items.length,
+      (i) => items[i].$2(i == items.length - 1),
     );
   }
 
-  Widget _buildSegmentCard(ActivitySegment seg) {
+  Widget _buildSegmentStepperItem(ActivitySegment seg, {bool isLast = false}) {
     final data = _activityData(seg.type.toLowerCase());
     final color = data['color'] as Color;
     final emoji = data['emoji'] as String;
     final label = data['label'] as String;
 
-    // Unit conversions at UI layer only
-    final distanceKm = (seg.distanceMeters / 1000.0);
+    final distanceKm = seg.distanceMeters / 1000.0;
     final durationMin = (seg.durationSeconds / 60.0).round();
-    final avgKmh = seg.averageSpeedMps * 3.6;
-    final maxKmh = seg.maxSpeedMps * 3.6;
+    final startTime = DateTime.tryParse(seg.startTime)?.toLocal();
+    final timeStr = startTime != null
+        ? DateFormat('h:mm a').format(startTime).toLowerCase()
+        : '';
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: AppSizes.spacingM),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.borderColor),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSizes.spacingL),
+      child: IntrinsicHeight(
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Icon circle
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.12),
-                shape: BoxShape.circle,
-              ),
-              child: Center(
-                child: Text(emoji, style: const TextStyle(fontSize: 22)),
-              ),
+            Column(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Text(emoji, style: const TextStyle(fontSize: 15)),
+                  ),
+                ),
+                if (!isLast)
+                  Expanded(
+                    child: Container(width: 2, color: color.withOpacity(0.3)),
+                  ),
+              ],
             ),
-            const SizedBox(width: 14),
-
-            // Details
+            const SizedBox(width: AppSizes.spacingM),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        label,
+                        style: AppTextStyles.subtitle2.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: color,
+                        ),
+                      ),
+                      Text(
+                        timeStr,
+                        style: AppTextStyles.caption.copyWith(
+                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
                   Text(
-                    label,
-                    style: AppTextStyles.subtitle2.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: color,
+                    seg.type.toLowerCase() == 'stationary'
+                        ? '$durationMin min'
+                        : '${distanceKm.toStringAsFixed(1)} km  •  $durationMin min',
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.textSecondary,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${distanceKm.toStringAsFixed(1)} km  •  $durationMin min',
-                    style: AppTextStyles.body2.copyWith(
-                      color: AppColors.textPrimary,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  if (avgKmh > 0) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      'Avg Speed: ${avgKmh.toStringAsFixed(1)} km/h',
-                      style: AppTextStyles.caption.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                  if (maxKmh > 0) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      'Max Speed: ${maxKmh.toStringAsFixed(1)} km/h',
-                      style: AppTextStyles.caption.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
+                  const SizedBox(height: AppSizes.spacingS),
                 ],
               ),
             ),
@@ -1006,7 +1123,7 @@ class _TripDetailViewState extends State<TripDetailView> {
         return {'emoji': '🚴', 'label': 'Cycling', 'color': Colors.orange};
       case 'stationary':
       case 'stopped':
-        return {'emoji': '⏸️', 'label': 'Stationary', 'color': Colors.grey};
+        return {'emoji': '⏸️', 'label': 'Paused', 'color': Colors.grey};
       default:
         return {
           'emoji': '📍',
@@ -1019,7 +1136,19 @@ class _TripDetailViewState extends State<TripDetailView> {
   String _capitalize(String s) =>
       s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
 
-  Widget _buildEnhancedTimelineItem(TimelineEvent event) {
+  /// "Duration: X min" for short gaps, "Duration: X h" for long ones —
+  /// matches the reference UI ("1 min" vs "3 h") instead of always minutes
+  /// (which would otherwise render a 3-hour gap as "Duration: 180 min").
+  String _formatEventDuration(Duration d) {
+    if (d.inMinutes < 60) return 'Duration: ${d.inMinutes} min';
+    final hours = d.inMinutes / 60.0;
+    final rounded = hours == hours.roundToDouble()
+        ? hours.toStringAsFixed(0)
+        : hours.toStringAsFixed(1);
+    return 'Duration: $rounded h';
+  }
+
+  Widget _buildEnhancedTimelineItem(TimelineEvent event, {bool isLast = false}) {
     Color color = AppColors.primaryColor;
     IconData icon = Icons.directions_walk;
 
@@ -1064,6 +1193,10 @@ class _TripDetailViewState extends State<TripDetailView> {
         color = Colors.blueGrey;
         icon = Icons.notifications_none;
         break;
+      case TimelineEventType.lostLocation:
+        color = Colors.grey;
+        icon = Icons.error_outline;
+        break;
     }
 
     final timeStr = DateFormat('h:mm a').format(event.time).toLowerCase();
@@ -1086,9 +1219,10 @@ class _TripDetailViewState extends State<TripDetailView> {
                   ),
                   child: Icon(icon, color: color, size: 16),
                 ),
-                Expanded(
-                  child: Container(width: 2, color: AppColors.borderColor),
-                ),
+                if (!isLast)
+                  Expanded(
+                    child: Container(width: 2, color: AppColors.borderColor),
+                  ),
               ],
             ),
             const SizedBox(width: AppSizes.spacingM),
@@ -1119,7 +1253,7 @@ class _TripDetailViewState extends State<TripDetailView> {
                   if (event.stopDuration != null) ...[
                     const SizedBox(height: 2),
                     Text(
-                      'Duration: ${event.stopDuration!.inMinutes} min',
+                      _formatEventDuration(event.stopDuration!),
                       style: AppTextStyles.caption.copyWith(
                         color: AppColors.textSecondary,
                       ),

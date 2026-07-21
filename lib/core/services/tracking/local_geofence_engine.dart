@@ -231,22 +231,29 @@ class LocalGeofenceEngine {
       });
     }
 
-    _syncToNativeIos(nativeList);
+    _syncToNative(nativeList);
   }
 
-  Future<void> _syncToNativeIos(List<Map<String, dynamic>> list) async {
+  /// Pushes the geofence list to whichever native OS-level mechanism survives
+  /// this app being force-killed: iOS CLCircularRegion monitoring, or Android
+  /// GeofencingClient (NativeGeofenceManager.kt). Same channel + method name
+  /// on both platforms — only the platform guard differs.
+  Future<void> _syncToNative(List<Map<String, dynamic>> list) async {
+    if (defaultTargetPlatform != TargetPlatform.iOS &&
+        defaultTargetPlatform != TargetPlatform.android) {
+      return;
+    }
     try {
-      if (defaultTargetPlatform == TargetPlatform.iOS) {
-        await _channel.invokeMethod('syncGeofences', list);
-        StructuredLogger.log(
-          LogTag.BG,
-          '[LocalGeofenceEngine] Synced ${list.length} geofences to iOS Native CLCircularRegion Monitoring',
-        );
-      }
+      await _channel.invokeMethod('syncGeofences', list);
+      StructuredLogger.log(
+        LogTag.BG,
+        '[LocalGeofenceEngine] Synced ${list.length} geofences to native '
+        '${defaultTargetPlatform == TargetPlatform.iOS ? "iOS CLCircularRegion" : "Android GeofencingClient"} monitoring',
+      );
     } catch (e) {
       StructuredLogger.log(
         LogTag.BG,
-        '[LocalGeofenceEngine] Failed to sync geofences to iOS Native CLCircularRegion Monitoring',
+        '[LocalGeofenceEngine] Failed to sync geofences to native platform monitoring',
         error: e,
       );
     }

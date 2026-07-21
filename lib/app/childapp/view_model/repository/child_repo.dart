@@ -332,18 +332,36 @@ class ChildRepo extends BaseService {
     }
   }
 
-  // ── iOS Native Background Sync — App Group Credential Bridge ─────────────
-  /// Saves auth token, API base URL, and child ID into the iOS App Group
+  // ── Native Background Sync — Credential Bridge (both platforms) ──────────
+  /// iOS: saves auth token, API base URL, and child ID into the App Group
   /// (group.com.truenyx.naviq) via MethodChannel so the native Swift handler
   /// (handleNativeDataSync) can POST to the server even when Flutter is suspended.
   ///
-  /// No-op on Android.
+  /// Android: mirrors just the auth token into plain (non-secure)
+  /// SharedPreferences — child_id is already stored there via setString(),
+  /// and GeofenceBroadcastReceiver (native Kotlin) reads both directly, the
+  /// same way AppLockService.kt already reads locked-packages CSV. No
+  /// MethodChannel round-trip needed since the plain shared_preferences
+  /// plugin already writes to the file native code reads.
   Future<void> syncAppGroupCredentials() async {
+    final token = _sharedPrefsService.getAuthToken();
+    final childId = _sharedPrefsService.getString('child_id');
+
+    if (Platform.isAndroid) {
+      try {
+        if (token != null && token.isNotEmpty) {
+          await _sharedPrefsService.setString('native_auth_token', token);
+        }
+        AppLogger.info('ChildRepo: Android native geofence credentials synced ✅');
+      } catch (e) {
+        AppLogger.error('ChildRepo: Failed to sync Android native credentials: $e');
+      }
+      return;
+    }
+
     if (!Platform.isIOS) return;
     try {
       const channel = MethodChannel('com.truenyx.naviq/parental_control');
-      final token   = _sharedPrefsService.getAuthToken();
-      final childId = _sharedPrefsService.getString('child_id');
 
       if (token != null && token.isNotEmpty) {
         await channel.invokeMethod<bool>('saveAuthToken', token);

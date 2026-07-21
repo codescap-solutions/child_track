@@ -85,4 +85,13 @@ dependencies {
     // Play Billing Library — required to satisfy Google Play's minimum v6.0.1 requirement.
     // Without this, Play Console flags the BILLING permission as using the legacy AIDL interface.
     implementation("com.android.billingclient:billing:7.1.1")
+    // Native GeofencingClient + FusedLocationProviderClient — used directly from Kotlin
+    // (not just via the Geolocator plugin) so geofence transitions and periodic location
+    // fixes are delivered by Play Services via PendingIntent/BroadcastReceiver, independent
+    // of the Flutter engine or app process being alive (survives force-kill).
+    implementation("com.google.android.gms:play-services-location:21.3.0")
+    // WorkManager is already on the transitive classpath via workmanager_android, but only
+    // as an `implementation` dependency there, which Gradle hides from this module — declare
+    // it explicitly so LocationWatchdogWorker.kt can reference androidx.work.* directly.
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
 }

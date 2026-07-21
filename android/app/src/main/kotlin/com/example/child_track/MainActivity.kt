@@ -5,11 +5,14 @@ import android.os.Bundle
 import android.util.Log
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
 
     companion object {
         private const val TAG = "MainActivity"
+        private const val GEOFENCE_CHANNEL = "com.truenyx.naviq/geofence"
+        private const val BACKGROUND_LOCATION_CHANNEL = "com.truenyx.naviq/background_location"
     }
 
     private var deviceInfoPlugin: DeviceInfoPlugin? = null
@@ -18,7 +21,7 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        
+
         var plugin = flutterEngine.plugins.get(DeviceInfoPlugin::class.java) as? DeviceInfoPlugin
         if (plugin == null) {
             Log.w(TAG, ">>> DeviceInfoPlugin not found in registry, registering manually")
@@ -28,6 +31,64 @@ class MainActivity : FlutterActivity() {
             Log.d(TAG, ">>> DeviceInfoPlugin resolved from registry successfully")
         }
         deviceInfoPlugin = plugin
+
+        setupGeofenceChannel(flutterEngine)
+        setupBackgroundLocationChannel(flutterEngine)
+    }
+
+    /**
+     * Arms/disarms the native FusedLocationProviderClient + PendingIntent
+     * background ping (NativeLocationPingManager) and its WorkManager watchdog.
+     * Called from Dart's BackgroundLocationService.start()/stop() alongside the
+     * foreground service, so both layers turn on/off together.
+     */
+    private fun setupBackgroundLocationChannel(flutterEngine: FlutterEngine) {
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, BACKGROUND_LOCATION_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "start" -> {
+                        NativeLocationPingManager.start(applicationContext)
+                        LocationWatchdogWorker.schedule(applicationContext)
+                        result.success(true)
+                    }
+                    "stop" -> {
+                        NativeLocationPingManager.stop(applicationContext)
+                        LocationWatchdogWorker.cancel(applicationContext)
+                        result.success(true)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+    }
+
+    /**
+     * Same channel name/method shape as iOS's setupGeofenceMethodChannel in
+     * AppDelegate.swift, so local_geofence_engine.dart's Dart code is identical
+     * across platforms — only the platform guard around the call site differs.
+     */
+    private fun setupGeofenceChannel(flutterEngine: FlutterEngine) {
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, GEOFENCE_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "syncGeofences" -> {
+                        @Suppress("UNCHECKED_CAST")
+                        val args = call.arguments as? List<Map<String, Any?>>
+                        if (args == null) {
+                            result.error("INVALID_ARGS", "Expected list of geofences", null)
+                        } else {
+                            NativeGeofenceManager.syncGeofences(applicationContext, args)
+                            result.success(true)
+                        }
+                    }
+                    "fetchGeofences" -> {
+                        // Android relies on the existing Dart-side periodic refresh
+                        // (LocationStateMachine._refreshGeofences) to fetch and push the
+                        // list here via syncGeofences — no separate native fetch needed.
+                        result.success(true)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

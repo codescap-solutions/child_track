@@ -13,6 +13,7 @@ import 'package:child_track/core/services/location_state_machine.dart';
 import 'package:child_track/core/services/tracking/tracking_profile_manager.dart';
 import 'package:child_track/core/services/tracking/tracking_config_service.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:geolocator/geolocator.dart';
@@ -23,6 +24,15 @@ class BackgroundLocationService {
       BackgroundLocationService._internal();
   factory BackgroundLocationService() => _instance;
   BackgroundLocationService._internal();
+
+  /// Android-only: arms/disarms the native FusedLocationProviderClient
+  /// background ping (NativeLocationPingManager.kt) + its WorkManager
+  /// watchdog, so there's still a baseline location signal reaching the
+  /// server if this foreground service itself gets killed (force-kill,
+  /// aggressive OEM battery management). No-op on iOS, which already has its
+  /// own always-on CLLocationManager background updates (AppDelegate.swift).
+  static const MethodChannel _backgroundLocationChannel =
+      MethodChannel('com.truenyx.naviq/background_location');
 
   /// Initialize the background service
   Future<void> initialize() async {
@@ -70,14 +80,23 @@ class BackgroundLocationService {
     try {
       final service = FlutterBackgroundService();
       final running = await service.isRunning();
-      if (running) {
+      if (!running) {
+        StructuredLogger.log(LogTag.BG, 'Starting service manually');
+        await service.startService();
+      } else {
         StructuredLogger.log(LogTag.BG, 'Service already running, skipping start');
-        return;
       }
-      StructuredLogger.log(LogTag.BG, 'Starting service manually');
-      await service.startService();
     } catch (e) {
       StructuredLogger.log(LogTag.BG, 'Failed to start service', error: e);
+    }
+
+    if (Platform.isAndroid) {
+      try {
+        await _backgroundLocationChannel.invokeMethod('start');
+        StructuredLogger.log(LogTag.BG, 'Native background location ping armed');
+      } catch (e) {
+        StructuredLogger.log(LogTag.BG, 'Failed to arm native background location ping', error: e);
+      }
     }
   }
 
@@ -88,6 +107,15 @@ class BackgroundLocationService {
       service.invoke('stop');
     } catch (e) {
       StructuredLogger.log(LogTag.BG, 'Failed to stop service', error: e);
+    }
+
+    if (Platform.isAndroid) {
+      try {
+        await _backgroundLocationChannel.invokeMethod('stop');
+        StructuredLogger.log(LogTag.BG, 'Native background location ping disarmed');
+      } catch (e) {
+        StructuredLogger.log(LogTag.BG, 'Failed to disarm native background location ping', error: e);
+      }
     }
   }
 

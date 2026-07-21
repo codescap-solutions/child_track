@@ -51,7 +51,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
           'id': message.messageId ?? DateTime.now().millisecondsSinceEpoch.toString(),
           'title': parsed['title'],
           'body': parsed['body'],
-          'timestamp': DateTime.now().toIso8601String(),
+          'timestamp': FirebaseNotificationService._eventTimestampOrNow(message),
           'type': parsed['type'],
           'isRead': false,
         });
@@ -455,7 +455,7 @@ class FirebaseNotificationService {
             'id': message.messageId ?? DateTime.now().millisecondsSinceEpoch.toString(),
             'title': parsed['title'],
             'body': parsed['body'],
-            'timestamp': DateTime.now().toIso8601String(),
+            'timestamp': _eventTimestampOrNow(message),
             'type': parsed['type'],
             'isRead': false,
           });
@@ -519,6 +519,22 @@ class FirebaseNotificationService {
 
     // Show local notification for foreground messages
     _showLocalNotification(message);
+  }
+
+  /// Use the real-world event time (sent by the backend for geofence alerts,
+  /// e.g. see fcm.util.js sendGeofenceAlert) when available, instead of
+  /// stamping the notification with the moment this device happened to
+  /// process the FCM message. Those can differ significantly if the device
+  /// was backgrounded/restricted and only processed the message late — which
+  /// otherwise made every notification misleadingly show "Just now" even
+  /// when the underlying event happened much earlier.
+  static String _eventTimestampOrNow(RemoteMessage message) {
+    final raw = message.data['event_timestamp'];
+    if (raw != null) {
+      final parsed = DateTime.tryParse(raw);
+      if (parsed != null) return parsed.toIso8601String();
+    }
+    return DateTime.now().toIso8601String();
   }
 
   static Map<String, String> parseNotificationContent(RemoteMessage message) {

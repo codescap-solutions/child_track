@@ -57,13 +57,18 @@ class Trip {
   });
 
   factory Trip.fromJson(Map<String, dynamic> json) {
-    final points = (json['points'] as List<dynamic>?)
+    final points =
+        (json['points'] as List<dynamic>?)
             ?.map((e) => TripPoint.fromJson(e as Map<String, dynamic>))
             .toList() ??
         [];
 
-    final String parsedStartTime = points.isNotEmpty ? points.first.ts : (json['start_time'] ?? '');
-    final String parsedEndTime = points.isNotEmpty ? points.last.ts : (json['end_time'] ?? '');
+    final String parsedStartTime = points.isNotEmpty
+        ? points.first.ts
+        : (json['start_time'] ?? '');
+    final String parsedEndTime = points.isNotEmpty
+        ? points.last.ts
+        : (json['end_time'] ?? '');
 
     // Defensive parsing for distance_km
     String parsedDistance = '0.0';
@@ -106,7 +111,8 @@ class TripListResponse {
 
   factory TripListResponse.fromJson(Map<String, dynamic> json) {
     return TripListResponse(
-      trips: (json['trips'] as List<dynamic>?)
+      trips:
+          (json['trips'] as List<dynamic>?)
               ?.map((trip) => Trip.fromJson(trip as Map<String, dynamic>))
               .toList() ??
           [],

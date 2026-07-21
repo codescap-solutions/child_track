@@ -13,6 +13,7 @@ enum TimelineEventType {
   leftPlace,
   geofenceEntered,
   geofenceExited,
+  lostLocation,
 }
 
 class TimelineEvent {
@@ -60,6 +61,8 @@ class TimelineEvent {
         return '🔔';
       case TimelineEventType.geofenceExited:
         return '🔕';
+      case TimelineEventType.lostLocation:
+        return '⚠️';
     }
   }
 }

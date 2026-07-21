@@ -99,6 +99,48 @@ class ActivitySegment {
   }
 }
 
+class DrivingEventInfo {
+  final String eventType;
+  final double value;
+  final String timestamp;
+  final double lat;
+  final double lng;
+
+  DrivingEventInfo({
+    required this.eventType,
+    required this.value,
+    required this.timestamp,
+    required this.lat,
+    required this.lng,
+  });
+
+  factory DrivingEventInfo.fromJson(Map<String, dynamic> json) {
+    return DrivingEventInfo(
+      eventType: json['event_type'] ?? '',
+      value: safeToDouble(json['value']),
+      timestamp: json['timestamp'] ?? '',
+      lat: safeToDouble(json['lat']),
+      lng: safeToDouble(json['lng']),
+    );
+  }
+
+  /// Human-readable label for the banner/list (e.g. "Hard braking").
+  String get label {
+    switch (eventType) {
+      case 'hard_braking':
+        return 'Hard braking';
+      case 'rapid_acceleration':
+        return 'Rapid acceleration';
+      case 'overspeed':
+        return 'Overspeed';
+      case 'harsh_turn':
+        return 'Harsh turn';
+      default:
+        return eventType;
+    }
+  }
+}
+
 class TripDetailResponse {
   final String tripId;
   final String startTime;
@@ -111,6 +153,13 @@ class TripDetailResponse {
   final List<LatLng> polylinePoints;
   final List<TripEvent> events;
   final List<ActivitySegment> segments;
+  // Confirmed + Estimated distance split (Part B) — kept as separate labeled
+  // figures rather than blended into one number.
+  final double distanceConfirmedKm;
+  final double distanceEstimatedKm;
+  final double distanceTotalKm;
+  final List<DrivingEventInfo> drivingEvents;
+  final bool hasDangerousDriving;
 
   TripDetailResponse({
     required this.tripId,
@@ -124,6 +173,11 @@ class TripDetailResponse {
     required this.polylinePoints,
     required this.events,
     required this.segments,
+    this.distanceConfirmedKm = 0,
+    this.distanceEstimatedKm = 0,
+    this.distanceTotalKm = 0,
+    this.drivingEvents = const [],
+    this.hasDangerousDriving = false,
   });
 
   // Helper getters to keep compatibility with existing view properties
@@ -131,6 +185,11 @@ class TripDetailResponse {
   double get maxSpeedKmph => maxSpeedMps * 3.6;
   int get steps => 0;
   double get walkingKm => 0.0;
+
+  /// Whether the confirmed/estimated split is meaningful enough to show
+  /// (i.e. there's a real gap contributing distance) rather than always
+  /// showing a redundant "X confirmed + 0.0 estimated" subtext.
+  bool get hasEstimatedDistance => distanceEstimatedKm > 0.05;
 
   factory TripDetailResponse.fromJson(Map<String, dynamic> json) {
     // Determine route field (new format uses 'route', fallback to 'polyline_points')
@@ -167,6 +226,16 @@ class TripDetailResponse {
               )
               .toList() ??
           [],
+      distanceConfirmedKm: safeToDouble(json['distance_confirmed_km']),
+      distanceEstimatedKm: safeToDouble(json['distance_estimated_km']),
+      distanceTotalKm: json['distance_total_km'] != null
+          ? safeToDouble(json['distance_total_km'])
+          : dist / 1000.0,
+      drivingEvents: (json['driving_events'] as List<dynamic>?)
+              ?.map((e) => DrivingEventInfo.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      hasDangerousDriving: json['has_dangerous_driving'] == true,
     );
   }
 }
