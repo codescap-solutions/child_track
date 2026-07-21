@@ -17,6 +17,11 @@ import os.log
 @main
 @objc class AppDelegate: FlutterAppDelegate {
 
+    /// Guards against calling startLocationServices() more than once —
+    /// applicationDidBecomeActive can fire repeatedly (e.g. after Control
+    /// Center dismissal), but the location manager only needs to be armed once.
+    private var didStartLocationServices = false
+
     // MARK: - Properties
 
     /// Native logger for background diagnostics
@@ -112,16 +117,18 @@ import os.log
             ScreenTimeManager.shared.startMonitoring()
         }
 
-        startLocationServices()
         startNetworkMonitor()
 
-        let controller = window?.rootViewController as! FlutterViewController
-        setupDeviceInfoChannel(controller: controller)
-        setupParentalControlChannel(controller: controller)
-        setupGeofenceMethodChannel(controller: controller)
-
-        // Initialize Native Geofence Manager
+        // startLocationServices() is deliberately NOT called here. It calls
+        // CLLocationManager.requestAlwaysAuthorization(), which needs the app
+        // to actually be active (foregrounded) to reliably present its system
+        // permission alert. It's deferred to applicationDidBecomeActive, by
+        // which point the window/rootViewController (auto-created from
+        // Main.storyboard) is guaranteed ready.
         IOSNativeGeofenceManager.shared.initialize(locationManager: locationManager)
+
+        let controller = window?.rootViewController as! FlutterViewController
+        setupChannels(controller: controller)
 
         // Handle relaunch by iOS location event (e.g. SLC, visits, geofences after swipe-kill)
         if let launchOptions = launchOptions, launchOptions[.location] != nil {
@@ -133,9 +140,17 @@ import os.log
         return super.application(application, didFinishLaunchingWithOptions: launchOptions)
     }
 
+    override func applicationDidBecomeActive(_ application: UIApplication) {
+        super.applicationDidBecomeActive(application)
+        if !didStartLocationServices {
+            didStartLocationServices = true
+            startLocationServices()
+        }
+    }
+
     // MARK: - Location Services (Optimization 1, 4, 6)
 
-    private func startLocationServices() {
+    func startLocationServices() {
         locationManager.delegate                    = self
         locationManager.desiredAccuracy             = kCLLocationAccuracyBest
         locationManager.distanceFilter              = 10          // metres
@@ -551,7 +566,14 @@ import os.log
 
     // MARK: - Method Channels
 
-    private func setupDeviceInfoChannel(controller: FlutterViewController) {
+    /// Called by SceneDelegate once the FlutterViewController is ready.
+    func setupChannels(controller: FlutterViewController) {
+        setupDeviceInfoChannel(controller: controller)
+        setupParentalControlChannel(controller: controller)
+        setupGeofenceMethodChannel(controller: controller)
+    }
+
+    func setupDeviceInfoChannel(controller: FlutterViewController) {
         let channel = FlutterMethodChannel(
             name: "com.truenyx.naviq/device_info",
             binaryMessenger: controller.binaryMessenger
@@ -576,7 +598,7 @@ import os.log
         }
     }
 
-    private func setupParentalControlChannel(controller: FlutterViewController) {
+    func setupParentalControlChannel(controller: FlutterViewController) {
         let channel = FlutterMethodChannel(
             name: "com.truenyx.naviq/parental_control",
             binaryMessenger: controller.binaryMessenger
@@ -668,7 +690,7 @@ import os.log
         }
     }
 
-    private func setupGeofenceMethodChannel(controller: FlutterViewController) {
+    func setupGeofenceMethodChannel(controller: FlutterViewController) {
         let channel = FlutterMethodChannel(
             name: "com.truenyx.naviq/geofence",
             binaryMessenger: controller.binaryMessenger
