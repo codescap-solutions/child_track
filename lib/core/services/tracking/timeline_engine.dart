@@ -71,6 +71,13 @@ class TimelineEngine {
   static const double _stopSpeedMs = 0.5;
   static const int _stopMinSeconds = 60;
 
+  // Runs shorter than this are noise (a couple of points misread during
+  // ordinary walking-pace GPS speed jitter, not a real activity change) and
+  // get absorbed into a neighboring run instead of becoming their own
+  // "Started X" timeline entry. Mirrors the equivalent server-side fix in
+  // naviQ-server's mergeAndCleanSegments.
+  static const int _minRunSeconds = 60;
+
   static List<TimelineEvent> generate({
     required List<Map<String, dynamic>> points,
     String initialRideMode = 'stationary',
@@ -78,10 +85,6 @@ class TimelineEngine {
     if (points.isEmpty) return [];
 
     final events = <TimelineEvent>[];
-    NaviQActivityType? lastMode;
-    int stopStartIdx = -1;
-    double cumulativeDistKm = 0;
-
     final first = points.first;
     events.add(TimelineEvent(
       type: TimelineEventType.tripStart,
@@ -91,59 +94,137 @@ class TimelineEngine {
       lng: safeToDouble(first['lng']),
     ));
 
-    lastMode = _modeFromString(initialRideMode);
+    // 1. Classify every point's raw instantaneous mode + running distance.
+    final rawModes = <NaviQActivityType>[];
+    final cumDistKm = <double>[0.0];
+    for (int i = 0; i < points.length; i++) {
+      rawModes.add(_modeFromSpeed(safeToDouble(points[i]['speed'])));
+      if (i > 0) {
+        final segDist = Geolocator.distanceBetween(
+          safeToDouble(points[i - 1]['lat']),
+          safeToDouble(points[i - 1]['lng']),
+          safeToDouble(points[i]['lat']),
+          safeToDouble(points[i]['lng']),
+        );
+        cumDistKm.add(cumDistKm.last + segDist / 1000);
+      }
+    }
+
+    // 2. Group into raw consecutive-same-mode runs, then absorb any run
+    // shorter than _minRunSeconds into whichever neighbor is longer —
+    // without this, a single noisy point (or a couple in a row) reading a
+    // different instantaneous speed flips `mode` and fires a brand new
+    // "Started Walking"/stop event on nearly every point, instead of once
+    // per real, sustained activity change.
+    var runs = _groupIntoRuns(points, rawModes);
+    for (int pass = 0; pass < 5; pass++) {
+      if (runs.length <= 1) break;
+      final absorbed = _absorbShortRuns(points, runs);
+      if (absorbed == null) break; // nothing left to absorb — stable
+      runs = _collapseAdjacentRuns(absorbed);
+    }
+
+    // 3. Emit timeline events from the cleaned runs.
+    NaviQActivityType lastMode = _modeFromString(initialRideMode);
     events.add(_modeEvent(lastMode, _parseTs(first['ts']), distanceKm: 0));
 
-    for (int i = 1; i < points.length; i++) {
-      final pt = points[i];
-      final prev = points[i - 1];
+    for (int i = 0; i < runs.length; i++) {
+      final run = runs[i];
+      if (run.mode == lastMode) continue;
 
-      final speed = safeToDouble(pt['speed']);
-      final lat = safeToDouble(pt['lat']);
-      final lng = safeToDouble(pt['lng']);
-      final ts = _parseTs(pt['ts']);
+      final ts = _parseTs(points[run.startIdx]['ts']);
 
-      final segDist = Geolocator.distanceBetween(
-        safeToDouble(prev['lat']),
-        safeToDouble(prev['lng']),
-        lat,
-        lng,
-      );
-      cumulativeDistKm += segDist / 1000;
-
-      final mode = _modeFromSpeed(speed);
-
-      if (mode != lastMode && mode != NaviQActivityType.unknown) {
-        if (lastMode == NaviQActivityType.stationary && stopStartIdx != -1) {
-          final stopStart = _parseTs(points[stopStartIdx]['ts']);
-          final stopDur = ts.difference(stopStart);
-          if (stopDur.inSeconds >= _stopMinSeconds) {
-            events.add(TimelineEvent(
-              type: TimelineEventType.stopped,
-              time: stopStart,
-              label: 'Stopped for ${_formatDuration(stopDur)}',
-              lat: lat,
-              lng: lng,
-              stopDuration: stopDur,
-            ));
-          }
-          stopStartIdx = -1;
+      if (lastMode == NaviQActivityType.stationary && i > 0) {
+        final prevRun = runs[i - 1];
+        final stopStart = _parseTs(points[prevRun.startIdx]['ts']);
+        final stopDur = ts.difference(stopStart);
+        if (stopDur.inSeconds >= _stopMinSeconds) {
+          events.add(TimelineEvent(
+            type: TimelineEventType.stopped,
+            time: stopStart,
+            label: 'Stopped for ${_formatDuration(stopDur)}',
+            lat: safeToDouble(points[prevRun.startIdx]['lat']),
+            lng: safeToDouble(points[prevRun.startIdx]['lng']),
+            stopDuration: stopDur,
+          ));
         }
-
-        events.add(_modeEvent(mode, ts, distanceKm: cumulativeDistKm));
-        lastMode = mode;
       }
 
-      if (speed < _stopSpeedMs && stopStartIdx == -1) {
-        stopStartIdx = i;
-      } else if (speed >= _stopSpeedMs) {
-        stopStartIdx = -1;
-      }
+      events.add(_modeEvent(run.mode, ts, distanceKm: cumDistKm[run.startIdx]));
+      lastMode = run.mode;
     }
 
     events.sort((a, b) => a.time.compareTo(b.time));
 
     return events;
+  }
+
+  static List<_ModeRun> _groupIntoRuns(
+    List<Map<String, dynamic>> points,
+    List<NaviQActivityType> rawModes,
+  ) {
+    final runs = <_ModeRun>[];
+    var runStart = 0;
+    for (int i = 1; i <= points.length; i++) {
+      if (i == points.length || rawModes[i] != rawModes[runStart]) {
+        runs.add(_ModeRun(mode: rawModes[runStart], startIdx: runStart, endIdx: i - 1));
+        runStart = i;
+      }
+    }
+    return runs;
+  }
+
+  static int _runDurationSeconds(List<Map<String, dynamic>> points, _ModeRun run) {
+    return _parseTs(points[run.endIdx]['ts'])
+        .difference(_parseTs(points[run.startIdx]['ts']))
+        .inSeconds;
+  }
+
+  /// Returns a retyped run list with short runs relabeled to match whichever
+  /// neighbor is longer, or null if none were short enough to need it.
+  static List<_ModeRun>? _absorbShortRuns(
+    List<Map<String, dynamic>> points,
+    List<_ModeRun> runs,
+  ) {
+    var anyShort = false;
+    final retyped = <_ModeRun>[];
+    for (int i = 0; i < runs.length; i++) {
+      final run = runs[i];
+      if (_runDurationSeconds(points, run) >= _minRunSeconds) {
+        retyped.add(run);
+        continue;
+      }
+      final prev = i > 0 ? runs[i - 1] : null;
+      final next = i < runs.length - 1 ? runs[i + 1] : null;
+      if (prev == null && next == null) {
+        retyped.add(run);
+        continue;
+      }
+      NaviQActivityType absorbMode;
+      if (prev != null && next != null) {
+        absorbMode = _runDurationSeconds(points, prev) >= _runDurationSeconds(points, next)
+            ? prev.mode
+            : next.mode;
+      } else {
+        absorbMode = prev?.mode ?? next!.mode;
+      }
+      anyShort = true;
+      retyped.add(_ModeRun(mode: absorbMode, startIdx: run.startIdx, endIdx: run.endIdx));
+    }
+    return anyShort ? retyped : null;
+  }
+
+  static List<_ModeRun> _collapseAdjacentRuns(List<_ModeRun> runs) {
+    final collapsed = <_ModeRun>[];
+    for (final run in runs) {
+      if (collapsed.isNotEmpty && collapsed.last.mode == run.mode) {
+        collapsed[collapsed.length - 1] =
+            _ModeRun(mode: run.mode, startIdx: collapsed.last.startIdx, endIdx: run.endIdx);
+      } else {
+        collapsed.add(run);
+      }
+    }
+    return collapsed;
   }
 
   static TimelineEvent _modeEvent(
@@ -233,4 +314,14 @@ class TimelineEngine {
     }
     return '${d.inMinutes}m';
   }
+}
+
+/// A run of consecutive points sharing the same raw activity mode, by index
+/// range into the original points list (inclusive).
+class _ModeRun {
+  final NaviQActivityType mode;
+  final int startIdx;
+  final int endIdx;
+
+  _ModeRun({required this.mode, required this.startIdx, required this.endIdx});
 }
