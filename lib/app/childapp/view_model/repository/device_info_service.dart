@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:child_track/app/home/model/device_model.dart';
 import 'package:child_track/app/social_apps/model/installed_app_model.dart';
 import 'package:child_track/core/utils/app_logger.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class ChildInfoService {
   final Connectivity _connectivity = Connectivity();
@@ -27,6 +29,33 @@ class ChildInfoService {
       // Get charging status
       final chargingStatus = await isCharging();
 
+      // Get location tracking context — checks the live OS GPS/location-services
+      // toggle, not just whether permission was ever granted, so this correctly
+      // flips when the child turns location off at the OS level.
+      bool gpsEnabled = false;
+      String locationPermissionStatus = 'unknown';
+      try {
+        gpsEnabled = await Geolocator.isLocationServiceEnabled();
+
+        final permissionStatus = await Permission.locationAlways.status;
+        if (permissionStatus.isGranted) {
+          locationPermissionStatus = 'granted';
+        } else if (permissionStatus.isDenied) {
+          locationPermissionStatus = 'denied';
+        } else if (permissionStatus.isPermanentlyDenied) {
+          locationPermissionStatus = 'denied_forever';
+        } else {
+          final inUseStatus = await Permission.locationWhenInUse.status;
+          if (inUseStatus.isGranted) {
+            locationPermissionStatus = 'while_using';
+          } else {
+            locationPermissionStatus = permissionStatus.name;
+          }
+        }
+      } catch (e) {
+        AppLogger.error('Error getting location status: $e');
+      }
+
       return DeviceInfo(
         isCharging: chargingStatus,
         batteryPercentage: batteryPercentage,
@@ -35,6 +64,8 @@ class ChildInfoService {
         soundProfile: soundProfile,
         isOnline: networkInfo['isOnline'] ?? false,
         onlineSince: _getCurrentTime(),
+        gpsEnabled: gpsEnabled,
+        locationPermissionStatus: locationPermissionStatus,
       );
     } catch (e) {
       AppLogger.error('Error getting device info: $e');
@@ -47,6 +78,8 @@ class ChildInfoService {
         soundProfile: 'unknown',
         isOnline: false,
         onlineSince: _getCurrentTime(),
+        gpsEnabled: false,
+        locationPermissionStatus: 'unknown',
       );
     }
   }

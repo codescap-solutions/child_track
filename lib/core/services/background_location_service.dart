@@ -286,10 +286,26 @@ void onStart(ServiceInstance service) async {
           LogTag.BG,
           'Location Service Status: $status',
         );
-        if (status == ServiceStatus.enabled) {
+        final isEnabled = status == ServiceStatus.enabled;
+        if (isEnabled) {
           _startLocationStream(service);
         } else {
           _positionSubscription?.cancel();
+        }
+
+        // Report the toggle to the backend immediately, rather than waiting
+        // for the next cold-start/resume/force-refresh device-status post —
+        // this is what makes the parent's location-on/off status reflect the
+        // real OS toggle right away instead of going stale for however long
+        // it takes for one of those other triggers to happen. Also refreshes
+        // deviceStatus.lastHeartbeat, which keeps the tracking-snapshot
+        // staleness check accurate even when nothing else has changed.
+        final childId = sharedPrefsService.getString('child_id');
+        if (childId != null && childId.isNotEmpty) {
+          childRepo.postChildData({
+            'child_id': childId,
+            'gps_enabled': isEnabled,
+          });
         }
       },
       onError: (e) {

@@ -220,6 +220,8 @@ Future<void> _performForceRefresh(String childId) async {
       'is_online': deviceInfo.isOnline,
       'is_charging': deviceInfo.isCharging,
       'last_update': deviceInfo.onlineSince,
+      'gps_enabled': deviceInfo.gpsEnabled,
+      'location_permission': deviceInfo.locationPermissionStatus,
     };
     final statusResponse = await childRepo.postChildData(statusData);
     if (statusResponse.isSuccess) {

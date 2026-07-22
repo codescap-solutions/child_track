@@ -126,6 +126,11 @@ class _SosViewState extends State<SosView> with WidgetsBindingObserver {
 
   Future<void> _checkOtherPermissions() async {
     final locStatus = await Geolocator.checkPermission();
+    // Permission grant alone doesn't mean location actually works — the child
+    // can grant permission once and later flip the OS-level location-services
+    // toggle off without ever touching the permission itself. Both must hold
+    // for this status to honestly read as "enabled".
+    final locServiceEnabled = await Geolocator.isLocationServiceEnabled();
     final notifStatus = await Permission.notification.status;
     final bgStatus = Platform.isAndroid
         ? await Permission.ignoreBatteryOptimizations.status
@@ -134,8 +139,9 @@ class _SosViewState extends State<SosView> with WidgetsBindingObserver {
     if (mounted) {
       setState(() {
         _hasLocationPermission =
-            locStatus == LocationPermission.always ||
-            locStatus == LocationPermission.whileInUse;
+            (locStatus == LocationPermission.always ||
+                locStatus == LocationPermission.whileInUse) &&
+            locServiceEnabled;
         _hasNotificationPermission =
             notifStatus.isGranted ||
             (Platform.isIOS && notifStatus.isProvisional);
