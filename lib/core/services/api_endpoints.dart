@@ -73,6 +73,7 @@ class ApiEndpoints {
   static const String updateChildSettings = 'parent/child-settings';
   static const String webFilter = 'parent/web-filter';
   static const String restrictDeletion = 'parent/restrict-deletion';
+  static const String notificationPreferences = 'notification-preferences';
 
   // Chat Endpoints
   static const String chat = 'chat';

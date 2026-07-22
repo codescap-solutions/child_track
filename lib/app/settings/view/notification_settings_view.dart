@@ -2,6 +2,9 @@ import 'package:flutter/cupertino.dart' show CupertinoSwitch, CupertinoIcons;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:child_track/core/services/shared_prefs_service.dart';
+import 'package:child_track/core/di/injector.dart';
+import 'package:child_track/app/home/view_model/home_repo.dart';
+import 'package:child_track/core/utils/app_snackbar.dart';
 
 class NotificationSettingsView extends StatefulWidget {
   const NotificationSettingsView({super.key});
@@ -12,6 +15,68 @@ class NotificationSettingsView extends StatefulWidget {
 
 class _NotificationSettingsViewState extends State<NotificationSettingsView> {
   final _sharedPrefsService = SharedPrefsService();
+
+  // The only toggles on this screen with real backend enforcement today —
+  // everything else here is UI-only (see notif_* local prefs below), pending
+  // the underlying detection/notification feature actually being built.
+  // Maps each toggle's exact label to its NotificationPreferences dot path.
+  static const Map<String, String> _backendFieldForTitle = {
+    'Entering a Place': 'notifications.safePlaceArrival.enabled',
+    'Leaving a Place': 'notifications.safePlaceDeparture.enabled',
+    'Starting Trip': 'notifications.tripStarted.enabled',
+    'Low Battery Notification': 'notifications.lowBattery.enabled',
+    'Signal Loss/GPS Offline Alert': 'notifications.deviceOffline.enabled',
+  };
+
+  final Map<String, bool> _backendValues = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBackendPreferences();
+  }
+
+  Future<void> _loadBackendPreferences() async {
+    try {
+      final response = await injector<HomeRepository>()
+          .getNotificationPreferences();
+      if (response.isSuccess && response.data != null) {
+        final notifications =
+            response.data!['notifications'] as Map<String, dynamic>? ?? {};
+        for (final entry in _backendFieldForTitle.entries) {
+          // fieldPath is "notifications.<key>.enabled" — pull "<key>" out.
+          final parts = entry.value.split('.');
+          final key = parts[1];
+          final section = notifications[key] as Map<String, dynamic>?;
+          _backendValues[entry.value] =
+              (section?['enabled'] as bool?) ?? true;
+        }
+      }
+    } catch (_) {
+      // Leave defaults (true) — the toggle will still render, just
+      // optimistically, and the next successful load will correct it.
+    } finally {
+      if (mounted) {
+        setState(() {});
+      }
+    }
+  }
+
+  Future<void> _toggleBackendPref(String fieldPath, bool newValue) async {
+    final previous = _backendValues[fieldPath] ?? true;
+    setState(() => _backendValues[fieldPath] = newValue);
+
+    final response = await injector<HomeRepository>()
+        .updateNotificationPreference(fieldPath: fieldPath, enabled: newValue);
+
+    if (!response.isSuccess && mounted) {
+      setState(() => _backendValues[fieldPath] = previous);
+      AppSnackbar.showError(
+        context,
+        'Failed to update setting. Please try again.',
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -201,16 +266,25 @@ class _NotificationSettingsViewState extends State<NotificationSettingsView> {
   }
 
   Widget _buildNotificationTile(String title) {
-    final String key =
-        'notif_${title.toLowerCase().replaceAll(' ', '_').replaceAll('/', '_').replaceAll('&', '_')}';
-    final bool value = _sharedPrefsService.getBool(key, defaultValue: true);
+    final backendField = _backendFieldForTitle[title];
+    final bool value;
+    final ValueChanged<bool> onChanged;
 
-    return InkWell(
-      onTap: () {
-        final newValue = !value;
+    if (backendField != null) {
+      value = _backendValues[backendField] ?? true;
+      onChanged = (newValue) => _toggleBackendPref(backendField, newValue);
+    } else {
+      final String key =
+          'notif_${title.toLowerCase().replaceAll(' ', '_').replaceAll('/', '_').replaceAll('&', '_')}';
+      value = _sharedPrefsService.getBool(key, defaultValue: true);
+      onChanged = (newValue) {
         _sharedPrefsService.setBool(key, newValue);
         setState(() {});
-      },
+      };
+    }
+
+    return InkWell(
+      onTap: () => onChanged(!value),
       borderRadius: BorderRadius.circular(12),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -231,10 +305,7 @@ class _NotificationSettingsViewState extends State<NotificationSettingsView> {
               child: CupertinoSwitch(
                 activeTrackColor: const Color(0xFF22C55E),
                 value: value,
-                onChanged: (newValue) async {
-                  await _sharedPrefsService.setBool(key, newValue);
-                  setState(() {});
-                },
+                onChanged: onChanged,
               ),
             ),
           ],

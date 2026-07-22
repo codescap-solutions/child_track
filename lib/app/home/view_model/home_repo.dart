@@ -240,6 +240,36 @@ class HomeRepository extends BaseService {
     return BaseResponse.error(message: response.message);
   }
 
+  Future<BaseResponse<Map<String, dynamic>>> getNotificationPreferences() async {
+    final response = await get<Map<String, dynamic>>(
+      ApiEndpoints.notificationPreferences,
+    );
+    if (response.isSuccess && response.data != null) {
+      return BaseResponse.success(
+        data: response.data!,
+        message: response.message,
+      );
+    }
+    return BaseResponse.error(
+      message: response.message,
+      statusCode: response.statusCode,
+    );
+  }
+
+  /// Updates a single notification-preference field, addressed by its dot
+  /// path (e.g. "notifications.safePlaceArrival.enabled"), via PATCH so
+  /// other fields are left untouched.
+  Future<BaseResponse> updateNotificationPreference({
+    required String fieldPath,
+    required bool enabled,
+  }) async {
+    final response = await patch(
+      ApiEndpoints.notificationPreferences,
+      data: {fieldPath: enabled},
+    );
+    return response;
+  }
+
   Future<BaseResponse> requestLocationSharing({
     required String phoneNumber,
     String? notes,
