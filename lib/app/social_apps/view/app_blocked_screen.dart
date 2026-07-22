@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:child_track/app/social_apps/view_model/time_limit_repository.dart';
+import 'package:child_track/core/di/injector.dart';
 
 class AppBlockedScreen extends StatefulWidget {
   final String? appName;
@@ -18,6 +20,38 @@ class _AppBlockedScreenState extends State<AppBlockedScreen>
   late Animation<double> _pulseAnimation;
   late Animation<Offset> _slideAnimation;
   late Animation<double> _fadeAnimation;
+
+  bool _requestingExtension = false;
+  bool _extensionRequestSent = false;
+
+  Future<void> _askForMoreTime() async {
+    if (widget.packageName == null || _requestingExtension || _extensionRequestSent) {
+      return;
+    }
+    setState(() => _requestingExtension = true);
+
+    final response = await injector<TimeLimitRepository>().requestExtension(
+      packageName: widget.packageName!,
+    );
+
+    if (!mounted) return;
+    setState(() {
+      _requestingExtension = false;
+      _extensionRequestSent = response.isSuccess;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          response.isSuccess
+              ? 'Request sent — your parent will be notified.'
+              : (response.message.isNotEmpty
+                  ? response.message
+                  : 'Could not send request. Try again.'),
+        ),
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -122,6 +156,11 @@ class _AppBlockedScreenState extends State<AppBlockedScreen>
 
                       // ── Info Card ──
                       _buildInfoCard(),
+
+                      if (widget.packageName != null) ...[
+                        const SizedBox(height: 20),
+                        _buildAskForMoreTimeButton(),
+                      ],
 
                       const Spacer(flex: 3),
 
@@ -261,6 +300,46 @@ class _AppBlockedScreenState extends State<AppBlockedScreen>
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildAskForMoreTimeButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: 52,
+      child: ElevatedButton(
+        onPressed: (_requestingExtension || _extensionRequestSent) ? null : _askForMoreTime,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: _extensionRequestSent
+              ? Colors.white.withValues(alpha: 0.08)
+              : const Color(0xFFE94560),
+          foregroundColor: Colors.white,
+          disabledBackgroundColor: Colors.white.withValues(alpha: 0.08),
+          disabledForegroundColor: Colors.white.withValues(alpha: 0.6),
+          elevation: 0,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        ),
+        child: _requestingExtension
+            ? const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    _extensionRequestSent ? Icons.check_circle_outline_rounded : Icons.timer_outlined,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    _extensionRequestSent ? 'Request Sent' : 'Ask for More Time',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, letterSpacing: 0.3),
+                  ),
+                ],
+              ),
+      ),
     );
   }
 

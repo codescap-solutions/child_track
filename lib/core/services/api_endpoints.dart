@@ -52,6 +52,12 @@ class ApiEndpoints {
   static const String lockApps = 'lock-apps';
   static const String unlockApps = 'unlock-apps';
 
+  // Daily App Time Limit + Ask-for-More-Time Endpoints
+  static const String appTimeLimits = 'app-time-limits';
+  static const String timeExtensionRequests = 'time-extension-requests';
+  static String resolveTimeExtensionRequest(String id) =>
+      'time-extension-requests/$id/resolve';
+
   // FCM Token endpoints
   static const String parentFcmToken = 'fcm-token/parent';
   static const String childFcmToken = 'fcm-token/child';

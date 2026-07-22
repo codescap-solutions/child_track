@@ -12,6 +12,10 @@ class SocialAppItem extends StatelessWidget {
   final String usage;
   final bool isLocked;
   final Function(bool, int)? onLockToggle;
+  /// Configured daily budget in minutes for this app, or null if none set.
+  final int? dailyLimitMinutes;
+  /// Called with the new limit in minutes, or null to clear it.
+  final ValueChanged<int?>? onSetDailyLimit;
 
   const SocialAppItem({
     super.key,
@@ -20,6 +24,8 @@ class SocialAppItem extends StatelessWidget {
     required this.usage,
     required this.isLocked,
     this.onLockToggle,
+    this.dailyLimitMinutes,
+    this.onSetDailyLimit,
   });
 
   @override
@@ -82,6 +88,11 @@ class SocialAppItem extends StatelessWidget {
                   ],
                 ),
               ),
+              _DailyLimitButton(
+                dailyLimitMinutes: dailyLimitMinutes,
+                onSetDailyLimit: onSetDailyLimit,
+              ),
+              const SizedBox(width: 8),
               _LockIconButton(isLocked: isLocked, onLockToggle: onLockToggle),
             ],
           ),
@@ -122,6 +133,311 @@ class _AppIcon extends StatelessWidget {
           },
         ),
       ),
+    );
+  }
+}
+
+/// Shows/edits the daily usage budget for one app — separate from the
+/// manual "lock now" toggle. Setting a limit here doesn't lock the app
+/// immediately; it locks itself for the rest of the day once the child's
+/// usage crosses it (server-side, via appTimeLimitEnforcer).
+class _DailyLimitButton extends StatelessWidget {
+  final int? dailyLimitMinutes;
+  final ValueChanged<int?>? onSetDailyLimit;
+
+  const _DailyLimitButton({this.dailyLimitMinutes, this.onSetDailyLimit});
+
+  String get _label {
+    final m = dailyLimitMinutes!;
+    if (m % 60 == 0) return '${m ~/ 60}h';
+    if (m < 60) return '${m}m';
+    return '${m ~/ 60}h ${m % 60}m';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasLimit = dailyLimitMinutes != null && dailyLimitMinutes! > 0;
+
+    return GestureDetector(
+      onTap: () => _showDialog(context),
+      child: Container(
+        height: 36,
+        padding: EdgeInsets.symmetric(horizontal: hasLimit ? 10 : 0),
+        width: hasLimit ? null : 36,
+        decoration: BoxDecoration(
+          color: hasLimit ? const Color(0xFFEFF6FF) : Colors.transparent,
+          shape: hasLimit ? BoxShape.rectangle : BoxShape.circle,
+          borderRadius: hasLimit ? BorderRadius.circular(18) : null,
+          border: hasLimit
+              ? null
+              : Border.all(color: const Color(0xFFCBD5E1), width: 1.5),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.hourglass_bottom_rounded,
+              size: 16,
+              color: hasLimit ? const Color(0xFF0066FF) : const Color(0xFF94A3B8),
+            ),
+            if (hasLimit) ...[
+              const SizedBox(width: 6),
+              Text(
+                _label,
+                style: GoogleFonts.manrope(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF0066FF),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showDialog(BuildContext context) async {
+    final int? minutes = await showDialog<int?>(
+      context: context,
+      builder: (context) => _DailyLimitPickerDialog(initialMinutes: dailyLimitMinutes),
+    );
+    // A dialog popped with no value (user tapped outside) leaves minutes
+    // null with no way to distinguish from "clear" — only act when the
+    // dialog explicitly returned a result via its buttons.
+    if (minutes == -1) {
+      onSetDailyLimit?.call(null); // explicit "remove limit"
+    } else if (minutes != null && minutes > 0) {
+      onSetDailyLimit?.call(minutes);
+    }
+  }
+}
+
+class _DailyLimitPickerDialog extends StatefulWidget {
+  final int? initialMinutes;
+  const _DailyLimitPickerDialog({this.initialMinutes});
+
+  @override
+  State<_DailyLimitPickerDialog> createState() => _DailyLimitPickerDialogState();
+}
+
+class _DailyLimitPickerDialogState extends State<_DailyLimitPickerDialog> {
+  late int _hours;
+  late int _minutes;
+  late FixedExtentScrollController _hourController;
+  late FixedExtentScrollController _minuteController;
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.initialMinutes ?? 60;
+    _hours = initial ~/ 60;
+    _minutes = initial % 60;
+    _hourController = FixedExtentScrollController(initialItem: _hours);
+    _minuteController = FixedExtentScrollController(initialItem: _minutes ~/ 5);
+  }
+
+  @override
+  void dispose() {
+    _hourController.dispose();
+    _minuteController.dispose();
+    super.dispose();
+  }
+
+  String get _description {
+    if (_hours == 0 && _minutes == 0) return 'Select a daily budget';
+    if (_hours == 0) return 'Locks itself after $_minutes min of use today';
+    if (_minutes == 0) return 'Locks itself after $_hours hr of use today';
+    return 'Locks itself after $_hours hr $_minutes min of use today';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 32),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.surfaceColor,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 24, offset: const Offset(0, 8)),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 20),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [AppColors.primaryColor, AppColors.primaryColor.withValues(alpha: 0.75)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: const BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.hourglass_bottom_rounded, color: Colors.white, size: 22),
+                  const SizedBox(width: 10),
+                  Text('Daily Time Limit', style: AppTextStyles.headline6.copyWith(color: Colors.white)),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryColor.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.primaryColor.withValues(alpha: 0.25)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.info_outline_rounded, size: 16, color: AppColors.primaryColor),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            _description,
+                            style: AppTextStyles.caption.copyWith(
+                              color: AppColors.primaryColor,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _buildWheel(
+                        label: 'Hrs',
+                        count: 12,
+                        selected: _hours,
+                        controller: _hourController,
+                        onChanged: (i) => setState(() => _hours = i),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 20),
+                        child: Text(' : ', style: AppTextStyles.headline4.copyWith(color: AppColors.textSecondary)),
+                      ),
+                      _buildWheel(
+                        label: 'Min',
+                        count: 12,
+                        selected: _minutes ~/ 5,
+                        controller: _minuteController,
+                        valueLabel: (i) => (i * 5).toString().padLeft(2, '0'),
+                        onChanged: (i) => setState(() => _minutes = i * 5),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  CommonButton(
+                    text: 'Set Daily Limit',
+                    onPressed: (_hours == 0 && _minutes == 0)
+                        ? null
+                        : () => Navigator.pop(context, _hours * 60 + _minutes),
+                    width: double.infinity,
+                    height: 50,
+                  ),
+                  if (widget.initialMinutes != null) ...[
+                    const SizedBox(height: 10),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, -1),
+                      child: Text(
+                        'Remove Limit',
+                        style: AppTextStyles.body2.copyWith(color: const Color(0xFFEF4444), fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWheel({
+    required String label,
+    required int count,
+    required int selected,
+    required FixedExtentScrollController controller,
+    required ValueChanged<int> onChanged,
+    String Function(int)? valueLabel,
+  }) {
+    const itemH = 52.0;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          label,
+          style: AppTextStyles.overline.copyWith(color: AppColors.primaryColor, fontWeight: FontWeight.w700, letterSpacing: 1.5),
+        ),
+        const SizedBox(height: 6),
+        Container(
+          width: 90,
+          height: itemH * 3,
+          decoration: BoxDecoration(
+            color: AppColors.backgroundColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.borderColor),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(15),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Positioned(
+                  top: itemH,
+                  left: 0,
+                  right: 0,
+                  child: Container(
+                    height: itemH,
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryColor.withValues(alpha: 0.10),
+                      border: Border.symmetric(horizontal: BorderSide(color: AppColors.primaryColor.withValues(alpha: 0.25))),
+                    ),
+                  ),
+                ),
+                ListWheelScrollView.useDelegate(
+                  controller: controller,
+                  itemExtent: itemH,
+                  diameterRatio: 1.4,
+                  physics: const FixedExtentScrollPhysics(),
+                  onSelectedItemChanged: onChanged,
+                  childDelegate: ListWheelChildBuilderDelegate(
+                    builder: (ctx, i) {
+                      if (i < 0 || i >= count) return null;
+                      final isSel = i == selected;
+                      final lbl = valueLabel != null ? valueLabel(i) : i.toString().padLeft(2, '0');
+                      return Center(
+                        child: Text(
+                          lbl,
+                          style: isSel
+                              ? AppTextStyles.headline4.copyWith(color: AppColors.textPrimary, fontWeight: FontWeight.w700)
+                              : AppTextStyles.body1.copyWith(color: AppColors.textHint),
+                        ),
+                      );
+                    },
+                    childCount: count,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

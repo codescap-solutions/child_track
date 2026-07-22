@@ -665,6 +665,18 @@ class FirebaseNotificationService {
           title = '';
           body = '';
           break;
+        case 'time_extension_request':
+          final requesterChildName = data['child_name'] ?? childName;
+          title = '$requesterChildName is asking for more time';
+          body = '$requesterChildName wants more time on ${data['app_name'] ?? 'an app'}. Tap to review.';
+          break;
+        case 'time_extension_result':
+          final approved = data['approved'] == 'true';
+          title = approved ? 'More time granted!' : 'Request denied';
+          body = approved
+              ? 'You have more time for ${data['app_name'] ?? 'the app'}.'
+              : 'Your parent said no to more time for ${data['app_name'] ?? 'the app'}.';
+          break;
         default:
           title = 'NaviQ';
           body = 'You have a new notification';

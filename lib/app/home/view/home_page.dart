@@ -39,6 +39,7 @@ import '../../chat/view_model/bloc/chat_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:geocoding/geocoding.dart';
+import '../../social_apps/view_model/time_limit_repository.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -63,6 +64,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Map<String, dynamic>? _activeSharedChildData;
   bool _viewingSharedChild = false;
   bool _isLocationShareSheetOpen = false;
+  bool _isTimeExtensionSheetOpen = false;
   Timer? _sharedChildTimer;
   DateTime? _lastResumeRefreshAt;
 
@@ -204,6 +206,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 _handleIncomingLocationShareAccepted(message.data);
               }
             });
+          } else if (message.data['type'] == 'TIME_EXTENSION_REQUEST') {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                _showTimeExtensionApprovalSheet(message.data);
+              }
+            });
           }
         });
 
@@ -225,6 +233,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted) {
                 _handleIncomingLocationShareAccepted(message.data);
+              }
+            });
+          } else if (message.data['type'] == 'TIME_EXTENSION_REQUEST') {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                _showTimeExtensionApprovalSheet(message.data);
               }
             });
           }
@@ -646,6 +660,168 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         );
       },
     );
+  }
+
+  void _showTimeExtensionApprovalSheet(Map<String, dynamic> data) {
+    if (_isTimeExtensionSheetOpen) return;
+
+    final String requestId = data['request_id'] ?? '';
+    final String childName = data['child_name'] ?? 'Your child';
+    final String appName = data['app_name'] ?? 'this app';
+    final String packageName = data['package_name'] ?? '';
+    final int requestedMinutes = int.tryParse(data['requested_minutes']?.toString() ?? '') ?? 15;
+
+    if (requestId.isEmpty) return;
+
+    // Same heuristic AppLockBloc already uses to tell iOS opaque tokens
+    // apart from Android package names, since the push doesn't carry a
+    // platform field.
+    final platform = packageName.startsWith('usage_cat_') || packageName.startsWith('usage_app_')
+        ? 'ios'
+        : 'android';
+
+    _isTimeExtensionSheetOpen = true;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) {
+        bool isResponding = false;
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            Future<void> respond(bool approve) async {
+              setSheetState(() => isResponding = true);
+              final response = await injector<TimeLimitRepository>().resolveExtensionRequest(
+                requestId: requestId,
+                approve: approve,
+                platform: platform,
+              );
+              if (sheetContext.mounted) Navigator.of(sheetContext).pop();
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      response.isSuccess
+                          ? (approve ? 'Extra time granted to $childName' : 'Request denied')
+                          : (response.message.isNotEmpty ? response.message : 'Something went wrong'),
+                    ),
+                  ),
+                );
+              }
+            }
+
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 10,
+                bottom: 24 + MediaQuery.of(sheetContext).viewInsets.bottom,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 40,
+                    height: 5,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE2E8F0),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 38,
+                        height: 38,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFEFF6FF),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.hourglass_bottom_rounded,
+                          color: Color(0xFF0066FF),
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'More Time Request',
+                        style: GoogleFonts.manrope(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: const Color(0xFF0C1D37),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF1EE),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFFFFE5DE), width: 1.0),
+                    ),
+                    child: Text(
+                      '$childName wants $requestedMinutes more minutes on $appName.',
+                      style: GoogleFonts.manrope(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF0C1D37),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: isResponding ? null : () => respond(false),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFFEF4444),
+                            side: const BorderSide(color: Color(0xFFEF4444)),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          ),
+                          child: const Text('Deny', style: TextStyle(fontWeight: FontWeight.w700)),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: isResponding ? null : () => respond(true),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0066FF),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          ),
+                          child: isResponding
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                )
+                              : const Text('Approve', style: TextStyle(fontWeight: FontWeight.w700)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    ).whenComplete(() {
+      _isTimeExtensionSheetOpen = false;
+    });
   }
 
   void _showLocationShareApprovalSheet(Map<String, dynamic> data) {

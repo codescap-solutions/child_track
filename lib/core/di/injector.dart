@@ -26,6 +26,8 @@ import '../../app/subscription/view_model/subscription_repository.dart';
 import 'package:child_track/core/services/lock_sync_service.dart';
 import '../../app/social_apps/view_model/app_lock_repository.dart';
 import '../../app/social_apps/view_model/bloc/app_lock_bloc.dart';
+import '../../app/social_apps/view_model/time_limit_repository.dart';
+import '../../app/social_apps/view_model/bloc/time_limit_bloc.dart';
 import '../services/device_info_service.dart';
 import 'package:child_track/core/services/chat_socket_service.dart';
 import 'package:child_track/app/chat/view_model/chat_repository.dart';
@@ -181,7 +183,19 @@ Future<void> initializeDependencies() async {
       sharedPrefsService: injector<SharedPrefsService>(),
     ),
   );
-  
+
+  // Register TimeLimitRepository + TimeLimitBloc (daily app time limits +
+  // ask-for-more-time flow)
+  injector.registerLazySingleton<TimeLimitRepository>(
+    () => TimeLimitRepository(dioClient: injector<DioClient>()),
+  );
+  injector.registerLazySingleton<TimeLimitBloc>(
+    () => TimeLimitBloc(
+      repository: injector<TimeLimitRepository>(),
+      sharedPrefsService: injector<SharedPrefsService>(),
+    ),
+  );
+
   // Register DeviceInfoService
   injector.registerLazySingleton<DeviceInfoService>(() => DeviceInfoService());
 

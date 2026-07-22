@@ -3,6 +3,9 @@ import 'package:child_track/app/social_apps/view_model/bloc/social_apps_bloc.dar
 import 'package:child_track/app/social_apps/view_model/bloc/app_lock_bloc.dart';
 import 'package:child_track/app/social_apps/view_model/bloc/app_lock_state.dart';
 import 'package:child_track/app/social_apps/view_model/bloc/app_lock_event.dart';
+import 'package:child_track/app/social_apps/view_model/bloc/time_limit_bloc.dart';
+import 'package:child_track/app/social_apps/view_model/bloc/time_limit_state.dart';
+import 'package:child_track/app/social_apps/view_model/bloc/time_limit_event.dart';
 import 'package:child_track/core/di/injector.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -26,6 +29,7 @@ class SocialAppsView extends StatefulWidget {
 class _SocialAppsViewState extends State<SocialAppsView> {
   late SocialAppsBloc _bloc;
   late AppLockBloc _appLockBloc;
+  late TimeLimitBloc _timeLimitBloc;
   int _selectedTabIndex = 1; // Default to Today (index 1)
   final int _selectedFilterIndex = 0; // Default to All (index 0)
 
@@ -34,6 +38,7 @@ class _SocialAppsViewState extends State<SocialAppsView> {
     super.initState();
     _bloc = injector<SocialAppsBloc>();
     _appLockBloc = injector<AppLockBloc>();
+    _timeLimitBloc = injector<TimeLimitBloc>();
     _fetchDataForIndex(_selectedTabIndex);
   }
 
@@ -75,6 +80,7 @@ class _SocialAppsViewState extends State<SocialAppsView> {
       providers: [
         BlocProvider(create: (_) => _bloc),
         BlocProvider.value(value: _appLockBloc..add(FetchLockedApps())),
+        BlocProvider.value(value: _timeLimitBloc..add(FetchTimeLimits())),
       ],
       child: Scaffold(
         backgroundColor: const Color(0xFFF8FAFC),
@@ -328,19 +334,41 @@ class _SocialAppsViewState extends State<SocialAppsView> {
                       lockState is AppLockLoaded &&
                       lockState.lockedPackages.contains(app.packageName);
 
-                  return SocialAppItem(
-                    icon: iconProvider,
-                    name: displayName,
-                    usage: app.usageTimeFormatted,
-                    isLocked: isLocked,
-                    onLockToggle: (isLocked, duration) {
-                      _appLockBloc.add(
-                        ToggleAppLock(
-                          packageName: app.packageName,
-                          appName: displayName,
-                          isLocked: isLocked,
-                          durationMinutes: duration,
-                        ),
+                  return BlocBuilder<TimeLimitBloc, TimeLimitState>(
+                    builder: (context, limitState) {
+                      final limitItem = limitState is TimeLimitLoaded
+                          ? limitState.limitsByPackage[app.packageName]
+                          : null;
+
+                      return SocialAppItem(
+                        icon: iconProvider,
+                        name: displayName,
+                        usage: app.usageTimeFormatted,
+                        isLocked: isLocked,
+                        onLockToggle: (isLocked, duration) {
+                          _appLockBloc.add(
+                            ToggleAppLock(
+                              packageName: app.packageName,
+                              appName: displayName,
+                              isLocked: isLocked,
+                              durationMinutes: duration,
+                            ),
+                          );
+                        },
+                        dailyLimitMinutes: limitItem?.dailyLimitMinutes,
+                        onSetDailyLimit: (minutes) {
+                          if (minutes == null) {
+                            _timeLimitBloc.add(RemoveTimeLimit(app.packageName));
+                          } else {
+                            _timeLimitBloc.add(
+                              SetTimeLimit(
+                                packageName: app.packageName,
+                                appName: displayName,
+                                dailyLimitMinutes: minutes,
+                              ),
+                            );
+                          }
+                        },
                       );
                     },
                   );
