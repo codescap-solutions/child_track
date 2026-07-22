@@ -2395,15 +2395,22 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     String placeName,
     HomepageSuccess state,
   ) {
-    // Location is considered "off" (GPS disabled, permission denied, device
-    // offline/unreachable, or stale beyond the server's staleness threshold)
-    // whenever the tracking snapshot says not to show a live marker. Shared
-    // children don't carry a tracking snapshot, so always treat as active.
+    // Location is "off" only when GPS/location-services is actually disabled
+    // or permission was revoked — NOT merely whenever showLiveMarker is false.
+    // showLiveMarker also goes false for STALE/UNREACHABLE (device just
+    // hasn't reported in >5 min — completely normal for an idle/backgrounded
+    // phone, not a location toggle) — using it here caused a false "LOCATION
+    // OFF" every time the child stopped actively using the phone for a few
+    // minutes, correcting itself the instant they picked it back up. Checking
+    // gpsStatus/permissionStatus directly reflects the real device setting
+    // regardless of how recently it last reported. Shared children don't
+    // carry a tracking snapshot, so always treat as active.
     final trackingSnapshot = state.trackingSnapshot;
     final isLocationOff =
         !_viewingSharedChild &&
         trackingSnapshot != null &&
-        !trackingSnapshot.uiDirective.showLiveMarker;
+        (trackingSnapshot.gpsStatus.toUpperCase() == 'OFF' ||
+            trackingSnapshot.permissionStatus.toLowerCase().contains('denied'));
 
     return Container(
       width: double.infinity,
