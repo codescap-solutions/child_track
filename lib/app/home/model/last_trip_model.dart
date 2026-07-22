@@ -59,7 +59,7 @@ class TripSegment {
         safeToDouble(json['end_longitude'] ?? json['end_point']?['lng']),
       ),
       progress: safeToDouble(json['progress']),
-      rideMode: json['rideMode'] ?? json['ride_mode'] ?? 'vehicle',
+      rideMode: json['rideMode'] ?? json['ride_mode'] ?? 'unknown',
       eventsCount: safeToInt(json['events_count']),
     );
   }

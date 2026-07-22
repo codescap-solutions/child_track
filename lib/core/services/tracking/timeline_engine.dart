@@ -73,7 +73,7 @@ class TimelineEngine {
 
   static List<TimelineEvent> generate({
     required List<Map<String, dynamic>> points,
-    String initialRideMode = 'vehicle',
+    String initialRideMode = 'stationary',
   }) {
     if (points.isEmpty) return [];
 
@@ -208,8 +208,14 @@ class TimelineEngine {
         return NaviQActivityType.cycling;
       case 'vehicle':
         return NaviQActivityType.vehicle;
+      case 'stationary':
+        return NaviQActivityType.stationary;
       default:
-        return NaviQActivityType.vehicle;
+        // Was NaviQActivityType.vehicle — meant a trip whose real mode was
+        // "stationary" (or simply missing/unrecognized) rendered as "In
+        // Vehicle" on the timeline. Stationary is the safe/neutral default:
+        // it renders as "Stationary" rather than falsely implying a ride.
+        return NaviQActivityType.stationary;
     }
   }
 

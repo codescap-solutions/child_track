@@ -64,6 +64,30 @@ class TripEvent {
   }
 }
 
+/// A single route point with its timestamp preserved (unlike
+/// [PolylineParser.parse]'s plain LatLng output), so route points can be
+/// bucketed into [ActivitySegment]s by time range for per-segment polyline
+/// coloring.
+class RoutePoint {
+  final LatLng position;
+  final DateTime? timestamp;
+
+  RoutePoint({required this.position, this.timestamp});
+
+  factory RoutePoint.fromJson(Map<String, dynamic> json) {
+    final lat = json['lat'] ?? json['latitude'];
+    final lng = json['lng'] ?? json['longitude'];
+    DateTime? ts;
+    if (json['ts'] != null) {
+      ts = DateTime.tryParse(json['ts'].toString());
+    }
+    return RoutePoint(
+      position: LatLng(safeToDouble(lat), safeToDouble(lng)),
+      timestamp: ts,
+    );
+  }
+}
+
 class ActivitySegment {
   final String segmentId;
   final String type;
@@ -151,6 +175,7 @@ class TripDetailResponse {
   final double maxSpeedMps;
   final String rideMode;
   final List<LatLng> polylinePoints;
+  final List<RoutePoint> timedRoute;
   final List<TripEvent> events;
   final List<ActivitySegment> segments;
   // Confirmed + Estimated distance split (Part B) — kept as separate labeled
@@ -171,6 +196,7 @@ class TripDetailResponse {
     required this.maxSpeedMps,
     required this.rideMode,
     required this.polylinePoints,
+    this.timedRoute = const [],
     required this.events,
     required this.segments,
     this.distanceConfirmedKm = 0,
@@ -212,8 +238,14 @@ class TripDetailResponse {
       durationSeconds: dur,
       averageSpeedMps: avgSpeed,
       maxSpeedMps: maxSpeed,
-      rideMode: json['rideMode'] ?? json['ride_mode'] ?? 'vehicle',
+      rideMode: json['rideMode'] ?? json['ride_mode'] ?? 'unknown',
       polylinePoints: PolylineParser.parse(routeData),
+      timedRoute: (routeData is List)
+          ? routeData
+                .whereType<Map>()
+                .map((e) => RoutePoint.fromJson(Map<String, dynamic>.from(e)))
+                .toList()
+          : const [],
       events: (eventsData as List<dynamic>?)
               ?.map(
                 (event) => TripEvent.fromJson(event as Map<String, dynamic>),

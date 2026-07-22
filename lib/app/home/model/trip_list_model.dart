@@ -86,7 +86,7 @@ class Trip {
       fromPlace: json['from_place'] ?? '',
       toPlace: json['to_place'] ?? '',
       points: points,
-      rideMode: json['ride_mode'] ?? json['rideMode'] ?? 'vehicle',
+      rideMode: json['ride_mode'] ?? json['rideMode'] ?? 'unknown',
     );
   }
 }

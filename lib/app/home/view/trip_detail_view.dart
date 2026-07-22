@@ -309,6 +309,74 @@ class _TripDetailViewState extends State<TripDetailView> {
     );
   }
 
+  /// Builds one Polyline per activity segment (walking/vehicle/etc.), each
+  /// colored by its type, by bucketing the timestamped route into each
+  /// segment's [startTime, endTime] window. Returns an empty list if there
+  /// isn't enough timestamped data to do this reliably (caller falls back to
+  /// a single-color line in that case).
+  List<Polyline> _buildActivityColoredPolylines(
+    List<RoutePoint> timedRoute,
+    List<ActivitySegment> segments,
+  ) {
+    if (segments.isEmpty || timedRoute.length < 2) return [];
+
+    final sortedPoints = List<RoutePoint>.from(timedRoute)
+      ..sort((a, b) {
+        if (a.timestamp == null || b.timestamp == null) return 0;
+        return a.timestamp!.compareTo(b.timestamp!);
+      });
+
+    final result = <Polyline>[];
+    for (var i = 0; i < segments.length; i++) {
+      final seg = segments[i];
+      final segStart = DateTime.tryParse(seg.startTime);
+      final segEnd = DateTime.tryParse(seg.endTime);
+      if (segStart == null || segEnd == null) continue;
+
+      final segPoints = sortedPoints
+          .where(
+            (p) =>
+                p.timestamp != null &&
+                !p.timestamp!.isBefore(segStart) &&
+                !p.timestamp!.isAfter(segEnd),
+          )
+          .map((p) => p.position)
+          .toList();
+
+      if (segPoints.length < 2) continue;
+
+      result.add(
+        Polyline(
+          polylineId: PolylineId('segment_${i}_${seg.segmentId}'),
+          points: segPoints,
+          color: _colorForActivityType(seg.type),
+          width: 7,
+          geodesic: true,
+          startCap: Cap.roundCap,
+          endCap: Cap.roundCap,
+        ),
+      );
+    }
+    return result;
+  }
+
+  Color _colorForActivityType(String type) {
+    switch (type.toLowerCase()) {
+      case 'walking':
+        return const Color(0xFF22C55E); // green
+      case 'running':
+        return const Color(0xFFF59E0B); // amber
+      case 'cycling':
+        return const Color(0xFF8B5CF6); // purple
+      case 'vehicle':
+        return const Color(0xFF3B82F6); // blue
+      case 'stationary':
+        return const Color(0xFF94A3B8); // grey
+      default:
+        return AppColors.tripPolyline;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocProvider.value(
@@ -469,50 +537,46 @@ class _TripDetailViewState extends State<TripDetailView> {
             '[TripDetailView] activePoints.length = ${activePoints.length}',
           );
 
-          if (activePoints.isNotEmpty) {
-            // ── DIAGNOSTIC COORD LOGS ──────────────────────────────────
-            debugPrint(
-              '[TripDetailView] activePoints.first = ${activePoints.first}',
-            );
-            debugPrint(
-              '[TripDetailView] activePoints.last  = ${activePoints.last}',
-            );
-            final uniqueCoords = activePoints
-                .map((e) => '${e.latitude},${e.longitude}')
-                .toSet();
-            debugPrint(
-              '[TripDetailView] unique coords = ${uniqueCoords.length} / ${activePoints.length}',
-            );
-            // ─────────────────────────────────────────────────────────
+          // Prefer one polyline per activity segment (walking/vehicle/etc.,
+          // each its own color) using the timestamped route + segment time
+          // windows from the fetched detail. Falls back to a single-color
+          // line when that data isn't available yet (e.g. detail still
+          // loading, or an older cached trip without per-point timestamps).
+          final segmentedPolylines =
+              (detailResponse != null &&
+                  detailResponse.tripId == widget.trip.segmentId)
+              ? _buildActivityColoredPolylines(
+                  detailResponse.timedRoute,
+                  detailResponse.segments,
+                )
+              : <Polyline>[];
 
+          if (segmentedPolylines.isNotEmpty) {
+            polylines.addAll(segmentedPolylines);
+          } else if (activePoints.isNotEmpty) {
             polylines.add(
               Polyline(
-                polylineId: const PolylineId('smoothed_route'),
+                polylineId: const PolylineId('route'),
                 points: activePoints,
-                color: Colors.red, // DIAGNOSTIC: bright red
-                width: 8, // DIAGNOSTIC: thick
-                geodesic: true, // DIAGNOSTIC: geodesic
+                color: AppColors.tripPolyline,
+                width: 6,
+                geodesic: true,
                 startCap: Cap.roundCap,
                 endCap: Cap.roundCap,
-                patterns: [],
               ),
             );
-            // DIAGNOSTIC: delayed fitBounds to ensure map controller is ready
-            if (!_detailPointsFitted) {
-              _detailPointsFitted = true;
-              Future.delayed(const Duration(milliseconds: 500), () {
-                if (mounted) _fitBounds(activePoints);
-              });
-            }
           } else if (widget.polylines.isNotEmpty) {
-            debugPrint(
-              '[TripDetailView] Falling back to widget.polylines (${widget.polylines.length})',
-            );
             polylines.addAll(widget.polylines);
-          } else {
-            debugPrint(
-              '[TripDetailView] ⚠️ NO POINTS AVAILABLE — polyline will be empty',
-            );
+          }
+
+          if (polylines.isNotEmpty && !_detailPointsFitted) {
+            _detailPointsFitted = true;
+            final fitPoints = activePoints.isNotEmpty
+                ? activePoints
+                : polylines.expand((p) => p.points).toList();
+            Future.delayed(const Duration(milliseconds: 500), () {
+              if (mounted) _fitBounds(fitPoints);
+            });
           }
 
           return Scaffold(

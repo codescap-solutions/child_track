@@ -150,17 +150,28 @@ class _SimpleTripCard extends StatelessWidget {
     this.destinationIcon,
   });
 
+  String _truncatePlaceLabel(String name) {
+    const maxLen = 18;
+    return name.length > maxLen ? '${name.substring(0, maxLen - 1)}…' : name;
+  }
+
   IconData _getRideModeIcon(String rideMode) {
     switch (rideMode.toLowerCase()) {
       case 'walking':
         return Icons.directions_walk;
+      case 'running':
+        return Icons.directions_run;
       case 'cycling':
         return Icons.directions_bike;
       case 'stationary':
         return Icons.location_on;
       case 'vehicle':
-      default:
         return Icons.directions_car;
+      default:
+        // Was falling through to directions_car — an unrecognized/missing
+        // mode would show a car icon exactly like a real ride, which is the
+        // same misleading-as-a-ride bug fixed elsewhere for this field.
+        return Icons.help_outline;
     }
   }
 
@@ -186,7 +197,10 @@ class _SimpleTripCard extends StatelessWidget {
     };
   }
 
-  Set<Marker> _createMarkers() {
+  Set<Marker> _createMarkers({
+    BitmapDescriptor? startIconOverride,
+    BitmapDescriptor? endIconOverride,
+  }) {
     if (trip.points.isEmpty) return {};
 
     final startPoint = trip.points.first;
@@ -197,6 +211,7 @@ class _SimpleTripCard extends StatelessWidget {
         markerId: const MarkerId('start'),
         position: LatLng(startPoint.lat, startPoint.lng),
         icon:
+            startIconOverride ??
             sourceIcon ??
             BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
       ),
@@ -204,6 +219,7 @@ class _SimpleTripCard extends StatelessWidget {
         markerId: const MarkerId('end'),
         position: LatLng(endPoint.lat, endPoint.lng),
         icon:
+            endIconOverride ??
             destinationIcon ??
             BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
       ),
@@ -411,7 +427,7 @@ class _SimpleTripCard extends StatelessWidget {
                       text: 'View',
                       fontSize: 12,
                       textColor: AppColors.surfaceColor,
-                      onPressed: () {
+                      onPressed: () async {
                         if (trip.points.isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
@@ -424,11 +440,51 @@ class _SimpleTripCard extends StatelessWidget {
                           GetTripDetail(tripId: trip.tripId),
                         );
                         final tripSegment = TripSegment.fromTrip(trip);
+
+                        // Use the resolved saved-place name (e.g. "Home") as
+                        // the marker label/icon instead of a generic
+                        // "START"/"END" pin, when the backend recognized one.
+                        final startName =
+                            trip.fromPlace.isNotEmpty &&
+                                trip.fromPlace != 'Unknown Location'
+                            ? _truncatePlaceLabel(trip.fromPlace)
+                            : null;
+                        final endName =
+                            trip.toPlace.isNotEmpty &&
+                                trip.toPlace != 'Unknown Location'
+                            ? _truncatePlaceLabel(trip.toPlace)
+                            : null;
+
+                        final startIcon = startName != null
+                            ? await MapMarkerUtils.createCustomMarkerBitmap(
+                                startName,
+                                icon: startName.toLowerCase().contains('home')
+                                    ? Icons.home
+                                    : Icons.location_on,
+                                backgroundColor: AppColors.success,
+                                circleColor: AppColors.textSecondary,
+                              )
+                            : null;
+                        final endIcon = endName != null
+                            ? await MapMarkerUtils.createCustomMarkerBitmap(
+                                endName,
+                                icon: endName.toLowerCase().contains('home')
+                                    ? Icons.home
+                                    : Icons.location_on,
+                                backgroundColor: AppColors.error,
+                                circleColor: AppColors.textSecondary,
+                              )
+                            : null;
+
+                        if (!context.mounted) return;
                         Navigator.of(context).push(
                           MaterialPageRoute(
                             builder: (context) => TripDetailView(
                               trip: tripSegment,
-                              markers: _createMarkers().toList(),
+                              markers: _createMarkers(
+                                startIconOverride: startIcon,
+                                endIconOverride: endIcon,
+                              ).toList(),
                               polylines: _createPolylines().toList(),
                             ),
                           ),
