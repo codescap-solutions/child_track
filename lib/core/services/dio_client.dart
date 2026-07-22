@@ -227,8 +227,24 @@ class DioClient {
                 await _processPendingRequests();
               }
             } catch (e) {
-              AppLogger.error('Error during token refresh: $e');
-              _forceLogout();
+              // IMPORTANT: do NOT force-logout here. A confirmed-invalid/expired
+              // refresh token is already handled above (lines ~115-123) — that's
+              // the only case where the server has actually told us the session
+              // is dead. Everything that lands in THIS catch is either "there was
+              // no refresh token to try" (true for every child session — child
+              // JWTs never expire by design, so this path being reached at all
+              // means the 401 came from something else, e.g. a token read race
+              // in a background isolate) or a transient failure calling the
+              // refresh endpoint itself (network timeout, connection error, a
+              // 5xx). None of those mean the session is actually invalid, and
+              // wiping child_id/parent_id for them was exactly what caused the
+              // child app to silently bounce back to onboarding mid-use —
+              // often from a headless background isolate with no visible
+              // dialog at all. Just let this one request fail; the session is
+              // preserved for the next attempt.
+              AppLogger.error(
+                'Token refresh failed (non-fatal, session preserved): $e',
+              );
               handler.next(error);
               await _rejectPendingRequests(error);
             } finally {

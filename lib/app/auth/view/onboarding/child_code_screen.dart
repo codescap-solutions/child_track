@@ -327,8 +327,12 @@ class ChildCodeScreen extends StatelessWidget {
     );
   }
 
-  void _navigateToHome(BuildContext context) {
-    injector<SharedPrefsService>().setString('child_id', childId);
+  Future<void> _navigateToHome(BuildContext context) async {
+    // Await this — the next screen (and a possible quick splash/auth check)
+    // reads child_id right away, and a fire-and-forget write here could race
+    // with that read.
+    await injector<SharedPrefsService>().setString('child_id', childId);
+    if (!context.mounted) return;
     Navigator.of(context).pushNamedAndRemoveUntil(
       RouteNames.home,
       (route) => false,
