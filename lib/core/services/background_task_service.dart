@@ -29,7 +29,7 @@ void callbackDispatcher() {
       final repo = ChildRepo(dioClient: dioClient, sharedPrefsService: prefs);
 
       // 4. Run Sync Service
-      final syncService = ScreenTimeSyncService(deviceInfo, repo, prefs);
+      final syncService = ScreenTimeSyncService(deviceInfo, repo, prefs, dioClient);
 
       switch (task) {
         case screenTimeSyncTask:

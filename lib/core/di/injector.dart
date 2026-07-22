@@ -134,6 +134,7 @@ Future<void> initializeDependencies() async {
       injector<ChildInfoService>(),
       injector<ChildRepo>(),
       injector<SharedPrefsService>(),
+      injector<DioClient>(),
     ),
   );
 

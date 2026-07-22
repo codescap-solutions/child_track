@@ -2,6 +2,9 @@ import 'dart:io';
 import 'package:child_track/app/childapp/model/scree_time_model.dart';
 import 'package:child_track/app/childapp/view_model/repository/child_repo.dart';
 import 'package:child_track/app/childapp/view_model/repository/device_info_service.dart';
+import 'package:child_track/app/social_apps/view_model/app_lock_repository.dart';
+import 'package:child_track/core/services/dio_client.dart';
+import 'package:child_track/core/services/lock_sync_service.dart';
 import 'package:child_track/core/services/shared_prefs_service.dart';
 import 'package:child_track/core/utils/app_logger.dart';
 
@@ -10,6 +13,7 @@ class ScreenTimeSyncService {
   final ChildInfoService _deviceInfoService;
   final ChildRepo _childRepo;
   final SharedPrefsService _prefs;
+  final DioClient _dioClient;
 
   // Cache for screen time data to avoid frequent re-fetching
   List<AppScreenTimeModel>? _screenTimeCache;
@@ -20,7 +24,12 @@ class ScreenTimeSyncService {
       ? const Duration(seconds: 30) 
       : const Duration(minutes: 5);
 
-  ScreenTimeSyncService(this._deviceInfoService, this._childRepo, this._prefs);
+  ScreenTimeSyncService(
+    this._deviceInfoService,
+    this._childRepo,
+    this._prefs,
+    this._dioClient,
+  );
 
   /// Check if cache is still valid
   bool _isCacheValid() {
@@ -75,6 +84,7 @@ class ScreenTimeSyncService {
             }
 
             await uploadScreenTimeData(mergedScreenTime, childId);
+            await _syncLockedAppsFallback();
             await _syncDeviceInfo(childId);
             await _syncAppIcons(mergedScreenTime);
 
@@ -115,6 +125,7 @@ class ScreenTimeSyncService {
       }
 
       await uploadScreenTimeData(mergedScreenTime, childId);
+      await _syncLockedAppsFallback();
       await _syncDeviceInfo(childId);
       await _syncAppIcons(mergedScreenTime);
 
@@ -314,6 +325,36 @@ class ScreenTimeSyncService {
 
     await _childRepo.postAppUsage(requestBody);
     AppLogger.info('ScreenTimeSyncService: Screentime synced successfully');
+  }
+
+  /// Pulls the canonical locked-apps list and re-applies it natively right
+  /// after every usage upload — the exact moment the server may have just
+  /// auto-locked an app whose daily time limit this upload pushed over the
+  /// threshold (see appTimeLimitEnforcer.js on the backend).
+  ///
+  /// This exists because the FCM push the server also sends for that same
+  /// event is best-effort: Android can delay or drop a background data
+  /// message under Doze/battery-optimization restrictions, especially on
+  /// OEMs with aggressive background-kill policies, with no retry and no
+  /// visible failure. This periodic pull-sync doesn't depend on that push
+  /// arriving at all — it runs on every regular sync cycle (which itself
+  /// doesn't depend on FCM), so a dropped push self-corrects on the next
+  /// cycle instead of leaving the app unlocked indefinitely.
+  Future<void> _syncLockedAppsFallback() async {
+    try {
+      final lockRepo = AppLockRepository(dioClient: _dioClient);
+      final response = await lockRepo.getChildLockedApps();
+      if (response.isSuccess && response.data != null) {
+        final packages =
+            response.data!.lockedPackages.map((e) => e.packageName).toList();
+        await LockSyncService().syncLockedAppsToNative(packages);
+        AppLogger.info(
+          'ScreenTimeSyncService: Locked-apps fallback sync applied ${packages.length} package(s)',
+        );
+      }
+    } catch (e) {
+      AppLogger.error('ScreenTimeSyncService: Locked-apps fallback sync failed: $e');
+    }
   }
 
   /// Push device info (battery, network, sound profile) to parent
