@@ -23,7 +23,7 @@ import org.json.JSONObject
 object NativeGeofenceManager {
     private const val TAG = "NativeGeofenceManager"
     const val PREFS_NAME = "FlutterSharedPreferences"
-    private const val KEY_GEOFENCE_MAP = "flutter.native_geofence_map" // JSON: id -> {name}
+    private const val KEY_GEOFENCE_MAP = "flutter.native_geofence_map" // JSON: id -> {name, lat, lng, radius, priority}
     private const val MAX_GEOFENCES = 100 // Android's documented per-app limit
     private const val DWELL_LOITERING_DELAY_MS = 5 * 60 * 1000 // 5 min — matches iOS dwell threshold
     private const val REQUEST_CODE = 4471
@@ -115,12 +115,25 @@ object NativeGeofenceManager {
         }
     }
 
+    /**
+     * Persists the full fence definitions (not just id->name) so
+     * [getPersistedGeofences] can hand them straight back to [syncGeofences] —
+     * this is what lets [LocationWatchdogWorker] re-register geofences
+     * periodically without needing the Dart isolate alive to supply the list,
+     * guarding against Play Services silently dropping the registration
+     * (a known real-world occurrence, same rationale as the location-ping
+     * watchdog).
+     */
     private fun persistGeofenceMap(context: Context, fences: List<Map<String, Any?>>) {
         val json = JSONObject()
         for (fence in fences) {
             val id = fence["id"] as? String ?: continue
             val entry = JSONObject()
             entry.put("name", fence["name"] as? String ?: "Unknown")
+            entry.put("lat", (fence["lat"] as? Number)?.toDouble())
+            entry.put("lng", (fence["lng"] as? Number)?.toDouble())
+            entry.put("radius", (fence["radius"] as? Number)?.toDouble() ?: 150.0)
+            entry.put("priority", (fence["priority"] as? Int) ?: 5)
             json.put(id, entry)
         }
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -134,6 +147,38 @@ object NativeGeofenceManager {
             JSONObject(raw).optJSONObject(id)?.optString("name", "Unknown") ?: "Unknown"
         } catch (e: Exception) {
             "Unknown"
+        }
+    }
+
+    /** Reconstructs the last-synced fence list from persisted storage, in the
+     * same shape [syncGeofences] expects — used by [LocationWatchdogWorker] to
+     * re-register without a live Dart isolate. Returns empty if nothing has
+     * been synced yet (e.g. before first login) or the JSON was written by an
+     * older app version whose entries lack lat/lng.
+     */
+    fun getPersistedGeofences(context: Context): List<Map<String, Any?>> {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val raw = prefs.getString(KEY_GEOFENCE_MAP, null) ?: return emptyList()
+        return try {
+            val json = JSONObject(raw)
+            val result = mutableListOf<Map<String, Any?>>()
+            json.keys().forEach { id ->
+                val entry = json.optJSONObject(id) ?: return@forEach
+                if (!entry.has("lat") || !entry.has("lng")) return@forEach
+                result.add(
+                    mapOf(
+                        "id" to id,
+                        "name" to entry.optString("name", "Unknown"),
+                        "lat" to entry.optDouble("lat"),
+                        "lng" to entry.optDouble("lng"),
+                        "radius" to entry.optDouble("radius", 150.0),
+                        "priority" to entry.optInt("priority", 5)
+                    )
+                )
+            }
+            result
+        } catch (e: Exception) {
+            emptyList()
         }
     }
 }

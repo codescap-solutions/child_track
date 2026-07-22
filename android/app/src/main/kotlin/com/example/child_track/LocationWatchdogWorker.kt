@@ -10,11 +10,14 @@ import androidx.work.WorkerParameters
 import java.util.concurrent.TimeUnit
 
 /**
- * Watchdog only — NOT the primary location-ping delivery mechanism (that's
- * NativeLocationPingManager's FusedLocationProviderClient + PendingIntent
- * registration). This periodically re-arms that registration in case Play
- * Services silently dropped it, which is a known real-world occurrence after
- * a Play Services update or a device reboot.
+ * Watchdog only — NOT the primary delivery mechanism for either location pings
+ * (NativeLocationPingManager) or geofence transitions (NativeGeofenceManager).
+ * This periodically re-arms both registrations in case Play Services silently
+ * dropped them, which is a known real-world occurrence after a Play Services
+ * update or a device reboot — without this, a dropped geofence registration
+ * would otherwise only get restored the next time the Dart isolate happens to
+ * be alive and runs its own periodic refresh, defeating the point of native
+ * geofencing surviving a prolonged force-kill.
  *
  * 15 minutes is WorkManager's hard floor for periodic work (PeriodicWorkRequest
  * .MIN_PERIODIC_INTERVAL_MILLIS) — it cannot be configured shorter.
@@ -26,6 +29,13 @@ class LocationWatchdogWorker(context: Context, params: WorkerParameters) : Worke
             Log.i("LocationWatchdog", "Re-arming native background location updates")
             NativeFileLogger.log(applicationContext, "WATCHDOG", "re-arming location pings")
             NativeLocationPingManager.start(applicationContext)
+
+            val persistedFences = NativeGeofenceManager.getPersistedGeofences(applicationContext)
+            if (persistedFences.isNotEmpty()) {
+                Log.i("LocationWatchdog", "Re-arming ${persistedFences.size} native geofences")
+                NativeFileLogger.log(applicationContext, "WATCHDOG", "re-arming ${persistedFences.size} geofences")
+                NativeGeofenceManager.syncGeofences(applicationContext, persistedFences)
+            }
         }
         return Result.success()
     }

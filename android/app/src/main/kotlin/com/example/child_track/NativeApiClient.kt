@@ -30,10 +30,13 @@ object NativeApiClient {
     }
 
     /**
-     * POST JSON to `${DEFAULT_API_BASE}$path`. Returns true if the request reached
-     * the server (any HTTP response, including 4xx validation errors) — only
-     * network/timeout failures return false, since those are the only cases
-     * worth retrying later.
+     * POST JSON to `${DEFAULT_API_BASE}$path`. Returns true if the request was
+     * actually processed by the app (2xx success, or 4xx — a validation/auth
+     * rejection that would just repeat forever, not worth retrying). Returns
+     * false — worth retrying later — for network/timeout failures AND 5xx
+     * server errors, since a transient server bug (e.g. an unhandled
+     * exception on the backend) must not silently and permanently drop the
+     * event the way treating it as "posted" would.
      */
     fun postJson(context: Context, path: String, payload: JSONObject): Boolean {
         val token = getAuthToken(context)
@@ -51,7 +54,7 @@ object NativeApiClient {
                 setRequestProperty("Authorization", "Bearer $token")
             }
             connection.outputStream.use { it.write(payload.toString().toByteArray(Charsets.UTF_8)) }
-            connection.responseCode in 200..599
+            connection.responseCode < 500
         } catch (e: Exception) {
             false
         } finally {
