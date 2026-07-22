@@ -26,6 +26,7 @@ import 'package:child_track/app/chat/view/chat_screen.dart';
 import 'package:child_track/app/chat/view_model/bloc/chat_bloc.dart';
 import 'package:child_track/core/services/screen_time_sync_service.dart';
 import 'package:child_track/app/childapp/view_model/repository/device_info_service.dart';
+import 'package:child_track/core/services/device_info_service.dart' show DeviceInfoService;
 
 /// Top-level function for handling background messages
 /// This must be a top-level function, not a class method
@@ -181,8 +182,43 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
       await prefs.setBool('block_18plus', enabled);
 
       AppLogger.info('WEB_FILTER_UPDATE (bg): Updated block_18plus to $enabled');
+
+      // Android's enforcement (AppLockService) polls the SharedPreferences value
+      // above directly, so it's already live. iOS's enforcement (ManagedSettings)
+      // requires an explicit native call — without this, toggling the setting
+      // for an already-logged-in child never actually changed the filter on iOS.
+      if (Platform.isIOS) {
+        try {
+          const iosChannel = MethodChannel('com.truenyx.naviq/parental_control');
+          await iosChannel.invokeMethod('setWebFiltering', enabled);
+          AppLogger.info('WEB_FILTER_UPDATE (bg): Synced to iOS native');
+        } catch (iosErr) {
+          AppLogger.error('WEB_FILTER_UPDATE (bg): iOS sync error: $iosErr');
+        }
+      }
     } catch (e) {
       AppLogger.error('WEB_FILTER_UPDATE background error: $e');
+    }
+  }
+
+  // Handle DELETION_RESTRICTION_UPDATE in background
+  if (message.data['type'] == 'DELETION_RESTRICTION_UPDATE') {
+    AppLogger.info('Received DELETION_RESTRICTION_UPDATE command via FCM (background)');
+    try {
+      final isAllowDeleteStr = message.data['isallowdelete']?.toString();
+      final isAllowDelete = isAllowDeleteStr == 'true';
+
+      await SharedPrefsService.init();
+      final prefs = SharedPrefsService();
+      // AppLockService.kt polls 'flutter.is_allow_delete' directly, so this
+      // alone makes the change live for an already-running child device.
+      await prefs.setAllowDelete(isAllowDelete);
+
+      AppLogger.info(
+        'DELETION_RESTRICTION_UPDATE (bg): Updated is_allow_delete to $isAllowDelete',
+      );
+    } catch (e) {
+      AppLogger.error('DELETION_RESTRICTION_UPDATE background error: $e');
     }
   }
 }
@@ -513,8 +549,33 @@ class FirebaseNotificationService {
         final prefs = injector<SharedPrefsService>();
         await prefs.setBool('block_18plus', enabled);
         AppLogger.info('WEB_FILTER_UPDATE (fg): Updated block_18plus to $enabled');
+
+        // Android's enforcement (AppLockService) polls the SharedPreferences
+        // value above directly. iOS's ManagedSettings-based filter needs this
+        // explicit native call — without it, toggling the setting while the
+        // child app is already running never actually changed the filter.
+        await injector<DeviceInfoService>().setWebFiltering(enabled);
       } catch (e) {
         AppLogger.error('WEB_FILTER_UPDATE foreground error: $e');
+      }
+      return; // Don't show notification
+    }
+
+    // Handle DELETION_RESTRICTION_UPDATE in foreground
+    if (message.data['type'] == 'DELETION_RESTRICTION_UPDATE') {
+      try {
+        final isAllowDeleteStr = message.data['isallowdelete']?.toString();
+        final isAllowDelete = isAllowDeleteStr == 'true';
+
+        final prefs = injector<SharedPrefsService>();
+        // AppLockService.kt polls 'flutter.is_allow_delete' directly, so this
+        // alone makes the change live for an already-running child device.
+        await prefs.setAllowDelete(isAllowDelete);
+        AppLogger.info(
+          'DELETION_RESTRICTION_UPDATE (fg): Updated is_allow_delete to $isAllowDelete',
+        );
+      } catch (e) {
+        AppLogger.error('DELETION_RESTRICTION_UPDATE foreground error: $e');
       }
       return; // Don't show notification
     }

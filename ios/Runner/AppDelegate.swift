@@ -1173,18 +1173,35 @@ class ScreenTimeManager {
 
     private let webFilterKey = "com.truenyx.naviq.web_filter_enabled"
 
+    // Apple's public ManagedSettings API only exposes an explicit domain
+    // blocklist (WebContentSettings.FilterPolicy.specific) — there is no
+    // category-based "block adult content" policy available to 3rd-party
+    // apps (that auto-filter is Apple's own Screen Time-only feature, not
+    // programmatically settable). So this list can never be "complete" — it
+    // only covers named domains, not arbitrary/new/mirror sites — but a
+    // larger, curated list of well-known adult domains is meaningfully
+    // better than a handful, at essentially no runtime cost.
+    private static let blockedAdultDomains: Set<WebDomain> = Set([
+        "pornhub.com", "xvideos.com", "xnxx.com", "xhamster.com", "redtube.com",
+        "youporn.com", "tube8.com", "spankbang.com", "xxx.com", "porn.com",
+        "brazzers.com", "onlyfans.com", "chaturbate.com", "livejasmin.com",
+        "myfreecams.com", "camsoda.com", "stripchat.com", "bongacams.com",
+        "tnaflix.com", "motherless.com", "rule34.xxx", "e-hentai.org",
+        "nhentai.net", "thumbzilla.com", "beeg.com", "txxx.com", "hclips.com",
+        "drtuber.com", "sunporno.com", "porntrex.com", "eporner.com",
+        "xtube.com", "adultfriendfinder.com", "ashleymadison.com",
+        "literotica.com", "hqporner.com", "pornone.com", "3movs.com",
+        "javhd.com", "fapdu.com", "keezmovies.com", "extremetube.com",
+        "4tube.com", "vporn.com", "camwhores.tv", "fetlife.com",
+    ].map { WebDomain(domain: $0) })
+
     func applyWebContentFilter(enabled: Bool) {
         sharedDefaults?.set(enabled, forKey: webFilterKey)
         // No synchronize() — removed per Optimization 5
         let store = ManagedSettingsStore()
         if enabled {
-            let blocked: Set<WebDomain> = [
-                WebDomain(domain: "porn.com"), WebDomain(domain: "xxx.com"),
-                WebDomain(domain: "pornhub.com"), WebDomain(domain: "xvideos.com"),
-                WebDomain(domain: "redtube.com"), WebDomain(domain: "xhamster.com")
-            ]
-            store.webContent.blockedByFilter = .specific(blocked)
-            logToExtension("🚫 Web filter enabled")
+            store.webContent.blockedByFilter = .specific(Self.blockedAdultDomains)
+            logToExtension("🚫 Web filter enabled (\(Self.blockedAdultDomains.count) domains)")
         } else {
             store.webContent.blockedByFilter = nil
             logToExtension("🔓 Web filter disabled")
