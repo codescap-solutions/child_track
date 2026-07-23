@@ -89,12 +89,19 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> with WidgetsBindingObserver
   /// Called by the Flutter framework when the app lifecycle changes.
   /// On iOS, after the native Swift handler runs a background sync while the app
   /// is suspended, the Bloc state is stale (old battery/location values).
-  /// When the child opens the app (resumed), we re-fetch everything so the UI
-  /// shows accurate data immediately.
+  /// On Android, location permission has no OS-level change stream to listen
+  /// to — the only reliable way to notice the child granted it in Settings
+  /// (or it got revoked) is to re-check on resume, same as here. Previously
+  /// this whole block was iOS-only, so an Android child could fix their
+  /// permission in Settings, come back to the app, and the backend would
+  /// keep serving the old denied/stale status indefinitely — nothing else
+  /// re-checks it short of a cold start or a parent-triggered force-refresh.
+  /// When the child opens the app (resumed), we re-fetch everything so the
+  /// UI and backend both show accurate data immediately.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && Platform.isIOS) {
-      AppLogger.info('ChildBloc: App resumed on iOS — refreshing location & device info');
+    if (state == AppLifecycleState.resumed) {
+      AppLogger.info('ChildBloc: App resumed — refreshing location & device info');
       add(GetChildLocation());
       add(LoadDeviceInfo());
       if (_locationSubscription == null) {

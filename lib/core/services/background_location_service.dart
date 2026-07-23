@@ -18,6 +18,7 @@ import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:permission_handler/permission_handler.dart' hide ServiceStatus;
 
 class BackgroundLocationService {
   static final BackgroundLocationService _instance =
@@ -134,6 +135,26 @@ LocationStateMachine? _stateMachine;
 /// Adaptive tracking profile manager (shared between stream restarts).
 final _profileManager = TrackingProfileManager();
 
+bool _resubscribeScheduled = false;
+
+/// Mirrors ChildInfoService/DeviceInfoService's mapping so the string values
+/// posted to the backend stay consistent regardless of which code path
+/// reported them.
+Future<String> _getLocationPermissionStatus() async {
+  try {
+    final permissionStatus = await Permission.locationAlways.status;
+    if (permissionStatus.isGranted) return 'granted';
+    if (permissionStatus.isDenied) return 'denied';
+    if (permissionStatus.isPermanentlyDenied) return 'denied_forever';
+    final inUseStatus = await Permission.locationWhenInUse.status;
+    if (inUseStatus.isGranted) return 'while_using';
+    return permissionStatus.name;
+  } catch (e) {
+    StructuredLogger.log(LogTag.BG, 'Permission status check failed', error: e);
+    return 'unknown';
+  }
+}
+
 /// Restart the location stream whenever the profile changes.
 void _startLocationStream(ServiceInstance service) {
   _positionSubscription?.cancel();
@@ -192,8 +213,31 @@ void _startLocationStream(ServiceInstance service) {
         );
       }
     },
-    onError: (e) {
+    onError: (e) async {
       StructuredLogger.log(LogTag.BG, 'Stream Error', error: e);
+
+      // The stream dies permanently on error with no auto-resubscribe —
+      // previously this meant a transient failure (or a permission revoke
+      // that later gets fixed by the child, e.g. in Settings) left location
+      // updates dead until the app was fully restarted, even though nothing
+      // else in this isolate would ever know to retry. Guard against
+      // stacking multiple pending retries if onError fires repeatedly.
+      if (_resubscribeScheduled) return;
+      _resubscribeScheduled = true;
+      Future.delayed(const Duration(seconds: 10), () async {
+        _resubscribeScheduled = false;
+        final status = await _getLocationPermissionStatus();
+        final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+        if ((status == 'granted' || status == 'while_using') && serviceEnabled) {
+          StructuredLogger.log(LogTag.BG, 'Resubscribing to location stream after error');
+          _startLocationStream(service);
+        } else {
+          StructuredLogger.log(
+            LogTag.BG,
+            'Not resubscribing — permission=$status, serviceEnabled=$serviceEnabled',
+          );
+        }
+      });
     },
   );
 }
@@ -281,7 +325,7 @@ void onStart(ServiceInstance service) async {
     _startLocationStream(service);
 
     _serviceStatusSubscription = Geolocator.getServiceStatusStream().listen(
-      (ServiceStatus status) {
+      (ServiceStatus status) async {
         StructuredLogger.log(
           LogTag.BG,
           'Location Service Status: $status',
@@ -300,11 +344,19 @@ void onStart(ServiceInstance service) async {
         // it takes for one of those other triggers to happen. Also refreshes
         // deviceStatus.lastHeartbeat, which keeps the tracking-snapshot
         // staleness check accurate even when nothing else has changed.
+        //
+        // Also opportunistically re-checks permission here too — Android has
+        // no OS-level stream for permission changes the way it does for the
+        // service toggle, so this is a second free chance to notice the
+        // child fixed it in Settings, on top of the app-resume re-check in
+        // ChildBloc.didChangeAppLifecycleState.
         final childId = sharedPrefsService.getString('child_id');
         if (childId != null && childId.isNotEmpty) {
+          final permissionStatus = await _getLocationPermissionStatus();
           childRepo.postChildData({
             'child_id': childId,
             'gps_enabled': isEnabled,
+            'location_permission': permissionStatus,
           });
         }
       },
