@@ -28,6 +28,7 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
   StreamSubscription? _locationSubscription;
   StreamSubscription? _statusSubscription;
   Timer? _snapshotPollTimer;
+  String? _joinedRoomChildId;
 
   HomepageBloc({
     required HomeRepository homeRepository,
@@ -63,7 +64,18 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
     if (!_socketService.isConnected) {
       _socketService.initSocket();
     }
+    // join_child_room was never paired with a leave when the parent switches
+    // which child they're viewing, so the socket stayed joined to every
+    // room ever viewed this session — the root cause of location/status
+    // updates for a different linked child leaking into the current view
+    // (see the child_id guards in _onUpdateSocketLocation/_onUpdateSocketStatus,
+    // which are the actual fix; this just stops the stale traffic at the
+    // source instead of only filtering it after arrival).
+    if (_joinedRoomChildId != null && _joinedRoomChildId != childId) {
+      _socketService.leaveRoom(_joinedRoomChildId!);
+    }
     _socketService.joinRoom(childId);
+    _joinedRoomChildId = childId;
 
     _locationSubscription?.cancel();
     _locationSubscription = _socketService.locationStream.listen((data) {
@@ -399,6 +411,24 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
       final data = event.locationData;
       AppLogger.info('[HomepageBloc] Processing socket location update: $data');
 
+      // The socket connection accumulates a joined room for every child the
+      // parent has ever viewed this session (join_child_room is never paired
+      // with a leave when switching), so a location ping from a DIFFERENT
+      // linked child can still arrive here well after the parent has moved
+      // on to viewing someone else. The server always includes child_id in
+      // this payload — drop anything that doesn't match who's currently
+      // selected instead of overwriting the map with the wrong child.
+      final eventChildId = data['child_id']?.toString();
+      final selectedChildId = _sharedPrefsService.getString('child_id');
+      if (eventChildId != null &&
+          selectedChildId != null &&
+          eventChildId != selectedChildId) {
+        AppLogger.info(
+          '[HomepageBloc] Ignoring location_update for $eventChildId — currently viewing $selectedChildId',
+        );
+        return;
+      }
+
       if (currentState.waitingForSilentSyncResponse) {
         emit(currentState.copyWith(waitingForSilentSyncResponse: false));
         Future.delayed(const Duration(milliseconds: 2500), () {
@@ -492,6 +522,21 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
     try {
       final data = event.statusData;
       AppLogger.info('[HomepageBloc] Processing socket status update: $data');
+
+      // Same cross-child leakage risk as _onUpdateSocketLocation — the
+      // socket stays joined to every room the parent has viewed this
+      // session, so a status_update for a different linked child can still
+      // arrive here.
+      final eventChildId = data['child_id']?.toString();
+      final selectedChildId = _sharedPrefsService.getString('child_id');
+      if (eventChildId != null &&
+          selectedChildId != null &&
+          eventChildId != selectedChildId) {
+        AppLogger.info(
+          '[HomepageBloc] Ignoring status_update for $eventChildId — currently viewing $selectedChildId',
+        );
+        return;
+      }
 
       if (currentState.waitingForSilentSyncResponse) {
         emit(currentState.copyWith(waitingForSilentSyncResponse: false));
