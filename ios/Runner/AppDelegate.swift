@@ -359,6 +359,30 @@ import os.log
         _ seconds: Double,
         completion: @escaping (CLLocation?) -> Void
     ) {
+        // Fixes a confirmed TestFlight crash (EXC_CRASH/SIGABRT, an uncaught
+        // CoreLocation assertion at CLLocationManager.m:1349): this function
+        // is reachable from handleNativeDataSync on a push-notification cold
+        // launch, a path that never goes through applicationDidBecomeActive
+        // — the only place that previously assigned locationManager.delegate
+        // and requested authorization (see startLocationServices()). That
+        // assignment used to also happen unconditionally at launch before
+        // commit b9c90c14 (the UIScene/black-screen fix) deferred it to
+        // applicationDidBecomeActive, an unintended side effect on this
+        // unrelated path. requestLocation() asserts if called with no
+        // delegate set or before authorization is determined — both are true
+        // on a first-launch-via-push. Setting the delegate here is
+        // idempotent/side-effect-free; skipping the call entirely when not
+        // yet authorized preserves the intended feature, since the caller
+        // (buildAndPostSyncPayload via handleNativeDataSync) already falls
+        // back to the cached/stale location on a nil result.
+        locationManager.delegate = self
+
+        let status = locationManager.authorizationStatus
+        guard status == .authorizedAlways || status == .authorizedWhenInUse else {
+            completion(nil)
+            return
+        }
+
         var completed = false
         let lock = NSLock()
 
