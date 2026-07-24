@@ -15,6 +15,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
+import 'package:child_track/core/widgets/resolved_place_label.dart';
 
 /// Trip Detail View - Shows detailed trip with map and timeline
 class TripDetailView extends StatefulWidget {
@@ -852,6 +853,43 @@ class _TripDetailViewState extends State<TripDetailView> {
     );
   }
 
+  /// From/To row using the resolved-place-name fallback — this screen
+  /// previously had no place-name display on its primary render path at
+  /// all (the generated timeline's start event just says "Trip Started"
+  /// with no location), and the one place startPlace/endPlace WERE
+  /// referenced (the error-fallback timeline labels further up this file)
+  /// showed the raw "Unknown Location" string with no rescue, unlike the
+  /// trips list screen's already-working reverse-geocoding fallback.
+  Widget _buildRouteSummary() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ResolvedPlaceLabel(
+          placeName: widget.trip.startPlace.isNotEmpty
+              ? widget.trip.startPlace
+              : 'Unknown Location',
+          lat: widget.trip.startLocation.latitude,
+          lng: widget.trip.startLocation.longitude,
+          iconColor: Colors.grey.shade400,
+        ),
+        Container(
+          margin: const EdgeInsets.only(left: 3.5),
+          height: 12,
+          width: 1,
+          color: AppColors.textSecondary.withValues(alpha: 0.3),
+        ),
+        ResolvedPlaceLabel(
+          placeName: widget.trip.endPlace.isNotEmpty
+              ? widget.trip.endPlace
+              : 'Unknown Location',
+          lat: widget.trip.endLocation.latitude,
+          lng: widget.trip.endLocation.longitude,
+          iconColor: AppColors.primaryColor,
+        ),
+      ],
+    );
+  }
+
   Widget _buildTripHeaderStats(
     double distanceKm,
     int durationMinutes,
@@ -863,6 +901,8 @@ class _TripDetailViewState extends State<TripDetailView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        _buildRouteSummary(),
+        const SizedBox(height: AppSizes.spacingM),
         if (detail?.hasDangerousDriving == true)
           _buildDangerousDrivingBanner(detail!),
         Row(
