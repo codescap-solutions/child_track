@@ -57,6 +57,8 @@ dependencies:
 
   # Device Information
   battery_plus: ^5.0.1
+  device_info_plus: ^11.2.0
+  android_intent_plus: ^5.2.0
   connectivity_plus: ^6.0.5
   device_info:
     path: ./packages/device_info

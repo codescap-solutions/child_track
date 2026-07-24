@@ -15,6 +15,8 @@ import 'package:child_track/core/utils/app_logger.dart';
 import 'package:child_track/app/childapp/view/sos_view.dart';
 import 'package:child_track/app/auth/view/onboarding/mapping_context_screen.dart';
 import 'package:child_track/app/auth/view/onboarding/app_catalog_screen.dart';
+import 'package:child_track/app/auth/view/onboarding/oem_battery_screen.dart';
+import 'package:child_track/core/services/oem_battery_helper.dart';
 import 'package:flutter/cupertino.dart';
 
 enum PermissionStep {
@@ -278,11 +280,31 @@ class _PermissionSequenceScreenState extends State<PermissionSequenceScreen>
           } catch (e) {
             AppLogger.error('Failed to start background tracking service: $e');
           }
-          if (mounted) {
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (_) => const SosView()),
-            );
+
+          void goToSos() {
+            if (mounted) {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (_) => const SosView()),
+              );
+            }
           }
+
+          // Only relevant on Android — manufacturers with their own
+          // background-kill managers beyond stock Doze (see
+          // OemBatteryHelper). Unrecognized manufacturers skip straight to
+          // SosView with no extra step.
+          if (Platform.isAndroid) {
+            final oem = await OemBatteryHelper().detectOem();
+            if (oem != null && mounted) {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(
+                  builder: (_) => OemBatteryScreen(oem: oem, onContinue: goToSos),
+                ),
+              );
+              break;
+            }
+          }
+          goToSos();
           break;
       }
     } catch (e) {

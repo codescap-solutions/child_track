@@ -29,6 +29,8 @@ import 'package:child_track/app/childapp/view_model/repository/device_info_servi
     as child_info;
 import 'package:child_track/app/childapp/view/widgets/child_app_drawer.dart';
 import 'package:child_track/app/auth/view/onboarding/app_catalog_screen.dart';
+import 'package:child_track/app/auth/view/onboarding/oem_battery_screen.dart';
+import 'package:child_track/core/services/oem_battery_helper.dart';
 
 class SosView extends StatefulWidget {
   const SosView({super.key});
@@ -43,6 +45,7 @@ class _SosViewState extends State<SosView> with WidgetsBindingObserver {
   bool _hasLocationPermission = false;
   bool _hasNotificationPermission = false;
   bool _hasBackgroundPermission = false;
+  OemInfo? _oemBannerInfo;
 
   @override
   void initState() {
@@ -51,6 +54,7 @@ class _SosViewState extends State<SosView> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _checkAccessibilityPermission();
     _checkOtherPermissions();
+    _checkOemBatteryStatus();
 
     // Defer heavy initialization until after the first frame to ensure smooth navigation
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -109,6 +113,7 @@ class _SosViewState extends State<SosView> with WidgetsBindingObserver {
           _childBloc.add(CheckUsagePermission());
           _checkAccessibilityPermission();
           _checkOtherPermissions();
+          _checkOemBatteryStatus();
         }
       });
     }
@@ -152,19 +157,113 @@ class _SosViewState extends State<SosView> with WidgetsBindingObserver {
     }
   }
 
+  // Non-blocking nudge, not a permission gate — re-checked on every cold
+  // start and app resume so a skipped/not-yet-done OEM whitelist step
+  // keeps surfacing instead of being silently forgotten, without ever
+  // blocking use of the app. Not shown at all once the onboarding step (or
+  // this same banner) has been explicitly acknowledged as done.
+  Future<void> _checkOemBatteryStatus() async {
+    final helper = OemBatteryHelper();
+    if (helper.isAcknowledged) {
+      if (mounted && _oemBannerInfo != null) setState(() => _oemBannerInfo = null);
+      return;
+    }
+    final oem = await helper.detectOem();
+    if (mounted) setState(() => _oemBannerInfo = oem);
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocProvider.value(
       value: _childBloc,
-      child: _SosViewContent(
-        hasAccessibilityPermission: _hasAccessibilityPermission,
-        hasLocationPermission: _hasLocationPermission,
-        hasNotificationPermission: _hasNotificationPermission,
-        hasBackgroundPermission: _hasBackgroundPermission,
-        onPermissionUpdated: () {
-          _checkAccessibilityPermission();
-          _checkOtherPermissions();
-        },
+      child: Stack(
+        children: [
+          _SosViewContent(
+            hasAccessibilityPermission: _hasAccessibilityPermission,
+            hasLocationPermission: _hasLocationPermission,
+            hasNotificationPermission: _hasNotificationPermission,
+            hasBackgroundPermission: _hasBackgroundPermission,
+            onPermissionUpdated: () {
+              _checkAccessibilityPermission();
+              _checkOtherPermissions();
+            },
+          ),
+          if (_oemBannerInfo != null)
+            _OemBatteryBanner(
+              oem: _oemBannerInfo!,
+              // Dismissing only hides it for this app session — deliberately
+              // NOT the same as markAcknowledged(), so it comes back on the
+              // next cold start until the user actually resolves it (or the
+              // onboarding screen's "I've done this" explicitly clears it).
+              onDismiss: () => setState(() => _oemBannerInfo = null),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OemBatteryBanner extends StatelessWidget {
+  final OemInfo oem;
+  final VoidCallback onDismiss;
+
+  const _OemBatteryBanner({required this.oem, required this.onDismiss});
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      top: MediaQuery.of(context).padding.top + 8,
+      left: 12,
+      right: 12,
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFF1EE),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFFFE5DE)),
+            boxShadow: [
+              BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 8, offset: const Offset(0, 2)),
+            ],
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.battery_alert_rounded, color: Color(0xFFF97316), size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Finish setup for ${oem.displayName} so tracking keeps working in the background',
+                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Color(0xFF7C2D12)),
+                ),
+              ),
+              GestureDetector(
+                onTap: () async {
+                  final navigator = Navigator.of(context);
+                  await navigator.push(
+                    MaterialPageRoute(
+                      builder: (_) => OemBatteryScreen(
+                        oem: oem,
+                        onContinue: () => navigator.maybePop(),
+                      ),
+                    ),
+                  );
+                },
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 6),
+                  child: Text('Fix', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: Color(0xFFF97316))),
+                ),
+              ),
+              GestureDetector(
+                onTap: onDismiss,
+                child: const Padding(
+                  padding: EdgeInsets.all(4),
+                  child: Icon(Icons.close_rounded, size: 16, color: Color(0xFF94A3B8)),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
