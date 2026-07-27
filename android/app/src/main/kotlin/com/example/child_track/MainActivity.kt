@@ -18,6 +18,18 @@ class MainActivity : FlutterActivity() {
     private var deviceInfoPlugin: DeviceInfoPlugin? = null
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
     private var pendingBlockRunnable: Runnable? = null
+    private var lastBlockedEventAtMs: Long = 0
+
+    // A block was just genuinely shown this recently ago — a "no block
+    // extras, send clear" call inside this window is almost certainly the
+    // OS re-entering onCreate/onNewIntent for an unrelated lifecycle reason
+    // (activity recreation on a config change, a resume with no new
+    // intent) reusing the SAME Intent object whose extras this class itself
+    // already stripped via removeExtra() right after handling it the first
+    // time — not a real "child is no longer blocked" signal. Comfortably
+    // longer than the 1500ms cold-launch delay above so it covers that
+    // whole window too.
+    private val CLEAR_DEBOUNCE_MS = 2500L
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -136,6 +148,7 @@ class MainActivity : FlutterActivity() {
                 Log.d(TAG, ">>> Cold launch — scheduling appBlocked with 1500ms delay")
                 val runnable = Runnable {
                     Log.d(TAG, ">>> [1500ms elapsed] Sending appBlocked to Flutter for: $packageName")
+                    lastBlockedEventAtMs = System.currentTimeMillis()
                     deviceInfoPlugin?.sendAppBlockedEvent(packageName)
                     pendingBlockRunnable = null
                 }
@@ -143,6 +156,7 @@ class MainActivity : FlutterActivity() {
                 handler.postDelayed(runnable, 1500)
             } else {
                 Log.d(TAG, ">>> Warm launch — sending appBlocked to Flutter NOW for: $packageName")
+                lastBlockedEventAtMs = System.currentTimeMillis()
                 deviceInfoPlugin?.sendAppBlockedEvent(packageName)
             }
 
@@ -150,8 +164,20 @@ class MainActivity : FlutterActivity() {
             intent.removeExtra("app_blocked")
             intent.removeExtra("blocked_package")
         } else {
-            Log.d(TAG, ">>> No block extras in intent — skipping and sending clear event")
-            deviceInfoPlugin?.sendClearBlockEvent()
+            val sinceLastBlock = System.currentTimeMillis() - lastBlockedEventAtMs
+            if (sinceLastBlock < CLEAR_DEBOUNCE_MS) {
+                // See CLEAR_DEBOUNCE_MS comment — a block was just shown moments
+                // ago; this is almost certainly the OS re-entering with the same
+                // (already-extras-stripped) intent, not a real unblock signal.
+                // Confirmed this was actually happening: reported symptom was
+                // the block screen flashing then immediately being replaced by
+                // SosView underneath it, exactly what sendClearBlockEvent()
+                // firing here would cause.
+                Log.d(TAG, ">>> No block extras, but only ${sinceLastBlock}ms since last block — ignoring, not sending clear")
+            } else {
+                Log.d(TAG, ">>> No block extras in intent — skipping and sending clear event")
+                deviceInfoPlugin?.sendClearBlockEvent()
+            }
         }
     }
 }
