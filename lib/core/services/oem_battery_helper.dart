@@ -17,38 +17,37 @@ import 'package:child_track/core/utils/app_logger.dart';
 class OemBatteryHelper {
   static const _acknowledgedPrefKey = 'oem_battery_step_acknowledged';
 
+  // MIUI (Xiaomi's Android skin) is shared across three distinct
+  // Build.MANUFACTURER strings — "Xiaomi", "Redmi", and "POCO" all report
+  // separately despite running the identical underlying battery/autostart
+  // manager, since Xiaomi spun both off as their own sub-brands. Confirmed
+  // directly relevant: a real delayed-notification incident (a ~140min
+  // geofence-report delay, traced to a device-side offline queue) was on a
+  // POCO device — which this map didn't recognize at all before this fix,
+  // so it would have gotten no OEM guidance despite needing the exact same
+  // MIUI Autostart whitelist as Xiaomi/Redmi.
+  static const _miuiOem = OemInfo(
+    displayName: 'Xiaomi (MIUI)',
+    settingLabel: 'Autostart',
+    intentPackage: 'com.miui.securitycenter',
+    intentComponent: 'com.miui.permcenter.autostart.AutoStartManagementActivity',
+    manualSteps: [
+      'Open Security app (or Settings)',
+      'Go to "Permissions" → "Autostart"',
+      'Find NaviQ and turn it ON',
+      'Also check Settings → Apps → Manage apps → NaviQ → Battery saver → set to "No restrictions"',
+    ],
+  );
+
   /// Manufacturer strings as reported by Build.MANUFACTURER (lowercase).
   /// Deep-link intents below target the actual settings activity each OEM
   /// ships for this purpose — these are unofficial (not part of the public
   /// Android SDK) and can stop working across OEM software updates, which
   /// is exactly why every one of them has a manual-navigation fallback.
   static const Map<String, OemInfo> _knownOems = {
-    'xiaomi': OemInfo(
-      displayName: 'Xiaomi (MIUI)',
-      settingLabel: 'Autostart',
-      intentPackage: 'com.miui.securitycenter',
-      intentComponent:
-          'com.miui.permcenter.autostart.AutoStartManagementActivity',
-      manualSteps: [
-        'Open Security app (or Settings)',
-        'Go to "Permissions" → "Autostart"',
-        'Find NaviQ and turn it ON',
-        'Also check Settings → Apps → Manage apps → NaviQ → Battery saver → set to "No restrictions"',
-      ],
-    ),
-    'redmi': OemInfo(
-      displayName: 'Xiaomi (MIUI)',
-      settingLabel: 'Autostart',
-      intentPackage: 'com.miui.securitycenter',
-      intentComponent:
-          'com.miui.permcenter.autostart.AutoStartManagementActivity',
-      manualSteps: [
-        'Open Security app (or Settings)',
-        'Go to "Permissions" → "Autostart"',
-        'Find NaviQ and turn it ON',
-        'Also check Settings → Apps → Manage apps → NaviQ → Battery saver → set to "No restrictions"',
-      ],
-    ),
+    'xiaomi': _miuiOem,
+    'redmi': _miuiOem,
+    'poco': _miuiOem,
     'oppo': OemInfo(
       displayName: 'Oppo (ColorOS)',
       settingLabel: 'Allow background activity',
