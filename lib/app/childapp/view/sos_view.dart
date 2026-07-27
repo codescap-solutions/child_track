@@ -165,7 +165,8 @@ class _SosViewState extends State<SosView> with WidgetsBindingObserver {
   Future<void> _checkOemBatteryStatus() async {
     final helper = OemBatteryHelper();
     if (helper.isAcknowledged) {
-      if (mounted && _oemBannerInfo != null) setState(() => _oemBannerInfo = null);
+      if (mounted && _oemBannerInfo != null)
+        setState(() => _oemBannerInfo = null);
       return;
     }
     final oem = await helper.detectOem();
@@ -224,17 +225,29 @@ class _OemBatteryBanner extends StatelessWidget {
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: const Color(0xFFFFE5DE)),
             boxShadow: [
-              BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 8, offset: const Offset(0, 2)),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
             ],
           ),
           child: Row(
             children: [
-              const Icon(Icons.battery_alert_rounded, color: Color(0xFFF97316), size: 20),
+              const Icon(
+                Icons.battery_alert_rounded,
+                color: Color(0xFFF97316),
+                size: 20,
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   'Finish setup for ${oem.displayName} so tracking keeps working in the background',
-                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Color(0xFF7C2D12)),
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF7C2D12),
+                  ),
                 ),
               ),
               GestureDetector(
@@ -244,21 +257,32 @@ class _OemBatteryBanner extends StatelessWidget {
                     MaterialPageRoute(
                       builder: (_) => OemBatteryScreen(
                         oem: oem,
-                        onContinue: () => navigator.maybePop(),
+                        onContinue: (_) => navigator.maybePop(),
                       ),
                     ),
                   );
                 },
                 child: const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 6),
-                  child: Text('Fix', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: Color(0xFFF97316))),
+                  child: Text(
+                    'Fix',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFFF97316),
+                    ),
+                  ),
                 ),
               ),
               GestureDetector(
                 onTap: onDismiss,
                 child: const Padding(
                   padding: EdgeInsets.all(4),
-                  child: Icon(Icons.close_rounded, size: 16, color: Color(0xFF94A3B8)),
+                  child: Icon(
+                    Icons.close_rounded,
+                    size: 16,
+                    color: Color(0xFF94A3B8),
+                  ),
                 ),
               ),
             ],
@@ -1663,7 +1687,7 @@ class _SosViewContentState extends State<_SosViewContent> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Naviq Dev 1.0.3(Jun-08)',
+                          'Naviq Dev 1.0.3(Jul-25)',
                           textAlign: TextAlign.center,
                           style: GoogleFonts.manrope(
                             fontSize: 10,

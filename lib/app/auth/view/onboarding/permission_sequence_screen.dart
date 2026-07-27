@@ -281,12 +281,17 @@ class _PermissionSequenceScreenState extends State<PermissionSequenceScreen>
             AppLogger.error('Failed to start background tracking service: $e');
           }
 
-          void goToSos() {
-            if (mounted) {
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(builder: (_) => const SosView()),
-              );
-            }
+          // Takes the BuildContext to navigate with explicitly, rather than
+          // closing over this screen's own context/mounted — when called
+          // from OemBatteryScreen's onContinue, this screen has already
+          // been pushReplacement'd out (and disposed) by the time the user
+          // actually taps a button there, so checking THIS screen's
+          // `mounted` would always be false and silently no-op. The caller
+          // always passes a context that's valid at the moment it's used.
+          void goToSos(BuildContext ctx) {
+            Navigator.of(ctx).pushReplacement(
+              MaterialPageRoute(builder: (_) => const SosView()),
+            );
           }
 
           // Only relevant on Android — manufacturers with their own
@@ -304,7 +309,7 @@ class _PermissionSequenceScreenState extends State<PermissionSequenceScreen>
               break;
             }
           }
-          goToSos();
+          if (mounted) goToSos(context);
           break;
       }
     } catch (e) {

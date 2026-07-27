@@ -11,7 +11,16 @@ import 'package:child_track/core/services/oem_battery_helper.dart';
 /// there's always a way to continue.
 class OemBatteryScreen extends StatefulWidget {
   final OemInfo oem;
-  final VoidCallback onContinue;
+  // Takes this screen's own BuildContext rather than being a plain
+  // VoidCallback — the caller (permission_sequence_screen.dart) used to
+  // close over its OWN context/mounted instead, which silently broke: that
+  // screen gets pushReplacement'd out (and disposed) the moment this one is
+  // shown, so by the time the user actually taps Skip/Continue, the
+  // captured `mounted` was already false and the whole navigation call
+  // no-opped with no error. Passing this screen's context (always valid at
+  // the moment it's actually used, since it's the currently-active route)
+  // avoids that entirely.
+  final void Function(BuildContext) onContinue;
 
   const OemBatteryScreen({super.key, required this.oem, required this.onContinue});
 
@@ -36,7 +45,7 @@ class _OemBatteryScreenState extends State<OemBatteryScreen> {
 
   void _finish() {
     _helper.markAcknowledged();
-    widget.onContinue();
+    widget.onContinue(context);
   }
 
   // Deliberately does NOT call markAcknowledged() — the home-screen nudge
@@ -44,7 +53,7 @@ class _OemBatteryScreenState extends State<OemBatteryScreen> {
   // cold start, so skipping here means the user gets a low-friction
   // reminder later instead of the step silently being forgotten.
   void _skip() {
-    widget.onContinue();
+    widget.onContinue(context);
   }
 
   @override
