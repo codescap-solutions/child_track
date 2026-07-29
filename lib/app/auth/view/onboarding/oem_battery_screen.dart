@@ -45,6 +45,8 @@ class _OemBatteryScreenState extends State<OemBatteryScreen> {
 
   void _finish() {
     _helper.markAcknowledged();
+    // Fire-and-forget — telemetry only, never blocks navigation on network.
+    _helper.syncOnboardingStatusToBackend();
     widget.onContinue(context);
   }
 
@@ -53,6 +55,7 @@ class _OemBatteryScreenState extends State<OemBatteryScreen> {
   // cold start, so skipping here means the user gets a low-friction
   // reminder later instead of the step silently being forgotten.
   void _skip() {
+    _helper.syncOnboardingStatusToBackend();
     widget.onContinue(context);
   }
 

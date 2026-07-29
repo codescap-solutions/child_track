@@ -2,6 +2,8 @@ import 'dart:io';
 import 'package:android_intent_plus/android_intent.dart';
 import 'package:android_intent_plus/flag.dart';
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:child_track/app/childapp/view_model/repository/child_repo.dart';
+import 'package:child_track/core/di/injector.dart';
 import 'package:child_track/core/services/shared_prefs_service.dart';
 import 'package:child_track/core/utils/app_logger.dart';
 
@@ -101,18 +103,68 @@ class OemBatteryHelper {
   final SharedPrefsService _prefs;
   OemBatteryHelper({SharedPrefsService? prefs}) : _prefs = prefs ?? SharedPrefsService();
 
+  /// Raw Build.MANUFACTURER string (lowercase), or null on iOS/on failure.
+  /// Separate from detectOem() so callers that just want this for telemetry
+  /// (e.g. syncing to the backend for diagnosing background-suspension
+  /// incidents without physical device access) aren't forced through the
+  /// known-OEM map — every manufacturer is worth recording, not just the
+  /// ones this app currently has specific guidance for.
+  Future<String?> getRawManufacturer() async {
+    if (!Platform.isAndroid) return null;
+    try {
+      final info = await DeviceInfoPlugin().androidInfo;
+      return info.manufacturer.toLowerCase().trim();
+    } catch (e) {
+      AppLogger.error('OemBatteryHelper: manufacturer detection failed: $e');
+      return null;
+    }
+  }
+
   /// Returns the matched OEM info for this device, or null if it's stock
   /// Android / an unrecognized manufacturer (nothing extra needed beyond
   /// the standard ignoreBatteryOptimizations prompt).
   Future<OemInfo?> detectOem() async {
-    if (!Platform.isAndroid) return null;
+    final manufacturer = await getRawManufacturer();
+    if (manufacturer == null) return null;
+    return _knownOems[manufacturer];
+  }
+
+  /// One of "not_applicable" (iOS, or a manufacturer with no known
+  /// aggressive battery manager — nothing to onboard), "pending" (a known
+  /// OEM was detected but the onboarding step hasn't been acknowledged
+  /// yet — still shown via the SosView reminder banner), or "acknowledged"
+  /// (user tapped "I've done this" on the onboarding screen or banner).
+  Future<String> getOnboardingStatus() async {
+    final oem = await detectOem();
+    if (oem == null) return 'not_applicable';
+    return isAcknowledged ? 'acknowledged' : 'pending';
+  }
+
+  /// Lightweight sync for just these two telemetry fields — used whenever
+  /// the onboarding step's state changes (completed, skipped, or shown
+  /// again via the SosView reminder banner), so the backend reflects it
+  /// immediately rather than waiting for the next full device-info sync at
+  /// app start. Fire-and-forget by convention at call sites (not awaited),
+  /// matching how other non-critical telemetry syncs in this app behave —
+  /// never blocks the UI action (dismissing the screen/banner) on network.
+  Future<void> syncOnboardingStatusToBackend() async {
+    if (!Platform.isAndroid) return;
     try {
-      final info = await DeviceInfoPlugin().androidInfo;
-      final manufacturer = info.manufacturer.toLowerCase().trim();
-      return _knownOems[manufacturer];
+      final prefs = SharedPrefsService();
+      final childId = prefs.getString('child_id');
+      if (childId == null || childId.isEmpty) return;
+
+      final manufacturer = await getRawManufacturer();
+      final status = await getOnboardingStatus();
+
+      await injector<ChildRepo>().postChildData({
+        "child_id": childId,
+        if (manufacturer != null) "manufacturer": manufacturer,
+        "oem_onboarding_status": status,
+        "timestamp": DateTime.now().toUtc().toIso8601String(),
+      });
     } catch (e) {
-      AppLogger.error('OemBatteryHelper: manufacturer detection failed: $e');
-      return null;
+      AppLogger.error('OemBatteryHelper: failed to sync onboarding status: $e');
     }
   }
 

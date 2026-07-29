@@ -171,6 +171,10 @@ class _SosViewState extends State<SosView> with WidgetsBindingObserver {
     }
     final oem = await helper.detectOem();
     if (mounted) setState(() => _oemBannerInfo = oem);
+    // Fire-and-forget — telemetry only. Syncs whenever the reminder banner
+    // is actually (re-)shown, so the backend reflects "still pending" state
+    // over time, not just the one-time onboarding-screen outcome.
+    if (oem != null) helper.syncOnboardingStatusToBackend();
   }
 
   @override

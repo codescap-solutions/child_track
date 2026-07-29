@@ -13,6 +13,7 @@ import 'package:child_track/app/childapp/view_model/repository/child_repo.dart';
 import 'package:child_track/core/services/shared_prefs_service.dart';
 import 'package:child_track/core/services/screen_time_sync_service.dart';
 import 'package:child_track/core/services/background_task_service.dart';
+import 'package:child_track/core/services/oem_battery_helper.dart';
 import 'package:geolocator/geolocator.dart';
 part 'child_event.dart';
 part 'child_state.dart';
@@ -432,6 +433,15 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> with WidgetsBindingObserver
   ) async {
     try {
       final childId = _sharedPrefsService.getString('child_id');
+
+      // Telemetry only — lets future background-suspension incidents (e.g.
+      // the 390SLW/POCO/Kusma cases) be triaged from server data alone,
+      // without needing physical device access to find the manufacturer or
+      // whether the OEM battery-onboarding step was ever completed.
+      final oemHelper = OemBatteryHelper();
+      final manufacturer = await oemHelper.getRawManufacturer();
+      final oemOnboardingStatus = await oemHelper.getOnboardingStatus();
+
       final requestBody = {
         "child_id": childId,
         "battery_percentage": event.deviceInfo.batteryPercentage,
@@ -442,6 +452,8 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> with WidgetsBindingObserver
         "gps_enabled": event.deviceInfo.gpsEnabled,
         "location_permission": event.deviceInfo.locationPermissionStatus,
         "timestamp": DateTime.now().toUtc().toIso8601String(),
+        if (manufacturer != null) "manufacturer": manufacturer,
+        "oem_onboarding_status": oemOnboardingStatus,
       };
       await _childRepo.postChildData(requestBody);
     } catch (e) {
