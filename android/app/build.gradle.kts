@@ -82,9 +82,11 @@ kotlin {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
-    // Play Billing Library — required to satisfy Google Play's minimum v6.0.1 requirement.
-    // Without this, Play Console flags the BILLING permission as using the legacy AIDL interface.
-    implementation("com.android.billingclient:billing:7.1.1")
+    // Play Billing Library — required to satisfy Google Play's minimum version requirement
+    // (raised from v6.0.1 to v8.0.0 as of the Aug 31, 2026 policy deadline; pinned to 9.0.0
+    // here to clear that bar with margin). Without this, Play Console flags the BILLING
+    // permission as using an outdated Billing Library version and rejects new app updates.
+    implementation("com.android.billingclient:billing:9.0.0")
     // Native GeofencingClient + FusedLocationProviderClient — used directly from Kotlin
     // (not just via the Geolocator plugin) so geofence transitions and periodic location
     // fixes are delivered by Play Services via PendingIntent/BroadcastReceiver, independent
