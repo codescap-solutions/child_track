@@ -4,6 +4,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:permission_handler/permission_handler.dart'
     as permission_handler;
 import '../utils/app_logger.dart';
+import '../utils/structured_logger.dart';
 import '../../app/addplace/service/geocoding_service.dart';
 
 class LocationService {
@@ -24,9 +25,12 @@ class LocationService {
   /// Check location permission status
   Future<LocationPermission> checkPermission() async {
     try {
-      return await Geolocator.checkPermission();
+      final status = await Geolocator.checkPermission();
+      StructuredLogger.log(LogTag.PERM, 'Permission check → $status');
+      return status;
     } catch (e) {
       AppLogger.error('Error checking permission: $e');
+      StructuredLogger.log(LogTag.PERM, 'Permission check failed', error: e);
       return LocationPermission.denied;
     }
   }
@@ -38,6 +42,10 @@ class LocationService {
       bool serviceEnabled = await isLocationServiceEnabled();
       if (!serviceEnabled) {
         AppLogger.warning('Location services are disabled');
+        StructuredLogger.log(
+          LogTag.GPS,
+          'Permission request aborted — location services disabled',
+        );
         return LocationPermission.denied;
       }
 
@@ -45,6 +53,10 @@ class LocationService {
       LocationPermission permission = await checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
+        StructuredLogger.log(
+          LogTag.PERM,
+          'Foreground permission request result → $permission',
+        );
         if (permission == LocationPermission.denied) {
           return LocationPermission.denied;
         }
@@ -75,6 +87,10 @@ class LocationService {
               } else {
                 permission = LocationPermission.denied;
               }
+              StructuredLogger.log(
+                LogTag.PERM,
+                'Background permission request result → $backgroundPermission',
+              );
             } else {
               permission = LocationPermission.always;
             }
@@ -83,13 +99,20 @@ class LocationService {
           AppLogger.error(
             'Error requesting background location permission: $e',
           );
+          StructuredLogger.log(
+            LogTag.PERM,
+            'Background permission request failed',
+            error: e,
+          );
           // Continue with foreground permission if background request fails
         }
       }
 
+      StructuredLogger.log(LogTag.PERM, 'requestPermission() final → $permission');
       return permission;
     } catch (e) {
       AppLogger.error('Error requesting permission: $e');
+      StructuredLogger.log(LogTag.PERM, 'requestPermission() failed', error: e);
       return LocationPermission.denied;
     }
   }
@@ -102,6 +125,10 @@ class LocationService {
       // First check if location services are enabled
       bool serviceEnabled = await isLocationServiceEnabled();
       if (!serviceEnabled) {
+        StructuredLogger.log(
+          LogTag.GPS,
+          'Always-allow permission request aborted — location services disabled',
+        );
         return {'granted': false, 'needsSettings': false};
       }
 
@@ -164,13 +191,24 @@ class LocationService {
       final finalPermission = await checkPermission();
       final hasAlwaysPermission = finalPermission == LocationPermission.always;
 
-      return {
+      final result = {
         'granted': hasAlwaysPermission,
         'needsSettings':
             !hasAlwaysPermission && permission == LocationPermission.whileInUse,
       };
+      StructuredLogger.log(
+        LogTag.PERM,
+        'requestAlwaysAllowPermission() final → $finalPermission '
+        '(granted=${result['granted']}, needsSettings=${result['needsSettings']})',
+      );
+      return result;
     } catch (e) {
       AppLogger.error('Error requesting always allow permission: $e');
+      StructuredLogger.log(
+        LogTag.PERM,
+        'requestAlwaysAllowPermission() failed',
+        error: e,
+      );
       return {'granted': false, 'needsSettings': false};
     }
   }

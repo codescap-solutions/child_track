@@ -5,6 +5,8 @@ import 'package:child_track/app/childapp/view_model/repository/child_location_re
 import 'package:child_track/app/childapp/view_model/repository/device_info_service.dart';
 import 'package:child_track/app/home/model/device_model.dart';
 import 'package:child_track/core/utils/app_logger.dart';
+import 'package:child_track/core/utils/structured_logger.dart';
+import 'package:child_track/core/services/csv_file_logger.dart';
 import 'package:child_track/core/services/firebase_notification_service.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/widgets.dart';
@@ -60,6 +62,7 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> with WidgetsBindingObserver
         childId.isNotEmpty &&
         (parentId == null || parentId.isEmpty)) {
       AppLogger.info('ChildBloc: Initializing for child_id: $childId');
+      StructuredLogger.log(LogTag.LIFECYCLE, 'Cold launch — child device init');
       add(LoadDeviceInfo());
       add(CheckUsagePermission());
       add(GetChildLocation());
@@ -101,6 +104,8 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> with WidgetsBindingObserver
   /// UI and backend both show accurate data immediately.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    StructuredLogger.log(LogTag.LIFECYCLE, 'App lifecycle → $state');
+
     if (state == AppLifecycleState.resumed) {
       AppLogger.info('ChildBloc: App resumed — refreshing location & device info');
       add(GetChildLocation());
@@ -108,6 +113,12 @@ class ChildBloc extends Bloc<ChildEvent, ChildState> with WidgetsBindingObserver
       if (_locationSubscription == null) {
         _startChildLocationStream();
       }
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      // Flush any buffered log rows now, in case the OS suspends/kills the
+      // process while backgrounded — better to have them on disk a couple
+      // seconds early than lose them entirely.
+      CsvFileLogger.instance.flush();
     }
   }
 

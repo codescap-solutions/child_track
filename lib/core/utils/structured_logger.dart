@@ -1,10 +1,31 @@
 import 'package:child_track/core/utils/app_logger.dart';
 import 'package:child_track/core/services/csv_file_logger.dart';
 
-enum LogTag { STATE, LOCATION, TRIP, BG, PERF }
+enum LogTag {
+  STATE,
+  LOCATION,
+  TRIP,
+  BG,
+  PERF,
+  API,
+  CONN,
+  PERM,
+  GPS,
+  LIFECYCLE,
+  FCM,
+}
 
 class StructuredLogger {
-  static void log(LogTag tag, String message, {dynamic error}) {
+  /// [buffered] batches high-frequency writes (API calls, location fixes)
+  /// in memory and flushes periodically instead of hitting disk per call.
+  /// Leave false (default) for low-frequency/crash-relevant events, where
+  /// an immediate flushed write matters more than write-batching.
+  static void log(
+    LogTag tag,
+    String message, {
+    dynamic error,
+    bool buffered = false,
+  }) {
     final tagString = tag.toString().split('.').last;
     final formattedMessage = '[$tagString] $message';
 
@@ -22,6 +43,7 @@ class StructuredLogger {
         tag: tagString,
         level: 'INFO',
         message: message,
+        buffered: buffered,
       );
     }
   }

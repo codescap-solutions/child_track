@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:child_track/core/di/injector.dart';
 import 'package:child_track/core/services/api_endpoints.dart';
 import '../utils/app_logger.dart';
+import '../utils/structured_logger.dart';
 import 'shared_prefs_service.dart';
 import 'package:child_track/core/services/connectivity/bloc/connectivity_bloc.dart';
 import 'package:flutter/material.dart';
@@ -32,6 +33,31 @@ class DioClient {
     _sharedPrefsService = sharedPrefsService ?? injector<SharedPrefsService>();
     _dio = Dio(BaseOptions(baseUrl: ApiEndpoints.baseUrl));
     _setupInterceptors();
+  }
+
+  int _elapsedMs(RequestOptions options) {
+    final startMs = options.extra['_logStartMs'];
+    if (startMs is! int) return -1;
+    return DateTime.now().millisecondsSinceEpoch - startMs;
+  }
+
+  String _describeDioError(DioException error) {
+    switch (error.type) {
+      case DioExceptionType.connectionTimeout:
+      case DioExceptionType.sendTimeout:
+      case DioExceptionType.receiveTimeout:
+        return 'TIMEOUT';
+      case DioExceptionType.connectionError:
+        return 'CONNECTION_ERROR';
+      case DioExceptionType.cancel:
+        return 'CANCELLED';
+      case DioExceptionType.badResponse:
+        return 'FAILED (${error.response?.statusCode})';
+      case DioExceptionType.badCertificate:
+        return 'BAD_CERTIFICATE';
+      case DioExceptionType.unknown:
+        return 'FAILED (unknown)';
+    }
   }
 
   void _forceLogout() {
@@ -68,6 +94,7 @@ class DioClient {
       InterceptorsWrapper(
         onRequest: (options, handler) async {
           AppLogger.info('🚀 Request url: ${options.method} ${options.uri}');
+          options.extra['_logStartMs'] = DateTime.now().millisecondsSinceEpoch;
           try {
             if (options.data is FormData) {
               AppLogger.debug('Request Data: [FormData]');
@@ -99,11 +126,25 @@ class DioClient {
             '✅ Response: ${response.statusCode} ${response.requestOptions.uri}',
           );
           AppLogger.debug('Response Data: ${response.data}');
+          StructuredLogger.log(
+            LogTag.API,
+            '${response.requestOptions.method} '
+            '${response.requestOptions.path} → ${response.statusCode} '
+            '(${_elapsedMs(response.requestOptions)}ms)',
+            buffered: true,
+          );
           handler.next(response);
         },
         onError: (error, handler) async {
           AppLogger.error('❌ Error: ${error.message}');
           AppLogger.debug('Error Response: ${error.response?.data}');
+          StructuredLogger.log(
+            LogTag.API,
+            '${error.requestOptions.method} ${error.requestOptions.path} → '
+            '${_describeDioError(error)} '
+            '(${_elapsedMs(error.requestOptions)}ms)',
+            buffered: true,
+          );
 
           // Handle 401 Unauthorized - Try to refresh token
           if (error.response?.statusCode == 401) {

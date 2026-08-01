@@ -195,8 +195,15 @@ class LocationStateMachine {
         LogTag.BG,
         'Location post: [${response.statusCode}] ${response.message}',
       );
+      StructuredLogger.log(
+        LogTag.LOCATION,
+        'source=stream lat=${pos.latitude} lng=${pos.longitude} '
+        'acc=${pos.accuracy.toStringAsFixed(1)}m status=posted',
+        buffered: true,
+      );
     } catch (e) {
       StructuredLogger.log(LogTag.BG, 'Failed to post location', error: e);
+      String status = 'failed';
       try {
         final int battery = await _battery.batteryLevel;
         await _offlineQueue.enqueueLocation(
@@ -211,7 +218,14 @@ class LocationStateMachine {
             'battery': battery,
           },
         );
+        status = 'queued';
       } catch (_) {}
+      StructuredLogger.log(
+        LogTag.LOCATION,
+        'source=stream lat=${pos.latitude} lng=${pos.longitude} '
+        'acc=${pos.accuracy.toStringAsFixed(1)}m status=$status',
+        buffered: true,
+      );
     }
   }
 

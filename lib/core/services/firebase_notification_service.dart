@@ -7,6 +7,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/app_logger.dart';
+import '../utils/structured_logger.dart';
 import 'package:child_track/core/services/background_task_service.dart';
 import 'package:child_track/core/services/shared_prefs_service.dart';
 import 'package:child_track/core/di/injector.dart';
@@ -69,12 +70,11 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     AppLogger.error('Failed to save background notification: $e');
   }
 
-  // Log to CSV for offline analysis
-  CsvFileLogger.instance.write(
-    tag: 'FCM',
-    level: 'INFO',
-    message:
-        'BG message: type=${message.data['type']} id=${message.messageId} data=${message.data}',
+  // Log to CSV for offline analysis — type/id only, not the full data
+  // payload (may carry place names / other identifying details).
+  StructuredLogger.log(
+    LogTag.FCM,
+    'BG message received: type=${message.data['type']} id=${message.messageId}',
   );
 
   if (message.data['type'] == 'SYNC_SCREEN_TIME') {
@@ -393,6 +393,12 @@ class FirebaseNotificationService {
       _firebaseMessaging.onTokenRefresh.listen((newToken) {
         _fcmToken = newToken;
         AppLogger.info('FCM Token refreshed: $newToken');
+        // CSV gets only a redacted marker, not the full token — the log
+        // file can end up shared via WhatsApp/email for diagnosis.
+        StructuredLogger.log(
+          LogTag.FCM,
+          'Token refreshed (…${newToken.length > 6 ? newToken.substring(newToken.length - 6) : newToken})',
+        );
         // Re-register the new token with server
         registerTokenWithServer();
       });
@@ -475,12 +481,11 @@ class FirebaseNotificationService {
     AppLogger.info('Message data: ${message.data}');
     AppLogger.info('Message notification: ${message.notification?.title}');
 
-    // Log to CSV for offline analysis
-    CsvFileLogger.instance.write(
-      tag: 'FCM',
-      level: 'INFO',
-      message:
-          'FG message: type=${message.data['type']} title=${message.notification?.title} data=${message.data}',
+    // Log to CSV for offline analysis — type/title only, not the full data
+    // payload (may carry place names / other identifying details).
+    StructuredLogger.log(
+      LogTag.FCM,
+      'FG message received: type=${message.data['type']} title=${message.notification?.title}',
     );
 
     // Save to SharedPreferences for parent app
@@ -735,12 +740,10 @@ class FirebaseNotificationService {
     AppLogger.info('Notification tapped: ${message.messageId}');
     AppLogger.info('Notification data: ${message.data}');
 
-    // Log to CSV
-    CsvFileLogger.instance.write(
-      tag: 'FCM',
-      level: 'INFO',
-      message:
-          'Notification tapped: type=${message.data['type']} data=${message.data}',
+    // Log to CSV — type only, not the full data payload.
+    StructuredLogger.log(
+      LogTag.FCM,
+      'Notification tapped: type=${message.data['type']} id=${message.messageId}',
     );
 
     if (message.data['type'] == 'location_share_request') {

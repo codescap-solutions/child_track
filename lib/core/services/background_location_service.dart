@@ -136,6 +136,7 @@ LocationStateMachine? _stateMachine;
 final _profileManager = TrackingProfileManager();
 
 bool _resubscribeScheduled = false;
+ServiceStatus? _lastServiceStatus;
 
 /// Mirrors ChildInfoService/DeviceInfoService's mapping so the string values
 /// posted to the backend stay consistent regardless of which code path
@@ -332,10 +333,15 @@ void onStart(ServiceInstance service) async {
 
     _serviceStatusSubscription = Geolocator.getServiceStatusStream().listen(
       (ServiceStatus status) async {
-        StructuredLogger.log(
-          LogTag.BG,
-          'Location Service Status: $status',
-        );
+        if (status != _lastServiceStatus) {
+          StructuredLogger.log(
+            LogTag.GPS,
+            'Location services ${_lastServiceStatus == null ? "" : "changed "}'
+            '→ $status'
+            '${_lastServiceStatus != null ? " (was $_lastServiceStatus)" : ""}',
+          );
+          _lastServiceStatus = status;
+        }
         final isEnabled = status == ServiceStatus.enabled;
         if (isEnabled) {
           _startLocationStream(service);
@@ -427,8 +433,20 @@ Future<bool> onIosBackground(ServiceInstance service) async {
       LogTag.BG,
       'iOS Background Fetch: posted location fix (success=${response.isSuccess})',
     );
+    StructuredLogger.log(
+      LogTag.LOCATION,
+      'source=ios_background_fetch lat=${position.latitude} lng=${position.longitude} '
+      'acc=${position.accuracy.toStringAsFixed(1)}m '
+      'status=${response.isSuccess ? "posted" : "failed"}',
+      buffered: true,
+    );
   } catch (e) {
     StructuredLogger.log(LogTag.BG, 'iOS Background Fetch: failed to post location', error: e);
+    StructuredLogger.log(
+      LogTag.LOCATION,
+      'source=ios_background_fetch status=failed',
+      error: e,
+    );
   }
 
   return true;

@@ -16,6 +16,10 @@ class BatteryOptimizationService {
     if (!Platform.isAndroid) return false;
     try {
       final isIgnored = await Permission.ignoreBatteryOptimizations.isGranted;
+      StructuredLogger.log(
+        LogTag.BG,
+        '[BatteryOpt] Current status: ${isIgnored ? "whitelisted" : "optimized/restricted"}',
+      );
       return !isIgnored;
     } catch (e) {
       StructuredLogger.log(

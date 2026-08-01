@@ -4,6 +4,7 @@ import 'package:child_track/core/constants/enums.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'dart:async';
 import 'package:child_track/core/utils/app_logger.dart';
+import 'package:child_track/core/utils/structured_logger.dart';
 part 'connectivity_event.dart';
 part 'connectivity_state.dart';
 
@@ -99,9 +100,14 @@ class ConnectivityBloc extends Bloc<ConnectivityEvent, ConnectivityState> {
 
     if (hasOnlineConnection) {
       AppLogger.info('Connectivity is online: ${event.connectivityResult}');
+      StructuredLogger.log(
+        LogTag.CONN,
+        'Online (${event.connectivityResult.join("+")})',
+      );
       emit(const ConnectivityOnline(status: ConnectivityStatus.online));
     } else {
       AppLogger.info('Connectivity is offline: ${event.connectivityResult}');
+      StructuredLogger.log(LogTag.CONN, 'Offline');
       emit(const ConnectivityOffline());
     }
   }
