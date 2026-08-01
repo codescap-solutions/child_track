@@ -29,6 +29,7 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
   StreamSubscription? _statusSubscription;
   Timer? _snapshotPollTimer;
   String? _joinedRoomChildId;
+  DateTime? _lastAppliedLocationTs;
 
   HomepageBloc({
     required HomeRepository homeRepository,
@@ -74,8 +75,23 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
     if (_joinedRoomChildId != null && _joinedRoomChildId != childId) {
       _socketService.leaveRoom(_joinedRoomChildId!);
     }
-    _socketService.joinRoom(childId);
-    _joinedRoomChildId = childId;
+    // Skip re-joining a room we're already connected to. _onGetHomepageData
+    // fires from several independent, legitimate triggers within seconds of
+    // each other (the isProgressFetching follow-up, silent-refresh after a
+    // socket location/status update) — this used to call joinRoom
+    // unconditionally on every single one, which re-triggered the server's
+    // catch-up snapshot on each redundant join. Confirmed as the cause of a
+    // real incident: the map visibly flip-flopped between that repeated
+    // catch-up point and whatever REST had just shown (see the
+    // device_timestamp guard in _onUpdateSocketLocation/_onGetHomepageData
+    // for the other half of that fix — this stops the redundant join at the
+    // source, that rejects a stale point if one still gets through).
+    final alreadyJoined =
+        _joinedRoomChildId == childId && _socketService.isConnected;
+    if (!alreadyJoined) {
+      _socketService.joinRoom(childId);
+      _joinedRoomChildId = childId;
+    }
 
     _locationSubscription?.cancel();
     _locationSubscription = _socketService.locationStream.listen((data) {
@@ -201,18 +217,29 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
         }
 
         final tripsToUse = homeData.yesterdayTrips;
-        _mapBloc.add(
-          UpdateChildLocation(
-            LatLng(homeData.currentLocation.lat, homeData.currentLocation.lng),
-          ),
+        // Same device_timestamp guard as the socket path — see
+        // _isNewerLocationUpdate doc comment. A REST response can arrive
+        // after a newer socket update was already shown (or vice versa);
+        // only apply whichever is actually newer.
+        final applyRestLocation = _isNewerLocationUpdate(
+          homeData.currentLocation.since,
         );
+        if (applyRestLocation) {
+          _mapBloc.add(
+            UpdateChildLocation(
+              LatLng(homeData.currentLocation.lat, homeData.currentLocation.lng),
+            ),
+          );
+        }
         emit(
           freshState.copyWith(
             deviceInfo: homeData.deviceInfo,
             yesterdayTrips: tripsToUse,
             yesterdayTripSummary: homeData.yesterdayTripSummary,
             cards: homeData.cards,
-            currentLocation: homeData.currentLocation,
+            currentLocation: applyRestLocation
+                ? homeData.currentLocation
+                : freshState.currentLocation,
             webFilteringEnabled: homeData.webFilteringEnabled,
             childAvatar: homeData.childAvatar,
             features: homeData.features,
@@ -400,6 +427,28 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
     }
   }
 
+  // Shared by both write paths (REST in _onGetHomepageData, socket in
+  // _onUpdateSocketLocation) so whichever source has the actually-newer
+  // device_timestamp wins, regardless of which one happens to arrive last in
+  // wall-clock order. Confirmed root cause of a real incident: without this,
+  // a redundant socket catch-up snapshot (re-triggered by a rejoined room)
+  // and a REST response could each overwrite the other within seconds,
+  // visibly flip-flopping the map marker between an old and a new point.
+  // Fails open (returns true) on unparseable/missing timestamps rather than
+  // permanently blocking updates over a formatting quirk.
+  bool _isNewerLocationUpdate(String? deviceTimestampStr) {
+    final incoming = deviceTimestampStr != null
+        ? DateTime.tryParse(deviceTimestampStr)
+        : null;
+    if (incoming == null) return true;
+    if (_lastAppliedLocationTs != null &&
+        incoming.isBefore(_lastAppliedLocationTs!)) {
+      return false;
+    }
+    _lastAppliedLocationTs = incoming;
+    return true;
+  }
+
   Future<void> _onUpdateSocketLocation(
     UpdateSocketLocation event,
     Emitter<HomepageState> emit,
@@ -458,16 +507,27 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
         return;
       }
 
+      // Map 'timestamp' from socket (or 'since') to the 'since' field in model
+      final since =
+          (data['timestamp'] ??
+                  data['last_update'] ??
+                  DateTime.now().toIso8601String())
+              .toString();
+
+      // Reject a point older than what's currently displayed — see
+      // _isNewerLocationUpdate doc comment.
+      if (!_isNewerLocationUpdate(since)) {
+        AppLogger.info(
+          '[HomepageBloc] Ignoring stale location_update (since: $since, is_catch_up: ${data['is_catch_up']}) — older than what is already displayed',
+        );
+        return;
+      }
+
       // Update MapBloc
       _mapBloc.add(UpdateChildLocation(LatLng(lat, lng)));
 
       // Extract other fields using the payload keys provided
       final address = data['address'] as String? ?? 'Unknown Location';
-      // Map 'timestamp' from socket (or 'since') to the 'since' field in model
-      final since =
-          data['timestamp'] ??
-          data['last_update'] ??
-          DateTime.now().toIso8601String();
       // Extract place name logic
       String finalPlaceName = 'Unknown Place';
       final rawPlace =
