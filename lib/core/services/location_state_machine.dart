@@ -612,4 +612,11 @@ class LocationStateMachine {
   BgTripMode get tripMode => _tripMode;
   BgTripState get currentState => _state;
   LocalGeofenceEngine get geofenceEngine => _geoEngine;
+
+  /// The last position that passed the 5m distance filter above — i.e. the
+  /// last one actually accepted into processing/posting, not just the raw
+  /// per-callback GPS reading. Use this (not a raw Position.speed) for
+  /// anything user-visible, so a filtered/rejected reading can't show up
+  /// in UI text that looks like it reflects real, accepted movement.
+  Position? get lastAcceptedPosition => _lastPostedLocation;
 }

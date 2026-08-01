@@ -201,8 +201,14 @@ void _startLocationStream(ServiceInstance service) {
         String content;
         if (sm != null && sm.isTripTracking) {
           final mode = sm.tripMode == BgTripMode.walking ? 'Walking' : 'Vehicle';
+          // Use the last distance-filter-accepted speed, not this raw
+          // per-callback reading — a filtered/rejected point (e.g. a GPS
+          // glitch under 5m of real displacement) could otherwise still
+          // show an implausible speed in this visible banner even though
+          // it never actually fed into trip/location processing.
+          final displaySpeed = sm.lastAcceptedPosition?.speed ?? position.speed;
           content =
-              'Trip ($mode) • ${(position.speed * 3.6).toStringAsFixed(1)} km/h';
+              'Trip ($mode) • ${(displaySpeed * 3.6).toStringAsFixed(1)} km/h';
         } else {
           content =
               'Tracking • ${_profileManager.currentConfig.label} mode';
