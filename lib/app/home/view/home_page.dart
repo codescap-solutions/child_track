@@ -1786,6 +1786,27 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     return 'Since $sinceStr';
   }
 
+  // Sourced from trackingSnapshot.latestLocation.deviceTimestamp specifically
+  // — the same authoritative timestamp uiDirective.displayState itself was
+  // computed from server-side — rather than state.currentLocation.since
+  // (driven by the separate REST/socket location stream, see
+  // HomepageBloc._isNewerLocationUpdate). Keeping the visible "last updated"
+  // time tied to the same source the status badge is computed from avoids
+  // the two ever telling a parent a contradictory story. Shown regardless of
+  // whether location is off, so a parent isn't left with zero freshness
+  // information when the badge alone can't fully explain what's going on.
+  String? _formatLastUpdated(DateTime? deviceTimestamp) {
+    if (deviceTimestamp == null) return null;
+    final diff = DateTime.now().toUtc().difference(deviceTimestamp.toUtc());
+    if (diff.isNegative) return 'Last updated just now';
+    if (diff.inSeconds < 90) return 'Last updated just now';
+    if (diff.inMinutes < 60) return 'Last updated ${diff.inMinutes} min ago';
+    if (diff.inHours < 24) return 'Last updated ${diff.inHours}h ago';
+    if (diff.inDays == 1) return 'Last updated yesterday';
+    if (diff.inDays < 7) return 'Last updated ${diff.inDays}d ago';
+    return 'Last updated ${deviceTimestamp.toLocal().toString().split('.').first}';
+  }
+
   int _currentIndex = 0;
 
   Widget _buildBottomNavigationBar() {
@@ -2572,21 +2593,30 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     HomepageSuccess state,
   ) {
     // Location is "off" only when GPS/location-services is actually disabled
-    // or permission was revoked — NOT merely whenever showLiveMarker is false.
-    // showLiveMarker also goes false for STALE/UNREACHABLE (device just
-    // hasn't reported in >5 min — completely normal for an idle/backgrounded
-    // phone, not a location toggle) — using it here caused a false "LOCATION
-    // OFF" every time the child stopped actively using the phone for a few
-    // minutes, correcting itself the instant they picked it back up. Checking
-    // gpsStatus/permissionStatus directly reflects the real device setting
-    // regardless of how recently it last reported. Shared children don't
-    // carry a tracking snapshot, so always treat as active.
+    // or permission was revoked — NOT merely whenever showLiveMarker is false
+    // (that also goes false for STALE/UNREACHABLE, which is normal for an
+    // idle/backgrounded phone, not a location toggle).
+    //
+    // This used to re-derive that distinction locally from the raw
+    // gpsStatus/permissionStatus strings instead of the server's own
+    // uiDirective.displayState — which meant every server-side refinement to
+    // how PERMISSION_DENIED gets decided (e.g. discounting a stale denied
+    // flag when real location data is actually flowing) had to be
+    // separately re-applied here too, and one instance was found where it
+    // hadn't been: a device with denied_forever stuck in deviceStatus but
+    // confirmed-working location still showed "LOCATION OFF" on this card
+    // even after the map banner was already fixed. displayState is the
+    // single place PERMISSION_DENIED/GPS_DISABLED actually get decided now
+    // (see location.controller.js getChildTrackingSnapshot) — checking it
+    // directly means this card automatically inherits every future
+    // correction there instead of needing its own parallel fix each time.
+    // Shared children don't carry a tracking snapshot, so always treat as
+    // active.
     final trackingSnapshot = state.trackingSnapshot;
+    final displayState = trackingSnapshot?.uiDirective.displayState;
     final isLocationOff =
         !_viewingSharedChild &&
-        trackingSnapshot != null &&
-        (trackingSnapshot.gpsStatus.toUpperCase() == 'OFF' ||
-            trackingSnapshot.permissionStatus.toLowerCase().contains('denied'));
+        (displayState == 'PERMISSION_DENIED' || displayState == 'GPS_DISABLED');
 
     return Container(
       width: double.infinity,
@@ -2693,6 +2723,23 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               ),
             ],
           ),
+          if (!_viewingSharedChild &&
+              _formatLastUpdated(
+                    trackingSnapshot?.latestLocation?.deviceTimestamp,
+                  ) !=
+                  null) ...[
+            const SizedBox(height: 4),
+            Text(
+              _formatLastUpdated(
+                trackingSnapshot?.latestLocation?.deviceTimestamp,
+              )!,
+              style: GoogleFonts.manrope(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF94A3B8),
+              ),
+            ),
+          ],
           const SizedBox(height: 8),
           _DynamicLocationText(
             key: ValueKey(childName),
