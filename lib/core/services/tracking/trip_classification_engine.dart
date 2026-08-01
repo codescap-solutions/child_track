@@ -16,6 +16,15 @@ class TripClassificationEngine {
   static const double _wAr = 0.40;
   static const double _wHeading = 0.15;
 
+  // Upper GPS-speed bound (m/s) for "walking" to remain physically
+  // plausible — same boundary _classifyFromGps already uses for the
+  // walking/running split. A confident Activity Recognition "walking"
+  // vote can otherwise out-score a correctly-classified high-speed GPS
+  // vote in the weighted sum below (093RTB incident, 2026-08-01: AR
+  // apparently misfired "walking" while GPS speed implied ~27.6 km/h, and
+  // nothing in the fusion vetoed that combination).
+  static const double _walkingMaxSpeedMps = 2.0;
+
   // Rolling window for heading-variance calculation
   final List<double> _recentHeadings = [];
   static const int _headingWindowSize = 8;
@@ -46,6 +55,18 @@ class TripClassificationEngine {
         bestType = type;
       }
     });
+
+    // Physical-plausibility cap: a confident AR "walking" vote plus
+    // ambiguous heading variance can numerically out-score a correctly
+    // classified high-speed GPS vote above — nothing else in the weighted
+    // sum treats "walking" as disqualified once GPS speed makes it
+    // physically impossible. Don't discard the point; fall through to
+    // what GPS speed alone indicates instead.
+    if (bestType == NaviQActivityType.walking &&
+        position.speed >= _walkingMaxSpeedMps) {
+      bestType = gpsPrediction.type;
+      bestScore = gpsPrediction.confidence;
+    }
 
     // Clamp confidence
     final confidence = bestScore.clamp(0.0, 1.0);
