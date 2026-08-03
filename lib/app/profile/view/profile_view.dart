@@ -18,27 +18,55 @@ class ProfileView extends StatefulWidget {
   State<ProfileView> createState() => _ProfileViewState();
 }
 
-class _ProfileViewState extends State<ProfileView> {
+class _ProfileViewState extends State<ProfileView> with WidgetsBindingObserver {
   late final SharedPrefsService _sharedPrefsService;
   List<ChildProfile> _children = [];
+  bool _isRefreshing = false;
+  DateTime? _lastResumeRefreshAt;
 
   @override
   void initState() {
     super.initState();
     _sharedPrefsService = injector<SharedPrefsService>();
+    WidgetsBinding.instance.addObserver(this);
     _loadChildren();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
+  // Mirrors HomePage's _refreshOnResume pattern: this screen is kept alive
+  // inside HomePage's IndexedStack (never disposed/recreated on tab switch),
+  // so without this the children list only ever refetches once at
+  // HomePage's initState — a parent adding a child from another device
+  // would never see it here short of a full logout+login. Same 5s debounce
+  // guard against rapid pause/resume flicker.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      final now = DateTime.now();
+      if (_lastResumeRefreshAt != null &&
+          now.difference(_lastResumeRefreshAt!) < const Duration(seconds: 5)) {
+        return;
+      }
+      _lastResumeRefreshAt = now;
+      _loadChildren();
+    }
+  }
+
   Future<void> _loadChildren() async {
+    if (_isRefreshing) return;
+    if (mounted) setState(() => _isRefreshing = true);
+
     final list = _sharedPrefsService.getChildren();
-    setState(() {
-      _children = list;
-    });
+    if (mounted) {
+      setState(() {
+        _children = list;
+      });
+    }
 
     try {
       final repo = injector<HomeRepository>();
@@ -67,6 +95,8 @@ class _ProfileViewState extends State<ProfileView> {
       }
     } catch (e) {
       // Ignore errors, we already displayed the local cache
+    } finally {
+      if (mounted) setState(() => _isRefreshing = false);
     }
   }
 
@@ -221,6 +251,40 @@ class _ProfileViewState extends State<ProfileView> {
           ),
         ),
         actions: [
+          // Manual refresh — the same child list is otherwise only fetched
+          // once at HomePage's initState (see _loadChildren doc above), so
+          // a child added from another device wouldn't appear here without
+          // this until a full logout+login.
+          Align(
+            alignment: Alignment.centerRight,
+            child: Padding(
+              padding: const EdgeInsets.only(right: 4.0),
+              child: GestureDetector(
+                onTap: _isRefreshing ? null : _loadChildren,
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFE2E8F0),
+                    shape: BoxShape.circle,
+                  ),
+                  child: _isRefreshing
+                      ? const Padding(
+                          padding: EdgeInsets.all(11),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Color(0xFF0C1D37),
+                          ),
+                        )
+                      : const Icon(
+                          Icons.refresh_rounded,
+                          color: Color(0xFF0C1D37),
+                          size: 22,
+                        ),
+                ),
+              ),
+            ),
+          ),
           Align(
             alignment: Alignment.centerRight,
             child: Padding(

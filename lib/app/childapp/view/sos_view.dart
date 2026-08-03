@@ -24,7 +24,7 @@ import 'package:child_track/core/services/csv_file_logger.dart';
 import 'package:child_track/core/navigation/route_names.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:share_plus/share_plus.dart';
+import 'package:child_track/core/utils/log_share_helper.dart';
 import 'package:child_track/app/childapp/view_model/repository/device_info_service.dart'
     as child_info;
 import 'package:child_track/app/childapp/view/widgets/child_app_drawer.dart';
@@ -171,10 +171,6 @@ class _SosViewState extends State<SosView> with WidgetsBindingObserver {
     }
     final oem = await helper.detectOem();
     if (mounted) setState(() => _oemBannerInfo = oem);
-    // Fire-and-forget — telemetry only. Syncs whenever the reminder banner
-    // is actually (re-)shown, so the backend reflects "still pending" state
-    // over time, not just the one-time onboarding-screen outcome.
-    if (oem != null) helper.syncOnboardingStatusToBackend();
   }
 
   @override
@@ -897,37 +893,6 @@ class _SosViewContentState extends State<_SosViewContent> {
     );
   }
 
-  Future<void> _shareLogs(BuildContext context) async {
-    try {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Preparing logs…')));
-
-      final paths = await CsvFileLogger.instance.getAllLogPaths();
-      if (!context.mounted) return;
-      if (paths.isEmpty) {
-        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('No log files found yet')));
-        return;
-      }
-
-      final xFiles = paths.map((p) => XFile(p)).toList();
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      await SharePlus.instance.share(
-        ShareParams(files: xFiles, subject: 'NaviQ Background Logs'),
-      );
-    } catch (e) {
-      AppLogger.error('Share logs error: $e');
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to share logs: $e')));
-    }
-  }
-
   void _handleLogout(BuildContext context) {
     showDialog(
       context: context,
@@ -1141,7 +1106,7 @@ class _SosViewContentState extends State<_SosViewContent> {
               ), // very light blue/gray background
               drawer: ChildAppDrawer(
                 onLogout: () => _handleLogout(context),
-                onShareLogs: () => _shareLogs(context),
+                onShareLogs: () => shareCsvLogFiles(context),
               ),
               body: SafeArea(
                 child: SingleChildScrollView(
@@ -1691,7 +1656,7 @@ class _SosViewContentState extends State<_SosViewContent> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Naviq Dev 1.0.3(Jul-25)',
+                          'Naviq Dev 1.0.3(Jul-28)',
                           textAlign: TextAlign.center,
                           style: GoogleFonts.manrope(
                             fontSize: 10,
@@ -2125,6 +2090,14 @@ class _DiagnosticLogsSheetState extends State<_DiagnosticLogsSheet> {
                     ),
                     Row(
                       children: [
+                        IconButton(
+                          icon: const Icon(
+                            Icons.ios_share,
+                            color: AppColors.primaryColor,
+                          ),
+                          tooltip: 'Share logs',
+                          onPressed: () => shareCsvLogFiles(context),
+                        ),
                         IconButton(
                           icon: const Icon(
                             Icons.refresh,

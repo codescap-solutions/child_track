@@ -2489,7 +2489,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
                     // Live Trip Status Card — shown only when actively travelling
-                    _LiveTripCard(activeTrip: state.activeTrip),
+                    _LiveTripCard(
+                      activeTrip: state.activeTrip,
+                      isDeviceOffline: _isDeviceOffline(state),
+                    ),
 
                     // 2. Scroll & Geo Guard Feature Cards
                     Row(
@@ -2586,6 +2589,20 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
+  // Single shared source for "is this device's tracking currently offline"
+  // so the location card badge, its status pill, and the live-trip badge
+  // all agree with each other and with the map banner — instead of each
+  // deriving its own contradictory signal from a different data source.
+  bool _isDeviceOffline(HomepageSuccess state) {
+    if (_viewingSharedChild) return false;
+    final uiDirective = state.trackingSnapshot?.uiDirective;
+    if (uiDirective == null) return false;
+    final displayState = uiDirective.displayState;
+    final isLocationOff =
+        displayState == 'PERMISSION_DENIED' || displayState == 'GPS_DISABLED';
+    return !isLocationOff && !uiDirective.showLiveMarker;
+  }
+
   Widget _buildLocationCardOnly(
     BuildContext context,
     String childName,
@@ -2617,6 +2634,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final isLocationOff =
         !_viewingSharedChild &&
         (displayState == 'PERMISSION_DENIED' || displayState == 'GPS_DISABLED');
+    // Distinct from isLocationOff: the device/GPS toggle is fine, but the
+    // backend itself says this isn't live data right now (OFFLINE,
+    // UNREACHABLE, STALE, ...). Reusing showLiveMarker rather than listing
+    // displayState strings here means this inherits the backend's own
+    // freshness judgement call (e.g. BACKGROUND_RESTRICTED only counts as
+    // non-live once it's actually stale) instead of a second, possibly
+    // out-of-sync copy of that logic living here too.
+    final isDeviceOffline = _isDeviceOffline(state);
 
     return Container(
       width: double.infinity,
@@ -2643,19 +2668,25 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 decoration: BoxDecoration(
                   color: isLocationOff
                       ? const Color(0xFFEF4444)
-                      : const Color(0xFF10B981),
+                      : (isDeviceOffline
+                            ? const Color(0xFFF59E0B)
+                            : const Color(0xFF10B981)),
                   shape: BoxShape.circle,
                 ),
               ),
               const SizedBox(width: 6),
               Text(
-                isLocationOff ? 'LOCATION OFF' : 'ACTIVE NOW',
+                isLocationOff
+                    ? 'LOCATION OFF'
+                    : (isDeviceOffline ? 'OFFLINE' : 'ACTIVE NOW'),
                 style: GoogleFonts.manrope(
                   fontSize: 11,
                   fontWeight: FontWeight.w800,
                   color: isLocationOff
                       ? const Color(0xFFEF4444)
-                      : const Color(0xFF94A3B8),
+                      : (isDeviceOffline
+                            ? const Color(0xFFF59E0B)
+                            : const Color(0xFF94A3B8)),
                   letterSpacing: 0.5,
                 ),
               ),
@@ -2762,19 +2793,28 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               _buildLocationStatusPill(
                 isLocationOff
                     ? Icons.location_off_rounded
-                    : Icons.access_time_rounded,
+                    : (isDeviceOffline
+                          ? Icons.cloud_off_rounded
+                          : Icons.access_time_rounded),
                 isLocationOff
                     ? 'Location off'
-                    : (_viewingSharedChild && _activeSharedChildData != null
-                          ? _formatSinceTime(
-                              _activeSharedChildData!['last_sync_at']
-                                  ?.toString(),
-                            )
-                          : _formatSinceTime(state.currentLocation?.since)),
+                    : (isDeviceOffline
+                          ? 'Offline'
+                          : (_viewingSharedChild &&
+                                    _activeSharedChildData != null
+                                ? _formatSinceTime(
+                                    _activeSharedChildData!['last_sync_at']
+                                        ?.toString(),
+                                  )
+                                : _formatSinceTime(
+                                    state.currentLocation?.since,
+                                  ))),
                 backgroundColor: isLocationOff
                     ? const Color(0xFFFEE2E2)
-                    : null,
-                contentColor: isLocationOff ? const Color(0xFFDC2626) : null,
+                    : (isDeviceOffline ? const Color(0xFFFEF3C7) : null),
+                contentColor: isLocationOff
+                    ? const Color(0xFFDC2626)
+                    : (isDeviceOffline ? const Color(0xFFB45309) : null),
               ),
               const SizedBox(width: 8),
               _buildLocationStatusPill(
@@ -4247,8 +4287,13 @@ class _DynamicLocationTextState extends State<_DynamicLocationText> {
 
 class _LiveTripCard extends StatelessWidget {
   final ActiveTrip? activeTrip;
+  // True when the device isn't currently reachable/live (see
+  // _HomePageState._isDeviceOffline) — the trip itself may still be
+  // "ongoing" server-side, but a green "LIVE" badge next to it would
+  // contradict an OFFLINE badge shown elsewhere on the same screen.
+  final bool isDeviceOffline;
 
-  const _LiveTripCard({this.activeTrip});
+  const _LiveTripCard({this.activeTrip, this.isDeviceOffline = false});
 
   static IconData _activityIcon(String? activity) {
     switch (activity?.toLowerCase()) {
@@ -4325,12 +4370,12 @@ class _LiveTripCard extends StatelessWidget {
       transitionBuilder: (child, animation) =>
           FadeTransition(opacity: animation, child: child),
       child: show
-          ? _buildCard(context, activeTrip!)
+          ? _buildCard(context, activeTrip!, isDeviceOffline)
           : const SizedBox.shrink(key: ValueKey('live_trip_hidden')),
     );
   }
 
-  Widget _buildCard(BuildContext context, ActiveTrip trip) {
+  Widget _buildCard(BuildContext context, ActiveTrip trip, bool isDeviceOffline) {
     final icon = _activityIcon(trip.activity);
     final label = _activityLabel(trip.activity);
     final distance = _formatDistance(trip.distanceMeters);
@@ -4427,15 +4472,18 @@ class _LiveTripCard extends StatelessWidget {
               ],
             ),
             const SizedBox(width: 10),
-            // Right: LIVE badge
+            // Right: LIVE / STALE badge — must never say LIVE while the
+            // device itself is reported offline elsewhere on this screen.
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: const Color(0xFF16A34A),
+                color: isDeviceOffline
+                    ? const Color(0xFF94A3B8)
+                    : const Color(0xFF16A34A),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
-                'LIVE',
+                isDeviceOffline ? 'STALE' : 'LIVE',
                 style: GoogleFonts.manrope(
                   fontSize: 10,
                   fontWeight: FontWeight.w800,

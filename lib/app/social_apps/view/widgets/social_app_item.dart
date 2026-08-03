@@ -12,8 +12,10 @@ class SocialAppItem extends StatelessWidget {
   final String usage;
   final bool isLocked;
   final Function(bool, int)? onLockToggle;
+
   /// Configured daily budget in minutes for this app, or null if none set.
   final int? dailyLimitMinutes;
+
   /// Called with the new limit in minutes, or null to clear it.
   final ValueChanged<int?>? onSetDailyLimit;
 
@@ -71,7 +73,10 @@ class SocialAppItem extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFEFF6FF),
                         borderRadius: BorderRadius.circular(10),
@@ -161,8 +166,8 @@ class _DailyLimitButton extends StatelessWidget {
     return GestureDetector(
       onTap: () => _showDialog(context),
       child: Container(
-        height: 36,
-        padding: EdgeInsets.symmetric(horizontal: hasLimit ? 10 : 0),
+        height: 40,
+        padding: EdgeInsets.symmetric(horizontal: hasLimit ? 10 : 8),
         width: hasLimit ? null : 36,
         decoration: BoxDecoration(
           color: hasLimit ? const Color(0xFFEFF6FF) : Colors.transparent,
@@ -178,7 +183,9 @@ class _DailyLimitButton extends StatelessWidget {
             Icon(
               Icons.hourglass_bottom_rounded,
               size: 16,
-              color: hasLimit ? const Color(0xFF0066FF) : const Color(0xFF94A3B8),
+              color: hasLimit
+                  ? const Color(0xFF0066FF)
+                  : const Color(0xFF94A3B8),
             ),
             if (hasLimit) ...[
               const SizedBox(width: 6),
@@ -200,7 +207,8 @@ class _DailyLimitButton extends StatelessWidget {
   Future<void> _showDialog(BuildContext context) async {
     final int? minutes = await showDialog<int?>(
       context: context,
-      builder: (context) => _DailyLimitPickerDialog(initialMinutes: dailyLimitMinutes),
+      builder: (context) =>
+          _DailyLimitPickerDialog(initialMinutes: dailyLimitMinutes),
     );
     // A dialog popped with no value (user tapped outside) leaves minutes
     // null with no way to distinguish from "clear" — only act when the
@@ -218,7 +226,8 @@ class _DailyLimitPickerDialog extends StatefulWidget {
   const _DailyLimitPickerDialog({this.initialMinutes});
 
   @override
-  State<_DailyLimitPickerDialog> createState() => _DailyLimitPickerDialogState();
+  State<_DailyLimitPickerDialog> createState() =>
+      _DailyLimitPickerDialogState();
 }
 
 class _DailyLimitPickerDialogState extends State<_DailyLimitPickerDialog> {
@@ -261,7 +270,11 @@ class _DailyLimitPickerDialogState extends State<_DailyLimitPickerDialog> {
           color: AppColors.surfaceColor,
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
-            BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 24, offset: const Offset(0, 8)),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.12),
+              blurRadius: 24,
+              offset: const Offset(0, 8),
+            ),
           ],
         ),
         child: Column(
@@ -272,17 +285,32 @@ class _DailyLimitPickerDialogState extends State<_DailyLimitPickerDialog> {
               padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 20),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [AppColors.primaryColor, AppColors.primaryColor.withValues(alpha: 0.75)],
+                  colors: [
+                    AppColors.primaryColor,
+                    AppColors.primaryColor.withValues(alpha: 0.75),
+                  ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
-                borderRadius: const BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(24),
+                  topRight: Radius.circular(24),
+                ),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.hourglass_bottom_rounded, color: Colors.white, size: 22),
+                  const Icon(
+                    Icons.hourglass_bottom_rounded,
+                    color: Colors.white,
+                    size: 22,
+                  ),
                   const SizedBox(width: 10),
-                  Text('Daily Time Limit', style: AppTextStyles.headline6.copyWith(color: Colors.white)),
+                  Text(
+                    'Daily Time Limit',
+                    style: AppTextStyles.headline6.copyWith(
+                      color: Colors.white,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -291,16 +319,25 @@ class _DailyLimitPickerDialogState extends State<_DailyLimitPickerDialog> {
               child: Column(
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.primaryColor.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.primaryColor.withValues(alpha: 0.25)),
+                      border: Border.all(
+                        color: AppColors.primaryColor.withValues(alpha: 0.25),
+                      ),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.info_outline_rounded, size: 16, color: AppColors.primaryColor),
+                        Icon(
+                          Icons.info_outline_rounded,
+                          size: 16,
+                          color: AppColors.primaryColor,
+                        ),
                         const SizedBox(width: 6),
                         Flexible(
                           child: Text(
@@ -328,7 +365,12 @@ class _DailyLimitPickerDialogState extends State<_DailyLimitPickerDialog> {
                       ),
                       Padding(
                         padding: const EdgeInsets.only(bottom: 20),
-                        child: Text(' : ', style: AppTextStyles.headline4.copyWith(color: AppColors.textSecondary)),
+                        child: Text(
+                          ' : ',
+                          style: AppTextStyles.headline4.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
                       ),
                       _buildWheel(
                         label: 'Min',
@@ -355,7 +397,10 @@ class _DailyLimitPickerDialogState extends State<_DailyLimitPickerDialog> {
                       onPressed: () => Navigator.pop(context, -1),
                       child: Text(
                         'Remove Limit',
-                        style: AppTextStyles.body2.copyWith(color: const Color(0xFFEF4444), fontWeight: FontWeight.w600),
+                        style: AppTextStyles.body2.copyWith(
+                          color: const Color(0xFFEF4444),
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ],
@@ -382,7 +427,11 @@ class _DailyLimitPickerDialogState extends State<_DailyLimitPickerDialog> {
       children: [
         Text(
           label,
-          style: AppTextStyles.overline.copyWith(color: AppColors.primaryColor, fontWeight: FontWeight.w700, letterSpacing: 1.5),
+          style: AppTextStyles.overline.copyWith(
+            color: AppColors.primaryColor,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.5,
+          ),
         ),
         const SizedBox(height: 6),
         Container(
@@ -406,7 +455,11 @@ class _DailyLimitPickerDialogState extends State<_DailyLimitPickerDialog> {
                     height: itemH,
                     decoration: BoxDecoration(
                       color: AppColors.primaryColor.withValues(alpha: 0.10),
-                      border: Border.symmetric(horizontal: BorderSide(color: AppColors.primaryColor.withValues(alpha: 0.25))),
+                      border: Border.symmetric(
+                        horizontal: BorderSide(
+                          color: AppColors.primaryColor.withValues(alpha: 0.25),
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -420,13 +473,20 @@ class _DailyLimitPickerDialogState extends State<_DailyLimitPickerDialog> {
                     builder: (ctx, i) {
                       if (i < 0 || i >= count) return null;
                       final isSel = i == selected;
-                      final lbl = valueLabel != null ? valueLabel(i) : i.toString().padLeft(2, '0');
+                      final lbl = valueLabel != null
+                          ? valueLabel(i)
+                          : i.toString().padLeft(2, '0');
                       return Center(
                         child: Text(
                           lbl,
                           style: isSel
-                              ? AppTextStyles.headline4.copyWith(color: AppColors.textPrimary, fontWeight: FontWeight.w700)
-                              : AppTextStyles.body1.copyWith(color: AppColors.textHint),
+                              ? AppTextStyles.headline4.copyWith(
+                                  color: AppColors.textPrimary,
+                                  fontWeight: FontWeight.w700,
+                                )
+                              : AppTextStyles.body1.copyWith(
+                                  color: AppColors.textHint,
+                                ),
                         ),
                       );
                     },
@@ -477,10 +537,7 @@ class _LockIconButton extends StatelessWidget {
               height: 36,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(
-                  color: const Color(0xFFCBD5E1),
-                  width: 1.5,
-                ),
+                border: Border.all(color: const Color(0xFFCBD5E1), width: 1.5),
               ),
               child: const Icon(
                 Icons.lock_outline_rounded,
@@ -812,8 +869,10 @@ class _LockDurationDialogState extends State<_LockDurationDialog> {
                             _editingHours = true;
                             _editingMinutes = false;
                           });
-                          _hourTextCtrl.text =
-                              _hours.toString().padLeft(2, '0');
+                          _hourTextCtrl.text = _hours.toString().padLeft(
+                            2,
+                            '0',
+                          );
                           _hourTextCtrl.selection = TextSelection(
                             baseOffset: 0,
                             extentOffset: _hourTextCtrl.text.length,
@@ -843,8 +902,7 @@ class _LockDurationDialogState extends State<_LockDurationDialog> {
                         isEditing: _editingMinutes,
                         textController: _minuteTextCtrl,
                         focusNode: _minuteFocus,
-                        valueBuilder: (i) =>
-                            (i * 5).toString().padLeft(2, '0'),
+                        valueBuilder: (i) => (i * 5).toString().padLeft(2, '0'),
                         onScrollChanged: (idx) {
                           setState(() => _minutes = idx * 5);
                         },
@@ -853,8 +911,10 @@ class _LockDurationDialogState extends State<_LockDurationDialog> {
                             _editingMinutes = true;
                             _editingHours = false;
                           });
-                          _minuteTextCtrl.text =
-                              _minutes.toString().padLeft(2, '0');
+                          _minuteTextCtrl.text = _minutes.toString().padLeft(
+                            2,
+                            '0',
+                          );
                           _minuteTextCtrl.selection = TextSelection(
                             baseOffset: 0,
                             extentOffset: _minuteTextCtrl.text.length,
@@ -874,9 +934,9 @@ class _LockDurationDialogState extends State<_LockDurationDialog> {
                     onPressed: (_hours == 0 && _minutes == 0)
                         ? null
                         : () => Navigator.pop(
-                              context,
-                              Duration(hours: _hours, minutes: _minutes),
-                            ),
+                            context,
+                            Duration(hours: _hours, minutes: _minutes),
+                          ),
                     width: double.infinity,
                     height: 50,
                   ),
