@@ -30,6 +30,7 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
   Timer? _snapshotPollTimer;
   String? _joinedRoomChildId;
   DateTime? _lastAppliedLocationTs;
+  String? _lastChildId;
 
   HomepageBloc({
     required HomeRepository homeRepository,
@@ -157,6 +158,21 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
     final currentState = state;
 
     final childId = _sharedPrefsService.getString('child_id');
+
+    // Reset the device-timestamp guard whenever the viewed child changes.
+    // Without this, switching from an active child (whose recent live-ping
+    // set _lastAppliedLocationTs to e.g. "today") to an offline child
+    // (whose last-known REST location is days older) causes
+    // _isNewerLocationUpdate to return false, silently skipping the
+    // _mapBloc.add(UpdateChildLocation) call and leaving the map marker
+    // stuck at the previous child's position. Resetting to null makes
+    // _isNewerLocationUpdate "fail open" for the first update after a
+    // switch, so whichever timestamp the new child's REST response carries
+    // is always applied.
+    if (childId != null && _lastChildId != null && _lastChildId != childId) {
+      _lastAppliedLocationTs = null;
+    }
+    _lastChildId = childId;
 
     if (childId != null) {
       _initSocketListeners(childId);
