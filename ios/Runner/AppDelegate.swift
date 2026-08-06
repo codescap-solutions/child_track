@@ -424,112 +424,130 @@ import os.log
         let speed    = defaults?.double(forKey: kCachedSpd) ?? 0
 
         UIDevice.current.isBatteryMonitoringEnabled = true
-        let rawBattery = UIDevice.current.batteryLevel
-        let battery    = rawBattery < 0 ? 0 : Int((rawBattery * 100).rounded())
-        let isOnline   = networkType != "none"
-        let isoNow     = ISO8601DateFormatter().string(from: Date())
-        let isStale    = locationAge > 900
 
-        // — Payload 1: Device Status —
-        // Field names match Dart _onPostDeviceInfo exactly
-        let devicePayload: [String: Any] = [
-            "child_id":           childId,
-            "battery_percentage": battery,
-            "network_type":       networkType,
-            "network_status":     isOnline ? "online" : "offline",
-            "sound_profile":      "sound",
-            "is_online":          isOnline,
-            "timestamp":          isoNow
-        ]
+        // Confirmed false-report incident (iOS only — Android's battery
+        // broadcast is available immediately, no equivalent bug there):
+        // setting isBatteryMonitoringEnabled = true does not force an
+        // instant hardware read. Reading batteryLevel on the very same tick
+        // — as this used to do — can return a value the OS cached from
+        // before this process was last suspended, since this whole function
+        // runs on a background wake from a fully-suspended state (silent
+        // push → didReceiveRemoteNotification, main thread). A device sitting
+        // suspended for a while could then report a battery level tens of
+        // percentage points stale (real case: 70% actual, 40% reported).
+        // A short async delay gives the OS a moment to refresh batteryLevel
+        // before we read it — negligible against the 25s total sync budget
+        // below.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+            guard let self = self else { return }
 
-        // — Payload 2: Location —
-        // Field names match Dart _onPostChildLocation exactly.
-        // No geocoding: address/place_name are empty strings — server resolves from coords.
-        let locationPayload: [String: Any] = [
-            "child_id":              childId,
-            "lat":                   lat,
-            "lng":                   lng,
-            "accuracy_m":            accuracy,
-            "speed_mps":             speed,
-            "bearing":               0.0,
-            "address":               "",
-            "place_name":            "",
-            "is_stale":              isStale,
-            "location_age_seconds":  Int(locationAge),
-            "timestamp":             isoNow
-        ]
+            let rawBattery = UIDevice.current.batteryLevel
+            let battery    = rawBattery < 0 ? 0 : Int((rawBattery * 100).rounded())
+            let isOnline   = networkType != "none"
+            let isoNow     = ISO8601DateFormatter().string(from: Date())
+            let isStale    = locationAge > 900
 
-        // — Payload 3: Screen Time (only if records exist) —
-        // Field names match Dart ScreenTimeSyncService.uploadScreenTimeData exactly
-        var usageRecords: [[String: Any]] = []
-        if #available(iOS 16.0, *) {
-            usageRecords = ScreenTimeManager.shared.getAccumulatedUsage()
-        }
-
-        let appsData: [[String: Any]] = usageRecords.map { rec in
-            [
-                "packageName": rec["package"]  as? String ?? "",
-                "appName":     rec["appName"]   as? String ?? "",
-                "usageTime":   rec["seconds"]   as? Int    ?? 0,
-                "isSystemApp": false
+            // — Payload 1: Device Status —
+            // Field names match Dart _onPostDeviceInfo exactly
+            let devicePayload: [String: Any] = [
+                "child_id":           childId,
+                "battery_percentage": battery,
+                "network_type":       networkType,
+                "network_status":     isOnline ? "online" : "offline",
+                "sound_profile":      "sound",
+                "is_online":          isOnline,
+                "timestamp":          isoNow
             ]
-        }
 
-        var midnight = Date()
-        var cal = Calendar(identifier: .gregorian)
-        cal.timeZone = TimeZone(identifier: "UTC")!
-        var dc = cal.dateComponents([.year, .month, .day], from: Date())
-        dc.hour = 0; dc.minute = 0; dc.second = 0
-        if let m = cal.date(from: dc) { midnight = m }
-        let dateStr = ISO8601DateFormatter().string(from: midnight)
+            // — Payload 2: Location —
+            // Field names match Dart _onPostChildLocation exactly.
+            // No geocoding: address/place_name are empty strings — server resolves from coords.
+            let locationPayload: [String: Any] = [
+                "child_id":              childId,
+                "lat":                   lat,
+                "lng":                   lng,
+                "accuracy_m":            accuracy,
+                "speed_mps":             speed,
+                "bearing":               0.0,
+                "address":               "",
+                "place_name":            "",
+                "is_stale":              isStale,
+                "location_age_seconds":  Int(locationAge),
+                "timestamp":             isoNow
+            ]
 
-        let screenTimePayload: [String: Any] = [
-            "userId":   childId,
-            "date":     dateStr,
-            "platform": "ios",
-            "apps":     appsData
-        ]
+            // — Payload 3: Screen Time (only if records exist) —
+            // Field names match Dart ScreenTimeSyncService.uploadScreenTimeData exactly
+            var usageRecords: [[String: Any]] = []
+            if #available(iOS 16.0, *) {
+                usageRecords = ScreenTimeManager.shared.getAccumulatedUsage()
+            }
 
-        // — 25-second safety timeout —
-        var didSucceed = false
-        let timeoutWork = DispatchWorkItem {
-            print("AppDelegate: handleNativeDataSync — 25s timeout reached")
-            completionHandler(didSucceed ? .newData : .failed)
-        }
-        DispatchQueue.global().asyncAfter(deadline: .now() + 25, execute: timeoutWork)
+            let appsData: [[String: Any]] = usageRecords.map { rec in
+                [
+                    "packageName": rec["package"]  as? String ?? "",
+                    "appName":     rec["appName"]   as? String ?? "",
+                    "usageTime":   rec["seconds"]   as? Int    ?? 0,
+                    "isSystemApp": false
+                ]
+            }
 
-        // — Sequential POST chain (Optimization 2: no concurrent calls) —
-        // Each call has an 8-second individual timeout.
-        // Order: device-info → location → app-usage (skipped if no records)
-        print("AppDelegate: 📤 Starting sequential sync chain")
-        logToExtension("📤 Dispatching APIs for child=\(childId)")
+            var midnight = Date()
+            var cal = Calendar(identifier: .gregorian)
+            cal.timeZone = TimeZone(identifier: "UTC")!
+            var dc = cal.dateComponents([.year, .month, .day], from: Date())
+            dc.hour = 0; dc.minute = 0; dc.second = 0
+            if let m = cal.date(from: dc) { midnight = m }
+            let dateStr = ISO8601DateFormatter().string(from: midnight)
 
-        postJSON(to: "\(apiBase)child/device-status", payload: devicePayload,
-                 token: authToken, timeout: 8) { ok in
-            if ok { didSucceed = true }
-            print("AppDelegate: ✅ device-status ok=\(ok)")
-            self.logToExtension(ok ? "✅ device-status OK" : "❌ device-status FAILED")
+            let screenTimePayload: [String: Any] = [
+                "userId":   childId,
+                "date":     dateStr,
+                "platform": "ios",
+                "apps":     appsData
+            ]
 
-            self.postJSON(to: "\(apiBase)child/location", payload: locationPayload,
-                          token: authToken, timeout: 8) { ok2 in
-                if ok2 { didSucceed = true }
-                print("AppDelegate: ✅ location ok=\(ok2) stale=\(isStale)")
-                self.logToExtension(ok2 ? "✅ location OK (stale=\(isStale))" : "❌ location FAILED")
+            // — 25-second safety timeout —
+            var didSucceed = false
+            let timeoutWork = DispatchWorkItem {
+                print("AppDelegate: handleNativeDataSync — 25s timeout reached")
+                completionHandler(didSucceed ? .newData : .failed)
+            }
+            DispatchQueue.global().asyncAfter(deadline: .now() + 25, execute: timeoutWork)
 
-                guard !appsData.isEmpty else {
-                    timeoutWork.cancel()
-                    self.logToExtension("🏁 Sync complete (no app usage)")
-                    completionHandler(didSucceed ? .newData : .noData)
-                    return
-                }
+            // — Sequential POST chain (Optimization 2: no concurrent calls) —
+            // Each call has an 8-second individual timeout.
+            // Order: device-info → location → app-usage (skipped if no records)
+            print("AppDelegate: 📤 Starting sequential sync chain")
+            self.logToExtension("📤 Dispatching APIs for child=\(childId)")
 
-                self.postJSON(to: "\(apiBase)app-usage", payload: screenTimePayload,
-                              token: authToken, timeout: 8) { ok3 in
-                    if ok3 { didSucceed = true }
-                    print("AppDelegate: ✅ app-usage ok=\(ok3) (\(appsData.count) apps)")
-                    self.logToExtension(ok3 ? "✅ app-usage OK (\(appsData.count) apps)" : "❌ app-usage FAILED")
-                    timeoutWork.cancel()
-                    completionHandler(didSucceed ? .newData : .failed)
+            self.postJSON(to: "\(apiBase)child/device-status", payload: devicePayload,
+                          token: authToken, timeout: 8) { ok in
+                if ok { didSucceed = true }
+                print("AppDelegate: ✅ device-status ok=\(ok)")
+                self.logToExtension(ok ? "✅ device-status OK" : "❌ device-status FAILED")
+
+                self.postJSON(to: "\(apiBase)child/location", payload: locationPayload,
+                              token: authToken, timeout: 8) { ok2 in
+                    if ok2 { didSucceed = true }
+                    print("AppDelegate: ✅ location ok=\(ok2) stale=\(isStale)")
+                    self.logToExtension(ok2 ? "✅ location OK (stale=\(isStale))" : "❌ location FAILED")
+
+                    guard !appsData.isEmpty else {
+                        timeoutWork.cancel()
+                        self.logToExtension("🏁 Sync complete (no app usage)")
+                        completionHandler(didSucceed ? .newData : .noData)
+                        return
+                    }
+
+                    self.postJSON(to: "\(apiBase)app-usage", payload: screenTimePayload,
+                                  token: authToken, timeout: 8) { ok3 in
+                        if ok3 { didSucceed = true }
+                        print("AppDelegate: ✅ app-usage ok=\(ok3) (\(appsData.count) apps)")
+                        self.logToExtension(ok3 ? "✅ app-usage OK (\(appsData.count) apps)" : "❌ app-usage FAILED")
+                        timeoutWork.cancel()
+                        completionHandler(didSucceed ? .newData : .failed)
+                    }
                 }
             }
         }
@@ -609,9 +627,14 @@ import os.log
             case "getInstalledApps": result(self.getInstalledApps())
             case "getBatteryPercentage":
                 UIDevice.current.isBatteryMonitoringEnabled = true
-                let rawBattery = UIDevice.current.batteryLevel
-                let battery = rawBattery < 0 ? 0 : Int((rawBattery * 100).rounded())
-                result(battery)
+                // Same fix as buildAndPostSyncPayload above: batteryLevel isn't
+                // guaranteed fresh on the same tick monitoring is enabled — give
+                // the OS a moment before reading.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    let rawBattery = UIDevice.current.batteryLevel
+                    let battery = rawBattery < 0 ? 0 : Int((rawBattery * 100).rounded())
+                    result(battery)
+                }
             case "isCharging":
                 UIDevice.current.isBatteryMonitoringEnabled = true
                 let state = UIDevice.current.batteryState
