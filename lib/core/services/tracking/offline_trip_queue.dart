@@ -189,6 +189,42 @@ class OfflineTripQueue {
   bool get hasPending => _entries.isNotEmpty;
   int get pendingCount => _entries.length;
 
+  /// Max attempts before an entry is dead-lettered (dropped) instead of retried again.
+  static const int _maxRetries = 10;
+
+  /// Hard ceiling on backoff duration.
+  static const int _maxBackoffSecs = 300; // 5 min
+
+  /// Records a failed upload attempt: bumps retryCount and either schedules
+  /// the next backoff window or dead-letters the entry once [_maxRetries] is
+  /// exceeded. Returns true if the entry should be dropped (dead-lettered).
+  bool _recordFailure(QueueEntry entry, DateTime now, {Object? error}) {
+    entry.retryCount++;
+
+    if (entry.retryCount >= _maxRetries) {
+      StructuredLogger.log(
+        LogTag.TRIP,
+        '[OfflineQ] Entry dead-lettered after ${entry.retryCount} retries, dropping (${entry.type.name})',
+        error: error,
+      );
+      return true;
+    }
+
+    // Exponential backoff: 2^n * 5s, capped at _maxBackoffSecs. The exponent
+    // is clamped before shifting -- 2^6 * 5s (320s) already exceeds the cap,
+    // and an uncapped exponent (via math.pow on a large retryCount) overflows
+    // int range and silently truncates to 0, which was the original bug.
+    final exponent = math.min(entry.retryCount, 6);
+    final backoffSecs = math.min((1 << exponent) * 5, _maxBackoffSecs);
+    entry.backoffUntil = now.add(Duration(seconds: backoffSecs));
+    StructuredLogger.log(
+      LogTag.TRIP,
+      '[OfflineQ] Entry fail, backoff ${backoffSecs}s (retry: ${entry.retryCount})',
+      error: error,
+    );
+    return false;
+  }
+
   /// Drain the queue by calling the uploader function.
   /// Handles backoff updates dynamically and removes succeeded entries transactionally.
   Future<void> drain(
@@ -212,26 +248,16 @@ class OfflineTripQueue {
           toRemove.add(entry);
           changed = true;
         } else {
-          // Increment retry count and set backoff (exponential: 2^n * 5s)
-          entry.retryCount++;
-          final backoffSecs = math.pow(2, entry.retryCount).toInt() * 5;
-          entry.backoffUntil = now.add(Duration(seconds: math.min(backoffSecs, 300))); // Max 5 min
+          if (_recordFailure(entry, now)) {
+            toRemove.add(entry);
+          }
           changed = true;
-          StructuredLogger.log(
-            LogTag.TRIP,
-            '[OfflineQ] Entry fail, backoff ${backoffSecs}s (retry: ${entry.retryCount})',
-          );
         }
       } catch (e) {
-        entry.retryCount++;
-        final backoffSecs = math.pow(2, entry.retryCount).toInt() * 5;
-        entry.backoffUntil = now.add(Duration(seconds: math.min(backoffSecs, 300)));
+        if (_recordFailure(entry, now, error: e)) {
+          toRemove.add(entry);
+        }
         changed = true;
-        StructuredLogger.log(
-          LogTag.TRIP,
-          '[OfflineQ] Error uploading ${entry.type.name}',
-          error: e,
-        );
       }
     }
 

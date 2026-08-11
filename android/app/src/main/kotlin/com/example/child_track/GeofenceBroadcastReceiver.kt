@@ -3,16 +3,22 @@ package com.truenyx.naviqandroid
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.location.Location
 import android.util.Log
 import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofenceStatusCodes
 import com.google.android.gms.location.GeofencingEvent
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
+import com.google.android.gms.tasks.CancellationTokenSource
+import com.google.android.gms.tasks.Tasks
 import org.json.JSONArray
 import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
+import java.util.concurrent.TimeUnit
 
 /**
  * Manifest-registered receiver for native Android geofence transitions.
@@ -43,6 +49,115 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
             Geofence.GEOFENCE_TRANSITION_DWELL -> "DWELL"
             else -> "UNKNOWN"
         }
+
+        /**
+         * Cooldown window for flap suppression (see [isLikelyFlap]) — a child
+         * standing right at a fence boundary can GPS-jitter across it,
+         * producing ENTER→EXIT→ENTER within seconds. This only needs to
+         * outlast the jitter, not the real detection latency (which is
+         * already 2-5 minutes for native geofencing), so 45s is generous.
+         */
+        private const val FLAP_COOLDOWN_MS = 45_000L
+
+        /**
+         * True when [transitionType] for [geofenceId] flips back to the
+         * opposite of the last transition posted for that same fence within
+         * [FLAP_COOLDOWN_MS] — the signature of boundary GPS jitter, not a
+         * real crossing. DWELL is exempt: Play Services already gates it
+         * behind its own multi-minute loitering delay, so it can't flap.
+         * A repeat of the SAME type is left alone (harmless either way).
+         */
+        private fun isLikelyFlap(
+            context: Context,
+            geofenceId: String,
+            transitionType: String,
+            now: Long,
+        ): Boolean {
+            if (transitionType == "DWELL") return false
+            val prefs = context.getSharedPreferences(NativeGeofenceManager.PREFS_NAME, Context.MODE_PRIVATE)
+            val lastType = prefs.getString("last_transition_type_$geofenceId", null) ?: return false
+            val lastAt = prefs.getLong("last_transition_at_$geofenceId", 0L)
+            return lastType != transitionType && (now - lastAt) < FLAP_COOLDOWN_MS
+        }
+
+        private fun recordTransition(context: Context, geofenceId: String, transitionType: String, now: Long) {
+            if (transitionType == "DWELL") return
+            val prefs = context.getSharedPreferences(NativeGeofenceManager.PREFS_NAME, Context.MODE_PRIVATE)
+            prefs.edit()
+                .putString("last_transition_type_$geofenceId", transitionType)
+                .putLong("last_transition_at_$geofenceId", now)
+                .apply()
+        }
+
+        /** Timeout for the single confirming fix requested by [shouldPostExit]. */
+        private const val CONFIRM_FIX_TIMEOUT_MS = 15_000L
+
+        /**
+         * True when [fix]'s own accuracy circle overlaps the fence boundary —
+         * i.e. the fix isn't precise enough to say which side of the fence the
+         * device is actually on. This is the same distance math the fence
+         * check itself already uses, just compared against accuracy instead
+         * of a hard threshold.
+         */
+        private fun isAmbiguous(fix: Location, fenceLat: Double, fenceLng: Double, fenceRadius: Double): Boolean {
+            val results = FloatArray(1)
+            Location.distanceBetween(fix.latitude, fix.longitude, fenceLat, fenceLng, results)
+            return kotlin.math.abs(results[0] - fenceRadius) <= fix.accuracy
+        }
+
+        private fun isOutsideFence(fix: Location, fenceLat: Double, fenceLng: Double, fenceRadius: Double): Boolean {
+            val results = FloatArray(1)
+            Location.distanceBetween(fix.latitude, fix.longitude, fenceLat, fenceLng, results)
+            return results[0] > fenceRadius
+        }
+
+        /**
+         * EXIT-only ambiguity check (see the LLM Council verdict this
+         * implements: a false ENTER costs nothing, a false EXIT is the one
+         * that spikes a parent's pulse, so only EXIT pays the confirmation
+         * cost). Returns true if this EXIT should be posted, false if it
+         * should be suppressed as likely GPS jitter.
+         *
+         * Only spends the extra GPS request when [triggeringFix]'s own
+         * accuracy circle actually straddles the fence boundary — an
+         * unambiguous fix (the common case) fires with zero added cost or
+         * delay, unchanged from before this fix.
+         */
+        private fun shouldPostExit(
+            context: Context,
+            triggeringFix: Location?,
+            fenceLat: Double,
+            fenceLng: Double,
+            fenceRadius: Double,
+        ): Boolean {
+            if (triggeringFix == null) return true // no fix to judge ambiguity with — fail open
+            if (!isAmbiguous(triggeringFix, fenceLat, fenceLng, fenceRadius)) return true
+
+            Log.i(TAG, "EXIT fix is ambiguous (accuracy=${triggeringFix.accuracy}m straddles boundary) — requesting confirming fix")
+            val confirmFix = try {
+                val client = LocationServices.getFusedLocationProviderClient(context)
+                val cts = CancellationTokenSource()
+                Tasks.await(
+                    client.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, cts.token),
+                    CONFIRM_FIX_TIMEOUT_MS,
+                    TimeUnit.MILLISECONDS,
+                )
+            } catch (e: Exception) {
+                Log.w(TAG, "Confirming fix failed/timed out — posting original EXIT (fail open): ${e.message}")
+                null
+            }
+
+            // Fail open on a failed/timed-out confirming fix too — an
+            // ambiguous-but-unconfirmable EXIT might still be real, and
+            // silently dropping it is worse than the jitter it might be.
+            if (confirmFix == null) return true
+
+            val stillOutside = isOutsideFence(confirmFix, fenceLat, fenceLng, fenceRadius)
+            if (!stillOutside) {
+                Log.i(TAG, "Confirming fix landed back inside the fence — suppressing as GPS jitter")
+            }
+            return stillOutside
+        }
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -69,6 +184,11 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
         val names = triggeringIds.joinToString(", ") { "$it(${NativeGeofenceManager.getGeofenceName(context, it)})" }
         NativeFileLogger.log(context, "GEOFENCE", "received transition=$transitionType ids=$names")
 
+        // The fix that actually triggered this transition — used by the EXIT
+        // ambiguity check below. Read here (still on the calling thread) since
+        // it's just a field on the already-parsed event, no I/O.
+        val triggeringFix = geofencingEvent.triggeringLocation
+
         // BroadcastReceiver.onReceive gets a very short window (~10s) and must not
         // block on network I/O directly — goAsync() extends that window slightly
         // and lets us finish the work on a background thread.
@@ -87,8 +207,40 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
                     return@Thread
                 }
 
+                // Only fetched/used for EXIT (see shouldPostExit) — cheap to build
+                // once here regardless, from the already-persisted fence cache.
+                val fenceDefs = NativeGeofenceManager.getPersistedGeofences(appContext)
+                    .associateBy { it["id"] as? String }
+
                 val timestamp = isoNow()
+                val now = System.currentTimeMillis()
                 for (geofenceId in triggeringIds) {
+                    if (transitionType == "EXIT") {
+                        val fence = fenceDefs[geofenceId]
+                        val fenceLat = fence?.get("lat") as? Double
+                        val fenceLng = fence?.get("lng") as? Double
+                        val fenceRadius = fence?.get("radius") as? Double
+                        if (fenceLat != null && fenceLng != null && fenceRadius != null &&
+                            !shouldPostExit(appContext, triggeringFix, fenceLat, fenceLng, fenceRadius)
+                        ) {
+                            NativeFileLogger.log(
+                                appContext, "GEOFENCE",
+                                "suppressed ambiguous EXIT id=$geofenceId (confirming fix stayed inside — GPS jitter)"
+                            )
+                            continue
+                        }
+                    }
+
+                    if (isLikelyFlap(appContext, geofenceId, transitionType, now)) {
+                        Log.i(TAG, "Suppressed likely GPS-jitter flap: $transitionType on $geofenceId")
+                        NativeFileLogger.log(
+                            appContext, "GEOFENCE",
+                            "suppressed flap transition=$transitionType id=$geofenceId"
+                        )
+                        continue
+                    }
+                    recordTransition(appContext, geofenceId, transitionType, now)
+
                     val payload = JSONObject().apply {
                         put("childId", childId)
                         put("geofenceId", geofenceId)
