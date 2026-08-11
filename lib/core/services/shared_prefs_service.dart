@@ -31,6 +31,22 @@ class SharedPrefsService {
 
     final legacyToken = _prefs?.getString('auth_token');
 
+    // Diagnostic: secure storage can fail "silently" too — no exception,
+    // just an empty read — which looks identical to "no token was ever
+    // saved" from the outside. Logging these three inputs separately
+    // (instead of only the final loaded/not-loaded outcome) is what's
+    // needed to tell apart "this device/isolate genuinely has no token"
+    // from "secure storage is unreadable from this execution context" the
+    // next time a background-isolate persistent-401 report comes in —
+    // this init() runs both in the main app and inside the background
+    // location service's own isolate (background_location_service.dart),
+    // and only the latter has been seen hitting this.
+    AppLogger.info(
+      'Token load inputs: secureStorageWorking=$secureStorageWorking, '
+      'secureToken=${secureToken != null ? "present" : "null"}, '
+      'legacyToken=${legacyToken != null ? "present" : "null"}',
+    );
+
     if (secureStorageWorking &&
         legacyToken != null &&
         legacyToken.isNotEmpty &&
@@ -75,19 +91,34 @@ class SharedPrefsService {
   // Auth Token (Secure)
   // Auth Token (Secure with Fallback)
   Future<bool> setAuthToken(String token) async {
+    // Always keep a plain-SharedPreferences copy alongside secure storage,
+    // not only as an exception-triggered fallback. reloadAuthToken()/init()
+    // can only recover from a copy that was actually written somewhere — if
+    // the secure-storage WRITE succeeds right now but its READ later fails
+    // from some other execution context (e.g. the background-location
+    // service's own isolate, possibly in a killed-app state — the class of
+    // incident this whole chain of fixes is for), a fallback that was never
+    // written is useless. Best-effort: never blocks on or fails the overall
+    // call, this is a safety net, not the primary store.
+    try {
+      await prefs.setString('auth_token', token);
+    } catch (e) {
+      AppLogger.error('Error saving auth token to shared prefs fallback: $e');
+    }
+
     try {
       await _secureStorage.write(key: 'auth_token', value: token);
       _cachedAuthToken = token;
       return true;
     } catch (e) {
       AppLogger.error('Error saving auth token to secure storage: $e');
-      // Fallback to SharedPreferences
+      // Secure storage write failed, but the SharedPreferences copy above
+      // was still attempted — count it as success if that one landed, since
+      // getAuthToken()/reloadAuthToken() already know to fall back to it.
+      _cachedAuthToken = token;
       try {
-        await prefs.setString('auth_token', token);
-        _cachedAuthToken = token;
-        return true;
-      } catch (e2) {
-        AppLogger.error('Error saving auth token to shared prefs: $e2');
+        return prefs.getString('auth_token') == token;
+      } catch (_) {
         return false;
       }
     }
@@ -99,13 +130,29 @@ class SharedPrefsService {
       _cachedAuthToken = await _secureStorage.read(key: 'auth_token');
     } catch (e) {
       AppLogger.error('Error reloading secure token: $e');
-      // Fallback to SharedPreferences
+      _cachedAuthToken = null;
+    }
+
+    // Secure storage can return null WITHOUT throwing — e.g. the original
+    // setAuthToken() write fell back to plain SharedPreferences (the secure
+    // write itself failed on that device) and nothing was ever migrated
+    // into secure storage. init() already accounts for that via its
+    // migration check on first load; this mirrors it here so a mid-session
+    // reload (the 401-retry path, or the request interceptor's "emergency
+    // reload if token is missing") doesn't treat "secure storage
+    // successfully returned nothing" the same as "there is genuinely no
+    // token anywhere" and give up on an otherwise-valid session.
+    if (_cachedAuthToken == null || _cachedAuthToken!.isEmpty) {
       try {
-        _cachedAuthToken = prefs.getString('auth_token');
+        final legacyToken = prefs.getString('auth_token');
+        if (legacyToken != null && legacyToken.isNotEmpty) {
+          _cachedAuthToken = legacyToken;
+        }
       } catch (e2) {
         AppLogger.error('Error reloading shared prefs token: $e2');
       }
     }
+
     AppLogger.info('Auth token reloaded: ${_cachedAuthToken != null}');
   }
 
@@ -114,14 +161,28 @@ class SharedPrefsService {
   }
 
   Future<bool> removeAuthToken() async {
+    // setAuthToken() now always writes a SharedPreferences fallback copy
+    // alongside secure storage — that copy must always be cleared here too,
+    // or a stale token could survive logout and get picked back up by
+    // reloadAuthToken()'s fallback later.
+    _cachedAuthToken = null;
+    var success = true;
+
     try {
       await _secureStorage.delete(key: 'auth_token');
-      _cachedAuthToken = null;
-      return true;
     } catch (e) {
-      AppLogger.error('Error removing auth token: $e');
-      return false;
+      AppLogger.error('Error removing auth token from secure storage: $e');
+      success = false;
     }
+
+    try {
+      await prefs.remove('auth_token');
+    } catch (e) {
+      AppLogger.error('Error removing auth token from shared prefs: $e');
+      success = false;
+    }
+
+    return success;
   }
 
   // Refresh Token

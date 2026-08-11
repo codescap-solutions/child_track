@@ -211,6 +211,26 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
         }
       }
 
+      // The parent may have switched to viewing a different child while this
+      // request was in flight — childId above was captured before the
+      // awaits, so a response resolving after the switch would otherwise
+      // still get applied here, silently overwriting the newly-selected
+      // child's map marker/battery/name/etc with the previous child's. This
+      // is the REST-path counterpart of the child_id guard 374f584 added to
+      // the socket handlers (_onUpdateSocketLocation/_onUpdateSocketStatus)
+      // — that fix never covered this path, which had no identity check at
+      // all, only the timestamp-based _isNewerLocationUpdate freshness
+      // guard below (which alone isn't enough: an active child's genuinely
+      // newer timestamp can still beat an offline child's older one even
+      // though the offline child is who's now selected).
+      if (childId != _sharedPrefsService.getString('child_id')) {
+        AppLogger.info(
+          '[HomepageBloc] Dropping getHomeData response for $childId — '
+          'parent is now viewing ${_sharedPrefsService.getString('child_id')}',
+        );
+        return;
+      }
+
       // Get the freshest state after the async gap to prevent overwriting other events
       final freshState = state is HomepageSuccess
           ? state as HomepageSuccess

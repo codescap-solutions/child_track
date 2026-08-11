@@ -669,14 +669,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final String childName = data['child_name'] ?? 'Your child';
     final String appName = data['app_name'] ?? 'this app';
     final String packageName = data['package_name'] ?? '';
-    final int requestedMinutes = int.tryParse(data['requested_minutes']?.toString() ?? '') ?? 15;
+    final int requestedMinutes =
+        int.tryParse(data['requested_minutes']?.toString() ?? '') ?? 15;
 
     if (requestId.isEmpty) return;
 
     // Same heuristic AppLockBloc already uses to tell iOS opaque tokens
     // apart from Android package names, since the push doesn't carry a
     // platform field.
-    final platform = packageName.startsWith('usage_cat_') || packageName.startsWith('usage_app_')
+    final platform =
+        packageName.startsWith('usage_cat_') ||
+            packageName.startsWith('usage_app_')
         ? 'ios'
         : 'android';
 
@@ -694,19 +697,24 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           builder: (context, setSheetState) {
             Future<void> respond(bool approve) async {
               setSheetState(() => isResponding = true);
-              final response = await injector<TimeLimitRepository>().resolveExtensionRequest(
-                requestId: requestId,
-                approve: approve,
-                platform: platform,
-              );
+              final response = await injector<TimeLimitRepository>()
+                  .resolveExtensionRequest(
+                    requestId: requestId,
+                    approve: approve,
+                    platform: platform,
+                  );
               if (sheetContext.mounted) Navigator.of(sheetContext).pop();
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(
                       response.isSuccess
-                          ? (approve ? 'Extra time granted to $childName' : 'Request denied')
-                          : (response.message.isNotEmpty ? response.message : 'Something went wrong'),
+                          ? (approve
+                                ? 'Extra time granted to $childName'
+                                : 'Request denied')
+                          : (response.message.isNotEmpty
+                                ? response.message
+                                : 'Something went wrong'),
                     ),
                   ),
                 );
@@ -766,7 +774,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     decoration: BoxDecoration(
                       color: const Color(0xFFFFF1EE),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFFFFE5DE), width: 1.0),
+                      border: Border.all(
+                        color: const Color(0xFFFFE5DE),
+                        width: 1.0,
+                      ),
                     ),
                     child: Text(
                       '$childName wants $requestedMinutes more minutes on $appName.',
@@ -787,9 +798,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             foregroundColor: const Color(0xFFEF4444),
                             side: const BorderSide(color: Color(0xFFEF4444)),
                             padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
                           ),
-                          child: const Text('Deny', style: TextStyle(fontWeight: FontWeight.w700)),
+                          child: const Text(
+                            'Deny',
+                            style: TextStyle(fontWeight: FontWeight.w700),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -800,15 +816,23 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             backgroundColor: const Color(0xFF0066FF),
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
                           ),
                           child: isResponding
                               ? const SizedBox(
                                   width: 18,
                                   height: 18,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
                                 )
-                              : const Text('Approve', style: TextStyle(fontWeight: FontWeight.w700)),
+                              : const Text(
+                                  'Approve',
+                                  style: TextStyle(fontWeight: FontWeight.w700),
+                                ),
                         ),
                       ),
                     ],
@@ -2642,6 +2666,34 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     // non-live once it's actually stale) instead of a second, possibly
     // out-of-sync copy of that logic living here too.
     final isDeviceOffline = _isDeviceOffline(state);
+    // isDeviceOffline above only means "not live right now" (server
+    // show_live_marker: false) — true for both a genuinely unreachable
+    // device AND a device that's ONLINE but whose last location fix went
+    // stale. Both cases share the same amber pill/color, but the *word*
+    // shown must not say "OFFLINE" for the latter — that contradicts the
+    // server's own device_status: ONLINE (and the sibling live-trip badge,
+    // which already says "STALE" for the identical condition).
+    // Compare against displayState, not the raw device_status field — the
+    // server sends device_status as ONLINE/OFFLINE/UNREACHABLE/... (multiple
+    // distinct strings for "not actually connected"), so matching only the
+    // literal 'OFFLINE' string missed UNREACHABLE and any other future
+    // variant, silently falling through to "Stale" for a genuinely offline
+    // device. displayState is already the single curated field this screen
+    // treats as authoritative elsewhere (isLocationOff above) — within the
+    // non-live bucket, STALE is the only "still probably fine" reason;
+    // everything else (OFFLINE, UNREACHABLE, BACKGROUND_RESTRICTED, ...)
+    // means the device really isn't reporting.
+    final isReallyOffline = displayState != 'STALE';
+    final placeNameValue = state.currentLocation?.placeName ?? '';
+    final isKnownPlace =
+        placeNameValue.isNotEmpty && placeNameValue.toLowerCase() != 'unknown';
+    // Same suppression as the top map banner (see its condition further
+    // down this file): a non-live device parked at a known place (Home/
+    // School/...) reads as calm/active here too, whether the reason is
+    // STALE or fully OFFLINE. Showing this pill's amber "Stale"/"Offline"
+    // right above a banner that's already staying silent for the identical
+    // condition was the inconsistency being fixed — one screen, one signal.
+    final showAsOffline = isDeviceOffline && !isKnownPlace;
 
     return Container(
       width: double.infinity,
@@ -2668,7 +2720,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 decoration: BoxDecoration(
                   color: isLocationOff
                       ? const Color(0xFFEF4444)
-                      : (isDeviceOffline
+                      : (showAsOffline
                             ? const Color(0xFFF59E0B)
                             : const Color(0xFF10B981)),
                   shape: BoxShape.circle,
@@ -2678,13 +2730,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               Text(
                 isLocationOff
                     ? 'LOCATION OFF'
-                    : (isDeviceOffline ? 'OFFLINE' : 'ACTIVE NOW'),
+                    : (showAsOffline
+                          ? (isReallyOffline ? 'OFFLINE' : 'STALE')
+                          : 'ACTIVE NOW'),
                 style: GoogleFonts.manrope(
                   fontSize: 11,
                   fontWeight: FontWeight.w800,
                   color: isLocationOff
                       ? const Color(0xFFEF4444)
-                      : (isDeviceOffline
+                      : (showAsOffline
                             ? const Color(0xFFF59E0B)
                             : const Color(0xFF94A3B8)),
                   letterSpacing: 0.5,
@@ -2793,13 +2847,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               _buildLocationStatusPill(
                 isLocationOff
                     ? Icons.location_off_rounded
-                    : (isDeviceOffline
+                    : (showAsOffline
                           ? Icons.cloud_off_rounded
                           : Icons.access_time_rounded),
                 isLocationOff
                     ? 'Location off'
-                    : (isDeviceOffline
-                          ? 'Offline'
+                    : (showAsOffline
+                          ? (isReallyOffline ? 'Offline' : 'Stale')
                           : (_viewingSharedChild &&
                                     _activeSharedChildData != null
                                 ? _formatSinceTime(
@@ -2811,10 +2865,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                   ))),
                 backgroundColor: isLocationOff
                     ? const Color(0xFFFEE2E2)
-                    : (isDeviceOffline ? const Color(0xFFFEF3C7) : null),
+                    : (showAsOffline ? const Color(0xFFFEF3C7) : null),
                 contentColor: isLocationOff
                     ? const Color(0xFFDC2626)
-                    : (isDeviceOffline ? const Color(0xFFB45309) : null),
+                    : (showAsOffline ? const Color(0xFFB45309) : null),
               ),
               const SizedBox(width: 8),
               _buildLocationStatusPill(
@@ -4067,23 +4121,11 @@ class _HomeMapBackgroundState extends State<_HomeMapBackground>
                   position: location,
                   icon: _cachedMarkerIcon!,
                   anchor: const Offset(0.5, 1.0),
-                  alpha:
-                      (state is HomepageSuccess &&
-                          state.trackingSnapshot?.uiDirective.showStaleMarker ==
-                              true)
-                      ? 0.5
-                      : 1.0,
                 )
               else
                 Marker(
                   markerId: const MarkerId('child_location'),
                   position: location,
-                  alpha:
-                      (state is HomepageSuccess &&
-                          state.trackingSnapshot?.uiDirective.showStaleMarker ==
-                              true)
-                      ? 0.5
-                      : 1.0,
                 ),
             },
             if (state is HomepageSuccess) ...{
@@ -4160,9 +4202,37 @@ class _HomeMapBackgroundState extends State<_HomeMapBackground>
                   }
                 },
               ),
-              if (state is HomepageSuccess &&
+              if (!widget.viewingSharedChild &&
+                  state is HomepageSuccess &&
                   state.trackingSnapshot != null &&
-                  state.trackingSnapshot!.uiDirective.bannerMessage.isNotEmpty)
+                  // Only show the banner when the device is genuinely not live
+                  // (showLiveMarker drives the OFFLINE/STALE state everywhere else
+                  // on this screen — tying the banner to the same signal prevents
+                  // a stale/cached banner_message from appearing while the backend
+                  // simultaneously reports display_state: LIVE / show_live_marker: true).
+                  !state.trackingSnapshot!.uiDirective.showLiveMarker &&
+                  state.trackingSnapshot!.uiDirective.bannerMessage.isNotEmpty &&
+                  // ...but not when the last known fix sits at a known place
+                  // (Home/School/...), regardless of whether the reason is
+                  // STALE or the device having gone fully OFFLINE/UNREACHABLE
+                  // since. Matched against FindMyKids' own behavior for the
+                  // identical case (device offline a full day, parked at a
+                  // saved place): it shows a calm "At home • 1 day" label,
+                  // no alarm banner — a device that's silent while sitting
+                  // exactly where it was last confirmed isn't read as
+                  // urgent by a parent either way, so training them to
+                  // dismiss the same black banner for it just teaches them
+                  // to ignore it when it matters. Location-service problems
+                  // (PERMISSION_DENIED, GPS_DISABLED) are a different kind
+                  // of signal — those need the child to act, not just "wait
+                  // it out" — so they keep the banner regardless of place.
+                  !((state.trackingSnapshot!.uiDirective.displayState !=
+                              'PERMISSION_DENIED' &&
+                          state.trackingSnapshot!.uiDirective.displayState !=
+                              'GPS_DISABLED') &&
+                      (state.currentLocation?.placeName ?? '').isNotEmpty &&
+                      (state.currentLocation?.placeName ?? '').toLowerCase() !=
+                          'unknown'))
                 Positioned(
                   top: 0,
                   left: 0,
@@ -4172,7 +4242,7 @@ class _HomeMapBackgroundState extends State<_HomeMapBackground>
                       horizontal: 16,
                       vertical: 12,
                     ),
-                    color: Colors.redAccent.withOpacity(0.9),
+                    color: Colors.black.withOpacity(0.9),
                     child: Text(
                       state.trackingSnapshot!.uiDirective.bannerMessage,
                       style: const TextStyle(
@@ -4375,7 +4445,11 @@ class _LiveTripCard extends StatelessWidget {
     );
   }
 
-  Widget _buildCard(BuildContext context, ActiveTrip trip, bool isDeviceOffline) {
+  Widget _buildCard(
+    BuildContext context,
+    ActiveTrip trip,
+    bool isDeviceOffline,
+  ) {
     final icon = _activityIcon(trip.activity);
     final label = _activityLabel(trip.activity);
     final distance = _formatDistance(trip.distanceMeters);

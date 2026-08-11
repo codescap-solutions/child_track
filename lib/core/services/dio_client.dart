@@ -46,6 +46,7 @@ class DioClient {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.sendTimeout:
       case DioExceptionType.receiveTimeout:
+      case DioExceptionType.transformTimeout:
         return 'TIMEOUT';
       case DioExceptionType.connectionError:
         return 'CONNECTION_ERROR';
@@ -196,53 +197,78 @@ class DioClient {
                 );
                 // Token was updated by another isolate/process, just retry with it
               } else {
-                // 2. Token is still the same, try to refresh via API
-                AppLogger.info('Token is truly expired, calling refresh API');
-
                 final currentRefreshToken = _sharedPrefsService.getRefreshToken();
                 if (currentRefreshToken == null) {
-                  throw Exception('No refresh token available');
-                }
-
-                // Note: ApiEndpoints.refreshToken should be called using _dio directly.
-                // The interceptor already handles recursion by checking for 'refresh-token' path.
-                final response = await _dio.post(
-                  ApiEndpoints.refreshToken,
-                  data: {'refresh_token': currentRefreshToken},
-                );
-
-                if (response.statusCode == 200 || response.statusCode == 201) {
-                  // Structure based on AuthRepository usage: response.data!['token']
-                  // But we use Dio directly so it's response.data['data']['token'] 
-                  // or response.data['token'] depending on server wrapper.
-                  final responseData = response.data;
-                  dynamic newToken;
-                  dynamic newRefreshToken;
-
-                  if (responseData is Map) {
-                    if (responseData.containsKey('data') &&
-                        responseData['data'] is Map) {
-                      newToken = responseData['data']['token'];
-                      newRefreshToken = responseData['data']['refresh_token'];
-                    } else {
-                      newToken = responseData['token'];
-                      newRefreshToken = responseData['refresh_token'];
-                    }
+                  // No refresh token to call — true for every child session
+                  // (child JWTs never expire by design), so a 401 landing
+                  // here is never "session actually expired". Confirmed from
+                  // a real device log: the first API call fired by a
+                  // freshly-woken iOS background isolate (silent-push FCM
+                  // handler) got 401'd, then the isolate produced no further
+                  // API attempts for 2+ hours until the child manually
+                  // reopened the app — a transient token-read race / brief
+                  // server hiccup right at isolate wake-up, not a dead
+                  // session. One retry after a short delay + reloading the
+                  // persisted token covers that; the extra flag stops a
+                  // second attempt from looping if it 401s again too.
+                  final alreadyRetried =
+                      requestOptions.extra['_retriedAfterChildAuthRace'] ==
+                      true;
+                  if (alreadyRetried) {
+                    throw Exception('No refresh token available');
                   }
-
-                  if (newToken != null && newToken is String) {
-                    await _sharedPrefsService.setAuthToken(newToken);
-                    if (newRefreshToken != null && newRefreshToken is String) {
-                      await _sharedPrefsService.setRefreshToken(newRefreshToken);
-                    }
-                    AppLogger.info('Token refreshed successfully via API');
-                  } else {
-                    throw Exception('Token not found in refresh response');
-                  }
-                } else {
-                  throw Exception(
-                    'Refresh API returned ${response.statusCode}',
+                  requestOptions.extra['_retriedAfterChildAuthRace'] = true;
+                  AppLogger.info(
+                    'No refresh token (child session) — retrying once after reload',
                   );
+                  await Future.delayed(const Duration(seconds: 2));
+                  await _sharedPrefsService.reloadAuthToken();
+                  // Falls through to the shared retry below with whatever
+                  // token is now in storage.
+                } else {
+                  // Token is still the same, try to refresh via API
+                  AppLogger.info('Token is truly expired, calling refresh API');
+
+                  // Note: ApiEndpoints.refreshToken should be called using _dio directly.
+                  // The interceptor already handles recursion by checking for 'refresh-token' path.
+                  final response = await _dio.post(
+                    ApiEndpoints.refreshToken,
+                    data: {'refresh_token': currentRefreshToken},
+                  );
+
+                  if (response.statusCode == 200 || response.statusCode == 201) {
+                    // Structure based on AuthRepository usage: response.data!['token']
+                    // But we use Dio directly so it's response.data['data']['token']
+                    // or response.data['token'] depending on server wrapper.
+                    final responseData = response.data;
+                    dynamic newToken;
+                    dynamic newRefreshToken;
+
+                    if (responseData is Map) {
+                      if (responseData.containsKey('data') &&
+                          responseData['data'] is Map) {
+                        newToken = responseData['data']['token'];
+                        newRefreshToken = responseData['data']['refresh_token'];
+                      } else {
+                        newToken = responseData['token'];
+                        newRefreshToken = responseData['refresh_token'];
+                      }
+                    }
+
+                    if (newToken != null && newToken is String) {
+                      await _sharedPrefsService.setAuthToken(newToken);
+                      if (newRefreshToken != null && newRefreshToken is String) {
+                        await _sharedPrefsService.setRefreshToken(newRefreshToken);
+                      }
+                      AppLogger.info('Token refreshed successfully via API');
+                    } else {
+                      throw Exception('Token not found in refresh response');
+                    }
+                  } else {
+                    throw Exception(
+                      'Refresh API returned ${response.statusCode}',
+                    );
+                  }
                 }
               }
 
@@ -525,6 +551,7 @@ class DioClient {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.sendTimeout:
       case DioExceptionType.receiveTimeout:
+      case DioExceptionType.transformTimeout:
         return Exception(
           'Request timeout. Please check your internet connection.',
         );
