@@ -30,11 +30,15 @@ class VerifyOtp extends AuthEvent {
 class RegisterUser extends AuthEvent {
   final String phoneNumber;
   final String name;
+  final String parentingSituation;
+  final String parentRoutine;
   final Map<String, dynamic>? address;
 
   const RegisterUser({
     required this.phoneNumber,
     required this.name,
+    required this.parentingSituation,
+    required this.parentRoutine,
     this.address,
   });
 
@@ -42,8 +46,19 @@ class RegisterUser extends AuthEvent {
   List<Object?> get props => [
         phoneNumber,
         name,
+        parentingSituation,
+        parentRoutine,
         if (address != null) address!,
       ];
+}
+
+class SelectChild extends AuthEvent {
+  final String childId;
+
+  const SelectChild({required this.childId});
+
+  @override
+  List<Object?> get props => [childId];
 }
 
 class AuthLoggedIn extends AuthEvent {}

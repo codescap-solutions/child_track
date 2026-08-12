@@ -9,9 +9,11 @@ abstract class SocialAppsEvent extends Equatable {
 
 class FetchAppUsage extends SocialAppsEvent {
   final String date;
+  final String? startDate;
+  final String? endDate;
 
-  const FetchAppUsage({required this.date});
+  const FetchAppUsage({required this.date, this.startDate, this.endDate});
 
   @override
-  List<Object> get props => [date];
+  List<Object> get props => [date, startDate ?? '', endDate ?? ''];
 }

@@ -59,7 +59,14 @@ class _EnterOtpViewState extends State<EnterOtpView> {
               children: List.generate(6, (i) => _otpBox(_controllers[i])),
             ),
             const SizedBox(height: AppSizes.spacingXL),
-            CommonButton(text: 'Reset Password', onPressed: () {}),
+            CommonButton(
+              text: 'Reset Password',
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Password reset request sent')),
+                );
+              },
+            ),
             const SizedBox(height: AppSizes.spacingM),
             Center(
               child: Wrap(

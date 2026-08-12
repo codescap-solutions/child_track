@@ -23,6 +23,44 @@
           "other_platform_oauth_client": []
         }
       }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:749965493310:android:1b412c2ae7519008f5fd6f",
+        "android_client_info": {
+          "package_name": "com.truenyx.naviq"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyADjva7ABPEWCvLZWaJIAFihTHCwwWQ9ps"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:749965493310:android:a90f38da7fc4434af5fd6f",
+        "android_client_info": {
+          "package_name": "com.truenyx.naviqandroid"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyADjva7ABPEWCvLZWaJIAFihTHCwwWQ9ps"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
     }
   ],
   "configuration_version": "1"

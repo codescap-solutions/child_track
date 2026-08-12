@@ -27,9 +27,17 @@ class SavedPlacesService {
   }
 
   // Get all saved places
-  Future<List<SavedPlace>> getSavedPlaces() async {
+  Future<List<SavedPlace>> getSavedPlaces({String? childId}) async {
     try {
-      final response = await _dioClient.get(ApiEndpoints.places);
+      final Map<String, dynamic> queryParams = {};
+      if (childId != null) {
+        queryParams['child_id'] = childId;
+      }
+
+      final response = await _dioClient.get(
+        ApiEndpoints.places,
+        queryParameters: queryParams,
+      );
 
       if (response.statusCode == 200 && response.data != null) {
         final List<dynamic> data = response.data['data']['places'] ?? [];
@@ -56,6 +64,66 @@ class SavedPlacesService {
       return false;
     } catch (e) {
       AppLogger.error('Error deleting place: $e');
+      return false;
+    }
+  }
+
+  // Update a place
+  Future<bool> updatePlace(String placeId, SavedPlace place) async {
+    try {
+      final response = await _dioClient.put(
+        ApiEndpoints.placeDetail(placeId),
+        data: place.toJson(),
+      );
+
+      if (response.statusCode == 200) {
+        AppLogger.info('Place updated: ${place.name}');
+        return true;
+      }
+      return false;
+    } catch (e) {
+      AppLogger.error('Error updating place: $e');
+      return false;
+    }
+  }
+
+  // Assign a child to a place
+  Future<bool> assignChildToPlace(String placeId, String childId) async {
+    try {
+      final response = await _dioClient.post(
+        ApiEndpoints.assignChildToPlace(placeId),
+        data: {'child_id': childId},
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      AppLogger.error('Error assigning child to place: $e');
+      return false;
+    }
+  }
+
+  // Unassign a child from a place
+  Future<bool> unassignChildFromPlace(String placeId, String childId) async {
+    try {
+      final response = await _dioClient.post(
+        ApiEndpoints.unassignChildFromPlace(placeId),
+        data: {'child_id': childId},
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      AppLogger.error('Error unassigning child from place: $e');
+      return false;
+    }
+  }
+
+  // Assign all children to a place
+  Future<bool> assignAllChildrenToPlace(String placeId) async {
+    try {
+      final response = await _dioClient.post(
+        ApiEndpoints.assignAllChildrenToPlace(placeId),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      AppLogger.error('Error assigning all children to place: $e');
       return false;
     }
   }

@@ -1,294 +1,183 @@
-package com.example.child_track
+package com.truenyx.naviqandroid
 
-import android.content.Context
-import android.content.pm.ApplicationInfo
-import android.content.pm.PackageManager
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.drawable.BitmapDrawable
-import android.graphics.drawable.Drawable
-import android.media.AudioManager
+import android.content.Intent
+import android.os.Bundle
+import android.util.Log
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
-import java.io.File
-import java.io.FileOutputStream
-import android.app.AppOpsManager
-import android.app.usage.UsageStatsManager
-import android.os.Process
-import android.util.Base64
-import java.io.ByteArrayOutputStream
-import java.util.Calendar
 
 class MainActivity : FlutterActivity() {
-    private val CHANNEL = "com.example.child_track/device_info"
+
+    companion object {
+        private const val TAG = "MainActivity"
+        private const val GEOFENCE_CHANNEL = "com.truenyx.naviq/geofence"
+        private const val BACKGROUND_LOCATION_CHANNEL = "com.truenyx.naviq/background_location"
+    }
+
+    private var deviceInfoPlugin: DeviceInfoPlugin? = null
+    private val handler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var pendingBlockRunnable: Runnable? = null
+    private var lastBlockedEventAtMs: Long = 0
+
+    // A block was just genuinely shown this recently ago — a "no block
+    // extras, send clear" call inside this window is almost certainly the
+    // OS re-entering onCreate/onNewIntent for an unrelated lifecycle reason
+    // (activity recreation on a config change, a resume with no new
+    // intent) reusing the SAME Intent object whose extras this class itself
+    // already stripped via removeExtra() right after handling it the first
+    // time — not a real "child is no longer blocked" signal. Comfortably
+    // longer than the 1500ms cold-launch delay above so it covers that
+    // whole window too.
+    private val CLEAR_DEBOUNCE_MS = 2500L
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
-            when (call.method) {
-                "getSoundProfile" -> {
-                    val soundProfile = getSoundProfile()
-                    result.success(soundProfile)
-                }
-                "getInstalledApps" -> {
-                    try {
-                        val includeSystemApps = call.argument<Boolean>("includeSystemApps") ?: true
-                        val apps = getInstalledApps(includeSystemApps)
-                        result.success(apps)
-                    } catch (e: Exception) {
-                        result.error("ERROR", "Failed to get installed apps: ${e.message}", null)
-                    }
-                }
-                "getScreenTime" -> {
-                    Thread {
-                        try {
-                            val screenTime = getScreenTime()
-                            runOnUiThread {
-                                result.success(screenTime)
-                            }
-                        } catch (e: Exception) {
-                            runOnUiThread {
-                                result.error("ERROR", "Failed to get screen time: ${e.message}", null)
-                            }
-                        }
-                    }.start()
-                }
-                "checkUsagePermission" -> {
-                    result.success(hasUsageStatsPermission())
-                }
-                "openUsageSettings" -> {
-                    try {
-                        val intent = android.content.Intent(android.provider.Settings.ACTION_USAGE_ACCESS_SETTINGS)
-                        startActivity(intent)
+
+        var plugin = flutterEngine.plugins.get(DeviceInfoPlugin::class.java) as? DeviceInfoPlugin
+        if (plugin == null) {
+            Log.w(TAG, ">>> DeviceInfoPlugin not found in registry, registering manually")
+            plugin = DeviceInfoPlugin()
+            flutterEngine.plugins.add(plugin)
+        } else {
+            Log.d(TAG, ">>> DeviceInfoPlugin resolved from registry successfully")
+        }
+        deviceInfoPlugin = plugin
+
+        setupGeofenceChannel(flutterEngine)
+        setupBackgroundLocationChannel(flutterEngine)
+    }
+
+    /**
+     * Arms/disarms the native FusedLocationProviderClient + PendingIntent
+     * background ping (NativeLocationPingManager) and its WorkManager watchdog.
+     * Called from Dart's BackgroundLocationService.start()/stop() alongside the
+     * foreground service, so both layers turn on/off together.
+     */
+    private fun setupBackgroundLocationChannel(flutterEngine: FlutterEngine) {
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, BACKGROUND_LOCATION_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "start" -> {
+                        NativeLocationPingManager.start(applicationContext)
+                        LocationWatchdogWorker.schedule(applicationContext)
                         result.success(true)
-                    } catch (e: Exception) {
-                        result.error("ERROR", "Failed to open settings: ${e.message}", null)
                     }
+                    "stop" -> {
+                        NativeLocationPingManager.stop(applicationContext)
+                        LocationWatchdogWorker.cancel(applicationContext)
+                        result.success(true)
+                    }
+                    else -> result.notImplemented()
                 }
-                else -> result.notImplemented()
             }
-        }
     }
 
-    private fun getSoundProfile(): String {
-        val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        return when (audioManager.ringerMode) {
-            AudioManager.RINGER_MODE_NORMAL -> "sound"
-            AudioManager.RINGER_MODE_VIBRATE -> "vibrate"
-            AudioManager.RINGER_MODE_SILENT -> "silent"
-            else -> "unknown"
-        }
-    }
-
-    private fun getInstalledApps(includeSystemApps: Boolean): List<Map<String, Any?>> {
-        val apps = mutableListOf<Map<String, Any?>>()
-        
-        try {
-            val packageManager = packageManager ?: return apps
-            val packages = packageManager.getInstalledPackages(PackageManager.GET_META_DATA) ?: return apps
-            
-            for (packageInfo in packages) {
-                try {
-                    val appInfo = packageInfo.applicationInfo ?: continue
-                    val packageName = packageInfo.packageName ?: continue
-                    
-                    // Get app name safely
-                    val appName = try {
-                        packageManager.getApplicationLabel(appInfo).toString()
-                    } catch (e: Exception) {
-                        packageName // Fallback to package name
-                    }
-                    
-                    val isSystemApp = (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
-
-                    if (!includeSystemApps && isSystemApp) {
-                        continue
-                    }
-
-                    val versionName = packageInfo.versionName
-                    val versionCode = try {
-                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
-                            packageInfo.longVersionCode.toInt()
+    /**
+     * Same channel name/method shape as iOS's setupGeofenceMethodChannel in
+     * AppDelegate.swift, so local_geofence_engine.dart's Dart code is identical
+     * across platforms — only the platform guard around the call site differs.
+     */
+    private fun setupGeofenceChannel(flutterEngine: FlutterEngine) {
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, GEOFENCE_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "syncGeofences" -> {
+                        @Suppress("UNCHECKED_CAST")
+                        val args = call.arguments as? List<Map<String, Any?>>
+                        if (args == null) {
+                            result.error("INVALID_ARGS", "Expected list of geofences", null)
                         } else {
-                            @Suppress("DEPRECATION")
-                            packageInfo.versionCode
+                            NativeGeofenceManager.syncGeofences(applicationContext, args)
+                            result.success(true)
                         }
-                    } catch (e: Exception) {
-                        null
                     }
-                    
-                    // Get app icon and save it
-                    val iconPath = try {
-                        val icon = appInfo.loadIcon(packageManager)
-                        saveAppIcon(icon, packageName)
-                    } catch (e: Exception) {
-                        null
+                    "fetchGeofences" -> {
+                        // Android relies on the existing Dart-side periodic refresh
+                        // (LocationStateMachine._refreshGeofences) to fetch and push the
+                        // list here via syncGeofences — no separate native fetch needed.
+                        result.success(true)
                     }
-                    
-                    apps.add(mapOf(
-                        "packageName" to packageName,
-                        "appName" to appName,
-                        "iconPath" to iconPath,
-                        "isSystemApp" to isSystemApp,
-                        "versionName" to versionName,
-                        "versionCode" to versionCode
-                    ))
-                } catch (e: Exception) {
-                    // Skip apps that can't be processed
-                    continue
+                    else -> result.notImplemented()
                 }
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-        
-        // Sort by app name
-        return try {
-            apps.sortedBy { (it["appName"] as? String) ?: "" }
-        } catch (e: Exception) {
-            apps
-        }
     }
 
-    private fun saveAppIcon(drawable: Drawable, packageName: String): String? {
-        return try {
-            val bitmap = drawableToBitmap(drawable) ?: return null
-            val cacheDir = cacheDir
-            val iconDir = File(cacheDir, "app_icons")
-            if (!iconDir.exists()) {
-                iconDir.mkdirs()
-            }
-            
-            val iconFile = File(iconDir, "${packageName.replace(".", "_")}.png")
-            FileOutputStream(iconFile).use { out ->
-                bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
-            }
-            iconFile.absolutePath
-        } catch (e: Exception) {
-            null
-        }
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        Log.d(TAG, ">>> onCreate called")
+        Log.d(TAG, ">>>   action=${intent.action}")
+        Log.d(TAG, ">>>   extras=${intent.extras}")
+        Log.d(TAG, ">>>   app_blocked=${intent.getBooleanExtra("app_blocked", false)}")
+        Log.d(TAG, ">>>   blocked_package=${intent.getStringExtra("blocked_package")}")
+        // Cold launch: Flutter engine needs time to warm up
+        handleBlockedIntent(intent, isColdLaunch = true)
     }
 
-    private fun drawableToBitmap(drawable: Drawable): Bitmap? {
-        return try {
-            if (drawable is BitmapDrawable && drawable.bitmap != null) {
-                return drawable.bitmap
-            }
-            
-            val width = drawable.intrinsicWidth
-            val height = drawable.intrinsicHeight
-            
-            // Handle zero or negative dimensions
-            if (width <= 0 || height <= 0) {
-                // Use default size if dimensions are invalid
-                val defaultSize = 48
-                val bitmap = Bitmap.createBitmap(defaultSize, defaultSize, Bitmap.Config.ARGB_8888)
-                val canvas = Canvas(bitmap)
-                drawable.setBounds(0, 0, defaultSize, defaultSize)
-                drawable.draw(canvas)
-                return bitmap
-            }
-            
-            val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-            val canvas = Canvas(bitmap)
-            drawable.setBounds(0, 0, width, height)
-            drawable.draw(canvas)
-            return bitmap
-        } catch (e: Exception) {
-            null
-        }
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        Log.d(TAG, ">>> onNewIntent called")
+        Log.d(TAG, ">>>   action=${intent.action}")
+        Log.d(TAG, ">>>   app_blocked=${intent.getBooleanExtra("app_blocked", false)}")
+        Log.d(TAG, ">>>   blocked_package=${intent.getStringExtra("blocked_package")}")
+        // Warm launch: Flutter already running
+        handleBlockedIntent(intent, isColdLaunch = false)
     }
-    private fun getScreenTime(): List<Map<String, Any?>> {
-        if (!hasUsageStatsPermission()) {
-            return emptyList()
-        }
 
-        val usageStatsManager = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
-        val start = System.currentTimeMillis() - 1000 * 60 * 60 * 24 // 24 hours just in case, or from midnight
-        // Use midnight today for daily view
-        val calendar = Calendar.getInstance()
-        calendar.set(Calendar.HOUR_OF_DAY, 0)
-        calendar.set(Calendar.MINUTE, 0)
-        calendar.set(Calendar.SECOND, 0)
-        calendar.set(Calendar.MILLISECOND, 0)
-        val startTime = calendar.timeInMillis
-        val endTime = System.currentTimeMillis()
+    override fun onResume() {
+        super.onResume()
+        Log.d(TAG, ">>> onResume called")
+    }
 
-        val stats = usageStatsManager.queryAndAggregateUsageStats(startTime, endTime)
-        val packageManager = packageManager
-        
-        return stats.values.mapNotNull { usageStats ->
-            try {
-                if (usageStats.totalTimeInForeground == 0L) return@mapNotNull null
+    private fun handleBlockedIntent(intent: Intent, isColdLaunch: Boolean = true) {
+        val isBlocked = intent.getBooleanExtra("app_blocked", false)
+        val packageName = intent.getStringExtra("blocked_package")
 
-                val packageName = usageStats.packageName
-                // Filter basic system packages
-                if (packageName.startsWith("com.android.") && !packageName.contains("contacts") && !packageName.contains("dialer") && !packageName.contains("settings") && !packageName.contains("vending")) {
-                   // Keep play store, settings, contacts, dialer if they have usage
-                   // Actually, safer to check isSystemApp
-                   val appInfo = packageManager.getApplicationInfo(packageName, 0)
-                   if ((appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0 && (appInfo.flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) == 0) {
-                       // It's a system app and not an updated one.
-                       // Maybe checking launch intent is better to determine "user-facing" apps
-                       if (packageManager.getLaunchIntentForPackage(packageName) == null) {
-                           return@mapNotNull null
-                       }
-                   }
+        Log.d(TAG, ">>> handleBlockedIntent: blocked=$isBlocked, pkg=$packageName, cold=$isColdLaunch")
+
+        if (isBlocked && packageName != null) {
+            // Cancel any previously pending block event
+            pendingBlockRunnable?.let {
+                handler.removeCallbacks(it)
+                Log.d(TAG, ">>> Cancelled previous pending block")
+            }
+            pendingBlockRunnable = null
+
+            if (isColdLaunch) {
+                Log.d(TAG, ">>> Cold launch — scheduling appBlocked with 1500ms delay")
+                val runnable = Runnable {
+                    Log.d(TAG, ">>> [1500ms elapsed] Sending appBlocked to Flutter for: $packageName")
+                    lastBlockedEventAtMs = System.currentTimeMillis()
+                    deviceInfoPlugin?.sendAppBlockedEvent(packageName)
+                    pendingBlockRunnable = null
                 }
-                
-                // Get app name
-                val appName = try {
-                    val appInfo = packageManager.getApplicationInfo(packageName, 0)
-                    packageManager.getApplicationLabel(appInfo).toString()
-                } catch (e: Exception) {
-                    packageName
-                }
-
-                mapOf(
-                    "package" to packageName,
-                    "appName" to appName,
-                    "seconds" to (usageStats.totalTimeInForeground / 1000).toInt(),
-                    "lastTimeUsed" to usageStats.lastTimeUsed,
-                    "icon" to getAppIconBase64(packageName)
-                )
-            } catch (e: Exception) {
-                null
+                pendingBlockRunnable = runnable
+                handler.postDelayed(runnable, 1500)
+            } else {
+                Log.d(TAG, ">>> Warm launch — sending appBlocked to Flutter NOW for: $packageName")
+                lastBlockedEventAtMs = System.currentTimeMillis()
+                deviceInfoPlugin?.sendAppBlockedEvent(packageName)
             }
-        }.sortedByDescending { it["seconds"] as Int }
-    }
 
-    private fun getAppIconBase64(packageName: String): String? {
-        return try {
-            val packageManager = packageManager
-            val appInfo = packageManager.getApplicationInfo(packageName, 0)
-            val iconDrawable = appInfo.loadIcon(packageManager)
-            
-            // Convert to bitmap
-            val originalBitmap = drawableToBitmap(iconDrawable) ?: return null
-            
-            // Resize to 64x64
-            val scaledBitmap = Bitmap.createScaledBitmap(originalBitmap, 64, 64, true)
-            
-            // Compress to PNG
-            val byteArrayOutputStream = ByteArrayOutputStream()
-            scaledBitmap.compress(Bitmap.CompressFormat.PNG, 100, byteArrayOutputStream)
-            val byteArray = byteArrayOutputStream.toByteArray()
-            
-            // Encode to Base64
-            Base64.encodeToString(byteArray, Base64.NO_WRAP)
-        } catch (e: Exception) {
-            null
+            // Clear extras
+            intent.removeExtra("app_blocked")
+            intent.removeExtra("blocked_package")
+        } else {
+            val sinceLastBlock = System.currentTimeMillis() - lastBlockedEventAtMs
+            if (sinceLastBlock < CLEAR_DEBOUNCE_MS) {
+                // See CLEAR_DEBOUNCE_MS comment — a block was just shown moments
+                // ago; this is almost certainly the OS re-entering with the same
+                // (already-extras-stripped) intent, not a real unblock signal.
+                // Confirmed this was actually happening: reported symptom was
+                // the block screen flashing then immediately being replaced by
+                // SosView underneath it, exactly what sendClearBlockEvent()
+                // firing here would cause.
+                Log.d(TAG, ">>> No block extras, but only ${sinceLastBlock}ms since last block — ignoring, not sending clear")
+            } else {
+                Log.d(TAG, ">>> No block extras in intent — skipping and sending clear event")
+                deviceInfoPlugin?.sendClearBlockEvent()
+            }
         }
-    }
-
-    private fun hasUsageStatsPermission(): Boolean {
-        val appOps = getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
-        val mode = appOps.checkOpNoThrow(
-            AppOpsManager.OPSTR_GET_USAGE_STATS,
-            Process.myUid(),
-            packageName
-        )
-        return mode == AppOpsManager.MODE_ALLOWED
     }
 }

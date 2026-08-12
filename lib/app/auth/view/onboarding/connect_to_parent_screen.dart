@@ -1,18 +1,13 @@
-import 'package:child_track/app/childapp/view/sos_view.dart';
+import 'package:child_track/app/auth/view/onboarding/permission_sequence_screen.dart';
+import 'package:child_track/app/auth/view/onboarding/deletion_restriction_config_screen.dart';
 import 'package:child_track/app/childapp/view_model/repository/child_repo.dart';
 import 'package:child_track/core/di/injector.dart';
-import 'package:child_track/core/services/location_service.dart';
-import 'package:child_track/core/services/background_location_service.dart';
+import 'package:child_track/core/services/shared_prefs_service.dart';
 import 'package:child_track/core/utils/app_logger.dart';
 import 'package:child_track/core/utils/app_snackbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:child_track/core/constants/app_colors.dart';
-import 'package:child_track/core/constants/app_sizes.dart';
-import 'package:child_track/core/constants/app_text_styles.dart';
-import 'package:child_track/core/widgets/common_button.dart';
-import 'package:child_track/core/widgets/common_textfield.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class ConnectToParentScreen extends StatefulWidget {
   const ConnectToParentScreen({super.key});
@@ -33,139 +28,6 @@ class _ConnectToParentScreenState extends State<ConnectToParentScreen> {
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.surfaceColor,
-      appBar: AppBar(
-        backgroundColor: AppColors.surfaceColor,
-        elevation: 0,
-        foregroundColor: AppColors.textPrimary,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 18),
-          onPressed: () => Navigator.of(context).maybePop(),
-        ),
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSizes.paddingM),
-          child: Form(
-            key: _formKey,
-            child: Padding(
-              padding: const EdgeInsets.all(AppSizes.paddingM),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Spacer(),
-                  _buildHeader(),
-                  const SizedBox(height: AppSizes.spacingXL),
-                  _buildChildCodeField(),
-                  const SizedBox(height: AppSizes.spacingL),
-                  _buildInfoText(),
-                  const Spacer(),
-                  CommonButton(
-                    text: 'Connect',
-                    onPressed: _isLoading ? null : _connectToParent,
-                    isLoading: _isLoading,
-                  ),
-                  // const SizedBox(height: AppSizes.spacingM),
-                  // CommonButton(
-                  //   text: 'Skip for now',
-                  //   onPressed: _isLoading ? null : _skipConnection,
-                  //   isOutlined: true,
-                  // ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Column(
-      children: [
-        Container(
-          width: 100,
-          height: 100,
-          decoration: BoxDecoration(
-            color: AppColors.primaryColor.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(AppSizes.radiusXXL),
-          ),
-          child: const Icon(
-            Icons.family_restroom,
-            size: 50,
-            color: AppColors.primaryColor,
-          ),
-        ),
-        const SizedBox(height: AppSizes.spacingL),
-        Text(
-          'Connect to Parent',
-          style: AppTextStyles.headline1.copyWith(
-            color: AppColors.primaryColor,
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: AppSizes.spacingS),
-        Text(
-          'Enter your child code to connect and share your location and screen time',
-          style: AppTextStyles.body2.copyWith(color: AppColors.textSecondary),
-          textAlign: TextAlign.center,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildChildCodeField() {
-    return CommonTextField(
-      fillColor: AppColors.containerBackground,
-      controller: _childCodeController,
-      hintText: 'Enter child code',
-      labelText: 'Child Code',
-      textInputAction: TextInputAction.done,
-      inputFormatters: [UpperCaseTextFormatter()],
-      validator: (value) {
-        if (value == null || value.isEmpty) {
-          return 'Please enter child code';
-        }
-        if (value.length < 4) {
-          return 'Child code must be at least 4 characters';
-        }
-        return null;
-      },
-      onSubmitted: (_) => _connectToParent(),
-    );
-  }
-
-  Widget _buildInfoText() {
-    return Container(
-      padding: const EdgeInsets.all(AppSizes.paddingM),
-      decoration: BoxDecoration(
-        color: AppColors.primaryColor.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(AppSizes.radiusM),
-      ),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.info_outline,
-            color: AppColors.primaryColor,
-            size: 20,
-          ),
-          const SizedBox(width: AppSizes.spacingS),
-          Expanded(
-            child: Text(
-              'By connecting, you allow your parent to view your location and screen time.',
-              style: AppTextStyles.caption.copyWith(
-                color: AppColors.primaryColor,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Future<void> _connectToParent() async {
     if (_formKey.currentState?.validate() ?? false) {
       setState(() => _isLoading = true);
@@ -180,64 +42,21 @@ class _ConnectToParentScreenState extends State<ConnectToParentScreen> {
         if (response.isSuccess) {
           AppLogger.info('Child login successful');
 
-          // Ensure location permission is set to "always allow"
-          final locationService = LocationService();
-          bool hasAlwaysPermission = await _ensureAlwaysAllowPermission(
-            context,
-            locationService,
-          );
-
           if (!mounted) return;
 
-          if (!hasAlwaysPermission) {
-            // Permission not granted - show error and don't proceed
-            AppSnackbar.showError(
-              context,
-              'Location permission must be set to "Always Allow" to track your location in background.',
-            );
-            setState(() => _isLoading = false);
-            return;
-          }
+          final isAllowDelete = SharedPrefsService().getAllowDelete();
 
-          // Wait a moment after permission is granted to ensure system has updated
-          await Future.delayed(const Duration(milliseconds: 500));
-
-          // Verify permission one more time before starting service
-          final finalPermission = await locationService.checkPermission();
-          if (finalPermission != LocationPermission.always) {
-            if (mounted) {
-              AppSnackbar.showError(
-                context,
-                'Please ensure "Always Allow" permission is enabled in Settings.',
-              );
-              setState(() => _isLoading = false);
-            }
-            return;
-          }
-
-          // Start background location service for continuous tracking
-          try {
-            await BackgroundLocationService().start();
-            AppLogger.info('Background location service started');
-          } catch (e, stackTrace) {
-            AppLogger.error('Failed to start background service: $e');
-            AppLogger.error('Stack trace: $stackTrace');
-            if (mounted) {
-              AppSnackbar.showError(
-                context,
-                'Failed to start location tracking. Please try again.',
-              );
-              setState(() => _isLoading = false);
-              return;
-            }
-          }
-
-          if (mounted) {
-            AppSnackbar.showSuccess(context, 'Connected successfully!');
-
-            // Navigate to SOS view (child app main screen)
+          if (!isAllowDelete) {
             Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (_) => const SosView()),
+              MaterialPageRoute(
+                builder: (_) => const DeletionRestrictionConfigScreen(),
+              ),
+            );
+          } else {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (_) => const PermissionSequenceScreen(),
+              ),
             );
           }
         } else {
@@ -258,264 +77,380 @@ class _ConnectToParentScreenState extends State<ConnectToParentScreen> {
     }
   }
 
-  /// Ensure location permission is set to "always allow"
-  /// Shows dialog repeatedly until user grants "always allow" permission
-  Future<bool> _ensureAlwaysAllowPermission(
-    BuildContext context,
-    LocationService locationService,
-  ) async {
-    int maxAttempts = 5; // Prevent infinite loop
-    int attempts = 0;
-
-    while (attempts < maxAttempts) {
-      attempts++;
-
-      // 1. Check if location services (GPS) are enabled system-wide
-      bool isServiceEnabled = await locationService.isLocationServiceEnabled();
-      if (!isServiceEnabled) {
-        if (!mounted) return false;
-
-        // Show dialog to enable location services
-        final shouldRetry = await _showEnableLocationServicesDialog(
-          context,
-          locationService,
-        );
-
-        if (!shouldRetry) {
-          // User cancelled
-          return false;
-        }
-
-        // Check again if enabled
-        isServiceEnabled = await locationService.isLocationServiceEnabled();
-        if (!isServiceEnabled) {
-          // Still disabled, try next attempt loop or just continue to let loop handle it
-          continue;
-        }
-      }
-
-      // Request "always allow" permission
-      final result = await locationService.requestAlwaysAllowPermission();
-      final hasAlwaysPermission = result['granted'] as bool;
-      final needsSettings = result['needsSettings'] as bool;
-
-      if (hasAlwaysPermission) {
-        AppLogger.info('Always allow permission granted');
-        return true;
-      }
-
-      // Check current permission status
-      final currentPermission = await locationService.checkPermission();
-
-      if (!mounted) return false;
-
-      // Show dialog explaining why "always allow" is needed
-      // If needsSettings is true, it means user needs to go to Settings to enable "Always allow"
-      // INFO: If we've already tried once (attempts > 1) and failed, force "Open Settings"
-      // because the system permission dialog probably won't show up again.
-      final forceSettings = attempts > 1;
-
-      final shouldRetry = await _showLocationPermissionDialog(
-        context,
-        needsSettings ||
-            currentPermission == LocationPermission.deniedForever ||
-            forceSettings,
-        currentPermission == LocationPermission.whileInUse,
-      );
-
-      if (!shouldRetry) {
-        // User cancelled or doesn't want to grant permission
-        return false;
-      }
-
-      // If needs settings or permanently denied (or forced), try to open settings
-      if (needsSettings ||
-          currentPermission == LocationPermission.deniedForever ||
-          forceSettings) {
-        final openedSettings = await locationService.openLocationSettings();
-        if (openedSettings) {
-          // Wait longer for user to change settings and return to app
-          // The app might be resumed when user returns from Settings
-          await Future.delayed(const Duration(seconds: 3));
-
-          // Check if app is still mounted after returning from Settings
-          if (!mounted) return false;
-
-          // Re-check permission after returning from Settings
-          final recheckPermission = await locationService.checkPermission();
-          if (recheckPermission == LocationPermission.always) {
-            AppLogger.info(
-              'Always allow permission granted after returning from Settings',
-            );
-            return true;
-          }
-
-          continue;
-        }
-      }
-    }
-
-    // Max attempts reached
-    return false;
+  void _showHelpDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          'Where is my code?',
+          style: GoogleFonts.manrope(fontWeight: FontWeight.bold),
+        ),
+        content: Text(
+          '1. Open the Parents App.\n2. Go to the Child settings or Dashboard.\n3. Copy the 6-character code shown under your child\'s name.\n4. Enter that code on this screen.',
+          style: GoogleFonts.manrope(height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            child: Text('Close', style: GoogleFonts.manrope(color: const Color(0xFF0066FF), fontWeight: FontWeight.bold)),
+            onPressed: () => Navigator.pop(context),
+          ),
+        ],
+      ),
+    );
   }
 
-  /// Show dialog explaining why "always allow" permission is needed
-  Future<bool> _showLocationPermissionDialog(
-    BuildContext context,
-    bool needsSettings,
-    bool hasWhileInUsePermission,
-  ) async {
-    return await showDialog<bool>(
-          context: context,
-          barrierDismissible: false,
-          builder: (dialogContext) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppSizes.radiusL),
-            ),
-            title: Text(
-              'Location Permission Required',
-              style: AppTextStyles.headline6.copyWith(
-                fontWeight: FontWeight.bold,
-                color: AppColors.primaryColor,
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFFF8FAFC),
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        centerTitle: true,
+        leadingWidth: 60,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 16.0),
+          child: Center(
+            child: GestureDetector(
+              onTap: () => Navigator.of(context).maybePop(),
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.06),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.arrow_back,
+                  color: Color(0xFF0C1D37),
+                  size: 20,
+                ),
               ),
             ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'This app needs "Always Allow" location permission to track your location in the background, even when the app is closed.',
-                  style: AppTextStyles.body2,
+          ),
+        ),
+        title: Text(
+          'Add Child',
+          style: GoogleFonts.manrope(
+            fontSize: 20,
+            fontWeight: FontWeight.w800,
+            color: const Color(0xFF0C1D37),
+          ),
+        ),
+      ),
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(24.0),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight - 48,
                 ),
-                const SizedBox(height: AppSizes.spacingM),
-                if (needsSettings)
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        hasWhileInUsePermission
-                            ? 'You have granted "While using the app" permission. To enable background tracking, please:'
-                            : 'Please enable "Always Allow" location permission in your device settings.',
-                        style: AppTextStyles.body2.copyWith(
-                          color: AppColors.error,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      if (hasWhileInUsePermission) ...[
-                        const SizedBox(height: AppSizes.spacingS),
+                child: IntrinsicHeight(
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 8),
                         Text(
-                          '1. Tap "Open Settings" below\n2. Go to "Permissions" → "Location"\n3. Select "Allow all the time"',
-                          style: AppTextStyles.body2.copyWith(
-                            color: AppColors.textPrimary,
+                          'Enter Child Code',
+                          style: GoogleFonts.manrope(
+                            fontSize: 26,
+                            fontWeight: FontWeight.w800,
+                            color: const Color(0xFF0C1D37),
                           ),
                         ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'The six didgit code that generated in Parents App',
+                          style: GoogleFonts.manrope(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFF64748B),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        // How to get code blue box
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFF6FF),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: const Color(0xFFDBEAFE),
+                              width: 1.5,
+                            ),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                width: 36,
+                                height: 36,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFDBEAFE),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.people_outline,
+                                  color: Color(0xFF0066FF),
+                                  size: 18,
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'How to get the code?',
+                                      style: GoogleFonts.manrope(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: const Color(0xFF0C1D37),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    RichText(
+                                      text: TextSpan(
+                                        style: GoogleFonts.manrope(
+                                          fontSize: 12,
+                                          color: const Color(0xFF64748B),
+                                          height: 1.4,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                        children: [
+                                          const TextSpan(text: "Incase you installed kids app first go parents app and "),
+                                          TextSpan(
+                                            text: "Finish Sign Up",
+                                            style: GoogleFonts.manrope(
+                                              fontWeight: FontWeight.bold,
+                                              color: const Color(0xFF0066FF),
+                                            ),
+                                          ),
+                                          const TextSpan(text: " . The 6-character code will appear there."),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+                        Text(
+                          'Child Code',
+                          style: GoogleFonts.manrope(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: const Color(0xFF0C1D37),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: _childCodeController,
+                          textCapitalization: TextCapitalization.characters,
+                          textAlign: TextAlign.center,
+                          onChanged: (value) {
+                            setState(() {}); // Rebuild to update segment dashes
+                          },
+                          style: GoogleFonts.manrope(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: const Color(0xFF0C1D37),
+                            letterSpacing: 4,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: 'e.g. KIDS01',
+                            hintStyle: GoogleFonts.manrope(
+                              color: const Color(0xFF94A3B8),
+                              fontSize: 28,
+                              letterSpacing: 4,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+                            filled: true,
+                            fillColor: Colors.white,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(color: Color(0xFF0C1D37), width: 2.0),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(color: Color(0xFF0C1D37), width: 2.0),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(color: Color(0xFF0066FF), width: 2.0),
+                            ),
+                            errorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(color: Colors.red, width: 1.0),
+                            ),
+                            focusedErrorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(color: Colors.red, width: 2.0),
+                            ),
+                          ),
+                          inputFormatters: [
+                            UpperCaseTextFormatter(),
+                            LengthLimitingTextInputFormatter(6),
+                          ],
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Please enter child code';
+                            }
+                            if (value.trim().length < 6) {
+                              return 'Child code must be exactly 6 characters';
+                            }
+                            return null;
+                          },
+                          onFieldSubmitted: (_) => _connectToParent(),
+                        ),
+                        const SizedBox(height: 12),
+                        // 6 segment dashes below code box
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: List.generate(6, (index) {
+                            final isEntered = _childCodeController.text.length > index;
+                            return Expanded(
+                              child: Container(
+                                height: 6,
+                                margin: const EdgeInsets.symmetric(horizontal: 4),
+                                decoration: BoxDecoration(
+                                  color: isEntered ? const Color(0xFF5593F8) : const Color(0xFFE2E8F0),
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                              ),
+                            );
+                          }),
+                        ),
+                        const SizedBox(height: 24),
+                        // Yellow Note box
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFFBEB),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: const Color(0xFFFDE68A),
+                              width: 1.0,
+                            ),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                '💡 ',
+                                style: TextStyle(fontSize: 14),
+                              ),
+                              Expanded(
+                                child: RichText(
+                                  text: TextSpan(
+                                    style: GoogleFonts.manrope(
+                                      fontSize: 12,
+                                      color: const Color(0xFFB45309),
+                                      height: 1.4,
+                                    ),
+                                    children: [
+                                      const TextSpan(
+                                        text: 'Note: ',
+                                        style: TextStyle(fontWeight: FontWeight.bold),
+                                      ),
+                                      const TextSpan(
+                                        text: 'You can add multiple kids by adding in parent app',
+                                        style: TextStyle(fontWeight: FontWeight.w600),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Spacer(),
+                        const SizedBox(height: 32),
+                        // Verify Code Button
+                        SizedBox(
+                          width: double.infinity,
+                          height: 54,
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF5593F8),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              elevation: 0,
+                            ),
+                            onPressed: _isLoading ? null : _connectToParent,
+                            child: _isLoading
+                                ? const SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2.5,
+                                    ),
+                                  )
+                                : Text(
+                                    'Verify Code',
+                                    style: GoogleFonts.manrope(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        // Help footer link
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              "Can't find the code? ",
+                              style: GoogleFonts.manrope(
+                                fontSize: 13,
+                                color: const Color(0xFF64748B),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: _showHelpDialog,
+                              child: Text(
+                                "Help",
+                                style: GoogleFonts.manrope(
+                                  fontSize: 13,
+                                  color: const Color(0xFF5593F8),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
                       ],
-                    ],
-                  )
-                else
-                  Text(
-                    'Please select "Always Allow" when prompted.',
-                    style: AppTextStyles.body2.copyWith(
-                      color: AppColors.primaryColor,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-              ],
-            ),
-            actions: [
-              if (needsSettings)
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(false),
-                  child: Text(
-                    'Cancel',
-                    style: AppTextStyles.body2.copyWith(
-                      color: AppColors.textSecondary,
                     ),
                   ),
                 ),
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(true),
-                child: Text(
-                  needsSettings ? 'Open Settings' : 'Grant Permission',
-                  style: AppTextStyles.body2.copyWith(
-                    color: AppColors.primaryColor,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
               ),
-            ],
-          ),
-        ) ??
-        false;
-  }
-
-  /// Show dialog to enable Location Services (GPS)
-  Future<bool> _showEnableLocationServicesDialog(
-    BuildContext context,
-    LocationService locationService,
-  ) async {
-    return await showDialog<bool>(
-          context: context,
-          barrierDismissible: false,
-          builder: (dialogContext) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppSizes.radiusL),
-            ),
-            title: Text(
-              'Enable Location Services',
-              style: AppTextStyles.headline6.copyWith(
-                fontWeight: FontWeight.bold,
-                color: AppColors.primaryColor,
-              ),
-            ),
-            content: Text(
-              'Location services are disabled. Please enable them to continue using the app.',
-              style: AppTextStyles.body2,
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(false),
-                child: Text(
-                  'Cancel',
-                  style: AppTextStyles.body2.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ),
-              TextButton(
-                onPressed: () async {
-                  // Open system location settings
-                  await locationService.openSystemLocationSettings();
-                  // Do not pop, let user return and click Done
-                },
-                child: Text(
-                  'Open Settings',
-                  style: AppTextStyles.body2.copyWith(
-                    color: AppColors.primaryColor,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.of(dialogContext).pop(true),
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.primaryColor,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppSizes.radiusM),
-                  ),
-                ),
-                child: Text(
-                  'Done', // Or "Retry"
-                  style: AppTextStyles.body2.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ) ??
-        false;
+            );
+          },
+        ),
+      ),
+    );
   }
 }
 

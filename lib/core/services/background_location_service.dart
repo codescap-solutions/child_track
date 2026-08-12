@@ -1,16 +1,24 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:ui';
+import 'package:battery_plus/battery_plus.dart';
 import 'package:child_track/app/childapp/view_model/repository/child_location_repo.dart';
+import 'package:child_track/core/services/csv_file_logger.dart';
 import 'package:child_track/app/childapp/view_model/repository/child_repo.dart';
 import 'package:child_track/core/services/shared_prefs_service.dart';
 import 'package:child_track/core/services/dio_client.dart';
 import 'package:child_track/core/services/connectivity/bloc/connectivity_bloc.dart';
-import 'package:child_track/core/utils/app_logger.dart';
+import 'package:child_track/core/utils/structured_logger.dart';
+import 'package:child_track/core/services/location_state_machine.dart';
+import 'package:child_track/core/services/tracking/tracking_profile_manager.dart';
+import 'package:child_track/core/services/tracking/tracking_config_service.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:geolocator/geolocator.dart';
-import 'dart:io';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:permission_handler/permission_handler.dart' hide ServiceStatus;
 
 class BackgroundLocationService {
   static final BackgroundLocationService _instance =
@@ -18,15 +26,25 @@ class BackgroundLocationService {
   factory BackgroundLocationService() => _instance;
   BackgroundLocationService._internal();
 
+  /// Android-only: arms/disarms the native FusedLocationProviderClient
+  /// background ping (NativeLocationPingManager.kt) + its WorkManager
+  /// watchdog, so there's still a baseline location signal reaching the
+  /// server if this foreground service itself gets killed (force-kill,
+  /// aggressive OEM battery management). No-op on iOS, which already has its
+  /// own always-on CLLocationManager background updates (AppDelegate.swift).
+  static const MethodChannel _backgroundLocationChannel =
+      MethodChannel('com.truenyx.naviq/background_location');
+
   /// Initialize the background service
   Future<void> initialize() async {
     final service = FlutterBackgroundService();
 
     const AndroidNotificationChannel channel = AndroidNotificationChannel(
-      'child_track_location', // id
-      'Location Tracking', // title
-      description: 'Tracking your location in background', // description
-      importance: Importance.low, // importance must be at low or higher level
+      'child_track_location',
+      'Location Tracking',
+      description: 'Tracking your location in background',
+      importance: Importance.low,
+      showBadge: false,
     );
 
     final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
@@ -47,8 +65,9 @@ class BackgroundLocationService {
         isForegroundMode: true,
         notificationChannelId: 'child_track_location',
         initialNotificationTitle: 'Location Tracking',
-        initialNotificationContent: 'Tracking your location in background',
+        initialNotificationContent: 'Tracking Active',
         foregroundServiceNotificationId: 888,
+        foregroundServiceTypes: [AndroidForegroundType.location],
       ),
       iosConfiguration: IosConfiguration(
         autoStart: false,
@@ -58,377 +77,377 @@ class BackgroundLocationService {
     );
   }
 
-  /// Start the background service
   Future<void> start() async {
-    final service = FlutterBackgroundService();
-    // Start irrespective of checking isRunning, to ensure it revives if needed
-    AppLogger.info('Starting background location service');
-    await service.startService();
+    try {
+      final service = FlutterBackgroundService();
+      final running = await service.isRunning();
+      if (!running) {
+        StructuredLogger.log(LogTag.BG, 'Starting service manually');
+        await service.startService();
+      } else {
+        StructuredLogger.log(LogTag.BG, 'Service already running, skipping start');
+      }
+    } catch (e) {
+      StructuredLogger.log(LogTag.BG, 'Failed to start service', error: e);
+    }
+
+    if (Platform.isAndroid) {
+      try {
+        await _backgroundLocationChannel.invokeMethod('start');
+        StructuredLogger.log(LogTag.BG, 'Native background location ping armed');
+      } catch (e) {
+        StructuredLogger.log(LogTag.BG, 'Failed to arm native background location ping', error: e);
+      }
+    }
   }
 
-  /// Stop the background service
   Future<void> stop() async {
-    final service = FlutterBackgroundService();
-    // Stop irrespective of checking isRunning
-    AppLogger.info('Stopping background location service');
-    service.invoke('stop');
+    try {
+      final service = FlutterBackgroundService();
+      StructuredLogger.log(LogTag.BG, 'Stopping service manually');
+      service.invoke('stop');
+    } catch (e) {
+      StructuredLogger.log(LogTag.BG, 'Failed to stop service', error: e);
+    }
+
+    if (Platform.isAndroid) {
+      try {
+        await _backgroundLocationChannel.invokeMethod('stop');
+        StructuredLogger.log(LogTag.BG, 'Native background location ping disarmed');
+      } catch (e) {
+        StructuredLogger.log(LogTag.BG, 'Failed to disarm native background location ping', error: e);
+      }
+    }
   }
 
-  /// Check if service is running
   Future<bool> isRunning() async {
     final service = FlutterBackgroundService();
     return await service.isRunning();
   }
 }
 
+// ── Global stream state ──────────────────────────────────────────────────────
+
+StreamSubscription<Position>? _positionSubscription;
+StreamSubscription<ServiceStatus>? _serviceStatusSubscription;
+LocationStateMachine? _stateMachine;
+
+/// Adaptive tracking profile manager (shared between stream restarts).
+final _profileManager = TrackingProfileManager();
+
+bool _resubscribeScheduled = false;
+ServiceStatus? _lastServiceStatus;
+
+/// Mirrors ChildInfoService/DeviceInfoService's mapping so the string values
+/// posted to the backend stay consistent regardless of which code path
+/// reported them.
+Future<String> _getLocationPermissionStatus() async {
+  try {
+    final permissionStatus = await Permission.locationAlways.status;
+    if (permissionStatus.isGranted) return 'granted';
+    if (permissionStatus.isDenied) return 'denied';
+    if (permissionStatus.isPermanentlyDenied) return 'denied_forever';
+    final inUseStatus = await Permission.locationWhenInUse.status;
+    if (inUseStatus.isGranted) return 'while_using';
+    return permissionStatus.name;
+  } catch (e) {
+    StructuredLogger.log(LogTag.BG, 'Permission status check failed', error: e);
+    return 'unknown';
+  }
+}
+
+/// Restart the location stream whenever the profile changes.
+void _startLocationStream(ServiceInstance service) {
+  _positionSubscription?.cancel();
+
+  final LocationSettings settings;
+  if (Platform.isAndroid) {
+    settings = _profileManager.buildAndroidSettings();
+  } else if (Platform.isIOS) {
+    settings = _profileManager.buildAppleSettings();
+  } else {
+    settings = LocationSettings(
+      accuracy: LocationAccuracy.high,
+      distanceFilter: _profileManager.currentConfig.distanceFilter,
+    );
+  }
+
+  StructuredLogger.log(
+    LogTag.BG,
+    'Starting stream • profile=${_profileManager.currentProfile.name} '
+    '• interval=${_profileManager.currentConfig.interval.inSeconds}s '
+    '• filter=${_profileManager.currentConfig.distanceFilter}m',
+  );
+
+  _positionSubscription =
+      Geolocator.getPositionStream(locationSettings: settings).listen(
+    (Position position) {
+      _stateMachine?.processLocation(position);
+
+      // Dynamically adapt tracking profile based on speed
+      final changed =
+          _profileManager.updateFromSpeed(position.speed < 0 ? 0 : position.speed);
+      if (changed) {
+        StructuredLogger.log(
+          LogTag.BG,
+          'Profile changed → ${_profileManager.currentProfile.name}. Restarting stream.',
+        );
+        // Restart stream with new settings
+        _startLocationStream(service);
+      }
+
+      // Update notification
+      if (service is AndroidServiceInstance) {
+        final sm = _stateMachine;
+        String content;
+        if (sm != null && sm.isTripTracking) {
+          final mode = sm.tripMode == BgTripMode.walking ? 'Walking' : 'Vehicle';
+          // Use the last distance-filter-accepted speed, not this raw
+          // per-callback reading — a filtered/rejected point (e.g. a GPS
+          // glitch under 5m of real displacement) could otherwise still
+          // show an implausible speed in this visible banner even though
+          // it never actually fed into trip/location processing.
+          final displaySpeed = sm.lastAcceptedPosition?.speed ?? position.speed;
+          content =
+              'Trip ($mode) • ${(displaySpeed * 3.6).toStringAsFixed(1)} km/h';
+        } else {
+          content =
+              'Tracking • ${_profileManager.currentConfig.label} mode';
+        }
+        service.setForegroundNotificationInfo(
+          title: 'NaviQ Active',
+          content: content,
+        );
+      }
+    },
+    onError: (e) async {
+      StructuredLogger.log(LogTag.BG, 'Stream Error', error: e);
+
+      // The stream dies permanently on error with no auto-resubscribe —
+      // previously this meant a transient failure (or a permission revoke
+      // that later gets fixed by the child, e.g. in Settings) left location
+      // updates dead until the app was fully restarted, even though nothing
+      // else in this isolate would ever know to retry. Guard against
+      // stacking multiple pending retries if onError fires repeatedly.
+      if (_resubscribeScheduled) return;
+      _resubscribeScheduled = true;
+      Future.delayed(const Duration(seconds: 10), () async {
+        _resubscribeScheduled = false;
+        final status = await _getLocationPermissionStatus();
+        final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+        if ((status == 'granted' || status == 'while_using') && serviceEnabled) {
+          StructuredLogger.log(LogTag.BG, 'Resubscribing to location stream after error');
+          _startLocationStream(service);
+        } else {
+          StructuredLogger.log(
+            LogTag.BG,
+            'Not resubscribing — permission=$status, serviceEnabled=$serviceEnabled',
+          );
+        }
+      });
+    },
+  );
+}
+
 @pragma('vm:entry-point')
 void onStart(ServiceInstance service) async {
   try {
     DartPluginRegistrant.ensureInitialized();
+    await dotenv.load(fileName: '.env');
 
-    // Initialize notifications for background service
+    await CsvFileLogger.instance.init();
+    StructuredLogger.log(LogTag.BG, 'Service onStart initiated');
 
     if (service is AndroidServiceInstance) {
-      service.on('setAsForeground').listen((event) {
-        service.setAsForegroundService();
-      });
-      service.on('setAsBackground').listen((event) {
-        service.setAsBackgroundService();
-      });
+      await service.setAsForegroundService();
     }
 
-    service.on('stopService').listen((event) {
+    // Service control listeners
+    if (service is AndroidServiceInstance) {
+      service.on('setAsForeground').listen((_) => service.setAsForegroundService());
+      service.on('setAsBackground').listen((_) => service.setAsBackgroundService());
+    }
+
+    service.on('stopService').listen((_) {
+      StructuredLogger.log(LogTag.BG, 'Stop signal received');
+      _positionSubscription?.cancel();
+      _serviceStatusSubscription?.cancel();
+      _stateMachine?.dispose();
       service.stopSelf();
     });
 
-    // Initialize SharedPreferences in background isolate
-    await SharedPrefsService.init();
+    // Allow profile override from UI isolate
+    service.on('setProfile').listen((event) {
+      final profileName = event?['profile'] as String?;
+      if (profileName != null) {
+        final p = TrackingProfile.values.firstWhere(
+          (e) => e.name == profileName,
+          orElse: () => TrackingProfile.still,
+        );
+        final changed = _profileManager.setProfile(p);
+        if (changed) _startLocationStream(service);
+      }
+    });
 
-    // Initialize dependencies in background isolate
+    // Dependencies
+    await SharedPrefsService.init();
     final sharedPrefsService = SharedPrefsService();
+
+    if (sharedPrefsService.isParent) {
+      StructuredLogger.log(
+        LogTag.BG,
+        'Parent device detected – killing service',
+      );
+      service.stopSelf();
+      return;
+    }
+
     final connectivity = Connectivity();
     final connectivityBloc = ConnectivityBloc(connectivity: connectivity);
-    final dioClient = DioClient(connectivityBloc: connectivityBloc);
+    final dioClient = DioClient(
+      connectivityBloc: connectivityBloc,
+      sharedPrefsService: sharedPrefsService,
+    );
     final childRepo = ChildRepo(
       dioClient: dioClient,
       sharedPrefsService: sharedPrefsService,
     );
     final childLocationRepo = ChildGoogleMapsRepo();
+    final battery = Battery();
 
-    bool isTripTracking = false;
-    List<Position> tripLocations = [];
-    DateTime? tripStartTime;
-    Position? lastTrackedLocation;
-    DateTime? lastMovementTime;
-    Timer? locationTimer;
-    Timer? tripLocationTimer;
-    Timer? tripEndCheckTimer;
+    final trackingConfigService = TrackingConfigService(
+      dio: dioClient,
+      prefs: sharedPrefsService,
+    );
 
-    // Function to post trip event (declared early for use in other functions)
-    Future<void> postTripEvent() async {
-      try {
+    _stateMachine = LocationStateMachine(
+      childRepo: childRepo,
+      locationRepo: childLocationRepo,
+      prefs: sharedPrefsService,
+      battery: battery,
+      configService: trackingConfigService,
+    );
+
+    // Start with 'still' profile — adapts on first position
+    _startLocationStream(service);
+
+    _serviceStatusSubscription = Geolocator.getServiceStatusStream().listen(
+      (ServiceStatus status) async {
+        if (status != _lastServiceStatus) {
+          StructuredLogger.log(
+            LogTag.GPS,
+            'Location services ${_lastServiceStatus == null ? "" : "changed "}'
+            '→ $status'
+            '${_lastServiceStatus != null ? " (was $_lastServiceStatus)" : ""}',
+          );
+          _lastServiceStatus = status;
+        }
+        final isEnabled = status == ServiceStatus.enabled;
+        if (isEnabled) {
+          _startLocationStream(service);
+        } else {
+          _positionSubscription?.cancel();
+        }
+
+        // Report the toggle to the backend immediately, rather than waiting
+        // for the next cold-start/resume/force-refresh device-status post —
+        // this is what makes the parent's location-on/off status reflect the
+        // real OS toggle right away instead of going stale for however long
+        // it takes for one of those other triggers to happen. Also refreshes
+        // deviceStatus.lastHeartbeat, which keeps the tracking-snapshot
+        // staleness check accurate even when nothing else has changed.
+        //
+        // Also opportunistically re-checks permission here too — Android has
+        // no OS-level stream for permission changes the way it does for the
+        // service toggle, so this is a second free chance to notice the
+        // child fixed it in Settings, on top of the app-resume re-check in
+        // ChildBloc.didChangeAppLifecycleState.
         final childId = sharedPrefsService.getString('child_id');
-        final parentId = sharedPrefsService.getString('parent_id');
-
-        // Only post if logged in as child (has child_id) and NOT as parent
-        if (childId == null ||
-            childId.isEmpty ||
-            (parentId != null && parentId.isNotEmpty)) {
-          AppLogger.warning('Not logged in as child, skipping trip event post');
-          return;
+        if (childId != null && childId.isNotEmpty) {
+          final permissionStatus = await _getLocationPermissionStatus();
+          childRepo.postChildData({
+            'child_id': childId,
+            'gps_enabled': isEnabled,
+            'location_permission': permissionStatus,
+          });
         }
-
-        if (tripLocations.length < 2 || tripStartTime == null) {
-          return;
-        }
-
-        final startLocation = tripLocations.first;
-        final endLocation = tripLocations.last;
-        final endTime = DateTime.now();
-        final duration = endTime.difference(tripStartTime!);
-
-        // Get dynamic address and place name for start and end locations
-        final startLocationInfo = await childLocationRepo
-            .getAddressAndPlaceName(
-              startLocation.latitude,
-              startLocation.longitude,
-            );
-        final endLocationInfo = await childLocationRepo.getAddressAndPlaceName(
-          endLocation.latitude,
-          endLocation.longitude,
-        );
-
-        // Calculate distance and max speed
-        double totalDistance = 0.0;
-        double maxSpeed = 0.0;
-
-        for (int i = 0; i < tripLocations.length - 1; i++) {
-          final distance = await childLocationRepo.getDistanceBetweenTwoPoints(
-            tripLocations[i],
-            tripLocations[i + 1],
-          );
-          totalDistance += distance;
-
-          final speed = tripLocations[i].speed * 3.6; // Convert m/s to km/h
-          if (speed > maxSpeed) {
-            maxSpeed = speed;
-          }
-        }
-
-        final requestBody = {
-          "child_id": childId,
-          "event_type": "ride",
-          "distance_m": totalDistance.round(),
-          "duration_s": duration.inSeconds,
-          "max_speed_kmph": maxSpeed,
-          "start_lat": startLocation.latitude,
-          "start_lng": startLocation.longitude,
-          "start_address": startLocationInfo?['address'] ?? 'Unknown',
-          "start_place_name": startLocationInfo?['place_name'] ?? 'Unknown',
-          "end_lat": endLocation.latitude,
-          "end_lng": endLocation.longitude,
-          "end_address": endLocationInfo?['address'] ?? 'Unknown',
-          "end_place_name": endLocationInfo?['place_name'] ?? 'Unknown',
-          "start_time": tripStartTime!.toIso8601String(),
-          "end_time": endTime.toIso8601String(),
-        };
-
-        await childRepo.postTripEvent(requestBody);
-        AppLogger.info('Trip event posted from background service');
-      } catch (e) {
-        AppLogger.error('Error posting trip event from background: $e');
-      }
-    }
-
-    // Function to update trip location (declared early for use in timer)
-    Future<void> updateTripLocation() async {
-      if (!isTripTracking) {
-        tripLocationTimer?.cancel();
-        return;
-      }
-
-      try {
-        final childId = sharedPrefsService.getString('child_id');
-        final parentId = sharedPrefsService.getString('parent_id');
-
-        // Only track if logged in as child (has child_id) and NOT as parent
-        if (childId == null ||
-            childId.isEmpty ||
-            (parentId != null && parentId.isNotEmpty)) {
-          AppLogger.warning('Not logged in as child, stopping trip tracking');
-          isTripTracking = false;
-          tripLocationTimer?.cancel();
-          service.stopSelf();
-          return;
-        }
-
-        // Check location permission before trying to get location
-        try {
-          final permission = await Geolocator.checkPermission();
-          if (permission != LocationPermission.whileInUse &&
-              permission != LocationPermission.always) {
-            AppLogger.warning(
-              'Location permission not granted for trip tracking: $permission',
-            );
-            return;
-          }
-        } catch (e) {
-          AppLogger.error('Error checking location permission for trip: $e');
-          // Continue anyway, getChildLocation will handle the error
-        }
-
-        final newLocation = await childLocationRepo.getChildLocation();
-        if (newLocation == null) return;
-
-        // Check if child moved 10m or more from last tracked location
-        bool shouldTrack = true;
-        if (lastTrackedLocation != null) {
-          final distance = await childLocationRepo.getDistanceBetweenTwoPoints(
-            lastTrackedLocation!,
-            newLocation,
-          );
-          shouldTrack = distance >= 10.0;
-        }
-
-        if (shouldTrack) {
-          tripLocations.add(newLocation);
-          lastTrackedLocation = newLocation;
-          lastMovementTime = DateTime.now(); // Update last movement time
-
-          // Get dynamic address and place name from coordinates
-          final locationInfo = await childLocationRepo.getAddressAndPlaceName(
-            newLocation.latitude,
-            newLocation.longitude,
-          );
-
-          // Post location update to API
-          final requestBody = {
-            "address": locationInfo?['address'] ?? 'Unknown',
-            "place_name": locationInfo?['place_name'] ?? 'Unknown',
-            "child_id": childId,
-            "lat": newLocation.latitude,
-            "lng": newLocation.longitude,
-            "accuracy_m": newLocation.accuracy,
-            "speed_mps": newLocation.speed,
-            "bearing": newLocation.heading,
-            "timestamp": DateTime.now().toIso8601String(),
-          };
-          await childRepo.postChildLocation(requestBody);
-          AppLogger.info('Trip location updated from background service');
-        }
-      } catch (e) {
-        AppLogger.error('Error updating trip location from background: $e');
-      }
-    }
-
-    // Function to start trip location timer
-    void startTripLocationTimer() {
-      tripLocationTimer?.cancel();
-      tripLocationTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-        if (!isTripTracking) {
-          tripLocationTimer?.cancel();
-          return;
-        }
-        updateTripLocation();
-      });
-    }
-
-    // Function to check if trip should end (no movement for 2 minutes)
-    Future<void> checkTripEnd() async {
-      if (!isTripTracking || lastMovementTime == null) return;
-
-      final timeSinceLastMovement = DateTime.now().difference(
-        lastMovementTime!,
-      );
-      if (timeSinceLastMovement.inMinutes >= 2) {
-        // Trip ended - post trip event
-        await postTripEvent();
-
-        // Reset trip tracking
-        isTripTracking = false;
-        tripLocations.clear();
-        tripStartTime = null;
-        tripLocationTimer?.cancel();
-        tripEndCheckTimer?.cancel();
-        AppLogger.info('Trip ended automatically (no movement for 2 minutes)');
-      }
-    }
-
-    // Listen for service invocations
-    service.on('stop').listen((event) {
-      locationTimer?.cancel();
-      tripLocationTimer?.cancel();
-      tripEndCheckTimer?.cancel();
-      service.stopSelf();
-    });
-
-    // Function to get and post location
-    Future<void> postLocation() async {
-      try {
-        final childId = sharedPrefsService.getString('child_id');
-        final parentId = sharedPrefsService.getString('parent_id');
-
-        // Only track if logged in as child (has child_id) and NOT as parent
-        if (childId == null ||
-            childId.isEmpty ||
-            (parentId != null && parentId.isNotEmpty)) {
-          AppLogger.warning(
-            'Not logged in as child, stopping location tracking',
-          );
-          service.stopSelf();
-          return;
-        }
-
-        // Check location permission before trying to get location
-        try {
-          final permission = await Geolocator.checkPermission();
-          if (permission != LocationPermission.whileInUse &&
-              permission != LocationPermission.always) {
-            AppLogger.warning('Location permission not granted: $permission');
-            // Don't stop service, just skip this location update
-            // Permission might be granted later
-            return;
-          }
-        } catch (e) {
-          AppLogger.error('Error checking location permission: $e');
-          // Continue anyway, getChildLocation will handle the error
-        }
-
-        final location = await childLocationRepo.getChildLocation();
-        if (location == null) {
-          AppLogger.warning('Failed to get location');
-          return;
-        }
-
-        // Check if child moved 10m or more (and not already tracking a trip)
-        if (lastTrackedLocation != null && !isTripTracking) {
-          final distance = await childLocationRepo.getDistanceBetweenTwoPoints(
-            lastTrackedLocation!,
-            location,
-          );
-
-          // If moved 10m or more, automatically start trip tracking
-          if (distance >= 10.0) {
-            isTripTracking = true;
-            tripStartTime = DateTime.now();
-            lastMovementTime = DateTime.now();
-            tripLocations = [lastTrackedLocation!, location];
-            lastTrackedLocation = location;
-            AppLogger.info('Trip tracking started automatically');
-            startTripLocationTimer();
-
-            // Start trip end check timer
-            tripEndCheckTimer?.cancel();
-            tripEndCheckTimer = Timer.periodic(const Duration(minutes: 1), (_) {
-              checkTripEnd();
-            });
-            return;
-          }
-        }
-
-        // Get dynamic address and place name from coordinates
-        final locationInfo = await childLocationRepo.getAddressAndPlaceName(
-          location.latitude,
-          location.longitude,
-        );
-
-        final requestBody = {
-          "address": locationInfo?['address'] ?? 'Unknown',
-          "place_name": locationInfo?['place_name'] ?? 'Unknown',
-          "child_id": childId,
-          "lat": location.latitude,
-          "lng": location.longitude,
-          "accuracy_m": location.accuracy,
-          "speed_mps": location.speed,
-          "bearing": location.heading,
-          "timestamp": DateTime.now().toIso8601String(),
-        };
-
-        await childRepo.postChildLocation(requestBody);
-        lastTrackedLocation = location;
-        AppLogger.info('Location posted from background service');
-      } catch (e) {
-        AppLogger.error('Error posting location from background: $e');
-      }
-    }
-
-    // Start location tracking timer (every 30 seconds)
-    locationTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      postLocation();
-    });
-
-    // Initial location post - delay to allow service to fully initialize
-    // and ensure permissions are ready
-    Future.delayed(const Duration(seconds: 2), () {
-      postLocation();
-    });
+      },
+      onError: (e) {
+        StructuredLogger.log(LogTag.BG, 'Service Status Stream Error', error: e);
+      },
+    );
   } catch (e) {
-    AppLogger.error('Error in background service onStart: $e');
+    StructuredLogger.log(LogTag.BG, 'onStart Fatal Error', error: e);
   }
 }
 
 @pragma('vm:entry-point')
 Future<bool> onIosBackground(ServiceInstance service) async {
   DartPluginRegistrant.ensureInitialized();
+  StructuredLogger.log(LogTag.BG, 'iOS Background Fetch Triggered');
+
+  // Previously a no-op. iOS invokes this — instead of keeping the continuous
+  // position stream from onStart/onForeground alive — once the app has been
+  // backgrounded long enough for iOS to suspend it. iOS schedules background
+  // fetch opportunistically (commonly tens of minutes apart, entirely OS
+  // controlled), so doing nothing here meant location pings — and therefore
+  // geofence detection, which depends on them (see LocationStateMachine) —
+  // could stall for that entire window until the app was foregrounded again.
+  // Take a single quick fix and post it so the server's existing near-real-time
+  // geofence pipeline (QueueService → geofence.service.checkGeofencesBatch)
+  // has something fresh to evaluate instead of waiting for app resume.
+  try {
+    await dotenv.load(fileName: '.env');
+    await SharedPrefsService.init();
+    final prefs = SharedPrefsService();
+
+    if (prefs.isParent) return true;
+
+    final childId = prefs.getString('child_id');
+    if (childId == null || childId.isEmpty) {
+      StructuredLogger.log(LogTag.BG, 'iOS Background Fetch: no child_id – skipping');
+      return true;
+    }
+
+    final position = await Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.high,
+      timeLimit: const Duration(seconds: 20),
+    );
+
+    final dioClient = DioClient(sharedPrefsService: prefs);
+    final childRepo = ChildRepo(dioClient: dioClient, sharedPrefsService: prefs);
+
+    final response = await childRepo.postChildLocation({
+      'child_id': childId,
+      'lat': position.latitude,
+      'lng': position.longitude,
+      'accuracy': position.accuracy,
+      'accuracy_m': position.accuracy,
+      'speed': position.speed < 0 ? 0.0 : position.speed,
+      'speed_mps': position.speed < 0 ? 0.0 : position.speed,
+      'bearing': position.heading < 0 ? 0.0 : position.heading,
+      'timestamp': DateTime.now().toUtc().toIso8601String(),
+    });
+
+    StructuredLogger.log(
+      LogTag.BG,
+      'iOS Background Fetch: posted location fix (success=${response.isSuccess})',
+    );
+    StructuredLogger.log(
+      LogTag.LOCATION,
+      'source=ios_background_fetch lat=${position.latitude} lng=${position.longitude} '
+      'acc=${position.accuracy.toStringAsFixed(1)}m '
+      'status=${response.isSuccess ? "posted" : "failed"}',
+      buffered: true,
+    );
+  } catch (e) {
+    StructuredLogger.log(LogTag.BG, 'iOS Background Fetch: failed to post location', error: e);
+    StructuredLogger.log(
+      LogTag.LOCATION,
+      'source=ios_background_fetch status=failed',
+      error: e,
+    );
+  }
+
   return true;
 }

@@ -1,3 +1,5 @@
+import 'package:child_track/core/utils/parser_utils.dart';
+
 class LocationInfo {
   final double lat;
   final double lng;
@@ -16,24 +18,28 @@ class LocationInfo {
   });
 
   factory LocationInfo.fromJson(Map<String, dynamic> json) {
-    // Helper function to safely convert to double (handles both string and number)
-    double toDouble(dynamic value) {
-      if (value == null) return 0.0;
-      if (value is double) return value;
-      if (value is int) return value.toDouble();
-      if (value is String) {
-        return double.tryParse(value) ?? 0.0;
-      }
-      return 0.0;
-    }
-
     return LocationInfo(
-      lat: toDouble(json['lat']),
-      lng: toDouble(json['lng']),
+      lat: safeToDouble(json['lat'] ?? json['latitude']),
+      lng: safeToDouble(json['lng'] ?? json['longitude']),
       address: json['address'] ?? '',
       placeName: json['place_name'] ?? '',
-      since: json['since'] ?? '',
-      durationMinutes: json['duration_minutes'] ?? 0,
+      // The server's actual ISO device_timestamp for this location comes
+      // through as last_updated_at — last_update/since_time (checked below
+      // as fallbacks) are either not present or, for since_time, a
+      // human-display string like "06:11 pm" that DateTime.tryParse can't
+      // parse. Confirmed against a real /parent/home response: since_time
+      // held "06:11 pm" while last_updated_at held the real ISO timestamp,
+      // so this field was silently getting the unparseable display string
+      // instead. It happened to fail open safely everywhere it's consumed
+      // (HomepageBloc._isNewerLocationUpdate treats unparseable as "newer,
+      // apply it"), but the timestamp itself was never the one actually in
+      // the response.
+      since:
+          json['last_updated_at'] ??
+          json['last_update'] ??
+          json['since_time'] ??
+          '',
+      durationMinutes: safeToInt(json['duration_minutes']),
     );
   }
 

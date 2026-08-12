@@ -9,7 +9,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.example.childTrack</string>
+	<string>com.truenyx.naviq</string>
 	<key>PROJECT_ID</key>
 	<string>naviq-b6fa4</string>
 	<key>STORAGE_BUCKET</key>
@@ -25,6 +25,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:749965493310:ios:b1ce651695f2ebbcf5fd6f</string>
+	<string>1:749965493310:ios:2f73f328a142ceaef5fd6f</string>
 </dict>
 </plist>

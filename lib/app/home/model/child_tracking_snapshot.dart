@@ -1,0 +1,91 @@
+class ChildTrackingSnapshot {
+  final String snapshotId;
+  final DateTime serverTime;
+  final String deviceStatus;
+  final String gpsStatus;
+  final String permissionStatus;
+  final LatestLocation? latestLocation;
+  final UiDirective uiDirective;
+
+  ChildTrackingSnapshot({
+    required this.snapshotId,
+    required this.serverTime,
+    required this.deviceStatus,
+    required this.gpsStatus,
+    required this.permissionStatus,
+    this.latestLocation,
+    required this.uiDirective,
+  });
+
+  factory ChildTrackingSnapshot.fromJson(Map<String, dynamic> json) {
+    return ChildTrackingSnapshot(
+      snapshotId: json['snapshot_id'] ?? '',
+      serverTime: DateTime.parse(json['server_time'] ?? DateTime.now().toIso8601String()),
+      deviceStatus: json['device_status'] ?? 'UNKNOWN',
+      gpsStatus: json['gps_status'] ?? 'UNKNOWN',
+      permissionStatus: json['permission_status'] ?? 'UNKNOWN',
+      latestLocation: json['latest_location'] != null
+          ? LatestLocation.fromJson(json['latest_location'])
+          : null,
+      uiDirective: UiDirective.fromJson(json['ui_directive'] ?? {}),
+    );
+  }
+}
+
+class LatestLocation {
+  final double lat;
+  final double lng;
+  final double accuracyM;
+  final double qualityScore;
+  final String provider;
+  final DateTime deviceTimestamp;
+  final DateTime receivedTimestamp;
+
+  LatestLocation({
+    required this.lat,
+    required this.lng,
+    required this.accuracyM,
+    required this.qualityScore,
+    required this.provider,
+    required this.deviceTimestamp,
+    required this.receivedTimestamp,
+  });
+
+  factory LatestLocation.fromJson(Map<String, dynamic> json) {
+    return LatestLocation(
+      lat: (json['lat'] ?? 0.0).toDouble(),
+      lng: (json['lng'] ?? 0.0).toDouble(),
+      accuracyM: (json['accuracy_m'] ?? 0.0).toDouble(),
+      qualityScore: (json['quality_score'] ?? 0.0).toDouble(),
+      provider: json['provider'] ?? '',
+      deviceTimestamp: DateTime.parse(json['device_timestamp'] ?? DateTime.now().toIso8601String()),
+      receivedTimestamp: DateTime.parse(json['received_timestamp'] ?? DateTime.now().toIso8601String()),
+    );
+  }
+}
+
+class UiDirective {
+  final String displayState;
+  final bool showLiveMarker;
+  final bool showStaleMarker;
+  final String bannerMessage;
+  final String actionRequired;
+
+  UiDirective({
+    required this.displayState,
+    required this.showLiveMarker,
+    required this.showStaleMarker,
+    required this.bannerMessage,
+    required this.actionRequired,
+  });
+
+  factory UiDirective.fromJson(Map<String, dynamic> json) {
+    return UiDirective(
+      displayState: json['display_state'] ?? 'LIVE',
+      showLiveMarker: json['show_live_marker'] ?? true,
+      showStaleMarker: json['show_stale_marker'] ?? false,
+      bannerMessage: json['banner_message'] ?? '',
+      actionRequired: json['action_required'] ?? '',
+    );
+  }
+}

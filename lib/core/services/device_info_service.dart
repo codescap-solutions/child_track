@@ -1,20 +1,20 @@
 import 'dart:io';
-import 'package:battery_plus/battery_plus.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/services.dart';
 import 'package:child_track/app/home/model/device_model.dart';
 import 'package:child_track/app/social_apps/model/installed_app_model.dart';
 import 'package:child_track/core/utils/app_logger.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class DeviceInfoService {
   static final DeviceInfoService _instance = DeviceInfoService._internal();
   factory DeviceInfoService() => _instance;
   DeviceInfoService._internal();
 
-  final Battery _battery = Battery();
   final Connectivity _connectivity = Connectivity();
   static const MethodChannel _channel = MethodChannel(
-    'com.example.child_track/device_info',
+    'com.truenyx.naviq/device_info',
   );
 
   /// Get current device information
@@ -29,6 +29,35 @@ class DeviceInfoService {
       // Get sound profile
       final soundProfile = await _getSoundProfile();
 
+      // Get charging status
+      final chargingStatus = await isCharging();
+
+      // Get location tracking context
+      bool gpsEnabled = false;
+      String locationPermissionStatus = 'unknown';
+      try {
+        gpsEnabled = await Geolocator.isLocationServiceEnabled();
+        
+        final permissionStatus = await Permission.locationAlways.status;
+        if (permissionStatus.isGranted) {
+          locationPermissionStatus = 'granted';
+        } else if (permissionStatus.isDenied) {
+          locationPermissionStatus = 'denied';
+        } else if (permissionStatus.isPermanentlyDenied) {
+          locationPermissionStatus = 'denied_forever';
+        } else {
+          // Check if only while in use is granted (which means background is restricted)
+          final inUseStatus = await Permission.locationWhenInUse.status;
+          if (inUseStatus.isGranted) {
+            locationPermissionStatus = 'while_using';
+          } else {
+            locationPermissionStatus = permissionStatus.name;
+          }
+        }
+      } catch (e) {
+        AppLogger.error('Error getting location status: $e');
+      }
+
       return DeviceInfo(
         batteryPercentage: batteryPercentage,
         networkStatus: networkInfo['status'] ?? 'unknown',
@@ -36,17 +65,23 @@ class DeviceInfoService {
         soundProfile: soundProfile,
         isOnline: networkInfo['isOnline'] ?? false,
         onlineSince: _getCurrentTime(),
+        isCharging: chargingStatus,
+        gpsEnabled: gpsEnabled,
+        locationPermissionStatus: locationPermissionStatus,
       );
     } catch (e) {
       AppLogger.error('Error getting device info: $e');
       // Return default values on error
       return DeviceInfo(
+        isCharging: false,
         batteryPercentage: 0,
         networkStatus: 'unknown',
         networkType: 'unknown',
         soundProfile: 'unknown',
         isOnline: false,
         onlineSince: _getCurrentTime(),
+        gpsEnabled: false,
+        locationPermissionStatus: 'unknown',
       );
     }
   }
@@ -54,11 +89,28 @@ class DeviceInfoService {
   /// Get battery percentage
   Future<int> _getBatteryPercentage() async {
     try {
-      final batteryLevel = await _battery.batteryLevel;
-      return batteryLevel;
+      if (Platform.isIOS || Platform.isAndroid) {
+        final result = await _channel.invokeMethod<int>('getBatteryPercentage');
+        return result ?? 0;
+      }
+      return 0;
     } catch (e) {
       AppLogger.error('Error getting battery percentage: $e');
       return 0;
+    }
+  }
+
+  /// Get charging status
+  Future<bool> isCharging() async {
+    try {
+      if (Platform.isIOS || Platform.isAndroid) {
+        final result = await _channel.invokeMethod<bool>('isCharging');
+        return result ?? false;
+      }
+      return false;
+    } catch (e) {
+      AppLogger.error('Error getting charging status: $e');
+      return false;
     }
   }
 
@@ -68,7 +120,7 @@ class DeviceInfoService {
       final connectivityResults = await _connectivity.checkConnectivity();
 
       String status = 'disconnected';
-      String type = 'none';
+      String type = 'None';
       bool isOnline = false;
 
       // Prioritize connection types: wifi > mobile > ethernet > others
@@ -78,23 +130,23 @@ class DeviceInfoService {
         isOnline = true;
       } else if (connectivityResults.contains(ConnectivityResult.mobile)) {
         status = 'connected';
-        type = 'mobile';
+        type = 'cellular';
         isOnline = true;
       } else if (connectivityResults.contains(ConnectivityResult.ethernet)) {
         status = 'connected';
-        type = 'ethernet';
+        type = 'Ethernet';
         isOnline = true;
       } else if (connectivityResults.contains(ConnectivityResult.vpn)) {
         status = 'connected';
-        type = 'vpn';
+        type = 'cellular';
         isOnline = true;
       } else if (connectivityResults.contains(ConnectivityResult.bluetooth)) {
         status = 'connected';
-        type = 'bluetooth';
+        type = 'cellular';
         isOnline = true;
       } else if (connectivityResults.contains(ConnectivityResult.other)) {
         status = 'connected';
-        type = 'other';
+        type = 'cellular';
         isOnline = true;
       } else if (connectivityResults.contains(ConnectivityResult.none)) {
         status = 'disconnected';
@@ -139,7 +191,40 @@ class DeviceInfoService {
     bool includeSystemApps = false,
   }) async {
     try {
-      if (Platform.isAndroid || Platform.isIOS) {
+      if (Platform.isIOS) {
+        const iosChannel = MethodChannel('com.truenyx.naviq/parental_control');
+        final result = await iosChannel.invokeMethod<List<dynamic>>(
+          'getInstalledApps',
+          {'includeSystemApps': includeSystemApps},
+        );
+        if (result != null) {
+          final apps = <InstalledApp>[];
+          for (final item in result) {
+            try {
+              final map = item as Map;
+              final convertedMap = <String, dynamic>{};
+              map.forEach((key, value) {
+                final stringKey = key.toString();
+                if (value == null) {
+                  convertedMap[stringKey] = null;
+                } else if (value is int || value is String || value is bool) {
+                  convertedMap[stringKey] = value;
+                } else {
+                  convertedMap[stringKey] = value.toString();
+                }
+              });
+              apps.add(InstalledApp.fromJson(convertedMap));
+            } catch (e) {
+              AppLogger.error('Error parsing iOS app item: $e');
+              continue;
+            }
+          }
+          return apps;
+        }
+        return [];
+      }
+
+      if (Platform.isAndroid) {
         final result = await _channel.invokeMethod<List<dynamic>>(
           'getInstalledApps',
           {'includeSystemApps': includeSystemApps},
@@ -176,6 +261,110 @@ class DeviceInfoService {
     } catch (e) {
       AppLogger.error('Error getting installed apps: $e');
       return [];
+    }
+  }
+
+  Future checkUsagePermission() async {
+    try {
+      if (Platform.isIOS) {
+        const iosChannel = MethodChannel('com.truenyx.naviq/parental_control');
+        final hasPermission = await iosChannel.invokeMethod<bool>(
+          'checkScreenTimePermission',
+        );
+        if (hasPermission == false) {
+          await iosChannel.invokeMethod('requestScreenTimePermission');
+        }
+        return;
+      }
+
+      if (Platform.isAndroid) {
+        final hasPermission = await _channel.invokeMethod<bool>(
+          'checkUsagePermission',
+        );
+        if (hasPermission == false) {
+          await _channel.invokeMethod('openUsageSettings');
+        }
+      }
+    } catch (e) {
+      AppLogger.error('Error checking usage permission: $e');
+    }
+  }
+
+  Future<bool> checkAccessibilityPermission() async {
+    try {
+      if (Platform.isIOS) {
+        const iosChannel = MethodChannel('com.truenyx.naviq/parental_control');
+        return await iosChannel.invokeMethod<bool>(
+              'checkScreenTimePermission',
+            ) ??
+            false;
+      }
+
+      if (Platform.isAndroid) {
+        return await _channel.invokeMethod<bool>(
+              'checkAccessibilityPermission',
+            ) ??
+            false;
+      }
+      return false;
+    } catch (e) {
+      AppLogger.error('Error checking accessibility permission: $e');
+      return false;
+    }
+  }
+
+  Future<void> openAccessibilitySettings() async {
+    try {
+      if (Platform.isIOS) {
+        const iosChannel = MethodChannel('com.truenyx.naviq/parental_control');
+        await iosChannel.invokeMethod('requestScreenTimePermission');
+        return;
+      }
+
+      if (Platform.isAndroid) {
+        await _channel.invokeMethod('openAccessibilitySettings');
+      }
+    } catch (e) {
+      AppLogger.error('Error opening accessibility settings: $e');
+    }
+  }
+
+  Future<void> updateLockList(List<String> packages) async {
+    try {
+      if (Platform.isIOS) {
+        const iosChannel = MethodChannel('com.truenyx.naviq/parental_control');
+        await iosChannel.invokeMethod('updateLockList', packages);
+        return;
+      }
+
+      if (Platform.isAndroid) {
+        await _channel.invokeMethod('updateLockList', packages);
+      }
+    } catch (e) {
+      AppLogger.error('Error updating lock list: $e');
+    }
+  }
+
+  /// Enable or disable web filtering (18+ content)
+  Future<void> setWebFiltering(bool enabled) async {
+    try {
+      AppLogger.info('DeviceInfoService: Setting web filtering to $enabled');
+      if (Platform.isIOS) {
+        const iosChannel = MethodChannel('com.truenyx.naviq/parental_control');
+        final result = await iosChannel.invokeMethod(
+          'setWebFiltering',
+          enabled,
+        );
+        AppLogger.info('DeviceInfoService: iOS result: $result');
+        return;
+      }
+
+      if (Platform.isAndroid) {
+        final result = await _channel.invokeMethod('setWebFiltering', enabled);
+        AppLogger.info('DeviceInfoService: Android result: $result');
+      }
+    } catch (e) {
+      AppLogger.error('DeviceInfoService: Error setting web filtering: $e');
     }
   }
 }

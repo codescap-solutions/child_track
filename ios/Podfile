@@ -1,5 +1,5 @@
-# Uncomment this line to define a global platform for your project
-platform :ios, '14.0'
+# Minimum iOS version required by GoogleMaps (16.0) and workmanager_apple (14.0)
+platform :ios, '16.0'
 
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
@@ -36,18 +36,33 @@ target 'Runner' do
   end
 end
 
+pre_install do |installer|
+  # Flutter generates FlutterGeneratedPluginSwiftPackage/Package.swift with
+  # .iOS("13.0") hardcoded, which breaks workmanager_apple (requires 14.0+).
+  # Patch the file to use 16.0 so SPM resolves correctly.
+  generated_package_swift = File.expand_path(
+    'Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage/Package.swift',
+    __FILE__
+  )
+  if File.exist?(generated_package_swift)
+    content = File.read(generated_package_swift)
+    patched = content.gsub(/\.iOS\("13\.0"\)/, '.iOS("16.0")')
+    if content != patched
+      File.write(generated_package_swift, patched)
+      puts "✅ Patched FlutterGeneratedPluginSwiftPackage/Package.swift: iOS 13.0 → 16.0"
+    end
+  end
+end
+
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
     target.build_configurations.each do |config|
-      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
+      # Clamp all pod targets to iOS 16.0 (required by GoogleMaps)
+      current = config.build_settings['IPHONEOS_DEPLOYMENT_TARGET']
+      if current.nil? || current.to_f < 16.0
+        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '16.0'
+      end
     end
-  end
-  
-  # Inject Google Maps API Key from .env file
-  script_path = File.join(__dir__, 'scripts/inject_env.rb')
-  if File.exist?(script_path)
-    load script_path
-    inject_api_key(__dir__) if defined?(inject_api_key)
   end
 end

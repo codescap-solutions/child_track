@@ -1,4 +1,7 @@
+import 'package:child_track/app/home/model/trip_list_model.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:child_track/core/utils/parser_utils.dart';
 
 class TripSegment {
   final String segmentId;
@@ -14,6 +17,8 @@ class TripSegment {
   final LatLng startLocation;
   final LatLng endLocation;
   final double progress;
+  final String rideMode;
+  final int eventsCount;
 
   TripSegment({
     required this.segmentId,
@@ -29,6 +34,8 @@ class TripSegment {
     required this.startLocation,
     required this.endLocation,
     required this.progress,
+    required this.rideMode,
+    required this.eventsCount,
   });
 
   factory TripSegment.fromJson(Map<String, dynamic> json) {
@@ -39,23 +46,82 @@ class TripSegment {
       endTime: json['end_time'] ?? '',
       startPlace: json['start_point']?['name'] ?? '',
       endPlace: json['end_point']?['name'] ?? '',
-      distanceKm: (json['distance_km'] ?? 0).toDouble(),
-      durationMinutes: json['duration_minutes'] ?? 0,
-      maxSpeedKmph: (json['max_speed_kmph'] ?? 0).toDouble(),
-      polylinePoints: (json['polyline_points'] as List<dynamic>)
-          .map(
-            (point) => LatLng(point['latitude'] ?? 0, point['longitude'] ?? 0),
-          )
-          .toList(),
+      distanceKm: safeToDouble(json['distance_km']),
+      durationMinutes: safeToInt(json['duration_minutes']),
+      maxSpeedKmph: safeToDouble(json['max_speed_kmph']),
+      polylinePoints: PolylineParser.parse(json['polyline_points']),
       startLocation: LatLng(
-        json['start_latitude'] ?? 0,
-        json['start_longitude'] ?? 0,
+        safeToDouble(json['start_latitude'] ?? json['start_point']?['lat']),
+        safeToDouble(json['start_longitude'] ?? json['start_point']?['lng']),
       ),
       endLocation: LatLng(
-        json['end_latitude'] ?? 0,
-        json['end_longitude'] ?? 0,
+        safeToDouble(json['end_latitude'] ?? json['end_point']?['lat']),
+        safeToDouble(json['end_longitude'] ?? json['end_point']?['lng']),
       ),
-      progress: (json['progress'] ?? 0).toDouble(),
+      progress: safeToDouble(json['progress']),
+      rideMode: json['rideMode'] ?? json['ride_mode'] ?? 'unknown',
+      eventsCount: safeToInt(json['events_count']),
     );
+  }
+
+  factory TripSegment.fromTrip(Trip trip) {
+    return TripSegment(
+      segmentId: trip.tripId,
+      type: 'ride',
+      startTime: trip.startTime,
+      endTime: trip.endTime,
+      startPlace: trip.fromPlace.isNotEmpty ? trip.fromPlace : 'Unknown Location',
+      endPlace: trip.toPlace.isNotEmpty ? trip.toPlace : 'Unknown Location',
+      distanceKm: double.tryParse(trip.distanceKm) ?? 0.0,
+      durationMinutes: _calculateDurationMinutes(trip.startTime, trip.endTime),
+      maxSpeedKmph: _calculateMaxSpeedKmph(trip.points),
+      polylinePoints: trip.points.map((p) => LatLng(p.lat, p.lng)).toList(),
+      startLocation: trip.points.isNotEmpty
+          ? LatLng(trip.points.first.lat, trip.points.first.lng)
+          : const LatLng(0, 0),
+      endLocation: trip.points.isNotEmpty
+          ? LatLng(trip.points.last.lat, trip.points.last.lng)
+          : const LatLng(0, 0),
+      progress: 100.0,
+      rideMode: trip.rideMode,
+      eventsCount: trip.eventsCount,
+    );
+  }
+
+  static double _calculateMaxSpeedKmph(List<TripPoint> points) {
+    if (points.length < 2) return 0.0;
+    double maxKmh = 0.0;
+    for (int i = 1; i < points.length; i++) {
+      final prev = points[i - 1];
+      final curr = points[i];
+      final pointSpeedKmh = curr.speedKmh;
+      if (pointSpeedKmh > 0 && pointSpeedKmh < 250) {
+        if (pointSpeedKmh > maxKmh) maxKmh = pointSpeedKmh;
+        continue;
+      }
+      try {
+        final distM = Geolocator.distanceBetween(
+          prev.lat, prev.lng, curr.lat, curr.lng,
+        );
+        final prevTs = DateTime.parse(prev.ts);
+        final currTs = DateTime.parse(curr.ts);
+        final deltaS = currTs.difference(prevTs).inSeconds.abs();
+        if (deltaS > 0 && deltaS < 120) {
+          final speedKmh = (distM / deltaS) * 3.6;
+          if (speedKmh > maxKmh && speedKmh < 250) maxKmh = speedKmh;
+        }
+      } catch (_) {}
+    }
+    return double.parse(maxKmh.toStringAsFixed(1));
+  }
+
+  static int _calculateDurationMinutes(String startStr, String endStr) {
+    try {
+      final start = DateTime.parse(startStr);
+      final end = DateTime.parse(endStr);
+      return end.difference(start).inMinutes;
+    } catch (_) {
+      return 0;
+    }
   }
 }

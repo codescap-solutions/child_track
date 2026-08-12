@@ -9,7 +9,9 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/dio_client.dart';
+import 'package:child_track/core/services/screen_time_sync_service.dart';
 import '../services/shared_prefs_service.dart';
+import '../services/tracking/tracking_config_service.dart';
 import '../../app/auth/view_model/auth_repository.dart';
 import '../../app/auth/view_model/bloc/auth_bloc.dart';
 import '../../app/home/view_model/bloc/homepage_bloc.dart';
@@ -18,6 +20,18 @@ import '../../app/childapp/view_model/bloc/child_bloc.dart';
 import '../../app/addplace/service/saved_places_service.dart';
 import '../../app/social_apps/view_model/social_apps_repo.dart';
 import '../../app/social_apps/view_model/bloc/social_apps_bloc.dart';
+import '../../app/geofencing/view_model/geofence_repository.dart';
+import '../../app/geofencing/view_model/bloc/geofence_bloc.dart';
+import '../../app/subscription/view_model/subscription_repository.dart';
+import 'package:child_track/core/services/lock_sync_service.dart';
+import '../../app/social_apps/view_model/app_lock_repository.dart';
+import '../../app/social_apps/view_model/bloc/app_lock_bloc.dart';
+import '../../app/social_apps/view_model/time_limit_repository.dart';
+import '../../app/social_apps/view_model/bloc/time_limit_bloc.dart';
+import '../services/device_info_service.dart';
+import 'package:child_track/core/services/chat_socket_service.dart';
+import 'package:child_track/app/chat/view_model/chat_repository.dart';
+import 'package:child_track/app/chat/view_model/bloc/chat_bloc.dart';
 
 final GetIt injector = GetIt.instance;
 
@@ -42,6 +56,14 @@ Future<void> initializeDependencies() async {
   // Register DioClient (requires ConnectivityBloc)
   injector.registerSingleton<DioClient>(
     DioClient(connectivityBloc: injector<ConnectivityBloc>()),
+  );
+
+  // Register TrackingConfigService
+  injector.registerLazySingleton<TrackingConfigService>(
+    () => TrackingConfigService(
+      dio: injector<DioClient>(),
+      prefs: injector<SharedPrefsService>(),
+    ),
   );
 
   // Register Repositories
@@ -78,6 +100,19 @@ Future<void> initializeDependencies() async {
     () => SocialAppsRepository(dioClient: injector<DioClient>()),
   );
 
+  injector.registerLazySingleton<GeofenceRepository>(
+    () => GeofenceRepository(
+      dioClient: injector<DioClient>(),
+      sharedPrefsService: injector<SharedPrefsService>(),
+    ),
+  );
+
+  injector.registerLazySingleton<SubscriptionRepository>(
+    () => SubscriptionRepository(
+      dioClient: injector<DioClient>(),
+    ),
+  );
+
   // Register blocs
   injector.registerLazySingleton<AuthBloc>(
     () => AuthBloc(
@@ -94,12 +129,22 @@ Future<void> initializeDependencies() async {
       socketService: injector<SocketService>(),
     ),
   );
+  injector.registerLazySingleton<ScreenTimeSyncService>(
+    () => ScreenTimeSyncService(
+      injector<ChildInfoService>(),
+      injector<ChildRepo>(),
+      injector<SharedPrefsService>(),
+      injector<DioClient>(),
+    ),
+  );
+
   injector.registerLazySingleton<ChildBloc>(
     () => ChildBloc(
       sharedPrefsService: injector<SharedPrefsService>(),
       deviceInfoService: injector<ChildInfoService>(),
       childRepo: injector<ChildRepo>(),
       childLocationRepo: injector<ChildGoogleMapsRepo>(),
+      screenTimeSyncService: injector<ScreenTimeSyncService>(),
     ),
   );
 
@@ -111,8 +156,60 @@ Future<void> initializeDependencies() async {
     ),
   );
 
+  injector.registerLazySingleton<GeofenceBloc>(
+    () => GeofenceBloc(
+      repository: injector<GeofenceRepository>(),
+      homeRepository: injector<HomeRepository>(),
+    ),
+  );
+
   // Register Firebase Notification Service
   injector.registerLazySingleton<FirebaseNotificationService>(
     () => FirebaseNotificationService(),
+  );
+
+  // Register LockSyncService
+  injector.registerLazySingleton<LockSyncService>(() => LockSyncService());
+
+  // Register AppLockRepository
+  injector.registerLazySingleton<AppLockRepository>(
+    () => AppLockRepository(dioClient: injector<DioClient>()),
+  );
+
+  // Register AppLockBloc
+  injector.registerLazySingleton<AppLockBloc>(
+    () => AppLockBloc(
+      lockSyncService: injector<LockSyncService>(),
+      repository: injector<AppLockRepository>(),
+      sharedPrefsService: injector<SharedPrefsService>(),
+    ),
+  );
+
+  // Register TimeLimitRepository + TimeLimitBloc (daily app time limits +
+  // ask-for-more-time flow)
+  injector.registerLazySingleton<TimeLimitRepository>(
+    () => TimeLimitRepository(dioClient: injector<DioClient>()),
+  );
+  injector.registerLazySingleton<TimeLimitBloc>(
+    () => TimeLimitBloc(
+      repository: injector<TimeLimitRepository>(),
+      sharedPrefsService: injector<SharedPrefsService>(),
+    ),
+  );
+
+  // Register DeviceInfoService
+  injector.registerLazySingleton<DeviceInfoService>(() => DeviceInfoService());
+
+  // Register Chat Services
+  injector.registerLazySingleton<ChatSocketService>(() => ChatSocketService());
+  injector.registerLazySingleton<ChatRepository>(
+    () => ChatRepository(dioClient: injector<DioClient>()),
+  );
+  injector.registerLazySingleton<ChatBloc>(
+    () => ChatBloc(
+      chatRepository: injector<ChatRepository>(),
+      chatSocketService: injector<ChatSocketService>(),
+      sharedPrefsService: injector<SharedPrefsService>(),
+    ),
   );
 }

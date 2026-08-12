@@ -9,13 +9,27 @@ class SocialAppsRepository extends BaseService {
   Future<BaseResponse<AppUsageResponse>> getAppUsage({
     required String childId,
     required String date,
+    String? startDate,
+    String? endDate,
   }) async {
+    // Use app-usage/summary endpoint when requesting a date range (Week tab)
+    final endpoint = (startDate != null && endDate != null)
+        ? ApiEndpoints.getAppUsageSummary
+        : ApiEndpoints.getAppUsage;
+
+    // The backend expects `userId` and `date`
+    final queryParams = <String, dynamic>{'userId': childId};
+
+    if (startDate != null && endDate != null) {
+      queryParams['startDate'] = startDate;
+      queryParams['endDate'] = endDate;
+    } else {
+      queryParams['date'] = date;
+    }
+
     final response = await get<Map<String, dynamic>>(
-      ApiEndpoints.getAppUsage,
-      queryParameters: {
-        'userId': childId, // user provided 'userId' in query param example
-        'date': date,
-      },
+      endpoint,
+      queryParameters: queryParams,
     );
 
     if (response.isSuccess && response.data != null) {

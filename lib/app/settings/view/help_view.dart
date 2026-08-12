@@ -78,7 +78,14 @@ class HelpView extends StatelessWidget {
                 _articleTile(context, tiles[index]),
           ),
           const SizedBox(height: AppSizes.spacingL),
-          TextButton(onPressed: () {}, child: const Text('Chat With Us')),
+          TextButton(
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Chat support coming soon')),
+              );
+            },
+            child: const Text('Chat With Us'),
+          ),
         ],
       ),
     );

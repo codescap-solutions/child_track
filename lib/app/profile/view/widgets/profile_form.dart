@@ -4,10 +4,21 @@ import 'package:child_track/core/constants/app_sizes.dart';
 import 'package:child_track/core/constants/app_text_styles.dart';
 import 'package:child_track/core/widgets/common_button.dart';
 import 'package:child_track/core/widgets/common_textfield.dart';
+import 'package:child_track/core/services/shared_prefs_service.dart';
+import 'package:child_track/core/di/injector.dart';
+import 'package:child_track/core/models/child_profile.dart';
 
 class ProfileForm extends StatefulWidget {
   final bool isEdit;
-  const ProfileForm({super.key, required this.isEdit});
+  final String? initialName;
+  final String? initialCode;
+
+  const ProfileForm({
+    super.key,
+    required this.isEdit,
+    this.initialName,
+    this.initialCode,
+  });
 
   @override
   State<ProfileForm> createState() => _ProfileFormState();
@@ -15,13 +26,27 @@ class ProfileForm extends StatefulWidget {
 
 class _ProfileFormState extends State<ProfileForm> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController(text: 'VANCHAI');
-  final _emailController = TextEditingController(text: 'yanchu@gmail.com');
-  final _phoneController = TextEditingController(text: '+14867888899');
-  final _genderController = TextEditingController(text: 'Male');
-  final _dobController = TextEditingController(text: '12/12/2000');
-  final _passwordController = TextEditingController(text: 'eWTrByvGc4');
-  final _idController = TextEditingController(text: '2723-202408282');
+  late final TextEditingController _nameController;
+  late final TextEditingController _emailController;
+  late final TextEditingController _phoneController;
+  late final TextEditingController _genderController;
+  late final TextEditingController _dobController;
+  late final TextEditingController _passwordController;
+  late final TextEditingController _idController;
+  late final SharedPrefsService _sharedPrefsService;
+
+  @override
+  void initState() {
+    super.initState();
+    _sharedPrefsService = injector<SharedPrefsService>();
+    _nameController = TextEditingController(text: widget.initialName ?? 'VANCHAI');
+    _emailController = TextEditingController(text: 'yanchu@gmail.com');
+    _phoneController = TextEditingController(text: '+14867888899');
+    _genderController = TextEditingController(text: 'Male');
+    _dobController = TextEditingController(text: '12/12/2000');
+    _passwordController = TextEditingController(text: 'eWTrByvGc4');
+    _idController = TextEditingController(text: widget.initialCode ?? '2723-202408282');
+  }
 
   @override
   void dispose() {
@@ -41,9 +66,18 @@ class _ProfileFormState extends State<ProfileForm> {
       key: _formKey,
       child: Column(
         children: [
-          const SizedBox(height: 56),
+          const SizedBox(height: 16),
           _label('Name'),
-          CommonTextField(controller: _nameController, hintText: 'Name'),
+          CommonTextField(
+            controller: _nameController,
+            hintText: 'Name',
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Please enter a name';
+              }
+              return null;
+            },
+          ),
           const SizedBox(height: AppSizes.spacingM),
           _label('Email Id'),
           CommonTextField(
@@ -73,17 +107,68 @@ class _ProfileFormState extends State<ProfileForm> {
           ),
           if (!widget.isEdit) ...[
             const SizedBox(height: AppSizes.spacingM),
-            _label('ID Number'),
-            CommonTextField(controller: _idController, hintText: 'ID Number'),
+            _label('ID Number / Child Code'),
+            CommonTextField(
+              controller: _idController,
+              hintText: 'ID Number',
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter child ID number or code';
+                }
+                return null;
+              },
+            ),
           ],
           const SizedBox(height: AppSizes.spacingXL),
           CommonButton(
             text: widget.isEdit ? 'Update' : 'Add',
-            onPressed: () {
+            onPressed: () async {
               if (_formKey.currentState?.validate() ?? false) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(widget.isEdit ? 'Updated' : 'Added')),
-                );
+                final name = _nameController.text.trim();
+                final code = _idController.text.trim();
+
+                final children = _sharedPrefsService.getChildren();
+
+                if (widget.isEdit) {
+                  // Find child by matching their old name/code and update
+                  final updatedList = children.map((c) {
+                    if (c.childName == widget.initialName || c.childCode == widget.initialCode) {
+                      return c.copyWith(childName: name);
+                    }
+                    return c;
+                  }).toList();
+                  await _sharedPrefsService.saveChildren(updatedList);
+
+                  // Also check if we updated the currently active child name
+                  final activeName = _sharedPrefsService.getString('child_name') ?? '';
+                  if (activeName == widget.initialName) {
+                    await _sharedPrefsService.setString('child_name', name);
+                  }
+                } else {
+                  // Add a new child profile
+                  final childId = 'child_${DateTime.now().millisecondsSinceEpoch}';
+                  final newChild = ChildProfile(
+                    childId: childId,
+                    childCode: code,
+                    childName: name,
+                    authToken: 'mock_token_$childId',
+                    lastActiveAt: DateTime.now(),
+                  );
+                  await _sharedPrefsService.addChild(newChild);
+                }
+
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        widget.isEdit 
+                            ? 'Profile updated successfully' 
+                            : 'Added child profile successfully'
+                      ),
+                    ),
+                  );
+                  Navigator.pop(context, true); // Return true to trigger refresh
+                }
               }
             },
             height: 44,
@@ -132,11 +217,11 @@ class _GenderField extends StatelessWidget {
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppSizes.radiusM),
-          borderSide: BorderSide(color: AppColors.borderColor),
+          borderSide: const BorderSide(color: AppColors.borderColor),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppSizes.radiusM),
-          borderSide: BorderSide(color: AppColors.borderColor),
+          borderSide: const BorderSide(color: AppColors.borderColor),
         ),
       ),
     );

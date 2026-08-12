@@ -1,24 +1,24 @@
 import 'dart:io';
-import 'package:battery_plus/battery_plus.dart';
 import 'package:child_track/app/childapp/model/scree_time_model.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/services.dart';
 import 'package:child_track/app/home/model/device_model.dart';
 import 'package:child_track/app/social_apps/model/installed_app_model.dart';
 import 'package:child_track/core/utils/app_logger.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class ChildInfoService {
-  final Battery _battery = Battery();
   final Connectivity _connectivity = Connectivity();
   static const MethodChannel _channel = MethodChannel(
-    'com.example.child_track/device_info',
+    'com.truenyx.naviq/device_info',
   );
 
   /// Get current device information
   Future<DeviceInfo> getDeviceInfo() async {
     try {
       // Get battery percentage
-      final batteryPercentage = await _getBatteryPercentage();
+      final batteryPercentage = await getBatteryPercentage();
 
       // Get network information
       final networkInfo = await _getNetworkInfo();
@@ -26,36 +26,89 @@ class ChildInfoService {
       // Get sound profile
       final soundProfile = await _getSoundProfile();
 
+      // Get charging status
+      final chargingStatus = await isCharging();
+
+      // Get location tracking context — checks the live OS GPS/location-services
+      // toggle, not just whether permission was ever granted, so this correctly
+      // flips when the child turns location off at the OS level.
+      bool gpsEnabled = false;
+      String locationPermissionStatus = 'unknown';
+      try {
+        gpsEnabled = await Geolocator.isLocationServiceEnabled();
+
+        final permissionStatus = await Permission.locationAlways.status;
+        if (permissionStatus.isGranted) {
+          locationPermissionStatus = 'granted';
+        } else if (permissionStatus.isDenied) {
+          locationPermissionStatus = 'denied';
+        } else if (permissionStatus.isPermanentlyDenied) {
+          locationPermissionStatus = 'denied_forever';
+        } else {
+          final inUseStatus = await Permission.locationWhenInUse.status;
+          if (inUseStatus.isGranted) {
+            locationPermissionStatus = 'while_using';
+          } else {
+            locationPermissionStatus = permissionStatus.name;
+          }
+        }
+      } catch (e) {
+        AppLogger.error('Error getting location status: $e');
+      }
+
       return DeviceInfo(
+        isCharging: chargingStatus,
         batteryPercentage: batteryPercentage,
         networkStatus: networkInfo['status'] ?? 'unknown',
         networkType: networkInfo['type'] ?? 'unknown',
         soundProfile: soundProfile,
         isOnline: networkInfo['isOnline'] ?? false,
         onlineSince: _getCurrentTime(),
+        gpsEnabled: gpsEnabled,
+        locationPermissionStatus: locationPermissionStatus,
       );
     } catch (e) {
       AppLogger.error('Error getting device info: $e');
       // Return default values on error
       return DeviceInfo(
+        isCharging: false,
         batteryPercentage: 0,
         networkStatus: 'unknown',
         networkType: 'unknown',
         soundProfile: 'unknown',
         isOnline: false,
         onlineSince: _getCurrentTime(),
+        gpsEnabled: false,
+        locationPermissionStatus: 'unknown',
       );
     }
   }
 
   /// Get battery percentage
-  Future<int> _getBatteryPercentage() async {
+  Future<int> getBatteryPercentage() async {
     try {
-      final batteryLevel = await _battery.batteryLevel;
-      return batteryLevel;
+      if (Platform.isIOS || Platform.isAndroid) {
+        final result = await _channel.invokeMethod<int>('getBatteryPercentage');
+        return result ?? 0;
+      }
+      return 0;
     } catch (e) {
       AppLogger.error('Error getting battery percentage: $e');
       return 0;
+    }
+  }
+
+  /// Get charging status
+  Future<bool> isCharging() async {
+    try {
+      if (Platform.isIOS || Platform.isAndroid) {
+        final result = await _channel.invokeMethod<bool>('isCharging');
+        return result ?? false;
+      }
+      return false;
+    } catch (e) {
+      AppLogger.error('Error getting charging status: $e');
+      return false;
     }
   }
 
@@ -75,23 +128,23 @@ class ChildInfoService {
         isOnline = true;
       } else if (connectivityResults.contains(ConnectivityResult.mobile)) {
         status = 'connected';
-        type = 'mobile';
+        type = 'cellular';
         isOnline = true;
       } else if (connectivityResults.contains(ConnectivityResult.ethernet)) {
         status = 'connected';
-        type = 'ethernet';
+        type = 'Ethernet';
         isOnline = true;
       } else if (connectivityResults.contains(ConnectivityResult.vpn)) {
         status = 'connected';
-        type = 'vpn';
+        type = 'cellular';
         isOnline = true;
       } else if (connectivityResults.contains(ConnectivityResult.bluetooth)) {
         status = 'connected';
-        type = 'bluetooth';
+        type = 'cellular';
         isOnline = true;
       } else if (connectivityResults.contains(ConnectivityResult.other)) {
         status = 'connected';
-        type = 'other';
+        type = 'cellular';
         isOnline = true;
       } else if (connectivityResults.contains(ConnectivityResult.none)) {
         status = 'disconnected';
@@ -134,7 +187,39 @@ class ChildInfoService {
   /// Get all installed apps (system and user apps)
   Future<List<InstalledApp>> getInstalledApps() async {
     try {
-      if (Platform.isAndroid || Platform.isIOS) {
+      if (Platform.isIOS) {
+        const iosChannel = MethodChannel('com.truenyx.naviq/parental_control');
+        final result = await iosChannel.invokeMethod<List<dynamic>>(
+          'getInstalledApps',
+        );
+        if (result != null) {
+          final apps = <InstalledApp>[];
+          for (final item in result) {
+            try {
+              final map = item as Map;
+              final convertedMap = <String, dynamic>{};
+              map.forEach((key, value) {
+                final stringKey = key.toString();
+                if (value == null) {
+                  convertedMap[stringKey] = null;
+                } else if (value is int || value is String || value is bool) {
+                  convertedMap[stringKey] = value;
+                } else {
+                  convertedMap[stringKey] = value.toString();
+                }
+              });
+              apps.add(InstalledApp.fromJson(convertedMap));
+            } catch (e) {
+              AppLogger.error('Error parsing iOS app item: $e');
+              continue;
+            }
+          }
+          return apps;
+        }
+        return [];
+      }
+
+      if (Platform.isAndroid) {
         final result = await _channel.invokeMethod<List<dynamic>>(
           'getInstalledApps',
         );
@@ -176,6 +261,20 @@ class ChildInfoService {
   //todo: aneesh get screen time and convert to list of AppScreenTimeModel
   Future<List<AppScreenTimeModel>> getScreenTime() async {
     try {
+      if (Platform.isIOS) {
+        const iosChannel = MethodChannel('com.truenyx.naviq/parental_control');
+        final result = await iosChannel.invokeMethod<List<dynamic>>(
+          'getScreenTime',
+        );
+        if (result != null) {
+          return result.map((e) {
+            final map = Map<String, dynamic>.from(e as Map);
+            return AppScreenTimeModel.fromJson(map);
+          }).toList();
+        }
+        return [];
+      }
+
       final result = await _channel.invokeMethod<List<dynamic>>(
         'getScreenTime',
       );
@@ -195,6 +294,21 @@ class ChildInfoService {
   /// Check if usage stats permission is granted
   Future<bool> checkUsagePermission() async {
     try {
+      AppLogger.info(
+        'checkUsagePermission called. Platform.isIOS: ${Platform.isIOS}',
+      );
+      if (Platform.isIOS) {
+        const iosChannel = MethodChannel('com.truenyx.naviq/parental_control');
+        AppLogger.info(
+          'Invoking checkScreenTimePermission on parental_control channel',
+        );
+        final result = await iosChannel.invokeMethod<bool>(
+          'checkScreenTimePermission',
+        );
+        AppLogger.info('Result from checkScreenTimePermission: $result');
+        return result ?? false;
+      }
+
       if (Platform.isAndroid) {
         final result = await _channel.invokeMethod<bool>(
           'checkUsagePermission',
@@ -211,14 +325,182 @@ class ChildInfoService {
   /// Open usage settings
   Future<bool> openUsageSettings() async {
     try {
+      AppLogger.info(
+        'openUsageSettings called. Platform.isIOS: ${Platform.isIOS}',
+      );
+      if (Platform.isIOS) {
+        const iosChannel = MethodChannel('com.truenyx.naviq/parental_control');
+        AppLogger.info(
+          'Invoking requestScreenTimePermission on parental_control channel',
+        );
+        final result = await iosChannel.invokeMethod<bool>(
+          'requestScreenTimePermission',
+        );
+        AppLogger.info('Result from requestScreenTimePermission: $result');
+        return result ?? false;
+      }
+
       if (Platform.isAndroid) {
         await _channel.invokeMethod<bool>('openUsageSettings');
         return true;
       }
       return false;
+    } on PlatformException catch (e) {
+      AppLogger.error(
+        'PlatformException in openUsageSettings — code: ${e.code}, message: ${e.message}, details: ${e.details}',
+      );
+      return false;
     } catch (e) {
       AppLogger.error('Error opening usage settings: $e');
       return false;
+    }
+  }
+
+  /// Get app icon bytes from native platform
+  Future<List<int>?> getAppIcon(String packageName) async {
+    try {
+      if (Platform.isIOS) {
+        const iosChannel = MethodChannel('com.truenyx.naviq/parental_control');
+        final result = await iosChannel.invokeMethod<Uint8List>('getAppIcon', {
+          'packageName': packageName,
+        });
+        return result;
+      }
+
+      if (Platform.isAndroid) {
+        final result = await _channel.invokeMethod<Uint8List>('getAppIcon', {
+          'packageName': packageName,
+        });
+        return result;
+      }
+      return null;
+    } catch (e) {
+      AppLogger.error('Error getting app icon: $e');
+      return null;
+    }
+  }
+
+  /// Open native iOS Family Activity Picker to select apps for monitoring
+  /// Returns structured data: [{id: "usage_cat_XXX", type: "category", displayName: "..."}]
+  Future<List<Map<String, dynamic>>> openFamilyActivityPicker() async {
+    try {
+      if (Platform.isIOS) {
+        const iosChannel = MethodChannel('com.truenyx.naviq/parental_control');
+        AppLogger.info(
+          '💡 Invoking openFamilyActivityPicker on parental_control channel',
+        );
+        final result = await iosChannel.invokeMethod<List<dynamic>>(
+          'openFamilyActivityPicker',
+        );
+
+        if (result != null) {
+          AppLogger.info(
+            '✅ FamilyActivityPicker returned ${result.length} items',
+          );
+          final items = result.map((e) {
+            if (e is Map) {
+              return Map<String, dynamic>.from(e);
+            }
+            // Backward compatibility: if native returns plain strings
+            return <String, dynamic>{
+              'id': e.toString(),
+              'type': e.toString().contains('_cat_') ? 'category' : 'app',
+              'displayName': e.toString(),
+            };
+          }).toList();
+
+          for (final item in items) {
+            AppLogger.info(
+              '  📦 ${item['type']}: ${item['id']} → ${item['displayName']}',
+            );
+          }
+          return items;
+        } else {
+          AppLogger.warning(
+            '⚠️ FamilyActivityPicker returned NULL or user cancelled',
+          );
+        }
+      }
+      return [];
+    } catch (e) {
+      AppLogger.error('❌ Error opening family activity picker: $e');
+      return [];
+    }
+  }
+
+  /// Get the list of currently monitored apps on iOS
+  /// Returns structured data: [{id: "usage_cat_XXX", type: "category", displayName: "..."}]
+  Future<List<Map<String, dynamic>>> getMonitoredApps() async {
+    try {
+      if (Platform.isIOS) {
+        const iosChannel = MethodChannel('com.truenyx.naviq/parental_control');
+        final result = await iosChannel.invokeMethod<List<dynamic>>(
+          'getMonitoredApps',
+        );
+
+        if (result != null) {
+          final items = result.map((e) {
+            if (e is Map) {
+              return Map<String, dynamic>.from(e);
+            }
+            return <String, dynamic>{
+              'id': e.toString(),
+              'type': e.toString().contains('_cat_') ? 'category' : 'app',
+              'displayName': e.toString(),
+            };
+          }).toList();
+          return items;
+        }
+      }
+      return [];
+    } catch (e) {
+      AppLogger.error('Error getting monitored apps: $e');
+      return [];
+    }
+  }
+
+  /// Remove a specific app mapping from iOS native selection and cache
+  Future<bool> removeMapping(String id) async {
+    try {
+      if (Platform.isIOS) {
+        const iosChannel = MethodChannel('com.truenyx.naviq/parental_control');
+        final result = await iosChannel.invokeMethod<bool>('removeMapping', id);
+        return result ?? false;
+      }
+      return false;
+    } catch (e) {
+      AppLogger.error('Error removing mapping: $e');
+      return false;
+    }
+  }
+
+  /// Clear all mappings and selection tokens on iOS native side
+  Future<bool> clearAllMappings() async {
+    try {
+      if (Platform.isIOS) {
+        const iosChannel = MethodChannel('com.truenyx.naviq/parental_control');
+        final result = await iosChannel.invokeMethod<bool>('clearAllMappings');
+        return result ?? false;
+      }
+      return false;
+    } catch (e) {
+      AppLogger.error('Error clearing all mappings: $e');
+      return false;
+    }
+  }
+
+  /// Get unique device identifier on iOS / fallback
+  Future<String> getDeviceId() async {
+    try {
+      if (Platform.isIOS) {
+        const iosChannel = MethodChannel('com.truenyx.naviq/parental_control');
+        final result = await iosChannel.invokeMethod<String>('getDeviceId');
+        return result ?? 'unknown_ios_device';
+      }
+      return 'android_device';
+    } catch (e) {
+      AppLogger.error('Error getting device ID: $e');
+      return 'unknown_device';
     }
   }
 }

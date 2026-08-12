@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:child_track/core/constants/app_colors.dart';
 import 'package:child_track/core/constants/app_sizes.dart';
 import 'widgets/section_card.dart';
@@ -12,67 +13,163 @@ class AccountView extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.backgroundColor,
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 18),
-          onPressed: () => Navigator.of(context).maybePop(),
+        leading: Container(
+          margin: const EdgeInsets.only(left: 16, top: 8, bottom: 8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: IconButton(
+            icon: const Icon(
+              Icons.arrow_back_ios_new,
+              size: 18,
+              color: Colors.black,
+            ),
+            onPressed: () => Navigator.of(context).maybePop(),
+          ),
         ),
-        title: const Text('Account'),
-        backgroundColor: AppColors.surfaceColor,
+        title: const Text(
+          'Account',
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.w800,
+            color: Colors.black,
+            letterSpacing: -0.5,
+          ),
+        ),
+        centerTitle: true,
+
+        backgroundColor: Colors.transparent,
         elevation: 0,
-        foregroundColor: AppColors.textPrimary,
+        surfaceTintColor: Colors.transparent,
       ),
       body: ListView(
         padding: const EdgeInsets.all(AppSizes.paddingL),
         children: [
+          const Padding(
+            padding: EdgeInsets.only(left: 8, bottom: 8),
+            child: Text(
+              'PREFERENCES',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF9FA5B4),
+                letterSpacing: 1.0,
+              ),
+            ),
+          ),
           SectionCard(
             child: Column(
               children: const [
                 SettingTile(
                   leading: Icon(
-                    Icons.email_outlined,
-                    color: AppColors.textSecondary,
+                    Icons.mail_outline_rounded,
+                    color: Color(0xFF6B7280),
                   ),
                   title: 'Email',
                   subtitle: 'Not entered',
                   trailing: Icon(
                     Icons.arrow_forward_ios,
-                    size: 16,
-                    color: AppColors.textSecondary,
+                    size: 14,
+                    color: Color(0xFFD1D5DB),
                   ),
                 ),
-                Divider(height: 1),
+                SizedBox(height: 10),
+                Divider(height: 1, color: Color(0xFFF3F4F6)),
+                SizedBox(height: 10),
                 SettingTile(
                   leading: Icon(
-                    Icons.brush_outlined,
-                    color: AppColors.textSecondary,
+                    Icons.format_paint_outlined,
+                    color: Color(0xFF6B7280),
                   ),
                   title: 'Theme',
                   subtitle: 'System',
                   trailing: Icon(
                     Icons.arrow_forward_ios,
-                    size: 16,
-                    color: AppColors.textSecondary,
+                    size: 14,
+                    color: Color(0xFFD1D5DB),
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: AppSizes.spacingL),
+          const SizedBox(height: 32),
+          const Padding(
+            padding: EdgeInsets.only(left: 8, bottom: 8),
+            child: Text(
+              'DANGER ZONE',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF9FA5B4),
+                letterSpacing: 1.0,
+              ),
+            ),
+          ),
           SectionCard(
             child: SettingTile(
-              leading: const Icon(Icons.delete_outline, color: Colors.red),
-              title: 'Delete Account',
-              subtitle: ' ',
-              trailing: const Icon(
-                Icons.arrow_forward_ios,
-                size: 16,
-                color: AppColors.textSecondary,
+              leading: const Icon(
+                Icons.delete_outline_rounded,
+                color: Color(0xFF6B7280),
               ),
-              onTap: () {},
+              title: 'Delete Account',
+              titleColor: const Color(0xFFD33D29), // Dark red like Figma
+              onTap: () => _showDeleteAccountDialog(context),
             ),
           ),
         ],
       ),
     );
+  }
+
+  void _showDeleteAccountDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Delete Account"),
+        content: const Text(
+          "This will permanently delete your account and associated data.\n\n"
+          "You will be redirected to a deletion request form.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () {
+              Navigator.pop(context);
+              _openDeleteForm();
+            },
+            child: const Text(
+              "Continue",
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openDeleteForm() async {
+    final Uri url = Uri.parse(
+      "https://docs.google.com/forms/d/e/1FAIpQLSdmxHaRpEqVL1ACZWxk35c9dxvIc6evS-pBfHNc-hHdPJHdfg/viewform",
+    );
+
+    try {
+      if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+        debugPrint('Could not open delete account form');
+      }
+    } catch (e) {
+      debugPrint('Error launching URL: $e');
+    }
   }
 }

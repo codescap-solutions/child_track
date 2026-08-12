@@ -47,20 +47,41 @@ class HelpDetailView extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: AppSizes.spacingM),
-              const Expanded(
+              Expanded(
                 child: SingleChildScrollView(
                   child: Text(
-                    'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean commodo ligula eget dolor. Aenean massa. Cum sociis natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Donec quam felis, ultricies nec, pellentesque eu, pretium quis, sem. Nulla consequat massa quis enim. Donec pede justo, fringilla vel, aliquet nec, vulputate eget, arcu. In enim justo, rhoncus ut, imperdiet a, venenatis vitae, justo. Nullam dictum felis eu pede mollis pretium. Integer tincidunt. Cras dapibus. Vivamus elementum semper nisi. Aenean vulputate eleifend tellus. Aenean leo ligula, porttitor eu, consequat vitae, eleifend ac, enim.',
+                    _getHelpContent(title),
                   ),
                 ),
               ),
               const SizedBox(height: AppSizes.spacingM),
-              CommonButton(text: 'Chat With Us', onPressed: () {}),
+              CommonButton(
+                text: 'Chat With Us',
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Chat support coming soon')),
+                  );
+                },
+              ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  String _getHelpContent(String title) {
+    final lowerTitle = title.toLowerCase();
+    if (lowerTitle.contains('location') || lowerTitle.contains('troubleshoot') || lowerTitle.contains('gps')) {
+      return 'If you are experiencing location tracking issues, please ensure that GPS/Location services are enabled on the target device, background app refresh is permitted, and the device has a stable internet connection.\n\nIf the issue persists, try restarting the app or checking the device\'s battery saver settings, which may restrict background tracking.';
+    } else if (lowerTitle.contains('cancel') || lowerTitle.contains('subscription') || lowerTitle.contains('billing')) {
+      return 'To manage or cancel your subscription, go to Settings > Subscription. From there, you can view your current plan details, update billing information, or cancel your active subscription.\n\nIf you subscribed via Google Play Store or Apple App Store, you must manage it directly through your store account settings.';
+    } else if (lowerTitle.contains('add') || lowerTitle.contains('member') || lowerTitle.contains('account') || lowerTitle.contains('start')) {
+      return 'You can add a new family member by navigating to the Family section in the main menu, tapping \'Add Member\', and selecting their role. If they are a kid, you can create their profile and share the generated link or pairing code to connect their device.';
+    } else if (lowerTitle.contains('privacy') || lowerTitle.contains('security')) {
+      return 'Your privacy and security are our top priorities. Location data is securely encrypted and only accessible by authorized family members. You can review and adjust sharing permissions anytime in the privacy settings.';
+    } else {
+      return 'For support or detailed guidance regarding "$title", please review our online documentation or tap the button below to start a conversation with our support team.';
+    }
   }
 }

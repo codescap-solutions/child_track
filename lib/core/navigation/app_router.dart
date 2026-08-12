@@ -1,13 +1,16 @@
 import 'package:child_track/app/auth/view/onboarding/add_kid_view.dart';
 import 'package:child_track/app/auth/view/onboarding/child_code_screen.dart';
 import 'package:child_track/app/childapp/view/sos_view.dart';
+import 'package:child_track/app/home/view/child_location_detail_view.dart';
 import 'package:child_track/app/home/view/home_page.dart';
 import 'package:child_track/app/home/view/trips_view.dart';
 import 'package:child_track/app/onboarding/view/onboarding_screen.dart';
+import 'package:child_track/app/explore/view/emergency_contacts_view.dart';
 import 'package:flutter/material.dart';
 import '../../app/auth/view/login_screen.dart';
 import '../../app/auth/view/otp_screen.dart';
 import 'route_names.dart';
+import 'package:child_track/app/social_apps/view/app_blocked_screen.dart';
 
 class AppRouter {
   static Route<dynamic> generateRoute(RouteSettings settings) {
@@ -23,21 +26,23 @@ class AppRouter {
           settings: settings,
         );
 
-
-
       case RouteNames.childCode:
         final args = settings.arguments as Map<String, dynamic>?;
         return MaterialPageRoute(
           builder: (_) => ChildCodeScreen(
             childId: args?['childId'] ?? '',
             childCode: args?['childCode'] ?? '',
+            isFirstChild: args?['isFirstChild'] ?? true,
           ),
           settings: settings,
         );
 
       case RouteNames.login:
+        final args = settings.arguments as Map<String, dynamic>?;
         return MaterialPageRoute(
-          builder: (_) => const LoginScreen(),
+          builder: (_) => LoginScreen(
+            isFromSignIn: args?['isFromSignIn'] ?? false,
+          ),
           settings: settings,
         );
 
@@ -59,10 +64,31 @@ class AppRouter {
           settings: settings,
         );
 
+      case RouteNames.appBlocked:
+        final args = settings.arguments as Map<String, dynamic>?;
+        return MaterialPageRoute(
+          builder: (_) => AppBlockedScreen(
+            appName: args?['appName'],
+            packageName: args?['packageName'],
+          ),
+          settings: settings,
+        );
 
       case RouteNames.trips:
         return MaterialPageRoute(
           builder: (_) => const TripsView(),
+          settings: settings,
+        );
+
+      case RouteNames.childLocationDetail:
+        return MaterialPageRoute(
+          builder: (_) => const ChildLocationDetailView(),
+          settings: settings,
+        );
+
+      case RouteNames.emergencyContacts:
+        return MaterialPageRoute(
+          builder: (_) => const EmergencyContactsView(),
           settings: settings,
         );
 
@@ -74,8 +100,8 @@ class AppRouter {
     }
   }
 
-  static void push(BuildContext context, String routeName) {
-    Navigator.pushNamed(context, routeName);
+  static Future<dynamic> push(BuildContext context, String routeName) {
+    return Navigator.pushNamed(context, routeName);
   }
 
   static void pushReplacement(BuildContext context, String routeName) {

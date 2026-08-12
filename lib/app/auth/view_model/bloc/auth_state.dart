@@ -1,6 +1,6 @@
 import 'package:equatable/equatable.dart';
 
-abstract class AuthState extends Equatable{
+abstract class AuthState extends Equatable {
   const AuthState();
 
   @override
@@ -31,11 +31,12 @@ class AuthError extends AuthState {
 
 class AuthSuccess extends AuthState {
   final bool hasChildren;
+  final bool showProfilesTab;
 
-  const AuthSuccess({this.hasChildren = false});
+  const AuthSuccess({this.hasChildren = false, this.showProfilesTab = false});
 
   @override
-  List<Object?> get props => [hasChildren];
+  List<Object?> get props => [hasChildren, showProfilesTab];
 }
 
 class AuthNewUser extends AuthState {
@@ -45,6 +46,15 @@ class AuthNewUser extends AuthState {
 
   @override
   List<Object?> get props => [phoneNumber];
+}
+
+class AuthSelectChild extends AuthState {
+  final List<Map<String, dynamic>> children;
+
+  const AuthSelectChild({required this.children});
+
+  @override
+  List<Object?> get props => [children];
 }
 
 class AuthNeedsRegistration extends AuthState {}

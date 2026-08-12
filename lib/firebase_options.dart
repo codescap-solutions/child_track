@@ -51,7 +51,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyADjva7ABPEWCvLZWaJIAFihTHCwwWQ9ps',
-    appId: '1:749965493310:android:95557076d134a317f5fd6f',
+    appId: '1:749965493310:android:a90f38da7fc4434af5fd6f',
     messagingSenderId: '749965493310',
     projectId: 'naviq-b6fa4',
     storageBucket: 'naviq-b6fa4.firebasestorage.app',
@@ -59,10 +59,11 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyCx7wN1Ri1Y6Q-JvVJqjrQF9syVpNAUIhU',
-    appId: '1:749965493310:ios:b1ce651695f2ebbcf5fd6f',
+    appId: '1:749965493310:ios:2f73f328a142ceaef5fd6f',
     messagingSenderId: '749965493310',
     projectId: 'naviq-b6fa4',
     storageBucket: 'naviq-b6fa4.firebasestorage.app',
-    iosBundleId: 'com.example.childTrack',
+    iosBundleId: 'com.truenyx.naviq',
   );
+
 }

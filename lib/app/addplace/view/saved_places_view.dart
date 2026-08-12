@@ -6,6 +6,7 @@ import 'package:child_track/core/constants/app_colors.dart';
 import 'package:child_track/core/constants/app_sizes.dart';
 import 'package:child_track/core/constants/app_text_styles.dart';
 import 'package:intl/intl.dart';
+import 'package:child_track/core/widgets/saved_places_shimmer.dart';
 
 class SavedPlacesView extends StatefulWidget {
   const SavedPlacesView({super.key});
@@ -101,7 +102,7 @@ class _SavedPlacesViewState extends State<SavedPlacesView> {
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const SavedPlacesShimmer()
           : _savedPlaces.isEmpty
           ? Center(
               child: Column(

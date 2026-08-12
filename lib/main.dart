@@ -2,13 +2,19 @@ import 'package:child_track/app/auth/view_model/bloc/auth_bloc.dart';
 import 'package:child_track/core/services/connectivity/bloc/connectivity_bloc.dart';
 import 'package:child_track/core/services/shared_prefs_service.dart';
 import 'package:child_track/core/services/firebase_notification_service.dart';
+import 'package:child_track/core/services/csv_file_logger.dart';
 import 'package:child_track/core/services/background_location_service.dart';
+import 'package:child_track/core/services/background_task_service.dart';
+import 'package:child_track/core/services/lock_sync_service.dart';
+import 'package:child_track/core/services/revenue_cat_service.dart';
+import 'package:child_track/core/services/subscription_manager.dart';
 import 'package:child_track/core/utils/app_snackbar.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'app/geofencing/view_model/bloc/geofence_bloc.dart';
 import 'core/di/injector.dart';
 import 'core/navigation/app_router.dart';
 import 'core/navigation/route_names.dart';
@@ -17,11 +23,19 @@ import 'core/constants/app_strings.dart';
 import 'core/constants/app_colors.dart';
 import 'core/constants/app_text_styles.dart';
 
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Load environment variables
   await dotenv.load(fileName: ".env");
+
+  // Initialize RevenueCat
+  await RevenueCatService.instance.initialize();
+  
+  // Initialize SubscriptionManager to start listening for premium status
+  await SubscriptionManager.instance.initialize();
 
   // Initialize Firebase
   await Firebase.initializeApp();
@@ -29,14 +43,24 @@ void main() async {
   // Set up background message handler
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
+  // Initialize CSV file logger (for foreground logs)
+  await CsvFileLogger.instance.init();
+
   // Initialize dependencies
   await initializeDependencies();
 
   // Initialize Firebase Notification Service
   await injector<FirebaseNotificationService>().initialize();
+  injector<FirebaseNotificationService>().setNavigatorKey(navigatorKey);
+
+  // Initialize LockSyncService for handling app blocking navigation
+  injector<LockSyncService>().initialize(navigatorKey);
 
   // Initialize Background Location Service
   await BackgroundLocationService().initialize();
+
+  // Initialize Background Task Service (WorkManager)
+  await BackgroundTaskService.initialize();
 
   runApp(const ChildTrackApp());
 }
@@ -52,8 +76,12 @@ class ChildTrackApp extends StatelessWidget {
           create: (context) => injector<ConnectivityBloc>(),
         ),
         BlocProvider<AuthBloc>(create: (context) => injector<AuthBloc>()),
+        BlocProvider<GeofenceBloc>(
+          create: (context) => injector<GeofenceBloc>(),
+        ),
       ],
       child: MaterialApp(
+        navigatorKey: navigatorKey,
         title: AppStrings.appTitle,
         theme: AppTheme.lightTheme,
         debugShowCheckedModeBanner: false,
@@ -68,7 +96,6 @@ class ChildTrackApp extends StatelessWidget {
             child: widget ?? const SizedBox.shrink(),
           );
         },
-        // home: HomePage(),
         home: SplashScreen(),
       ),
     );
@@ -82,71 +109,98 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+class _SplashScreenState extends State<SplashScreen>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _opacityAnimation;
+
   @override
   void initState() {
     super.initState();
+
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    );
+
+    _scaleAnimation = Tween<double>(begin: 0.5, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOutBack),
+    );
+
+    _opacityAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeIn),
+    );
+
+    _animationController.forward();
+
     _checkAuthStatus();
   }
 
-  Future<void> _checkAuthStatus() async {
-    // Add a small delay for splash screen
-    await Future.delayed(const Duration(seconds: 2));
-
-final childId = injector<SharedPrefsService>().getString('child_id');
-final parentId = injector<SharedPrefsService>().getString('parent_id');
-    if (mounted) {
-  if (parentId != null && parentId.isNotEmpty) {
-    Navigator.pushReplacementNamed(context, RouteNames.home);
-  } else if (childId != null && childId.isNotEmpty) {
-    Navigator.pushReplacementNamed(context, RouteNames.sos);
-  } else {
-    Navigator.pushReplacementNamed(context, RouteNames.onBoarding);
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
   }
 
+  Future<void> _checkAuthStatus() async {
+    // Add a small delay for splash screen to let the animation finish
+    await Future.delayed(const Duration(milliseconds: 2000));
+
+    final childId = injector<SharedPrefsService>().getString('child_id');
+    final parentId = injector<SharedPrefsService>().getString('parent_id');
+    if (mounted) {
+      if (parentId != null && parentId.isNotEmpty) {
+        Navigator.pushReplacementNamed(context, RouteNames.home);
+      } else if (childId != null && childId.isNotEmpty) {
+        Navigator.pushReplacementNamed(context, RouteNames.sos);
+      } else {
+        Navigator.pushReplacementNamed(context, RouteNames.onBoarding);
+      }
+      // Flush any appBlocked event that arrived before the navigator was ready.
+      // Use a post-frame callback so the replacement route is fully mounted first.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        injector<LockSyncService>().navigateIfPending();
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.primaryColor,
+      backgroundColor: Colors.white,
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                color: AppColors.surfaceColor,
-                borderRadius: BorderRadius.circular(60),
-              ),
-              child: const Icon(
-                Icons.child_care,
-                size: 60,
-                color: AppColors.primaryColor,
-              ),
+        child: FadeTransition(
+          opacity: _opacityAnimation,
+          child: ScaleTransition(
+            scale: _scaleAnimation,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Image.asset(
+                  'assets/icons/splash image.png',
+                  width: 300,
+                  fit: BoxFit.contain,
+                ),
+                const SizedBox(height: 32),
+                Text(
+                  AppStrings.appName,
+                  style: AppTextStyles.headline2.copyWith(
+                    color: AppColors.primaryColor,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                // const SizedBox(height: 8),
+                // Text(
+                //   'Keeping children safe',
+                //   style: AppTextStyles.body1.copyWith(
+                //     color: Colors.grey[700],
+                //   ),
+                // ),
+                // const SizedBox(height: 48),
+              ],
             ),
-            const SizedBox(height: 24),
-            Text(
-              AppStrings.appName,
-              style: AppTextStyles.headline2.copyWith(
-                color: AppColors.surfaceColor,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Keeping children safe',
-              style: AppTextStyles.body1.copyWith(
-                color: AppColors.surfaceColor.withValues(alpha: 0.8),
-              ),
-            ),
-            const SizedBox(height: 48),
-            const CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(AppColors.surfaceColor),
-            ),
-          ],
+          ),
         ),
       ),
     );

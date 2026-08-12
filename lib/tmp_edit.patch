@@ -1,0 +1,24 @@
+--- lib/app/home/view/child_location_detail_view.dart
++++ lib/app/home/view/child_location_detail_view.dart
+@@ -34,6 +34,10 @@
+   void initState() {
+     super.initState();
+     _loadCustomMarkers();
++    // Fetch data once when the view is initialized instead of every rebuild
++    final bloc = injector<HomepageBloc>();
++    bloc.add(GetHomepageData());
++    bloc.add(GetTrips(page: 1, pageSize: 10));
+   }
+ 
+   Future<void> _loadCustomMarkers() async {
+@@ -143,9 +147,7 @@
+   @override
+   Widget build(BuildContext context) {
+     return BlocProvider.value(
+-      value: injector<HomepageBloc>()
+-        ..add(GetHomepageData())
+-        ..add(GetTrips(page: 1, pageSize: 10)),
++      value: injector<HomepageBloc>(),
+       child: Scaffold(
+         backgroundColor: AppColors.backgroundColor,
+         appBar: AppBar(
