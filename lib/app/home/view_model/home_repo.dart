@@ -32,6 +32,22 @@ class HomeRepository extends BaseService {
     );
   }
 
+  /// Silently pushes a FORCE_REFRESH_DATA FCM to the child's device
+  /// (server: notification.service.requestChildLocationUpdate), which makes
+  /// the child app take a one-shot high-accuracy GPS fix — bypassing the
+  /// distanceFilter that otherwise blocks new fixes while the child hasn't
+  /// physically moved — and upload it. This only *requests* the push; the
+  /// fresh location won't be in getTrackingSnapshot/getHomeData until the
+  /// child device has had a few seconds to receive it, fetch, and upload.
+  /// Server-side debounced to one request per child per 60s.
+  Future<BaseResponse> refreshChildLiveStatus({required String childId}) async {
+    final response = await post(
+      ApiEndpoints.refreshChild,
+      data: {'child_id': childId},
+    );
+    return response;
+  }
+
   Future<BaseResponse<Map<String, dynamic>>> getTrackingSnapshot(String childId) async {
     final response = await get<Map<String, dynamic>>(
       ApiEndpoints.getTrackingSnapshot(childId),

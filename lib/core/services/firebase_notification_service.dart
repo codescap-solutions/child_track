@@ -18,6 +18,8 @@ import 'package:child_track/app/social_apps/view_model/bloc/app_lock_event.dart'
 import 'package:child_track/app/social_apps/view_model/app_lock_repository.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:child_track/core/services/csv_file_logger.dart';
+import 'package:child_track/core/services/oem_battery_helper.dart';
+import 'package:child_track/core/services/location_service.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:child_track/app/childapp/view_model/repository/child_location_repo.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -259,6 +261,38 @@ Future<void> _performForceRefresh(String childId) async {
       'gps_enabled': deviceInfo.gpsEnabled,
       'location_permission': deviceInfo.locationPermissionStatus,
     };
+
+    // manufacturer/oem_onboarding_status used to only sync from the OEM
+    // onboarding screen itself (OemBatteryHelper.syncOnboardingStatusToBackend)
+    // — a device that never opens that screen again (fresh reinstall, or the
+    // onboarding step was already acknowledged before) never reports it again,
+    // leaving this triage telemetry permanently empty server-side for exactly
+    // the incidents it exists to help diagnose. FORCE_REFRESH_DATA already
+    // fires far more often (every parent-triggered refresh, foreground and
+    // background) than the onboarding screen is ever revisited, so piggyback
+    // it here instead of adding a new periodic timer.
+    if (Platform.isAndroid) {
+      try {
+        final oemHelper = OemBatteryHelper();
+        final manufacturer = await oemHelper.getRawManufacturer();
+        final oemStatus = await oemHelper.getOnboardingStatus();
+        if (manufacturer != null) statusData['manufacturer'] = manufacturer;
+        statusData['oem_onboarding_status'] = oemStatus;
+      } catch (e) {
+        AppLogger.error('Force Refresh: OEM telemetry lookup failed: $e');
+      }
+    }
+
+    // Same "piggyback on the already-frequent force-refresh" reasoning as
+    // the OEM telemetry above — see LocationService.getBackgroundLocationStatus
+    // for why this is checked separately from location_permission above.
+    try {
+      statusData['background_location_permission'] =
+          await LocationService().getBackgroundLocationStatus();
+    } catch (e) {
+      AppLogger.error('Force Refresh: background location status lookup failed: $e');
+    }
+
     final statusResponse = await childRepo.postChildData(statusData);
     if (statusResponse.isSuccess) {
       AppLogger.info('✅ Force Refresh: Device status synced');

@@ -127,6 +127,23 @@ import os.log
         // Main.storyboard) is guaranteed ready.
         IOSNativeGeofenceManager.shared.initialize(locationManager: locationManager)
 
+        // Breadcrumb region exit = "device moved while it may have had no
+        // other way to tell us" (see IOSNativeGeofenceManager's breadcrumb
+        // docs). Region-monitoring relaunches are driven by iOS's own
+        // locationd daemon rather than this process, so this is the one
+        // signal observed to still fire after the user force-quits the app —
+        // grab/post a fresh fix, then re-arm a new circle at the new
+        // position so the next real movement triggers again.
+        IOSNativeGeofenceManager.shared.onBreadcrumbCrossed = { [weak self] exitedCenter in
+            guard let self = self else { return }
+            os_log("🍞 Breadcrumb crossed — running native sync + re-arming", log: self.log, type: .info)
+            self.handleNativeDataSync(completionHandler: { [weak self] _ in
+                guard let self = self else { return }
+                let newCenter = self.locationManager.location?.coordinate ?? exitedCenter
+                IOSNativeGeofenceManager.shared.armBreadcrumb(at: newCenter, force: true)
+            })
+        }
+
         let controller = window?.rootViewController as! FlutterViewController
         setupChannels(controller: controller)
 
@@ -981,6 +998,13 @@ extension AppDelegate: CLLocationManagerDelegate {
         d?.set(max(0, loc.speed),                     forKey: kCachedSpd)
         d?.set(loc.horizontalAccuracy,                forKey: kCachedAcc)
         d?.set(Date().timeIntervalSince1970,          forKey: kCachedLocTs)
+
+        // Cheap while a normal continuous update is flowing (no-op unless
+        // actually drifted past the rearm threshold) — keeps the breadcrumb
+        // centered on wherever the device actually is, so it's ready to
+        // detect the *next* movement if this update stream itself later goes
+        // dark (e.g. the app gets force-quit right after this).
+        IOSNativeGeofenceManager.shared.armBreadcrumb(at: loc.coordinate)
 
         // Trigger background sync if in background with 60-second rate limiting
         if UIApplication.shared.applicationState != .active {

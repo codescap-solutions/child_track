@@ -41,12 +41,99 @@ class IOSNativeGeofenceManager: NSObject {
     private let kGeofencesKey = "com.truenyx.naviq.geofences"
     private let kLastSyncTimeKey = "com.truenyx.naviq.geofences_last_sync"
     private let kApiConfigKey = "com.truenyx.naviq.api_config"
-    
+    private let kBreadcrumbLatKey = "com.truenyx.naviq.breadcrumb_lat"
+    private let kBreadcrumbLngKey = "com.truenyx.naviq.breadcrumb_lng"
+
     private var sharedDefaults: UserDefaults? { UserDefaults(suiteName: appGroupID) }
     private var locationManager: CLLocationManager?
-    
+
     /// Flutter method channel to forward events when app is active
     var methodChannel: FlutterMethodChannel?
+
+    /// Called when the breadcrumb region (not a parent-defined geofence) is
+    /// entered/exited — the app's own signal that the device has moved a
+    /// meaningful distance while it may have had no other way to wake up.
+    /// AppDelegate wires this to handleNativeDataSync + re-arming the
+    /// breadcrumb at the new position.
+    var onBreadcrumbCrossed: ((CLLocationCoordinate2D) -> Void)?
+
+    // MARK: - Breadcrumb Region (force-quit tracking backstop)
+    //
+    // Standard continuous location updates (startUpdatingLocation) and
+    // significant-location-change monitoring both go silent once the user
+    // force-quits the app from the app switcher — confirmed via a real
+    // device's bg_log on 2026-08-12: after AppLifecycleState.detached, the
+    // app produced zero location data for ~5.5 hours despite the child
+    // actually driving a 24-minute, 4.4km trip during that window. Region
+    // monitoring is one of the few mechanisms whose relaunch is driven by
+    // iOS's own locationd daemon rather than the app process, and it's
+    // observed to survive force-quit far more reliably in practice than SLC.
+    //
+    // This isn't a parent-configured geofence — it's a single circle the app
+    // manages for itself, always centered on the last known position, purely
+    // so that "the device moved" is itself detectable (didExitRegion) even
+    // with the Dart engine and native continuous updates both dead. On every
+    // crossing, AppDelegate posts a fresh fix and this re-arms a new circle
+    // around the new position — cascading breadcrumbs instead of one static
+    // fence.
+    let breadcrumbIdentifier = "com.truenyx.naviq.breadcrumb"
+    /// Deliberately wider than a parent geofence's typical radius — this
+    /// exists to detect "moved at all while dead", not to be a precise
+    /// safe-place boundary, and too tight a radius against normal GPS
+    /// jitter (parked car, indoors) would burn the exit/re-arm cycle
+    /// (and a monitored-region slot swap) on noise instead of real movement.
+    private let breadcrumbRadius: CLLocationDistance = 300
+    /// Only re-arm from a continuous-update tick (not an exit event, which
+    /// always re-arms) once actually drifted away from the current circle —
+    /// otherwise every single foreground/background location callback would
+    /// tear down and recreate the same region.
+    private let breadcrumbRearmThreshold: CLLocationDistance = 150
+
+    private func getBreadcrumbCenter() -> CLLocationCoordinate2D? {
+        guard let defaults = sharedDefaults,
+              defaults.object(forKey: kBreadcrumbLatKey) != nil else { return nil }
+        return CLLocationCoordinate2D(
+            latitude: defaults.double(forKey: kBreadcrumbLatKey),
+            longitude: defaults.double(forKey: kBreadcrumbLngKey)
+        )
+    }
+
+    /// (Re)centers the breadcrumb circle on `coordinate`, replacing whatever
+    /// was previously monitored under `breadcrumbIdentifier`. Safe to call
+    /// often — it's a no-op once already centered within the rearm threshold.
+    func armBreadcrumb(at coordinate: CLLocationCoordinate2D, force: Bool = false) {
+        guard let manager = locationManager else { return }
+
+        if !force, let current = getBreadcrumbCenter() {
+            let distance = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+                .distance(from: CLLocation(latitude: current.latitude, longitude: current.longitude))
+            if distance < breadcrumbRearmThreshold {
+                return
+            }
+        }
+
+        if let existing = manager.monitoredRegions.first(where: { $0.identifier == breadcrumbIdentifier }) {
+            manager.stopMonitoring(for: existing)
+        }
+
+        let radius = min(breadcrumbRadius, manager.maximumRegionMonitoringDistance)
+        let region = CLCircularRegion(center: coordinate, radius: radius, identifier: breadcrumbIdentifier)
+        region.notifyOnEntry = false
+        region.notifyOnExit = true
+        manager.startMonitoring(for: region)
+
+        sharedDefaults?.set(coordinate.latitude, forKey: kBreadcrumbLatKey)
+        sharedDefaults?.set(coordinate.longitude, forKey: kBreadcrumbLngKey)
+
+        os_log("🍞 [Breadcrumb] Armed at %f,%f (radius %f)", log: self.log, type: .info, coordinate.latitude, coordinate.longitude, radius)
+    }
+
+    /// True for the reserved breadcrumb region, so callers that iterate
+    /// `monitoredRegions` (or route didEnter/didExitRegion) can tell it apart
+    /// from a parent-defined geofence without string-matching everywhere.
+    func isBreadcrumb(_ identifier: String) -> Bool {
+        identifier == breadcrumbIdentifier
+    }
     
     private override init() {
         super.init()
@@ -109,12 +196,17 @@ class IOSNativeGeofenceManager: NSObject {
             return g1.id < g2.id
         }
         
-        let selected = Array(sorted.prefix(20))
+        // Apple caps monitored regions at 20 total per app — reserve one slot
+        // for the breadcrumb circle (see armBreadcrumb) so a family with a
+        // full 20 parent geofences doesn't silently starve the force-quit
+        // tracking backstop of a slot.
+        let selected = Array(sorted.prefix(19))
         persistGeofences(selected)
-        
+
         let currentMonitored = manager.monitoredRegions
         for region in currentMonitored {
             guard let circularRegion = region as? CLCircularRegion else { continue }
+            if isBreadcrumb(circularRegion.identifier) { continue }
             if !selected.contains(where: { $0.id == circularRegion.identifier }) {
                 manager.stopMonitoring(for: circularRegion)
                 os_log("📍 [NativeGeofence] Unregistered geofence: %{public}@", log: self.log, type: .info, circularRegion.identifier)
@@ -141,7 +233,17 @@ class IOSNativeGeofenceManager: NSObject {
         guard let manager = locationManager else { return }
         let currentGeofences = getGeofences()
         let currentMonitored = manager.monitoredRegions
-        
+
+        // Monitored regions normally survive relaunch at the OS level, but a
+        // reinstall or an iOS-level region eviction can drop it silently —
+        // re-arm from the last persisted center (or do nothing if the
+        // breadcrumb has genuinely never been armed yet; the first real
+        // location fix elsewhere in AppDelegate arms it).
+        if !currentMonitored.contains(where: { isBreadcrumb($0.identifier) }),
+           let lastCenter = getBreadcrumbCenter() {
+            armBreadcrumb(at: lastCenter, force: true)
+        }
+
         for fence in currentGeofences {
             let isMonitored = currentMonitored.contains { $0.identifier == fence.id }
             if !isMonitored {
@@ -173,6 +275,7 @@ class IOSNativeGeofenceManager: NSObject {
     // MARK: - Event Handlers
     func handleEnter(region: CLRegion) {
         guard let circularRegion = region as? CLCircularRegion else { return }
+        if isBreadcrumb(circularRegion.identifier) { return } // notifyOnEntry is false, but guard defensively
         os_log("📍 [NativeGeofence] ENTER geofence: %{public}@", log: self.log, type: .info, circularRegion.identifier)
         
         // Save enter event
@@ -188,6 +291,18 @@ class IOSNativeGeofenceManager: NSObject {
     
     func handleExit(region: CLRegion) {
         guard let circularRegion = region as? CLCircularRegion else { return }
+
+        if isBreadcrumb(circularRegion.identifier) {
+            // Not a parent geofence event — this is purely "the device moved
+            // while it may have had no other way to tell us". Hand off to
+            // AppDelegate to grab a fresh fix, post it, and re-arm the
+            // breadcrumb at the new position; don't run it through
+            // processEvent (that's the parent-facing ENTER/EXIT/DWELL feed).
+            os_log("🍞 [Breadcrumb] EXIT — device moved >%f m from last known position", log: self.log, type: .info, breadcrumbRadius)
+            onBreadcrumbCrossed?(circularRegion.center)
+            return
+        }
+
         os_log("📍 [NativeGeofence] EXIT geofence: %{public}@", log: self.log, type: .info, circularRegion.identifier)
         
         processEvent(geofenceId: circularRegion.identifier, type: "EXIT", coordinate: circularRegion.center)
@@ -448,27 +563,33 @@ class RegionHealthMonitor {
     private let log = OSLog(subsystem: "com.truenyx.naviq", category: "RegionHealthMonitor")
     
     func auditRegions(manager: CLLocationManager, persisted: [NativeGeofence]) -> (isHealthy: Bool, issues: [String]) {
-        let monitored = manager.monitoredRegions
+        // The breadcrumb circle (see IOSNativeGeofenceManager.armBreadcrumb)
+        // is deliberately not part of `persisted` — it's not a parent
+        // geofence — so it's excluded from this audit entirely rather than
+        // being flagged as a mismatch on every foreground.
+        let monitored = manager.monitoredRegions.filter {
+            !IOSNativeGeofenceManager.shared.isBreadcrumb($0.identifier)
+        }
         var issues: [String] = []
-        
+
         if monitored.count != persisted.count {
             issues.append("Region count mismatch: Monitored \(monitored.count) vs Persisted \(persisted.count)")
         }
-        
+
         for fence in persisted {
             let found = monitored.contains { $0.identifier == fence.id }
             if !found {
                 issues.append("Missing monitored region: \(fence.id)")
             }
         }
-        
+
         var idsSeen = Set<String>()
         for region in monitored {
             if idsSeen.contains(region.identifier) {
                 issues.append("Duplicate monitored region: \(region.identifier)")
             }
             idsSeen.insert(region.identifier)
-            
+
             let foundInPersisted = persisted.contains { $0.id == region.identifier }
             if !foundInPersisted {
                 issues.append("Invalid region monitored: \(region.identifier)")

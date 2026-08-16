@@ -31,6 +31,12 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
   String? _joinedRoomChildId;
   DateTime? _lastAppliedLocationTs;
   String? _lastChildId;
+  // Which child's data state.currentLocation actually reflects right now.
+  // See _isNewerLocationUpdate's use of this below — needed because
+  // displayedSince (state.currentLocation?.since) keeps showing the
+  // PREVIOUS child's timestamp for the whole async gap between switching
+  // children and that child's own fetch landing.
+  String? _currentLocationChildId;
 
   HomepageBloc({
     required HomeRepository homeRepository,
@@ -472,16 +478,57 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
   // visibly flip-flopping the map marker between an old and a new point.
   // Fails open (returns true) on unparseable/missing timestamps rather than
   // permanently blocking updates over a formatting quirk.
+  //
+  // The baseline used to be a standalone _lastAppliedLocationTs field that
+  // only ever moved forward, independent of what was actually on screen.
+  // Confirmed root cause of a second, real incident (2026-08-14): once
+  // anything set that field ahead of the child device's own clock — e.g. a
+  // REST /parent/home response whose `since` came from a different
+  // timestamp source than the socket's device_timestamp — every genuinely
+  // newer socket location_update after that point kept losing to it and
+  // got silently dropped ("Ignoring stale location_update"), permanently
+  // freezing the map marker for an actively-moving child until the parent
+  // switched children (which resets the field) and back. Re-anchoring the
+  // baseline to state.currentLocation.since — what's actually displayed —
+  // instead of the private watermark makes it self-correcting: it can never
+  // drift ahead of reality, because it *is* reality.
+  //
+  // Third incident (2026-08-16): that self-correcting baseline defeated the
+  // separate "reset _lastAppliedLocationTs on child switch" fix above. The
+  // reset only clears the private watermark — displayedSince is derived
+  // live from state.currentLocation?.since, which for the whole async gap
+  // between switching children and the new child's own getHomeData/socket
+  // response landing is still the PREVIOUS child's timestamp (often
+  // recent/live). An offline child switched to right after an active one
+  // then had their older real timestamp rejected as "stale" against the
+  // previous child's fresher one, leaving the map/address permanently
+  // showing the previous child's location mislabeled with the new child's
+  // name — confirmed on two real children this way. displayedSince is only
+  // trustworthy as a baseline when it actually belongs to the
+  // currently-viewed child; otherwise fall through to the watermark (which
+  // the switch-reset above correctly nulls out).
   bool _isNewerLocationUpdate(String? deviceTimestampStr) {
     final incoming = deviceTimestampStr != null
         ? DateTime.tryParse(deviceTimestampStr)
         : null;
     if (incoming == null) return true;
-    if (_lastAppliedLocationTs != null &&
-        incoming.isBefore(_lastAppliedLocationTs!)) {
+
+    final currentState = state;
+    final displayedSince =
+        currentState is HomepageSuccess && _currentLocationChildId == _lastChildId
+        ? DateTime.tryParse(currentState.currentLocation?.since ?? '')
+        : null;
+    final baseline = displayedSince ?? _lastAppliedLocationTs;
+
+    if (baseline != null && incoming.isBefore(baseline)) {
+      AppLogger.info(
+        '[HomepageBloc] Rejecting location_update ($incoming) — older than '
+        'displayed baseline ($baseline)',
+      );
       return false;
     }
     _lastAppliedLocationTs = incoming;
+    _currentLocationChildId = _lastChildId;
     return true;
   }
 

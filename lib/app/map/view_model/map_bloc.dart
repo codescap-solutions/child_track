@@ -232,35 +232,33 @@ class MapBloc extends Bloc<MapEvent, MapState> {
   }
 
   Future<Map<PolylineId, Polyline>> getPolyLines(List<Marker> markers) async {
-    for (var marker in markers) {
-      final polylineCoordinates = <LatLng>[];
-      final polylineWayPoints = <PolylineWayPoint>[];
-      polylineWayPoints.add(
-        PolylineWayPoint(
-          location: "${marker.position.latitude},${marker.position.longitude}",
-          stopOver: true,
+    // Needs at least 2 points for a route — was previously looping once per
+    // marker and firing an *identical* origin=first/dest=last Directions API
+    // request on every iteration (the loop variable `marker` was never
+    // actually used in the request), so any caller with 3+ markers billed
+    // up to 2-3x for the exact same route on a single call. One request is
+    // enough.
+    if (markers.length < 2) return {};
+
+    final polylineCoordinates = <LatLng>[];
+    final result = await _polylinePoints.getRouteBetweenCoordinates(
+      request: PolylineRequest(
+        origin: PointLatLng(
+          markers.first.position.latitude,
+          markers.first.position.longitude,
         ),
-      );
-      final result = await _polylinePoints.getRouteBetweenCoordinates(
-        request: PolylineRequest(
-          origin: PointLatLng(
-            markers.first.position.latitude,
-            markers.first.position.longitude,
-          ),
-          destination: PointLatLng(
-            markers.last.position.latitude,
-            markers.last.position.longitude,
-          ),
-          mode: TravelMode.driving,
+        destination: PointLatLng(
+          markers.last.position.latitude,
+          markers.last.position.longitude,
         ),
-      );
-      if (result.points.isNotEmpty) {
-        for (var point in result.points) {
-          polylineCoordinates.add(LatLng(point.latitude, point.longitude));
-        }
-        final updatedPolylines = _addPolyLine(polylineCoordinates);
-        return updatedPolylines;
+        mode: TravelMode.driving,
+      ),
+    );
+    if (result.points.isNotEmpty) {
+      for (var point in result.points) {
+        polylineCoordinates.add(LatLng(point.latitude, point.longitude));
       }
+      return _addPolyLine(polylineCoordinates);
     }
     return {};
   }

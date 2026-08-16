@@ -78,15 +78,32 @@ class TrackingProfileManager {
   }
 
   /// Build [AppleSettings] for the current profile.
+  ///
+  /// The `still` profile gets a genuinely low-power config — confirmed
+  /// (2026-08-16) as the main iOS battery-drain source: with
+  /// pauseLocationUpdatesAutomatically:false and LocationAccuracy.high
+  /// applied even while stationary, CoreLocation's GPS chip never sleeps —
+  /// a child sitting still for hours (asleep, in class) kept it running at
+  /// max precision the whole time. `walking`/`vehicle` are untouched (same
+  /// high accuracy, no auto-pause) since those only run while the child is
+  /// actually moving, where full precision matters and there's nothing to
+  /// pause. Safe to relax `still` specifically because:
+  ///  - pauseLocationUpdatesAutomatically:true only pauses once iOS's own
+  ///    motion coprocessor confirms no movement, and resumes automatically
+  ///    (fast, motion-triggered) the moment real movement starts — trip
+  ///    start detection isn't meaningfully delayed.
+  ///  - Geofence entry/exit uses a separate OS-level region-monitoring API,
+  ///    independent of this position stream — unaffected either way.
   AppleSettings buildAppleSettings() {
     final cfg = currentConfig;
+    final isStill = _current == TrackingProfile.still;
     return AppleSettings(
-      accuracy: LocationAccuracy.high,
+      accuracy: isStill ? LocationAccuracy.medium : LocationAccuracy.high,
       activityType: _current == TrackingProfile.vehicle
           ? ActivityType.automotiveNavigation
           : ActivityType.fitness,
-      distanceFilter: cfg.distanceFilter,
-      pauseLocationUpdatesAutomatically: false,
+      distanceFilter: isStill ? 75 : cfg.distanceFilter,
+      pauseLocationUpdatesAutomatically: isStill,
       showBackgroundLocationIndicator: true,
     );
   }

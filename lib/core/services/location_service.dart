@@ -117,6 +117,37 @@ class LocationService {
     }
   }
 
+  /// Snapshot of the "Allow all the time" background location permission —
+  /// distinct from the plain foreground "granted" status (Permission.location
+  /// / LocationPermission.whileInUse is also reported as "granted" for that).
+  /// Native OS-level geofencing (Android GeofencingClient, iOS
+  /// CLCircularRegion background monitoring) specifically needs the
+  /// "always" grant to survive the app being backgrounded/killed. Confirmed
+  /// as the likely root cause of a real incident: two Android devices
+  /// (Oppo/OnePlus), both with foreground location "granted" and OEM
+  /// battery whitelisting already acknowledged, where every geofence
+  /// notification for months came from the slow location-point fallback
+  /// and never once from the fast native path — nothing in the app
+  /// actually checked or surfaced this specific gap before now.
+  /// Returns "granted", "denied", "not_applicable" (unsupported platform),
+  /// or "unknown" (check itself failed).
+  Future<String> getBackgroundLocationStatus() async {
+    try {
+      if (Platform.isIOS) {
+        final permission = await Geolocator.checkPermission();
+        return permission == LocationPermission.always ? 'granted' : 'denied';
+      }
+      if (Platform.isAndroid) {
+        final status = await permission_handler.Permission.locationAlways.status;
+        return status.isGranted ? 'granted' : 'denied';
+      }
+      return 'not_applicable';
+    } catch (e) {
+      AppLogger.error('Error checking background location status: $e');
+      return 'unknown';
+    }
+  }
+
   /// Request location permission and ensure it's set to "always allow"
   /// Returns true if "always allow" permission is granted, false otherwise
   /// Returns a map with 'granted' (bool) and 'needsSettings' (bool) to indicate if user needs to go to settings

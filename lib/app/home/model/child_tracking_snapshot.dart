@@ -40,6 +40,16 @@ class LatestLocation {
   final String provider;
   final DateTime deviceTimestamp;
   final DateTime receivedTimestamp;
+  // How long the child has actually been at this spot — distinct from
+  // deviceTimestamp above (last GPS ping time). Backend-computed from
+  // location history; null when the fix is live (not worth computing) or
+  // there isn't enough history to place a confident boundary. See
+  // location.controller.js getStationarySince.
+  final DateTime? stationarySince;
+  // False means the history scan hit its cap before finding where the
+  // dwell actually started — stationarySince is a lower bound, not exact
+  // (UI should show it as "Xd+").
+  final bool? stationarySinceUncapped;
 
   LatestLocation({
     required this.lat,
@@ -49,6 +59,8 @@ class LatestLocation {
     required this.provider,
     required this.deviceTimestamp,
     required this.receivedTimestamp,
+    this.stationarySince,
+    this.stationarySinceUncapped,
   });
 
   factory LatestLocation.fromJson(Map<String, dynamic> json) {
@@ -60,6 +72,10 @@ class LatestLocation {
       provider: json['provider'] ?? '',
       deviceTimestamp: DateTime.parse(json['device_timestamp'] ?? DateTime.now().toIso8601String()),
       receivedTimestamp: DateTime.parse(json['received_timestamp'] ?? DateTime.now().toIso8601String()),
+      stationarySince: json['stationary_since'] != null
+          ? DateTime.tryParse(json['stationary_since'].toString())
+          : null,
+      stationarySinceUncapped: json['stationary_since_uncapped'] as bool?,
     );
   }
 }

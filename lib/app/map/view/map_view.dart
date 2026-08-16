@@ -148,13 +148,41 @@ class _MapViewWidgetState extends State<MapViewWidget> {
   @override
   void didUpdateWidget(MapViewWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Refresh polylines when either markers or polylines change
-    if (widget.markers != oldWidget.markers ||
-        widget.polylines != oldWidget.polylines) {
+    // Refresh polylines when either markers or polylines actually change.
+    // `markers`/`polylines` are rebuilt as new List instances on nearly
+    // every parent rebuild (e.g. `markers.toList()` in home_page.dart), so a
+    // reference check here (`!=`) was true on every single frame even when
+    // the actual positions hadn't moved — for isPolyLines:true screens that
+    // meant a fresh (billed) Directions API call every rebuild. Compare by
+    // position instead so a same-content rebuild is a no-op.
+    if (!_markersEqual(widget.markers, oldWidget.markers) ||
+        !_polylinesEqual(widget.polylines, oldWidget.polylines)) {
       if (mounted) {
         getPolylines();
       }
     }
+  }
+
+  static bool _markersEqual(List<Marker>? a, List<Marker>? b) {
+    if (identical(a, b)) return true;
+    if (a == null || b == null) return a == b;
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i].markerId != b[i].markerId || a[i].position != b[i].position) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  static bool _polylinesEqual(List<Polyline>? a, List<Polyline>? b) {
+    if (identical(a, b)) return true;
+    if (a == null || b == null) return a == b;
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i].polylineId != b[i].polylineId) return false;
+    }
+    return true;
   }
 
   Future<void> getPolylines() async {
@@ -166,8 +194,19 @@ class _MapViewWidgetState extends State<MapViewWidget> {
       for (var polyline in widget.polylines!) {
         initialPolylines[polyline.polylineId] = polyline;
       }
-    } else {
-      // No explicit polylines — try to fetch via Directions API from markers
+    } else if (widget.isPolyLines) {
+      // No explicit polylines, but caller opted in (isPolyLines: true) — fetch
+      // via Directions API from markers. Gated behind isPolyLines because this
+      // used to fire unconditionally on every rebuild for ANY caller that
+      // didn't pass polylines, including the home-screen live map (which just
+      // shows a single child pin, no route needed). Since `markers` is
+      // rebuilt as a new List every build there (home_page.dart's
+      // `markers.toList()`), didUpdateWidget's reference check saw it as
+      // "changed" on every single frame and re-hit the billed Directions API
+      // continuously for as long as the screen was open — confirmed as the
+      // cause of a ₹1000+/day Google Cloud Directions API spike while a trip
+      // sat open for 21+ hours. Only screens that explicitly ask for a
+      // computed route (isPolyLines: true) get this fallback now.
       try {
         final blocPolylines = await injector<MapBloc>().getPolyLines(
           widget.markers ?? [],

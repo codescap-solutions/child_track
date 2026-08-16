@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:ui' as ui;
 import 'package:child_track/app/home/view_model/bloc/homepage_state.dart';
+import 'package:child_track/app/home/model/child_tracking_snapshot.dart';
 import 'package:child_track/core/services/firebase_notification_service.dart';
 import 'package:child_track/core/models/child_profile.dart';
 import 'package:http/http.dart' as http;
@@ -9,6 +10,7 @@ import 'package:child_track/core/navigation/route_names.dart';
 import 'package:flutter/services.dart';
 import 'package:child_track/app/home/view_model/bloc/homepage_bloc.dart';
 import 'package:child_track/app/home/view_model/home_repo.dart';
+import 'package:child_track/core/services/base_service.dart';
 import 'package:child_track/app/home/model/home_model.dart';
 import 'package:child_track/app/subscription/view_model/subscription_repository.dart';
 import 'package:child_track/app/map/view/map_view.dart';
@@ -115,16 +117,48 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       _refreshProgress = 0;
     });
 
-    injector<HomepageBloc>().add(const GetHomepageData());
-
     final childId = _sharedPrefsService.getString('child_id');
-    if (childId != null) {
-      final now = DateTime.now();
-      final todayStr =
-          "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
-      context.read<GeofenceBloc>().add(
-        GetGeofencesRequested(childId: childId, date: todayStr),
-      );
+
+    void fetchLatest() {
+      injector<HomepageBloc>().add(const GetHomepageData());
+      if (childId != null) {
+        final now = DateTime.now();
+        final todayStr =
+            "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+        context.read<GeofenceBloc>().add(
+          GetGeofencesRequested(childId: childId, date: todayStr),
+        );
+      }
+    }
+
+    if (childId == null) {
+      fetchLatest();
+    } else {
+      // Ask the child device for a fresh GPS/battery fix before re-reading
+      // the server's cached snapshot — otherwise this refresh button just
+      // re-serves whatever was already stored, which stays stale for hours
+      // while the child device is stationary (see distanceFilter in
+      // tracking_profile_manager.dart) or was offline until moments ago.
+      // POST parent/refresh-child silently pushes FORCE_REFRESH_DATA to the
+      // child app (server: notification.service.requestChildLocationUpdate),
+      // which takes a one-shot high-accuracy fix ignoring distanceFilter and
+      // uploads it (child side: firebase_notification_service.dart
+      // _performForceRefresh). That round trip isn't instant, so fetchLatest
+      // is delayed a few seconds to give it a real chance to land instead of
+      // racing it — GetHomepageData still fires either way so the refresh
+      // button never hangs even if the push fails or the device stays
+      // unreachable.
+      injector<HomeRepository>()
+          .refreshChildLiveStatus(childId: childId)
+          .catchError((e) {
+            AppLogger.error('refresh-child request failed: $e');
+            return BaseResponse.error(message: e.toString());
+          })
+          .whenComplete(() {
+            Future.delayed(const Duration(seconds: 5), () {
+              if (mounted) fetchLatest();
+            });
+          });
     }
 
     _loadSavedPlaces();
@@ -1831,6 +1865,57 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     return 'Last updated ${deviceTimestamp.toLocal().toString().split('.').first}';
   }
 
+  // Replaces the bare word "STALE" on the top status badge. A parent reading
+  // "Stale" sees an alarm — something's wrong — when the actual situation is
+  // just that the last known fix hasn't changed in a while (location itself
+  // is still correct, see the "why does it say Stale when the location is
+  // right" support conversation this was added for). Showing how long it's
+  // been unchanged instead tells them what's actually true.
+  //
+  // Prefers latestLocation.stationarySince (server-computed "how long has
+  // the child actually been at this exact spot", from location.controller.js
+  // getStationarySince) over deviceTimestamp (only "how long since the last
+  // GPS ping") — a phone parked in one place keeps checking in periodically,
+  // so deviceTimestamp alone stays small even after a full day stationary
+  // (confirmed against a real report: this app showed "25m" for a child a
+  // competitor app correctly showed as "1d" unchanged). Falls back to
+  // deviceTimestamp when stationarySince isn't available (e.g. an older
+  // backend). Kept in the same short all-caps style as the sibling
+  // ACTIVE NOW/OFFLINE words so the badge still reads as one design.
+  String _staleBadgeWord(LatestLocation? location) {
+    final anchor = location?.stationarySince ?? location?.deviceTimestamp;
+    if (anchor == null) return 'UNCHANGED';
+    final plus =
+        location?.stationarySince != null &&
+                location?.stationarySinceUncapped == false
+            ? '+'
+            : '';
+    final diff = DateTime.now().toUtc().difference(anchor.toUtc());
+    if (diff.isNegative || diff.inMinutes < 1) return '<1M AGO';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}M AGO';
+    if (diff.inHours < 24) return '${diff.inHours}H$plus AGO';
+    if (diff.inDays == 1) return '1D$plus AGO';
+    return '${diff.inDays}D$plus AGO';
+  }
+
+  // Same replacement for the lower status pill's "Stale" label — framed as
+  // "how long has this location held" rather than the alarming word.
+  String _staleDurationPill(LatestLocation? location) {
+    final anchor = location?.stationarySince ?? location?.deviceTimestamp;
+    if (anchor == null) return 'Unchanged';
+    final plus =
+        location?.stationarySince != null &&
+                location?.stationarySinceUncapped == false
+            ? '+'
+            : '';
+    final diff = DateTime.now().toUtc().difference(anchor.toUtc());
+    if (diff.isNegative || diff.inMinutes < 1) return 'Unchanged <1m';
+    if (diff.inMinutes < 60) return 'Unchanged ${diff.inMinutes}m';
+    if (diff.inHours < 24) return 'Unchanged ${diff.inHours}h$plus';
+    if (diff.inDays == 1) return 'Unchanged 1d$plus';
+    return 'Unchanged ${diff.inDays}d$plus';
+  }
+
   int _currentIndex = 0;
 
   Widget _buildBottomNavigationBar() {
@@ -2684,16 +2769,18 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     // everything else (OFFLINE, UNREACHABLE, BACKGROUND_RESTRICTED, ...)
     // means the device really isn't reporting.
     final isReallyOffline = displayState != 'STALE';
-    final placeNameValue = state.currentLocation?.placeName ?? '';
-    final isKnownPlace =
-        placeNameValue.isNotEmpty && placeNameValue.toLowerCase() != 'unknown';
-    // Same suppression as the top map banner (see its condition further
-    // down this file): a non-live device parked at a known place (Home/
-    // School/...) reads as calm/active here too, whether the reason is
-    // STALE or fully OFFLINE. Showing this pill's amber "Stale"/"Offline"
-    // right above a banner that's already staying silent for the identical
-    // condition was the inconsistency being fixed — one screen, one signal.
-    final showAsOffline = isDeviceOffline && !isKnownPlace;
+    // NOTE: this pill used to suppress to "ACTIVE NOW" whenever the last
+    // known fix sat at a known place (placeName known/non-"unknown"),
+    // matching the banner's calm-at-home behavior further down this file.
+    // But that made this pill lie outright — a device that's actually
+    // UNREACHABLE/OFFLINE for hours still showed green "ACTIVE NOW" here,
+    // directly contradicting the "Last updated Xh ago" text rendered right
+    // below it on the same card. The banner (silent) and this status pill
+    // (honest OFFLINE/STALE) are different UI: staying silent is fine, but a
+    // pill that explicitly claims "ACTIVE NOW" must not do so when the
+    // device isn't. Always reflect the real showLiveMarker signal here — a
+    // known place only softens the map banner, not this pill's own honesty.
+    final showAsOffline = isDeviceOffline;
 
     return Container(
       width: double.infinity,
@@ -2731,7 +2818,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 isLocationOff
                     ? 'LOCATION OFF'
                     : (showAsOffline
-                          ? (isReallyOffline ? 'OFFLINE' : 'STALE')
+                          ? (isReallyOffline
+                                ? 'OFFLINE'
+                                : _staleBadgeWord(
+                                    trackingSnapshot?.latestLocation,
+                                  ))
                           : 'ACTIVE NOW'),
                 style: GoogleFonts.manrope(
                   fontSize: 11,
@@ -2853,7 +2944,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 isLocationOff
                     ? 'Location off'
                     : (showAsOffline
-                          ? (isReallyOffline ? 'Offline' : 'Stale')
+                          ? (isReallyOffline
+                                ? 'Offline'
+                                : _staleDurationPill(
+                                    trackingSnapshot?.latestLocation,
+                                  ))
                           : (_viewingSharedChild &&
                                     _activeSharedChildData != null
                                 ? _formatSinceTime(

@@ -31,6 +31,7 @@ import 'package:child_track/app/childapp/view/widgets/child_app_drawer.dart';
 import 'package:child_track/app/auth/view/onboarding/app_catalog_screen.dart';
 import 'package:child_track/app/auth/view/onboarding/oem_battery_screen.dart';
 import 'package:child_track/core/services/oem_battery_helper.dart';
+import 'package:child_track/core/services/location_service.dart';
 
 class SosView extends StatefulWidget {
   const SosView({super.key});
@@ -46,6 +47,11 @@ class _SosViewState extends State<SosView> with WidgetsBindingObserver {
   bool _hasNotificationPermission = false;
   bool _hasBackgroundPermission = false;
   OemInfo? _oemBannerInfo;
+  // "Allow all the time" location — distinct from _hasBackgroundPermission
+  // above (which only checks battery-optimization exemption). Native
+  // geofencing needs this specifically; see LocationService
+  // .getBackgroundLocationStatus for the incident this closes the loop on.
+  bool _showBackgroundLocationBanner = false;
 
   @override
   void initState() {
@@ -55,6 +61,7 @@ class _SosViewState extends State<SosView> with WidgetsBindingObserver {
     _checkAccessibilityPermission();
     _checkOtherPermissions();
     _checkOemBatteryStatus();
+    _checkBackgroundLocationStatus();
 
     // Defer heavy initialization until after the first frame to ensure smooth navigation
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -114,6 +121,7 @@ class _SosViewState extends State<SosView> with WidgetsBindingObserver {
           _checkAccessibilityPermission();
           _checkOtherPermissions();
           _checkOemBatteryStatus();
+          _checkBackgroundLocationStatus();
         }
       });
     }
@@ -173,6 +181,20 @@ class _SosViewState extends State<SosView> with WidgetsBindingObserver {
     if (mounted) setState(() => _oemBannerInfo = oem);
   }
 
+  // Non-blocking nudge for "Allow all the time" location — same
+  // re-check-on-resume, never-block pattern as the OEM banner above.
+  // iOS is intentionally excluded: the standard permission_sequence_screen
+  // flow already drives toward LocationPermission.always there via an
+  // explicit system prompt, and repeatedly re-surfacing this on iOS would
+  // just nag over Apple's own "Change to Always Allow" one-time dialog.
+  Future<void> _checkBackgroundLocationStatus() async {
+    if (!Platform.isAndroid) return;
+    final status = await LocationService().getBackgroundLocationStatus();
+    if (mounted) {
+      setState(() => _showBackgroundLocationBanner = status == 'denied');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocProvider.value(
@@ -197,6 +219,14 @@ class _SosViewState extends State<SosView> with WidgetsBindingObserver {
               // next cold start until the user actually resolves it (or the
               // onboarding screen's "I've done this" explicitly clears it).
               onDismiss: () => setState(() => _oemBannerInfo = null),
+            ),
+          if (_showBackgroundLocationBanner)
+            _BackgroundLocationBanner(
+              // Stacks below the OEM banner (~56px) when both are relevant
+              // rather than overlapping it.
+              topExtra: _oemBannerInfo != null ? 56 : 0,
+              onDismiss: () =>
+                  setState(() => _showBackgroundLocationBanner = false),
             ),
         ],
       ),
@@ -270,6 +300,107 @@ class _OemBatteryBanner extends StatelessWidget {
                       fontSize: 12.5,
                       fontWeight: FontWeight.w800,
                       color: Color(0xFFF97316),
+                    ),
+                  ),
+                ),
+              ),
+              GestureDetector(
+                onTap: onDismiss,
+                child: const Padding(
+                  padding: EdgeInsets.all(4),
+                  child: Icon(
+                    Icons.close_rounded,
+                    size: 16,
+                    color: Color(0xFF94A3B8),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// Nudges the user to upgrade location from "While using the app" to
+// "Allow all the time" — required for native OS-level geofencing
+// (Android GeofencingClient) to keep detecting safe-place arrivals/exits
+// when this app is backgrounded or killed. Without it, geofence events
+// only get caught by the much slower periodic location-point fallback
+// (see location.controller.js / geofence.service.js checkGeofencesBatch),
+// which is what a real incident traced this exact gap to — two devices
+// with foreground location already "granted" and OEM battery whitelisting
+// already done, where every notification for months still came in 5-30
+// minutes late because "Allow all the time" was never actually confirmed.
+class _BackgroundLocationBanner extends StatelessWidget {
+  final double topExtra;
+  final VoidCallback onDismiss;
+
+  const _BackgroundLocationBanner({
+    required this.topExtra,
+    required this.onDismiss,
+  });
+
+  Future<void> _openSettings() async {
+    // No single documented Android intent reliably jumps straight into the
+    // granular "Location" permission sub-page across every OEM/API level —
+    // the App Info page (openAppSettings, ACTION_APPLICATION_DETAILS_SETTINGS)
+    // is the one portable, always-resolvable route, one tap from
+    // Permissions → Location → "Allow all the time".
+    await openAppSettings();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      top: MediaQuery.of(context).padding.top + 8 + topExtra,
+      left: 12,
+      right: 12,
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: const Color(0xFFEFF6FF),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFDBEAFE)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.location_on_rounded,
+                color: Color(0xFF2563EB),
+                size: 20,
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  'Turn on "Allow all the time" location for instant safe-place alerts',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF1E3A8A),
+                  ),
+                ),
+              ),
+              GestureDetector(
+                onTap: _openSettings,
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 6),
+                  child: Text(
+                    'Fix',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF2563EB),
                     ),
                   ),
                 ),
@@ -1656,7 +1787,7 @@ class _SosViewContentState extends State<_SosViewContent> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Naviq Dev 1.0.4(Aug-06)',
+                          'Naviq Dev 1.0.4(Aug-14)',
                           textAlign: TextAlign.center,
                           style: GoogleFonts.manrope(
                             fontSize: 10,
