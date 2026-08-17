@@ -1755,8 +1755,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-  /// Format address to hide plus codes (e.g. "F9FJ+GQF,") and pin codes,
-  /// showing only locality and state (e.g. "Devala, Tamil Nadu").
+  /// Format address to hide plus codes (e.g. "F9FJ+GQF,") and bare pin
+  /// codes, otherwise showing the FULL address (street, area, district,
+  /// state) — this card only falls back to this formatted address when the
+  /// location does NOT match a saved place (see `matchingPlace`/`placeName`
+  /// above, which shows just the place name in that case); when it does
+  /// fall back, the user wants the complete address, not a truncated
+  /// "Locality, State" — was previously discarding everything past the 2nd
+  /// comma-separated part (e.g. "Alanallur Puthur Nattukkal Road, Mannarkad,
+  /// Palakkad" got cut down to just "Mannarkad, Kerala"-shape output),
+  /// losing the street-level detail a parent actually needs when there's no
+  /// saved place to name it by.
   String _formatAddress(String? address) {
     if (address == null) return '';
     final trimmed = address.trim();
@@ -1782,22 +1791,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       return parts.last;
     }
 
-    // Locality (e.g. "Devala")
-    final locality = parts[startIndex];
+    // Drop a trailing bare pin/zip code segment (e.g. "643270") if present
+    // as its own part — everything else (street, locality, district, state)
+    // is kept, joined back with ", ".
+    final kept = parts
+        .sublist(startIndex)
+        .where((p) => !RegExp(r'^\d{4,}$').hasMatch(p))
+        .toList();
 
-    // State part (e.g. "Tamil Nadu 643270" -> "Tamil Nadu")
-    String? statePart;
-    if (startIndex + 1 < parts.length) {
-      statePart = parts[startIndex + 1];
-      // Drop trailing pin code / numbers from state part
-      statePart = statePart.replaceFirst(RegExp(r'\s*\d.*$'), '').trim();
-    }
+    if (kept.isEmpty) return parts.last;
 
-    if (statePart == null || statePart.isEmpty) {
-      return locality;
-    }
-
-    return '$locality, $statePart';
+    return kept.join(', ');
   }
 
   String _formatSinceTime(String? sinceStr) {
