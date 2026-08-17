@@ -52,6 +52,19 @@ class _SosViewState extends State<SosView> with WidgetsBindingObserver {
   // geofencing needs this specifically; see LocationService
   // .getBackgroundLocationStatus for the incident this closes the loop on.
   bool _showBackgroundLocationBanner = false;
+  // Standard (non-OEM) battery-optimization exemption — was only ever
+  // surfaced as a checklist row deep in the permissions section
+  // (_buildPermissionItem('Background Work', ...) below), never as a
+  // persistent nudge like the OEM and "allow all the time" cases get,
+  // despite being the actual prerequisite those two build on top of
+  // (OemBatteryHelper's own doc comment: OEM managers restrict background
+  // work "even after" this exemption is granted — i.e. this one has to be
+  // right first). permission_sequence_screen.dart's onboarding step also
+  // never checks whether the request was actually granted before advancing
+  // (auto-advances either way, "non-blocking" by design), so a device that
+  // denied it at onboarding had nothing catching that afterward until this.
+  // Same dismiss-only-for-this-session pattern as the other banners below.
+  bool _showBatteryOptimizationBanner = false;
 
   @override
   void initState() {
@@ -161,6 +174,10 @@ class _SosViewState extends State<SosView> with WidgetsBindingObserver {
         _hasBackgroundPermission = Platform.isAndroid
             ? bgStatus.isGranted
             : true;
+        // Same recompute-on-every-check pattern as the other banners — a
+        // dismiss only lasts until the next resume/recheck, not persisted.
+        _showBatteryOptimizationBanner =
+            Platform.isAndroid && !_hasBackgroundPermission;
       });
     }
   }
@@ -227,6 +244,16 @@ class _SosViewState extends State<SosView> with WidgetsBindingObserver {
               topExtra: _oemBannerInfo != null ? 56 : 0,
               onDismiss: () =>
                   setState(() => _showBackgroundLocationBanner = false),
+            ),
+          if (_showBatteryOptimizationBanner)
+            _BatteryOptimizationBanner(
+              // Stacks below whichever of the OEM / "allow all the time"
+              // banners are also showing (~56px each).
+              topExtra:
+                  (_oemBannerInfo != null ? 56 : 0) +
+                  (_showBackgroundLocationBanner ? 56 : 0),
+              onDismiss: () =>
+                  setState(() => _showBatteryOptimizationBanner = false),
             ),
         ],
       ),
@@ -393,6 +420,96 @@ class _BackgroundLocationBanner extends StatelessWidget {
               ),
               GestureDetector(
                 onTap: _openSettings,
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 6),
+                  child: Text(
+                    'Fix',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF2563EB),
+                    ),
+                  ),
+                ),
+              ),
+              GestureDetector(
+                onTap: onDismiss,
+                child: const Padding(
+                  padding: EdgeInsets.all(4),
+                  child: Icon(
+                    Icons.close_rounded,
+                    size: 16,
+                    color: Color(0xFF94A3B8),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BatteryOptimizationBanner extends StatelessWidget {
+  final double topExtra;
+  final VoidCallback onDismiss;
+
+  const _BatteryOptimizationBanner({
+    required this.topExtra,
+    required this.onDismiss,
+  });
+
+  Future<void> _requestExemption() async {
+    // Same call the onboarding step and the permissions-checklist row use —
+    // just re-requesting the standard system dialog directly, no settings
+    // deep-link needed for this one (unlike OEM autostart managers, this is
+    // a plain OS permission with its own system prompt).
+    await Permission.ignoreBatteryOptimizations.request();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      top: MediaQuery.of(context).padding.top + 8 + topExtra,
+      left: 12,
+      right: 12,
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: const Color(0xFFEFF6FF),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFDBEAFE)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.battery_alert_rounded,
+                color: Color(0xFF2563EB),
+                size: 20,
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  'Turn off battery optimization so tracking keeps working in the background',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF1E3A8A),
+                  ),
+                ),
+              ),
+              GestureDetector(
+                onTap: _requestExemption,
                 child: const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 6),
                   child: Text(
