@@ -1755,20 +1755,25 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-  /// Format address to hide plus codes (e.g. "F9FJ+GQF,"), otherwise showing
-  /// the FULL address (street, area, district, state, PIN code) — this card
-  /// only falls back to this formatted address when the location does NOT
-  /// match a saved place (see `matchingPlace`/`placeName` above, which shows
-  /// just the place name in that case); when it does fall back, the user
-  /// wants the complete address, not a truncated one. Previously discarded
-  /// everything past the 2nd comma-separated part (e.g. "Alanallur Puthur
-  /// Nattukkal Road, Mannarkad, Palakkad" got cut down to just "Mannarkad,
-  /// Kerala"-shape output); a later pass over-corrected by also dropping any
-  /// bare-numeric segment, which took the PIN code out too when Google's
-  /// reverse-geocode returned it as its own trailing comma segment (e.g.
-  /// "..., Kerala, 683577") — the PIN code is exactly the kind of
-  /// street-level-adjacent detail a parent wants, same reasoning as keeping
-  /// the street name, so it stays now like every other segment.
+  /// Format address to hide plus codes (e.g. "F9FJ+GQF,") and the trailing
+  /// country name, otherwise showing the FULL address (street, area, city,
+  /// district, state, PIN code) — this card only falls back to this
+  /// formatted address when the location does NOT match a saved place (see
+  /// `matchingPlace`/`placeName` above, which shows just the place name in
+  /// that case); when it does fall back, the user wants the complete
+  /// address, not a truncated one — client explicitly asked to match a
+  /// reference app's breakdown ("Kaverappa Layout, Vasanth Nagar, Bengaluru,
+  /// Bangalore North, Bengaluru Urban, Karnataka, 560052, India") minus the
+  /// country. Previously discarded everything past the 2nd comma-separated
+  /// part (e.g. "Alanallur Puthur Nattukkal Road, Mannarkad, Palakkad" got
+  /// cut down to just "Mannarkad, Kerala"-shape output); a later pass
+  /// over-corrected by also dropping any bare-numeric segment, which took
+  /// the PIN code out too when Google's reverse-geocode returned it as its
+  /// own trailing comma segment (e.g. "..., Kerala, 683577") — the PIN code
+  /// is exactly the kind of street-level-adjacent detail a parent wants,
+  /// same reasoning as keeping the street name, so it stays like every
+  /// other segment; only the country name is dropped, since the app is
+  /// India-only and it adds nothing.
   String _formatAddress(String? address) {
     if (address == null) return '';
     final trimmed = address.trim();
@@ -1794,7 +1799,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       return parts.last;
     }
 
-    return parts.sublist(startIndex).join(', ');
+    var kept = parts.sublist(startIndex);
+    // Drop a trailing country-name segment (case-insensitive) — this app is
+    // India-only, so "India" is the only value this will ever actually see,
+    // but matching case-insensitively costs nothing and avoids a silent
+    // miss if Google ever returns it capitalized differently.
+    if (kept.isNotEmpty && kept.last.toLowerCase() == 'india') {
+      kept = kept.sublist(0, kept.length - 1);
+    }
+    if (kept.isEmpty) return parts.last;
+
+    return kept.join(', ');
   }
 
   String _formatSinceTime(String? sinceStr) {
@@ -4422,10 +4437,24 @@ class _DynamicLocationTextState extends State<_DynamicLocationText> {
       if (placemarks.isNotEmpty && mounted) {
         final place = placemarks.first;
         setState(() {
+          // Full breakdown to match the client's requested reference format
+          // (street, area, city, district, state, PIN) — country
+          // deliberately excluded, same reasoning as _formatAddress above:
+          // this app is India-only, so it adds nothing. This is a SEPARATE
+          // address-resolution path from _formatAddress (this one only
+          // activates when the backend's own place name comes back
+          // "Unknown"/"Unknown Location"/"Shared Location" and falls back
+          // to resolving the coordinates client-side via the geocoding
+          // package's structured Placemark fields) — it was previously
+          // only building street/subLocality/locality, silently dropping
+          // district/state/PIN whenever this fallback fired.
           _resolvedAddress = [
             place.street,
             place.subLocality,
             place.locality,
+            place.subAdministrativeArea, // district
+            place.administrativeArea, // state
+            place.postalCode, // PIN code
           ].where((e) => e != null && e.isNotEmpty).join(', ');
 
           if (_resolvedAddress!.isEmpty) {
@@ -4444,7 +4473,11 @@ class _DynamicLocationTextState extends State<_DynamicLocationText> {
     return Text(
       '${widget.childName} is  \n$displayText',
       style: GoogleFonts.manrope(
-        fontSize: 24,
+        // Was 24 — the full street/area/city/district/state/PIN address now
+        // shown here (see _fetchAddress above) runs much longer than the
+        // short place names this size was originally tuned for; 14 keeps a
+        // multi-line full address readable without dominating the card.
+        fontSize: 14,
         fontWeight: FontWeight.w800,
         color: const Color(0xFF0C1D37),
         height: 1.2,
