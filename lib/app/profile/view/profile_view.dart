@@ -11,8 +11,15 @@ import 'package:child_track/app/auth/view/onboarding/add_kid_view.dart';
 
 class ProfileView extends StatefulWidget {
   final VoidCallback onNavigateToHome;
+  // Bumped by HomePage every time this tab is tapped — see didUpdateWidget
+  // below. Defaults to 0 so any other/older call site doesn't need updating.
+  final int refreshToken;
 
-  const ProfileView({super.key, required this.onNavigateToHome});
+  const ProfileView({
+    super.key,
+    required this.onNavigateToHome,
+    this.refreshToken = 0,
+  });
 
   @override
   State<ProfileView> createState() => _ProfileViewState();
@@ -30,6 +37,19 @@ class _ProfileViewState extends State<ProfileView> with WidgetsBindingObserver {
     _sharedPrefsService = injector<SharedPrefsService>();
     WidgetsBinding.instance.addObserver(this);
     _loadChildren();
+  }
+
+  @override
+  void didUpdateWidget(covariant ProfileView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // This screen lives inside HomePage's IndexedStack and is never
+    // disposed/recreated on tab switch (see the comment on
+    // didChangeAppLifecycleState below), so tapping into this tab from
+    // another one doesn't re-run initState — only a widget rebuild, which
+    // this catches via the bumped refreshToken prop.
+    if (widget.refreshToken != oldWidget.refreshToken) {
+      _loadChildren();
+    }
   }
 
   @override

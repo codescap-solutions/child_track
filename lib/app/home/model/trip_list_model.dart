@@ -42,6 +42,10 @@ class Trip {
   final String toPlace;
   final List<TripPoint> points;
   final String rideMode;
+  // "ongoing" | "ended" | "cancelled" (backend Trip.status, verbatim).
+  // Empty string if the backend response predates this field.
+  final String status;
+  bool get isOngoing => status == 'ongoing';
 
   Trip({
     required this.tripId,
@@ -54,6 +58,7 @@ class Trip {
     required this.toPlace,
     required this.points,
     required this.rideMode,
+    this.status = '',
   });
 
   factory Trip.fromJson(Map<String, dynamic> json) {
@@ -66,9 +71,16 @@ class Trip {
     final String parsedStartTime = points.isNotEmpty
         ? points.first.ts
         : (json['start_time'] ?? '');
-    final String parsedEndTime = points.isNotEmpty
-        ? points.last.ts
-        : (json['end_time'] ?? '');
+    // For an ONGOING trip, points.last.ts is just whichever point the fetch
+    // happened to catch last — NOT a real end time, since the trip keeps
+    // growing after this response is rendered. Only trust points.last.ts as
+    // an "end time" for a trip that's actually finished; an ongoing trip
+    // has no end time at all (see isOngoing / the UI's "LIVE" handling
+    // instead of a static range).
+    final bool ongoing = (json['status'] ?? '') == 'ongoing';
+    final String parsedEndTime = ongoing
+        ? ''
+        : (points.isNotEmpty ? points.last.ts : (json['end_time'] ?? ''));
 
     // Defensive parsing for distance_km
     String parsedDistance = '0.0';
@@ -87,6 +99,7 @@ class Trip {
       toPlace: json['to_place'] ?? '',
       points: points,
       rideMode: json['ride_mode'] ?? json['rideMode'] ?? 'unknown',
+      status: json['status'] ?? '',
     );
   }
 }

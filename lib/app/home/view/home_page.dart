@@ -1755,17 +1755,20 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-  /// Format address to hide plus codes (e.g. "F9FJ+GQF,") and bare pin
-  /// codes, otherwise showing the FULL address (street, area, district,
-  /// state) — this card only falls back to this formatted address when the
-  /// location does NOT match a saved place (see `matchingPlace`/`placeName`
-  /// above, which shows just the place name in that case); when it does
-  /// fall back, the user wants the complete address, not a truncated
-  /// "Locality, State" — was previously discarding everything past the 2nd
-  /// comma-separated part (e.g. "Alanallur Puthur Nattukkal Road, Mannarkad,
-  /// Palakkad" got cut down to just "Mannarkad, Kerala"-shape output),
-  /// losing the street-level detail a parent actually needs when there's no
-  /// saved place to name it by.
+  /// Format address to hide plus codes (e.g. "F9FJ+GQF,"), otherwise showing
+  /// the FULL address (street, area, district, state, PIN code) — this card
+  /// only falls back to this formatted address when the location does NOT
+  /// match a saved place (see `matchingPlace`/`placeName` above, which shows
+  /// just the place name in that case); when it does fall back, the user
+  /// wants the complete address, not a truncated one. Previously discarded
+  /// everything past the 2nd comma-separated part (e.g. "Alanallur Puthur
+  /// Nattukkal Road, Mannarkad, Palakkad" got cut down to just "Mannarkad,
+  /// Kerala"-shape output); a later pass over-corrected by also dropping any
+  /// bare-numeric segment, which took the PIN code out too when Google's
+  /// reverse-geocode returned it as its own trailing comma segment (e.g.
+  /// "..., Kerala, 683577") — the PIN code is exactly the kind of
+  /// street-level-adjacent detail a parent wants, same reasoning as keeping
+  /// the street name, so it stays now like every other segment.
   String _formatAddress(String? address) {
     if (address == null) return '';
     final trimmed = address.trim();
@@ -1791,17 +1794,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       return parts.last;
     }
 
-    // Drop a trailing bare pin/zip code segment (e.g. "643270") if present
-    // as its own part — everything else (street, locality, district, state)
-    // is kept, joined back with ", ".
-    final kept = parts
-        .sublist(startIndex)
-        .where((p) => !RegExp(r'^\d{4,}$').hasMatch(p))
-        .toList();
-
-    if (kept.isEmpty) return parts.last;
-
-    return kept.join(', ');
+    return parts.sublist(startIndex).join(', ');
   }
 
   String _formatSinceTime(String? sinceStr) {
@@ -1921,6 +1914,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   int _currentIndex = 0;
+  // Bumped every time the Profile tab is tapped, so ProfileView (kept alive
+  // inside the IndexedStack below, never disposed/recreated on tab switch —
+  // see its own didUpdateWidget) can refresh its list on every visit, not
+  // just once at cold-start/app-resume. Without this, backend-side status
+  // fields (e.g. is_active) that changed since the tab was last built kept
+  // showing stale until a manual pull-to-refresh happened to land on a
+  // fresher moment — confirmed real complaint.
+  int _profileRefreshToken = 0;
 
   Widget _buildBottomNavigationBar() {
     return Container(
@@ -1973,6 +1974,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       onTap: () {
         setState(() {
           _currentIndex = index;
+          if (index == 3) _profileRefreshToken++;
         });
       },
       behavior: HitTestBehavior.opaque,
@@ -2060,6 +2062,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 },
               ),
               ProfileView(
+                refreshToken: _profileRefreshToken,
                 onNavigateToHome: () {
                   setState(() {
                     _currentIndex = 0;

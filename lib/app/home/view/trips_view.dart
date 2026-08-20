@@ -344,19 +344,38 @@ class _SimpleTripCard extends StatelessWidget {
                                 ),
                               ),
                             TextSpan(
-                              text:
-                                  '${_formatTime(trip.startTime)} - ${_formatTime(trip.endTime)}',
+                              // An ongoing trip has no real end time yet —
+                              // points.last.ts (or json['end_time']) from
+                              // whenever this list happened to be fetched
+                              // is NOT one, and rendering it as a fixed
+                              // range made a still-in-progress trip look
+                              // like a short, already-finished one.
+                              // Confirmed real incident: "8:46am - 8:49am,
+                              // 0.4km" shown for a trip that was actually
+                              // still running 30+ min and 8+ km later.
+                              text: trip.isOngoing
+                                  ? '${_formatTime(trip.startTime)} - now'
+                                  : '${_formatTime(trip.startTime)} - ${_formatTime(trip.endTime)}',
                               style: const TextStyle(
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
-                            TextSpan(
-                              text:
-                                  '   ${_calculateDuration(trip.startTime, trip.endTime)}',
-                              style: AppTextStyles.body2.copyWith(
-                                color: AppColors.textSecondary,
+                            if (trip.isOngoing)
+                              const TextSpan(
+                                text: '   LIVE',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.green,
+                                ),
+                              )
+                            else
+                              TextSpan(
+                                text:
+                                    '   ${_calculateDuration(trip.startTime, trip.endTime)}',
+                                style: AppTextStyles.body2.copyWith(
+                                  color: AppColors.textSecondary,
+                                ),
                               ),
-                            ),
                           ],
                         ),
                       ),
