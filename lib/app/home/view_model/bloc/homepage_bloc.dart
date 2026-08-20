@@ -165,6 +165,12 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
 
     final childId = _sharedPrefsService.getString('child_id');
 
+    // Captured BEFORE _lastChildId is overwritten below — reused both for
+    // the existing timestamp-guard reset and the state-clearing fix right
+    // after it.
+    final bool isChildSwitch =
+        childId != null && _lastChildId != null && _lastChildId != childId;
+
     // Reset the device-timestamp guard whenever the viewed child changes.
     // Without this, switching from an active child (whose recent live-ping
     // set _lastAppliedLocationTs to e.g. "today") to an offline child
@@ -175,7 +181,7 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
     // _isNewerLocationUpdate "fail open" for the first update after a
     // switch, so whichever timestamp the new child's REST response carries
     // is always applied.
-    if (childId != null && _lastChildId != null && _lastChildId != childId) {
+    if (isChildSwitch) {
       _lastAppliedLocationTs = null;
     }
     _lastChildId = childId;
@@ -189,8 +195,25 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> {
         : const HomepageSuccess.initial();
 
     if (!event.isSilentRefresh) {
+      // On a genuine child switch, copyWith'ing off startingState would
+      // carry the PREVIOUS child's currentLocation/deviceStatus/
+      // trackingSnapshot/childAvatar/activeTrip straight into the loading
+      // state — copyWith's `x ?? this.x` pattern means passing null here
+      // does NOT clear a field, it just falls back to the old value. Since
+      // the widget tree doesn't gate every one of those fields behind
+      // isLoading, the parent visibly sees the outgoing child's location/
+      // battery/etc for the whole fetch window after tapping a different
+      // child in Profiles — confirmed real complaint, not just a timing
+      // nitpick. Building the loading state off a fresh .initial() instead
+      // (only on a real switch, not a same-child refresh — same-child
+      // should keep showing its own still-valid data while it silently
+      // refreshes, no reason to flicker that) forces every one of those
+      // fields back to null until the new child's fetch actually resolves.
+      final HomepageSuccess baseState = isChildSwitch
+          ? const HomepageSuccess.initial()
+          : startingState;
       emit(
-        startingState.copyWith(
+        baseState.copyWith(
           isLoading: true,
           trips: event.isProgressFetching ? startingState.trips : [],
           hasReachedMax: event.isProgressFetching
