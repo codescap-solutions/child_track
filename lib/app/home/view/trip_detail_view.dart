@@ -552,7 +552,28 @@ class _TripDetailViewState extends State<TripDetailView> {
                 )
               : <Polyline>[];
 
-          if (segmentedPolylines.isNotEmpty) {
+          // segmentedPolylines being non-empty doesn't mean it's actually
+          // USABLE — _buildActivityColoredPolylines buckets detailResponse's
+          // (often much sparser than activePoints — confirmed real case:
+          // 85 smoothed points vs. a 5-point detail fetch) timedRoute across
+          // every activity segment's time window; with few points spread
+          // across many segments, most segments get 0-1 points and get
+          // skipped, but the couple that happen to land 2+ points still
+          // produce a Polyline — just a tiny, near-invisible fragment
+          // covering a fraction of the real route, while this branch being
+          // non-empty means the full, accurate activePoints route below
+          // never even gets considered. Require the segmented result to
+          // actually cover a meaningful share of what we know is available
+          // before trusting it over the plain full-route line.
+          final segmentedPointCoverage = segmentedPolylines.fold<int>(
+            0,
+            (sum, p) => sum + p.points.length,
+          );
+          final segmentedIsUsable =
+              activePoints.isEmpty ||
+              segmentedPointCoverage >= activePoints.length * 0.5;
+
+          if (segmentedPolylines.isNotEmpty && segmentedIsUsable) {
             polylines.addAll(segmentedPolylines);
           } else if (activePoints.isNotEmpty) {
             polylines.add(
